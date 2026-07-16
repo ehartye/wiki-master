@@ -5,6 +5,8 @@ import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
+import { isDuplicateUrl } from './lib/url.mjs';
+import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -17,20 +19,7 @@ export function slugify(title) {
   return s.slice(0, 120).replace(/[-\s]+$/, '') || 'untitled';
 }
 
-export function normalizeUrl(u) {
-  try {
-    const x = new URL(u);
-    x.hash = '';
-    return (x.origin + x.pathname).replace(/\/$/, '');
-  } catch {
-    return (u || '');
-  }
-}
-
-export function isDuplicateUrl(url, knownUrls) {
-  const n = normalizeUrl(url).toLowerCase();
-  return knownUrls.some((k) => normalizeUrl(k).toLowerCase() === n);
-}
+export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
@@ -90,7 +79,7 @@ function defuddleReachable() {
 
 export function main(argv) {
   const url = argv[0];
-  if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low]'); process.exit(2); }
+  if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low] [--decline="reason"]'); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
@@ -98,6 +87,24 @@ export function main(argv) {
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
   const { path: vaultPath } = resolveVault();
+
+  // Explicit decline (Phase 2 reject): record the decision instead of clipping,
+  // so the next discovery run does not re-litigate this URL.
+  const declineArg = argv.find((a) => a.startsWith('--decline='));
+  if (declineArg) {
+    const reason = declineArg.slice('--decline='.length) || 'declined';
+    recordDecline(vaultPath, url, reason);
+    console.log(`declined (recorded): ${url} — ${reason}`);
+    return { status: 'declined' };
+  }
+
+  const declines = loadDeclines(vaultPath);
+  if (isDeclined(url, declines)) {
+    const e = declines.find((d) => isDeclined(url, [d]));
+    console.log(`declined previously (${e.date}: ${e.reason}): ${url}`);
+    return { status: 'declined' };
+  }
+
   if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
     console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
   }
@@ -117,7 +124,12 @@ export function main(argv) {
 
   const md = data.contentMarkdown || data.content || '';
   if (wordCount(md) < THIN_WORD_FLOOR) {
-    console.log(`thin content (clip manually): ${url}`); return { status: 'thin' };
+    // Thin is deterministic (the page IS a SPA/paywall shell) — record it so the
+    // next run skips without re-fetching. TTL re-litigates eventually. Transient
+    // fetch failures above are deliberately NOT recorded: they may recover.
+    recordDecline(vaultPath, url, 'thin content (SPA/paywall shell)');
+    console.log(`thin content (clip manually; decline recorded): ${url}`);
+    return { status: 'thin' };
   }
 
   const created = today();

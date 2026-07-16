@@ -12,9 +12,15 @@ is `scripts/clip.mjs`.
 
 ## Phase 0 — dedup before searching
 Gather what the wiki already has so agents hunt for *gaps*, not dupes:
-- Known source URLs: `obsidian search query="tag:clippings" format=json`, then read
-  each clipping's `source:` (or use `scripts/clip.mjs`'s `knownSourceUrls`).
+- Known source URLs: **read the filesystem** — `scripts/clip.mjs`'s
+  `knownSourceUrls(vaultPath)` (or equivalently grep `^source:` across
+  `raw/clippings/*.md`). **Never build the dedup set from `obsidian search`:**
+  the CLI can silently return empty (app not running, index rebuilding, wrong
+  binary on Windows), and an empty dedup set fails open — everything re-clips.
+  The filesystem cannot silently be empty.
 - Coverage summary: read `index.md`.
+- Sanity-check the set: if the vault has clippings on disk but the known-URL
+  set is empty, STOP — the collection step failed; do not proceed to search.
 Pass the known-URL set + a one-line "already covered" summary to every agent.
 
 ## Phase 1 — five perspective agents, in parallel (one message, Agent tool)
@@ -34,7 +40,9 @@ why_ingest }`.
 ## Phase 2 — independent select + credibility (do NOT let a finder grade itself)
 As the orchestrator (or a separate reviewer), over the pooled candidates:
 1. Dedup by URL (normalize: drop `#fragment`, trailing `/`); drop any already in the
-   known-URL set; drop blocked domains.
+   known-URL set; drop blocked domains; drop any in the decline log
+   (`.wiki-master/declined.json` — clip.mjs enforces this too, but skipping here
+   saves the agents from re-arguing settled candidates).
 2. Score each survivor with the rubric → `high | medium | low`:
    - +2 peer-reviewed / primary / official
    - +1 recent (≤3 yr) where recency matters
@@ -43,17 +51,26 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    - −1 vendor-primary / promotional / single-blogger opinion
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
 3. Keep the top sources (favor `high`/`medium`; a few `low` are fine if on-topic).
+4. **Record every reject** so it is never re-litigated:
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/clip.mjs "<url>" --decline="<one-line reason>"`.
+   "Seen, considered, declined" must have a representation — an unrecorded reject
+   is indistinguishable from "never seen" and comes back every run. Declines
+   expire after 180 days (TTL), so a changed world gets one re-evaluation.
 
 ## Phase 3 — clip the survivors (the only writes)
 For each kept candidate:
 `node ${CLAUDE_PLUGIN_ROOT}/scripts/clip.mjs "<url>" --quality=<tier>`
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
-`source-hash`. A `thin content` result means the page was a SPA/paywall — report it
-for manual clipping, don't retry blindly.
+`source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
+records the decline automatically; report it for manual clipping, don't retry
+blindly. A `failed` result (403/transient) is NOT auto-declined — decline it
+explicitly with `--decline` only if you judge it permanently unclippable.
 
 ## Guardrails
 - Agents never write the vault; `clip.mjs` is the sole writer to `raw/`.
-- Never edit anything already under `raw/` — clippings are immutable sources.
+- Never edit the **body** of anything under `raw/` — clipped content is immutable
+  source-of-truth. Frontmatter is pipeline state and may be updated by wiki-master
+  tooling only (never by hand, never the body).
 - Prefer primary/authoritative sources over open-publishing platforms.
 - The user confirms before anything is ingested (the command handles the gate).
