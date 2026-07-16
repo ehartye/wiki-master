@@ -81,6 +81,13 @@ function runDefuddleJson(url) {
   throw lastErr;
 }
 
+function defuddleReachable() {
+  for (const cmd of ['defuddle --version', 'npx --yes defuddle --version']) {
+    try { execSync(cmd, { stdio: 'ignore' }); return true; } catch { /* try next */ }
+  }
+  return false;
+}
+
 export function main(argv) {
   const url = argv[0];
   if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low]'); process.exit(2); }
@@ -97,9 +104,15 @@ export function main(argv) {
 
   let data;
   try { data = runDefuddleJson(url); }
-  catch (e) {
-    console.error(`defuddle failed for ${url}: ${e.message}\nInstall it: npm i -g defuddle`);
-    process.exit(1);
+  catch {
+    // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
+    // batch runs continue). A per-URL failure is usually a 403 / paywall / SPA.
+    if (!defuddleReachable()) {
+      console.error(`Defuddle CLI not found. Install it: npm i -g defuddle`);
+      process.exit(1);
+    }
+    console.log(`clip failed (likely blocked/paywalled — clip manually): ${url}`);
+    return { status: 'failed' };
   }
 
   const md = data.contentMarkdown || data.content || '';
@@ -122,4 +135,4 @@ export function main(argv) {
   return { status: 'clipped', slug, file };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
