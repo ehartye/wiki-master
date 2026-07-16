@@ -11,7 +11,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
 - `moc/` — Maps of Content. `index.md` — catalog. `log.md` — append-only history.
 
 ## Frontmatter contract
-- Raw/clippings: `title, source, author, published, created, tags:[clippings]`.
+- Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, source-hash`.
 - Wiki pages: `type, created, updated, reviewed, status, sources:[[...]], ai-generated`.
 
 ## Rules
