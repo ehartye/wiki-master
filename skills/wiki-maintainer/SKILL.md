@@ -11,7 +11,9 @@ asks questions; you do all summarizing, cross-referencing, filing, and consisten
 bookkeeping. Use the `obsidian-cli` skill for all vault access.
 
 ## Non-negotiable guardrails
-1. **`raw/` is immutable.** Read raw sources; never edit them. They are the source of truth.
+1. **`raw/` bodies are immutable.** Read raw sources; never edit their content —
+   it is the evidence every wiki page cites. Frontmatter is pipeline state and
+   may be updated by wiki-master tooling only.
 2. **Provenance on every claim.** Each wiki page you write carries `sources: [[...]]`
    linking back to the `raw/` notes it derives from, plus `ai-generated: true`.
 3. **Cite when you answer.** Query answers reference the pages/sources they rest on.

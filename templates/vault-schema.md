@@ -4,7 +4,9 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
 `wiki-master` Claude Code plugin.
 
 ## Layout
-- `raw/` — immutable sources (never edited). `raw/clippings/` — Web Clipper output.
+- `raw/` — immutable sources: the **body** is never edited (it is the evidence).
+  Frontmatter is pipeline state, updated only by wiki-master tooling.
+  `raw/clippings/` — Web Clipper / clip.mjs output.
 - `wiki/sources|entities|concepts|syntheses` — LLM-owned pages.
 - `moc/` — Maps of Content. `index.md` — catalog. `log.md` — append-only history.
 
