@@ -34,12 +34,25 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
 ## The log
 Every operation appends one line to `log.md`:
 `## [YYYY-MM-DD] <op> | <title>` — grep-parseable. Ops: ingest, query, lint, relink.
+**Append ONLY via `obsidian append path=log.md` (from PowerShell)** — never by
+filesystem write. All app-side writers are serialized by Obsidian's operation
+queue; a filesystem read-modify-write racing a concurrent session silently
+erases its entries. log.md is unreconstructable history — it is the one file
+that cannot be regenerated after a lost update.
+
+## The catalog
+`index.md` is a **derived artifact**: the catalog between its
+`%% BEGIN/END GENERATED CATALOG %%` fence is regenerated in full from the pages
+by `scripts/index-gen.mjs` and committed by atomic rename. Never hand-edit
+inside the fence; never read-modify-write index.md. Prose outside the fence
+(e.g. "Start here") is preserved verbatim and is the only part worth editing.
 
 ## Workflows
 - **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
   (summary + `sources: [[raw link]]`) → update the entities/concepts it touches
-  (create stubs where missing) → add `[[links]]` both directions → update `index.md`
-  → append to `log.md`. One source typically touches 10–15 pages. Stamp `reviewed`.
+  (create stubs where missing) → add `[[links]]` both directions → regenerate the
+  catalog (`node scripts/index-gen.mjs`) → append to `log.md` via `obsidian append`.
+  One source typically touches 10–15 pages. Stamp `reviewed`.
 - **Query** (`/wiki-query`): search relevant pages → synthesize with citations →
   offer to file the answer back as a new `wiki/syntheses/` page so it compounds.
 - **Lint** (`/wiki-lint`): run `/wiki-health` first (cheap); then read the flagged
