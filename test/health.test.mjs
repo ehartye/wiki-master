@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeHealth } from '../scripts/health.mjs';
+import { computeHealth, parseListOutput, isContent } from '../scripts/health.mjs';
 
 // Injected raw CLI data mirroring the fixture vault.
 const deps = {
@@ -42,4 +42,20 @@ test('computeHealth returns 100 for a clean vault', () => {
   });
   assert.equal(r.score, 100);
   assert.deepEqual(r.hubStubs, []);
+});
+
+test('parseListOutput drops the CLI "No ... found" empty-message', () => {
+  assert.deepEqual(parseListOutput('\nNo unresolved links found.'), []);
+  assert.deepEqual(parseListOutput('No orphans found.'), []);
+  assert.deepEqual(
+    parseListOutput('\nwiki/concepts/a.md\nwiki/concepts/b.md'),
+    ['wiki/concepts/a.md', 'wiki/concepts/b.md']
+  );
+});
+
+test('isContent excludes structural/system files, includes wiki notes', () => {
+  for (const p of ['index.md', 'log.md', 'vault-schema.md', '_templates/source-note.md', 'stale.base'])
+    assert.equal(isContent(p), false, `${p} should be non-content`);
+  for (const p of ['wiki/concepts/alpha.md', 'raw/clippings/foo.md'])
+    assert.equal(isContent(p), true, `${p} should be content`);
 });

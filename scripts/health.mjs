@@ -27,14 +27,33 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, backlinkCounts, 
   return { score, orphans, deadEnds, brokenLinks, hubStubs, report };
 }
 
-function lines(out) { return out ? out.split(/\r?\n/).filter(Boolean) : []; }
+// The list commands print a prose message ("No orphans found.") when empty —
+// which must NOT be counted as a result row.
+export function parseListOutput(out) {
+  if (!out) return [];
+  return out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((l) => !/^no\b.*\bfound\b/i.test(l));
+}
+
+// Structural/system files legitimately have no links; they are not wiki content
+// and must not be penalised as orphans or dead-ends.
+const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md']);
+export function isContent(path) {
+  if (!path.endsWith('.md')) return false;         // e.g. stale.base
+  if (SYSTEM_FILES.has(path)) return false;        // catalog / log / schema
+  if (path.startsWith('_templates/')) return false; // Obsidian templates
+  return true;
+}
 
 export function main() {
   assertRunning();
-  const orphans = lines(obsidian(['orphans']));
-  const deadEnds = lines(obsidian(['deadends']));
-  const brokenLinks = lines(obsidian(['unresolved']));
-  const files = lines(obsidian(['files', 'ext=md'])).filter((p) => p.startsWith('wiki/'));
+  const orphans = parseListOutput(obsidian(['orphans'])).filter(isContent);
+  const deadEnds = parseListOutput(obsidian(['deadends'])).filter(isContent);
+  const brokenLinks = parseListOutput(obsidian(['unresolved']));
+  const files = parseListOutput(obsidian(['files', 'ext=md'])).filter((p) => p.startsWith('wiki/'));
   const backlinkCounts = {};
   const wordCounts = {};
   for (const p of files) {
