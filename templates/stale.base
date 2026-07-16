@@ -1,0 +1,20 @@
+filters:
+  and:
+    - file.inFolder("wiki")
+views:
+  - type: table
+    name: all
+    order:
+      - file.path
+      - type
+      - reviewed
+      - updated
+      - status
+  - type: table
+    name: stale
+    filters:
+      and:
+        - 'reviewed < date(today) - dur("90d")'
+    order:
+      - reviewed
+      - file.path

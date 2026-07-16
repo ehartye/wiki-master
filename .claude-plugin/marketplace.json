@@ -1,0 +1,23 @@
+{
+  "name": "wiki-master-marketplace",
+  "owner": {
+    "name": "ehartye",
+    "email": "eric@hartye.com"
+  },
+  "metadata": {
+    "description": "Dev marketplace for local install/testing of the wiki-master plugin from this repo."
+  },
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "source": "./",
+      "description": "Maintain a Karpathy-style LLM wiki on Obsidian using the native obsidian CLI — Claude synthesizes, the CLI does links/search/graph-health, Ollama does drift.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ehartye"
+      },
+      "repository": "https://github.com/ehartye/wiki-master",
+      "license": "MIT"
+    }
+  ]
+}

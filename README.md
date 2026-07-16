@@ -13,20 +13,60 @@ densely interlinked markdown wiki over your curated sources.
 
 No MCP server, no daemon, no vector database.
 
-> Status: design approved — see
-> [`docs/superpowers/specs/2026-07-15-wiki-master-design.md`](docs/superpowers/specs/2026-07-15-wiki-master-design.md).
-> Implementation not yet started.
-
 ## Requirements
 
 - Obsidian 1.12+ with the official command-line interface enabled
   (Settings → General → Command line interface).
 - The vault open in Obsidian (the CLI drives the running app).
-- Node.js (for the helper scripts).
-- Optional: [Ollama](https://ollama.com) with an embedding model, for
-  semantic-drift detection (degrades gracefully if absent).
+- Node.js ≥18 (for the helper scripts).
+- Optional: [Ollama](https://ollama.com) with an embedding model
+  (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
+  gracefully if absent.
 
-## Vault location
+## Quick start
 
-Defaults to `~/.wiki-master-vault`, overridable via the `WIKI_MASTER_VAULT`
-environment variable.
+1. `/wiki-init` — scaffolds the vault and prints one-time setup.
+2. In Obsidian: **Open folder as vault** → the scaffolded path.
+3. Verify: `obsidian vaults` lists the vault.
+4. Import `templates/webclipper-template.json` into the Obsidian Web Clipper.
+5. Clip web pages (they land in `raw/clippings/`), then `/wiki-ingest` to compile
+   them into the wiki. Ask questions with `/wiki-query`.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `/wiki-init` | Scaffold the vault (folders, index/log, schema, Bases dashboard, templates). |
+| `/wiki-ingest [source]` | Read a source → summary page + cross-references + index/log. Blank = process new clippings. |
+| `/wiki-query <question>` | Answer from the wiki with citations; optionally file the answer back. |
+| `/wiki-health` | Fast zero-LLM structural report + 0–100 score. |
+| `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
+| `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
+| `/wiki-relink` | Add inferred links, materialize frequently-referenced entities, build MOCs. |
+
+## Configuration (environment variables)
+
+| Var | Default | Meaning |
+|---|---|---|
+| `WIKI_MASTER_VAULT` | `~/.wiki-master-vault` | Vault path (also the CLI target and embedding-cache home). |
+| `WIKI_MASTER_VAULT_NAME` | vault folder basename | The registered Obsidian vault name the CLI targets. |
+| `WIKI_MASTER_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for drift. |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint. |
+
+## Vault layout
+
+```
+raw/            immutable sources (never edited)   raw/clippings/  Web Clipper output
+wiki/           sources · entities · concepts · syntheses (LLM-owned)
+moc/            Maps of Content        index.md    catalog        log.md  history
+stale.base      native Bases freshness dashboard   .wiki-master/  embedding cache (git-ignored)
+```
+
+Every wiki page carries `sources: [[...]]` provenance back to `raw/` and
+`ai-generated: true` — the guardrails against hallucination contamination.
+
+## Development
+
+`npm test` (or `node --test`) runs the unit suite for the deterministic scripts
+against a fixture vault — no running Obsidian required. See
+`docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
