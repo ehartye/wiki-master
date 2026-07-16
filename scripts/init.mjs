@@ -1,0 +1,37 @@
+import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node:fs';
+import { join } from 'node:path';
+import { resolveVault } from './lib/vault.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
+              'wiki/syntheses', 'moc', '_templates', '.wiki-master'];
+
+function writeIfAbsent(path, content) {
+  if (!existsSync(path)) writeFileSync(path, content);
+}
+
+export function scaffold(vaultPath, templatesDir) {
+  for (const d of DIRS) mkdirSync(join(vaultPath, d), { recursive: true });
+  writeIfAbsent(join(vaultPath, 'index.md'),
+    '---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n');
+  writeIfAbsent(join(vaultPath, 'log.md'), '# Log\n\n');
+  writeIfAbsent(join(vaultPath, '.gitignore'), '.wiki-master/\n');
+  if (!existsSync(join(vaultPath, 'vault-schema.md')))
+    copyFileSync(join(templatesDir, 'vault-schema.md'), join(vaultPath, 'vault-schema.md'));
+  if (!existsSync(join(vaultPath, 'stale.base')))
+    copyFileSync(join(templatesDir, 'stale.base'), join(vaultPath, 'stale.base'));
+  cpSync(join(templatesDir, '_templates'), join(vaultPath, '_templates'), { recursive: true });
+}
+
+export function main() {
+  const { path, name } = resolveVault();
+  const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
+  scaffold(path, templatesDir);
+  console.log(`Scaffolded vault at: ${path}`);
+  console.log(`\nOne-time setup:`);
+  console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
+  console.log(`  2. Verify: obsidian vaults   (should list "${name}")`);
+  console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) main();
