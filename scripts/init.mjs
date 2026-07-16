@@ -1,5 +1,6 @@
 import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { resolveVault } from './lib/vault.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -23,6 +24,13 @@ export function scaffold(vaultPath, templatesDir) {
   cpSync(join(templatesDir, '_templates'), join(vaultPath, '_templates'), { recursive: true });
 }
 
+function defuddleAvailable() {
+  for (const [cmd, args] of [['defuddle', ['--version']], ['npx', ['--yes', 'defuddle', '--version']]]) {
+    try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; } catch { /* try next */ }
+  }
+  return false;
+}
+
 export function main() {
   const { path, name } = resolveVault();
   const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
@@ -32,6 +40,9 @@ export function main() {
   console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
   console.log(`  2. Verify: obsidian vaults   (should list "${name}")`);
   console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
+  if (!defuddleAvailable()) {
+    console.log(`\n  Note: /wiki-discover needs the Defuddle CLI. Install: npm i -g defuddle`);
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) main();

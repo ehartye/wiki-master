@@ -25,6 +25,9 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   `type` (source|entity|concept|synthesis), `created`, `updated`, `reviewed`,
   `status` (stub|draft|maintained), `sources: [[...]]`, `ai-generated: true`.
 - Links are `[[wikilinks]]`. `![[embeds]]` are transclusion only — not relationship edges.
+- Clippings from `/wiki-discover` carry `quality: high|medium|low` (AI credibility
+  rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
+  may flag claims that rest only on `low`-quality provenance.
 
 ## The log
 Every operation appends one line to `log.md`:
