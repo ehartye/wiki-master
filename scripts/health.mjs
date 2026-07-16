@@ -2,19 +2,13 @@ import { obsidian, assertRunning } from './lib/vault.mjs';
 import { pathToFileURL } from 'node:url';
 
 const STUB_WORD_FLOOR = 10;
-
-function mean(xs) { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0; }
-function stddev(xs) {
-  if (xs.length < 2) return 0;
-  const m = mean(xs);
-  return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
-}
+const HUB_MIN_BACKLINKS = 5;
 
 export function computeHealth({ orphans, deadEnds, brokenLinks, backlinkCounts, wordCounts }) {
-  const counts = Object.values(backlinkCounts);
-  const threshold = mean(counts) + 2 * stddev(counts);
+  // Hub-stub: heavily linked ("hub") but nearly empty ("stub"). Absolute rule —
+  // robust at personal scale where μ+2σ is dominated by a single outlier.
   const hubStubs = Object.keys(backlinkCounts).filter(
-    (p) => backlinkCounts[p] > threshold && (wordCounts[p] ?? 0) < STUB_WORD_FLOOR
+    (p) => backlinkCounts[p] >= HUB_MIN_BACKLINKS && (wordCounts[p] ?? 0) < STUB_WORD_FLOOR
   );
   // Independent, individually-capped penalties, then summed (avoids saturation).
   const penalty =
