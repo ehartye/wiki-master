@@ -61,6 +61,24 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
+test('version is identical across all three manifests', () => {
+  // The version is one fact copied into three files — the exact drift seam
+  // this suite exists to guard. TheKnowledge's lock registry documented a
+  // lock with zero call sites; we don't get to ship a manifest trio that
+  // disagrees about what version this is.
+  const versions = [
+    'package.json',
+    '.claude-plugin/plugin.json',
+    '.claude-plugin/marketplace.json',
+  ].map((f) => {
+    const j = JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
+    return { f, v: j.version ?? j.plugins?.[0]?.version };
+  });
+  const distinct = new Set(versions.map((x) => x.v));
+  assert.equal(distinct.size, 1,
+    `manifests disagree: ${versions.map((x) => `${x.f}=${x.v}`).join(', ')}`);
+});
+
 test('wiki-page contract declares every field the health graph reads', () => {
   const schema = readFileSync(join(ROOT, 'templates', 'vault-schema.md'), 'utf8');
   const contractLine = schema.match(/Wiki pages:\s*`([^`]+)`/)?.[1];
