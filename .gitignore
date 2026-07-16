@@ -1,0 +1,5 @@
+node_modules/
+*.log
+.DS_Store
+# vault-side runtime state (only relevant if a vault is nested in the repo)
+.wiki-master/
