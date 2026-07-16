@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
@@ -64,21 +64,27 @@ export function knownSourceUrls(vaultPath) {
   return urls;
 }
 
+// Run through the shell (execSync) so Windows resolves the `defuddle.cmd` npm shim
+// via PATHEXT; execFile can't launch .cmd. The URL is validated as a real URL in
+// main() and double-quoted, so it is safe to interpolate.
 function runDefuddleJson(url) {
-  const attempt = (cmd, args) =>
-    execFileSync(cmd, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  let out;
-  try {
-    out = attempt('defuddle', ['parse', url, '--json']);
-  } catch {
-    out = attempt('npx', ['--yes', 'defuddle', 'parse', url, '--json']);
+  const q = `"${url}"`;
+  const cmds = [`defuddle parse ${q} --json`, `npx --yes defuddle parse ${q} --json`];
+  let lastErr;
+  for (const cmd of cmds) {
+    try {
+      return JSON.parse(execSync(cmd, {
+        encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
+      }));
+    } catch (e) { lastErr = e; }
   }
-  return JSON.parse(out);
+  throw lastErr;
 }
 
 export function main(argv) {
   const url = argv[0];
   if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low]'); process.exit(2); }
+  try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
 

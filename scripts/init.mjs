@@ -1,6 +1,6 @@
 import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { resolveVault } from './lib/vault.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -25,8 +25,9 @@ export function scaffold(vaultPath, templatesDir) {
 }
 
 function defuddleAvailable() {
-  for (const [cmd, args] of [['defuddle', ['--version']], ['npx', ['--yes', 'defuddle', '--version']]]) {
-    try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; } catch { /* try next */ }
+  // execSync (shell) so Windows resolves the defuddle.cmd npm shim via PATHEXT.
+  for (const cmd of ['defuddle --version', 'npx --yes defuddle --version']) {
+    try { execSync(cmd, { stdio: 'ignore' }); return true; } catch { /* try next */ }
   }
   return false;
 }
