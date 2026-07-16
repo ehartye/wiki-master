@@ -1,0 +1,31 @@
+# wiki-master unreliable-source blocklist. One domain per line; matches the
+# domain and any subdomain. Seeded from Wikipedia's Perennial Sources list and
+# common content farms/SEO chum. Extend as needed. Lines starting with # ignored.
+answers.com
+buzzfeed.com
+dailymail.co.uk
+examiner.com
+facebook.com
+forbes.com
+geocities.com
+medium.com
+naturalnews.com
+pinterest.com
+quora.com
+reddit.com
+scribd.com
+slideshare.net
+thesun.co.uk
+tiktok.com
+twitter.com
+x.com
+wikihow.com
+wordpress.com
+blogspot.com
+substack.com
+ehow.com
+infowars.com
+breitbart.com
+rt.com
+sputniknews.com
+zerohedge.com
