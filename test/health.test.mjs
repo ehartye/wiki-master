@@ -53,9 +53,10 @@ test('parseListOutput drops the CLI "No ... found" empty-message', () => {
   );
 });
 
-test('isContent excludes structural/system files, includes wiki notes', () => {
-  for (const p of ['index.md', 'log.md', 'vault-schema.md', '_templates/source-note.md', 'stale.base'])
+test('isContent excludes structural/system/raw files, includes wiki notes', () => {
+  for (const p of ['index.md', 'log.md', 'vault-schema.md', '_templates/source-note.md',
+                   'stale.base', 'raw/clippings/foo.md'])
     assert.equal(isContent(p), false, `${p} should be non-content`);
-  for (const p of ['wiki/concepts/alpha.md', 'raw/clippings/foo.md'])
+  for (const p of ['wiki/concepts/alpha.md', 'wiki/sources/bar.md', 'moc/topic.md'])
     assert.equal(isContent(p), true, `${p} should be content`);
 });

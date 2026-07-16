@@ -45,6 +45,7 @@ export function isContent(path) {
   if (!path.endsWith('.md')) return false;         // e.g. stale.base
   if (SYSTEM_FILES.has(path)) return false;        // catalog / log / schema
   if (path.startsWith('_templates/')) return false; // Obsidian templates
+  if (path.startsWith('raw/')) return false;       // immutable sources: inputs, not scored
   return true;
 }
 
