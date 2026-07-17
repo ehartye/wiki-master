@@ -64,6 +64,39 @@ by `scripts/index-gen.mjs` and committed by atomic rename. Never hand-edit
 inside the fence; never read-modify-write index.md. Prose outside the fence
 (e.g. "Start here") is preserved verbatim and is the only part worth editing.
 
+## Style: viewpoints whole, conclusions after, breadcrumbs always
+Narrative is licensed; dismissal is not. Three house rules govern every page:
+
+1. **Opposing viewpoints appear in their entirety** — in their own strongest
+   terms, attributed to their holders — before any conclusion engages them.
+   A viewpoint the page ends up arguing against gets the same care as one it
+   endorses; weight follows the evidence the vault holds, and no viewpoint is
+   waved off by tone (loaded verbs, scare quotes, "supposedly"). When sources
+   conflict, keep the claims separate and attributed — never resolve them into
+   one synthesized voice that erases the disagreement.
+2. **Viewpoints first, conclusions after — and conclusions declare themselves.**
+   Every analytic sentence is one of: *inherited* (a source says it — cite it),
+   *extended* (built on a source — cite it, mark what's added), or *original*
+   (the wiki's own inference — say so explicitly, never state it in the
+   page's neutral voice). Joining source A to source B to imply C is an
+   *original* claim even when A and B are both cited.
+3. **The breadcrumb trail is non-negotiable.** Every viewpoint and every
+   conclusion must be walkable back to `raw/`: `sources:` frontmatter, inline
+   `[[wikilinks]]` to the source pages, and quotes verified per guardrail #5.
+   A conclusion whose trail dead-ends is a defect, however good it reads.
+
+Per-type licenses (neutrality is a property of a page type, not of the vault):
+- `raw/` — fidelity only; the evidence layer (guardrail #1, #5).
+- `wiki/entities/` — **describe and only describe.** Convert opinions to
+  attributed facts about who holds them; convert evaluations to the measurable
+  facts beneath them. When tempted to interpret, link to a concept or
+  synthesis instead.
+- `wiki/concepts/` — claims with grounding. Assertive titles are allowed; the
+  title's pressure is the point, and the body must support the claim under
+  rules 1–3.
+- `wiki/syntheses/` — the licensed narrative layer: weigh, judge, conclude —
+  bounded by rules 1–3, and labeled as the wiki's synthesis.
+
 ## Workflows
 - **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
   (summary + `sources: [[raw link]]`) → update the entities/concepts it touches
