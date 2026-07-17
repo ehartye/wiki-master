@@ -1,7 +1,10 @@
 ---
+name: wiki-ingest
 description: Ingest a source (file path, clipping, or URL already clipped to raw/) into the wiki — summarize, cross-reference, index, log.
 argument-hint: [path-or-name of a raw source, or blank to process new clippings]
 ---
+
+> **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/<name>.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
 
 Load the `wiki-maintainer` skill and follow its **Ingest** workflow for: $ARGUMENTS
 
@@ -15,7 +18,7 @@ For each source:
    `type: source`, `ai-generated: true`, and typed `created`/`updated`/`reviewed`.
 3. Update the entities and concepts it touches; create stubs (`status: stub`) where
    a `[[link]]` has no page yet. Add links in both directions.
-4. Regenerate the catalog: `node ${CLAUDE_PLUGIN_ROOT}/scripts/index-gen.mjs`
+4. Regenerate the catalog: `node ../../scripts/index-gen.mjs`
    (never hand-edit index.md's generated fence). Append
    `## [YYYY-MM-DD] ingest | <title>` to `log.md` via `obsidian append` only.
 5. Never edit anything under `raw/`.

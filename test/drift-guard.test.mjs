@@ -61,15 +61,17 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
-test('version is identical across all three manifests', () => {
-  // The version is one fact copied into three files — the exact drift seam
-  // this suite exists to guard. TheKnowledge's lock registry documented a
-  // lock with zero call sites; we don't get to ship a manifest trio that
-  // disagrees about what version this is.
+test('version is identical across all five manifests (Claude + Copilot)', () => {
+  // The version is one fact copied into five files — the exact drift seam this
+  // suite exists to guard. wiki-master ships to two hosts (Claude Code reads
+  // .claude-plugin/; Copilot CLI reads a root plugin.json + .github/plugin/),
+  // and a manifest set that disagrees about what version this is must fail loud.
   const versions = [
     'package.json',
     '.claude-plugin/plugin.json',
     '.claude-plugin/marketplace.json',
+    'plugin.json',
+    '.github/plugin/marketplace.json',
   ].map((f) => {
     const j = JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
     return { f, v: j.version ?? j.plugins?.[0]?.version };
@@ -77,6 +79,32 @@ test('version is identical across all three manifests', () => {
   const distinct = new Set(versions.map((x) => x.v));
   assert.equal(distinct.size, 1,
     `manifests disagree: ${versions.map((x) => `${x.f}=${x.v}`).join(', ')}`);
+});
+
+test('Copilot manifests are structurally valid and point at skills/', () => {
+  // Copilot CLI reads a root plugin.json and .github/plugin/marketplace.json.
+  // The plugin ships its user-facing operations as skills (commands/ retired
+  // in 0.3.0), so the manifest must point Copilot at skills/.
+  const plugin = JSON.parse(readFileSync(join(ROOT, 'plugin.json'), 'utf8'));
+  assert.equal(plugin.name, 'wiki-master', 'root plugin.json name');
+  const skills = [].concat(plugin.skills ?? []);
+  assert.ok(skills.includes('skills/'), 'root plugin.json declares skills: ["skills/"]');
+
+  const mkt = JSON.parse(readFileSync(join(ROOT, '.github/plugin/marketplace.json'), 'utf8'));
+  const entry = mkt.plugins?.[0];
+  assert.ok(entry && entry.name === 'wiki-master' && entry.source,
+    '.github/plugin/marketplace.json lists the wiki-master plugin with a source');
+});
+
+test('commands/ is retired — every former op exists as a skill', () => {
+  // 0.3.0 migrated commands→skills (Copilot has no commands tier; skills are
+  // the portable entry-point both hosts load as /wiki-*). No commands/ dir may
+  // linger, and each former command must exist as skills/<name>/SKILL.md.
+  assert.ok(!existsSync(join(ROOT, 'commands')), 'commands/ must be removed');
+  const ops = ['wiki-discover', 'wiki-health', 'wiki-ingest', 'wiki-init',
+    'wiki-lint', 'wiki-query', 'wiki-relink', 'wiki-stale'];
+  const missing = ops.filter((op) => !existsSync(join(ROOT, 'skills', op, 'SKILL.md')));
+  assert.deepEqual(missing, [], `missing skills for former commands: ${missing.join(', ')}`);
 });
 
 test('wiki-page contract declares every field the health graph reads', () => {

@@ -1,11 +1,11 @@
 # wiki-master
 
-A Claude Code plugin that realizes Andrej Karpathy's
+A **Claude Code and GitHub Copilot CLI** plugin that realizes Andrej Karpathy's
 [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
-natively on Obsidian: Claude incrementally compiles and maintains a persistent,
+natively on Obsidian: the agent incrementally compiles and maintains a persistent,
 densely interlinked markdown wiki over your curated sources.
 
-- **Claude** is the synthesis engine.
+- The **agent** (Claude Code or GitHub Copilot CLI) is the synthesis engine.
 - The **native `obsidian` CLI** does all resolved-semantics work (links, search,
   typed properties, graph health, versioning).
 - A small Node helper layer does zero-LLM structural checks.
@@ -15,6 +15,8 @@ No MCP server, no daemon, no vector database.
 
 ## Requirements
 
+- A host agent: **Claude Code** or **GitHub Copilot CLI** — both load the same
+  plugin. Claude Code is not required for Copilot CLI (the plugin runs standalone).
 - Obsidian 1.12+ with the official command-line interface enabled
   (Settings → General → Command line interface).
 - The vault open in Obsidian (the CLI drives the running app).
@@ -22,6 +24,29 @@ No MCP server, no daemon, no vector database.
 - Optional: [Ollama](https://ollama.com) with an embedding model
   (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
   gracefully if absent.
+
+## Install
+
+The plugin ships its operations as **skills**, so both hosts expose them as
+`/wiki-*` and run the same `scripts/` (Node). Copilot CLI loads it with no Claude
+Code present.
+
+**Claude Code:**
+```
+/plugin marketplace add ehartye/wiki-master
+/plugin install wiki-master
+```
+
+**GitHub Copilot CLI:**
+```
+copilot plugin marketplace add ehartye/wiki-master
+copilot plugin install wiki-master@wiki-master-marketplace
+```
+
+Or run straight from a local clone on either host — e.g.
+`copilot --plugin-dir /path/to/wiki-master`. (The marketplace forms require the
+repo's default branch to carry `.github/plugin/marketplace.json` and
+`.claude-plugin/marketplace.json`.)
 
 ## Quick start
 
@@ -32,9 +57,11 @@ No MCP server, no daemon, no vector database.
 5. Clip web pages (they land in `raw/clippings/`), then `/wiki-ingest` to compile
    them into the wiki. Ask questions with `/wiki-query`.
 
-## Commands
+## Skills
 
-| Command | Purpose |
+Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
+
+| Skill | Purpose |
 |---|---|
 | `/wiki-init` | Scaffold the vault (folders, index/log, schema, Bases dashboard, templates). |
 | `/wiki-ingest [source]` | Read a source → summary page + cross-references + index/log. Blank = process new clippings. |

@@ -1,4 +1,5 @@
 ---
+name: wiki-relink
 description: Deepen relationships — add inferred links, materialize frequently-referenced entities, build/refresh MOCs.
 ---
 
