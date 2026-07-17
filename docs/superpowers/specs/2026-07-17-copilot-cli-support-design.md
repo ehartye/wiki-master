@@ -35,11 +35,11 @@ Each `commands/<name>.md` (frontmatter `description` + `argument-hint`, body del
 name: <name>            # required by both hosts; kebab-case
 description: <existing description>   # verbatim from the command
 ```
-Body: the existing command body, preserved **except** the script-path change below. These stay **thin entry-points** that load the three capability skills (`wiki-maintainer`, `wiki-discoverer`, `obsidian-cli`), which are unchanged apart from the same path change and the discovery fan-out note. Result: 8 entry-point skills + 3 capability skills, one source of truth, both hosts expose `/wiki-*`.
+Body: the existing command body, preserved **except** the script-path change below. These stay **thin entry-points** that load the shared capability skills (`wiki-maintainer`, used by ingest/query/lint/relink; `obsidian-cli`), unchanged apart from the same path change. Result: 8 entry-point skills + 2 shared capability skills, one source of truth, both hosts expose `/wiki-*`. *(`wiki-discoverer` was a single-consumer helper — its only caller was `wiki-discover`, and the near-identical names collided in `/skills list` — so it was folded into `wiki-discover` and deleted.)*
 
 Notes:
 - `argument-hint` / `$ARGUMENTS`: keep as-is; verified on Claude Code, **flagged for the Copilot load-test** (the reference doesn't document `$ARGUMENTS` handling).
-- No name collisions (`wiki-discover` entry-point vs `wiki-discoverer` capability are distinct).
+- `wiki-discoverer` (single-consumer discipline skill) is merged into `wiki-discover` and deleted — the two near-identical names were a real collision in `/skills list`, and only discovery consumed it.
 
 ### 1a. Script-path resolution — host-neutral, empirically verified
 Three local probes against Copilot CLI 1.0.71 (`copilot --plugin-dir ./probe -p ... --allow-all-tools`) established:
