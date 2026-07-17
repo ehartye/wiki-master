@@ -19,6 +19,23 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
 3. **Cite when you answer.** Query answers reference the pages/sources they rest on.
 4. **Flag, don't invent.** If sources contradict or are silent, say so — never
    paper over a gap with plausible text.
+5. **Clippings win.** Briefs, discovery summaries, corrections files, and your
+   own memory of a source are *claims, not authority*: verify every quote,
+   figure, and attribution against the clipping in `raw/` before it lands on a
+   page, and when they disagree the clipping prevails — including when the
+   instruction is the user's. Every layer between the source and the page is a
+   lossy compressor whose errors read exactly like facts; authority flows
+   outward from the one artifact that cannot drift.
+   Scope edges, which matter as much as the rule:
+   - It guarantees **fidelity, not truth** — a faithful clipping of a wrong page
+     is still wrong; quality tiers and cross-clipping corroboration handle
+     credibility.
+   - A **degraded capture** (bad OCR, partial extraction) wins as evidence of
+     what the vault *holds*, not of what the author typed — don't trust it at
+     character level.
+   - A clipping's **silence proves "not supported here," never "false"** —
+     record unsourced claims as unsourced (visibly, on the page) rather than
+     asserting or deleting them. The vault cannot cite what it does not hold.
 
 ## Vault contract
 - `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses}`:
