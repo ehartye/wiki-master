@@ -1,0 +1,19 @@
+{
+  "name": "wiki-master-marketplace",
+  "owner": {
+    "name": "ehartye",
+    "email": "eric@hartye.com"
+  },
+  "metadata": {
+    "description": "Marketplace for the wiki-master plugin (GitHub Copilot CLI).",
+    "version": "0.3.0"
+  },
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "description": "Maintain a Karpathy-style LLM wiki on Obsidian using the native obsidian CLI.",
+      "version": "0.3.0",
+      "source": "./"
+    }
+  ]
+}

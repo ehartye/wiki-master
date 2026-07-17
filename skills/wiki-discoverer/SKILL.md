@@ -10,6 +10,12 @@ survivors, and hand off to `/wiki-ingest`. **Discovery agents are read-only
 researchers: they RETURN candidates and NEVER write the vault.** The only writer
 is `scripts/clip.mjs`.
 
+> **Scripts:** run `clip.mjs` from the plugin's `scripts/` directory (the plugin
+> root is the parent of `skills/`) with node **by its absolute path**, resolving
+> `../../scripts/clip.mjs` against THIS skill's own directory — **do not `cd`** into
+> the skill dir (compound `cd; node` commands get permission-denied under Copilot
+> CLI), and don't rely on `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` (unset there).
+
 ## Phase 0 — dedup before searching
 Gather what the wiki already has so agents hunt for *gaps*, not dupes:
 - Known source URLs: **read the filesystem** — `scripts/clip.mjs`'s
@@ -23,11 +29,14 @@ Gather what the wiki already has so agents hunt for *gaps*, not dupes:
   set is empty, STOP — the collection step failed; do not proceed to search.
 Pass the known-URL set + a one-line "already covered" summary to every agent.
 
-## Phase 1 — five perspective agents, in parallel (one message, Agent tool)
-Each agent gets: the topic, the known-URL set, the coverage summary, and its lens.
-Each runs 2–3 *varied* `WebSearch` queries, pre-skips any result whose domain is on
-the blocklist, `WebFetch`es the promising hits, and **returns a ranked candidate
-list** — it writes nothing. Lenses:
+## Phase 1 — five perspective researchers (parallel if supported, else sequential)
+Each perspective gets: the topic, the known-URL set, the coverage summary, and its
+lens. Run them **in parallel if your host supports agent fan-out** — Claude Code:
+dispatch five read-only agents in one message via the Agent tool; Copilot CLI: use
+custom agents — **otherwise run the five lenses sequentially yourself.** Each runs
+2–3 *varied* web searches, pre-skips any result whose domain is on the blocklist,
+fetches the promising hits, and **returns a ranked candidate list** — it writes
+nothing. Lenses:
 - **Academic** — papers, textbooks, primary research, .edu.
 - **Technical** — official docs, specs, standards, source repos.
 - **Applied** — case studies, real-world usage, tutorials from practitioners.
@@ -52,14 +61,14 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
 3. Keep the top sources (favor `high`/`medium`; a few `low` are fine if on-topic).
 4. **Record every reject** so it is never re-litigated:
-   `node ${CLAUDE_PLUGIN_ROOT}/scripts/clip.mjs "<url>" --decline="<one-line reason>"`.
+   `node ../../scripts/clip.mjs "<url>" --decline="<one-line reason>"`.
    "Seen, considered, declined" must have a representation — an unrecorded reject
    is indistinguishable from "never seen" and comes back every run. Declines
    expire after 180 days (TTL), so a changed world gets one re-evaluation.
 
 ## Phase 3 — clip the survivors (the only writes)
 For each kept candidate:
-`node ${CLAUDE_PLUGIN_ROOT}/scripts/clip.mjs "<url>" --quality=<tier>`
+`node ../../scripts/clip.mjs "<url>" --quality=<tier>`
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
 `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs

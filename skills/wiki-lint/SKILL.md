@@ -1,13 +1,16 @@
 ---
+name: wiki-lint
 description: Periodic deep maintenance pass — structural health, contradictions, stale claims, missing concepts/links, and semantic drift.
 ---
 
+> **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory (the plugin root is the parent of `skills/`). Run each with node **by its absolute path**, resolving `../../scripts/<name>.mjs` against THIS skill's own directory — **do not `cd`** into the skill dir (compound `cd; node` commands get permission-denied under Copilot CLI), and don't rely on `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` (unset under Copilot CLI).
+
 Load the `wiki-maintainer` skill and follow its **Lint** workflow.
 
-1. Run `/wiki-health` first: `node ${CLAUDE_PLUGIN_ROOT}/scripts/health.mjs`. If the
+1. Run `/wiki-health` first: `node ../../scripts/health.mjs`. If the
    wiki is empty or clean, stop early — do not burn tokens.
-2. Run drift: `node ${CLAUDE_PLUGIN_ROOT}/scripts/drift.mjs`.
-3. Run the content lint: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lint.mjs` (warn-only,
+2. Run drift: `node ../../scripts/drift.mjs`.
+3. Run the content lint: `node ../../scripts/lint.mjs` (warn-only,
    never scored). It flags (a) quotes that cannot be verified against the page's
    raw/ evidence trail — adjudicate each: real drift gets fixed against the
    clipping (guardrail #5), quoting-convention artifacts get ignored, and claims
