@@ -96,6 +96,20 @@ test('Copilot manifests are structurally valid and point at skills/', () => {
     '.github/plugin/marketplace.json lists the wiki-master plugin with a source');
 });
 
+test('skill argument-hint frontmatter is a string, not a YAML collection', () => {
+  // `argument-hint: [foo]` parses as a YAML array and the skill validator
+  // rejects it ("argument hint must be a string"). A leading unquoted [ or {
+  // is a flow indicator — it must be quoted to stay a string.
+  const bad = [];
+  for (const f of allProseFiles()) {
+    const fm = readFileSync(f, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+    if (!fm) continue;
+    const m = fm.match(/^argument-hint:[ \t]*(.+)$/m);
+    if (m && /^[[{]/.test(m[1].trim())) bad.push(`${f} -> ${m[1].trim()}`);
+  }
+  assert.deepEqual(bad, [], `argument-hint must be quoted when it starts with [ or {:\n${bad.join('\n')}`);
+});
+
 test('commands/ is retired — every former op exists as a skill', () => {
   // 0.3.0 migrated commands→skills (Copilot has no commands tier; skills are
   // the portable entry-point both hosts load as /wiki-*). No commands/ dir may

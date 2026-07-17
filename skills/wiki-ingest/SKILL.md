@@ -1,7 +1,7 @@
 ---
 name: wiki-ingest
 description: Ingest a source (file path, clipping, or URL already clipped to raw/) into the wiki — summarize, cross-reference, index, log.
-argument-hint: [path-or-name of a raw source, or blank to process new clippings]
+argument-hint: "[path-or-name of a raw source, or blank to process new clippings]"
 ---
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/<name>.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
