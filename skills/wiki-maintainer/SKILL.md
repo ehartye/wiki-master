@@ -101,8 +101,8 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
 - **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
   (summary + `sources: [[raw link]]`) → update the entities/concepts it touches
   (create stubs where missing) → add `[[links]]` both directions → regenerate the
-  catalog (run `../../scripts/index-gen.mjs` with node **by its absolute path**,
-  resolved from this skill's own directory — don't `cd`) → append to `log.md` via `obsidian append`.
+  catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
+  directory) → append to `log.md` via `obsidian append`.
   One source typically touches 10–15 pages. Stamp `reviewed`.
 - **Query** (`/wiki-query`): search relevant pages → synthesize with citations →
   offer to file the answer back as a new `wiki/syntheses/` page so it compounds.

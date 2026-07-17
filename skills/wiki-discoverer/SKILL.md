@@ -10,11 +10,10 @@ survivors, and hand off to `/wiki-ingest`. **Discovery agents are read-only
 researchers: they RETURN candidates and NEVER write the vault.** The only writer
 is `scripts/clip.mjs`.
 
-> **Scripts:** run `clip.mjs` from the plugin's `scripts/` directory (the plugin
-> root is the parent of `skills/`) with node **by its absolute path**, resolving
-> `../../scripts/clip.mjs` against THIS skill's own directory — **do not `cd`** into
-> the skill dir (compound `cd; node` commands get permission-denied under Copilot
-> CLI), and don't rely on `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}` (unset there).
+> **Scripts:** run `clip.mjs` from the plugin's `scripts/` directory — resolve
+> `../../scripts/clip.mjs` relative to this skill's own directory (the plugin root
+> is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so
+> use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
 
 ## Phase 0 — dedup before searching
 Gather what the wiki already has so agents hunt for *gaps*, not dupes:
