@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -68,6 +68,39 @@ test('attachment files (pdf/docx/…) are valid link targets, as in Obsidian', (
   // Attachments are never scored as content (orphan/dead-end/hub-stub).
   assert.ok(!m.orphans.includes('raw/sources/paper.pdf'));
   assert.ok(!m.deadEnds.includes('raw/sources/paper.pdf'));
+});
+
+test('classifyBrokenLinks splits defect / stale / deferred', () => {
+  const pages = [
+    { path: 'wiki/concepts/Voxel Grammar.md', name: 'voxel grammar', title: 'Voxel Grammar', updated: '2026-01-01' },
+    { path: 'wiki/sources/old.md', name: 'old', updated: '2026-01-01' },
+    { path: 'wiki/sources/fresh.md', name: 'fresh', updated: '2026-07-10' },
+  ];
+  const broken = [
+    { source: 'wiki/sources/old.md', target: 'Voxel Grammer' },    // typo of an existing page → defect
+    { source: 'wiki/sources/old.md', target: 'Abandoned Concept' },// old + 1 ref → stale
+    { source: 'wiki/sources/fresh.md', target: 'New Concept' },    // fresh → deferred
+  ];
+  const c = classifyBrokenLinks(broken, pages, { now: new Date('2026-07-18'), staleDays: 90, demandThreshold: 3 });
+  assert.deepEqual(c.defects.map((d) => d.target), ['Voxel Grammer']);
+  assert.equal(c.defects[0].suggest, 'Voxel Grammar', 'defect suggests the near-match page');
+  assert.deepEqual(c.stale.map((s) => s.target), ['Abandoned Concept']);
+  assert.deepEqual(c.deferred.map((d) => d.target), ['New Concept']);
+});
+
+test('classifyBrokenLinks: corroborated (>=demand) old links stay deferred, not stale', () => {
+  const pages = [{ path: 'wiki/sources/old.md', name: 'old', updated: '2026-01-01' }];
+  const broken = Array(3).fill(0).map(() => ({ source: 'wiki/sources/old.md', target: 'Wanted' }));
+  const c = classifyBrokenLinks(broken, pages, { now: new Date('2026-07-18') });
+  assert.equal(c.stale.length, 0, '3 refs meets the materialization threshold — demand, not cruft');
+  assert.equal(c.deferred.length, 3);
+});
+
+test('classifyBrokenLinks: without now, nothing can be proven stale (all deferred)', () => {
+  const pages = [{ path: 'wiki/sources/old.md', name: 'old', updated: '2020-01-01' }];
+  const c = classifyBrokenLinks([{ source: 'wiki/sources/old.md', target: 'Whatever' }], pages, {});
+  assert.equal(c.stale.length, 0);
+  assert.equal(c.deferred.length, 1);
 });
 
 test('hub-stub detection reads status: stub from frontmatter (the #3 bug)', () => {
