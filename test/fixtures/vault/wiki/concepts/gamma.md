@@ -4,7 +4,7 @@ created: 2026-07-01
 updated: 2026-07-10
 reviewed: 2026-07-10
 status: maintained
-sources: ["[[source-a]]"]
+sources: ["[[source-a]]", "[[paper.pdf]]"]
 ai-generated: true
 ---
 The gamma concept links to [[hub-stub]] and onward to [[delta]].

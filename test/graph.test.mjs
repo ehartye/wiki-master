@@ -54,6 +54,22 @@ test('broken links are source-attributed and raw/ sources are excluded (the #7 b
   assert.ok(!JSON.stringify(m.brokenLinks).includes('missing-from-raw'));
 });
 
+test('attachment files (pdf/docx/…) are valid link targets, as in Obsidian', () => {
+  const g = buildGraph(FIXTURE);
+  // The attachment is a node so links can resolve to it.
+  assert.ok(g.pages.some((p) => p.name === 'paper.pdf'), 'attachment registered as a page');
+  const m = computeGraphMetrics(buildGraph(FIXTURE));
+  // gamma cites [[paper.pdf]] in its frontmatter — a real file in raw/. Obsidian
+  // resolves this; the health graph must too, so it is NOT a broken link.
+  assert.ok(
+    !m.brokenLinks.some((b) => b.target === 'paper.pdf'),
+    'provenance to a real attachment file resolves, not broken'
+  );
+  // Attachments are never scored as content (orphan/dead-end/hub-stub).
+  assert.ok(!m.orphans.includes('raw/sources/paper.pdf'));
+  assert.ok(!m.deadEnds.includes('raw/sources/paper.pdf'));
+});
+
 test('hub-stub detection reads status: stub from frontmatter (the #3 bug)', () => {
   const m = computeGraphMetrics(buildGraph(FIXTURE));
   assert.deepEqual(m.hubStubs, ['wiki/syntheses/hub-stub.md']);
