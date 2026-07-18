@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { slugify, normalizeUrl, isDuplicateUrl, buildFrontmatter } from '../scripts/clip.mjs';
+import { slugify, slugFromUrl, normalizeUrl, isDuplicateUrl, buildFrontmatter } from '../scripts/clip.mjs';
 
 test('slugify strips illegal chars, collapses, caps length, defaults', () => {
   assert.equal(slugify('Neural Scaling Laws'), 'Neural Scaling Laws');
@@ -8,6 +8,16 @@ test('slugify strips illegal chars, collapses, caps length, defaults', () => {
   assert.equal(slugify('Trailing: '), 'Trailing');
   assert.equal(slugify(''), 'untitled');
   assert.equal(slugify('a'.repeat(200)).length, 120);
+});
+
+test('slugFromUrl uses last path segment, decodes, falls back to host', () => {
+  // Title-reusing sites (e.g. iquilezles.org shares one <title>) disambiguate by URL path.
+  assert.equal(slugFromUrl('https://iquilezles.org/articles/smin/'), 'smin');
+  assert.equal(slugFromUrl('https://iquilezles.org/articles/distfunctions/'), 'distfunctions');
+  assert.equal(slugFromUrl('https://a.com/foo/bar?x=1#y'), 'bar');
+  assert.equal(slugFromUrl('https://a.com/a%20b/'), 'a b');
+  assert.equal(slugFromUrl('https://x.com/'), 'x.com');
+  assert.equal(slugFromUrl('not a url'), 'untitled');
 });
 
 test('normalizeUrl drops hash + trailing slash, lowercases host', () => {
