@@ -19,6 +19,20 @@ export function slugify(title) {
   return s.slice(0, 120).replace(/[-\s]+$/, '') || 'untitled';
 }
 
+// Fallback slug when a page's <title> collides with an existing clipping — some
+// sites (e.g. iquilezles.org) reuse one <title> across every article, so the
+// title-derived slug is not unique. The URL's last path segment is.
+export function slugFromUrl(url) {
+  try {
+    const { pathname, hostname } = new URL(url);
+    const segs = pathname.split('/').filter(Boolean);
+    const last = segs.length ? decodeURIComponent(segs[segs.length - 1]) : hostname;
+    return slugify(last);
+  } catch {
+    return 'untitled';
+  }
+}
+
 export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
@@ -138,9 +152,18 @@ export function main(argv) {
     title: data.title, source: url, author: data.author,
     published: data.published, created, quality, hash,
   });
-  const slug = slugify(data.title);
-  const file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
-  if (existsSync(file)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
+  let slug = slugify(data.title);
+  let file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
+  if (existsSync(file)) {
+    // Same-URL re-clips are already caught above by isDuplicateUrl, so a slug
+    // clash here means a *different* page shares this title. Disambiguate via
+    // the URL path before giving up as a duplicate.
+    const altSlug = slugFromUrl(url);
+    const altFile = join(vaultPath, 'raw', 'clippings', `${altSlug}.md`);
+    if (existsSync(altFile)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
+    slug = altSlug;
+    file = altFile;
+  }
 
   writeFileSync(file, `${fm}\n\n${md}\n`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
