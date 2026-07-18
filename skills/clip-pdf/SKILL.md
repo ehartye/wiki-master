@@ -31,6 +31,20 @@ to `pdftotext` from a Bash tool per the PATHEXT hazard), then writes
 prior declines, and records a decline for **thin** extractions (scanned/image PDFs
 that need OCR) so they are not retried blindly.
 
+Extraction is tuned for academic PDFs:
+- **Reading-order, not `-layout`.** `-layout` preserves physical layout, which on a
+  **two-column** paper interleaves the columns line-by-line (no verbatim span is
+  then traceable). Default mode reads each column top-to-bottom and de-hyphenates
+  line breaks, so prose comes out quotable.
+- **Running headers/footers stripped.** The repeated title line and page-number
+  footer at each page boundary are detected (a boundary line recurring on ≥ half
+  the pages, with digits masked so `5-70`/`5-71` collapse) and removed — otherwise
+  they stitch into the middle of an otherwise-verbatim quote.
+- **Fidelity flag.** Math/symbol fonts (especially in older PDFs) extract lossily —
+  `−`→`?`, `‖`→`jj`, superscripts flatten. This **cannot** be fixed without OCR, so
+  it is *flagged*: when mangling is detected, the frontmatter gets
+  **`fidelity: degraded`**. Clean captures omit the field.
+
 ## Steps
 
 1. **Preflight** (once): confirm poppler is installed — `pdftotext -v`. If missing,
@@ -43,11 +57,13 @@ that need OCR) so they are not retried blindly.
      manual OCR; do not invent the text.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    that the extracted text is real prose, not garbled ligatures. `pdftotext`
-   output is plain text — light and lossy on tables/figures; note that on the
-   resulting source page so a reader knows the fidelity ceiling.
+   output is plain text — light and lossy on tables/figures.
 4. **Hand off to `/wiki-ingest`** exactly as with any other clipping — summarize
    into `wiki/sources/`, cross-reference, index, log. The ingest is gated by the
-   user as usual.
+   user as usual. **If the clipping carries `fidelity: degraded`, do not quote its
+   equations/symbols verbatim** — paraphrase them with attribution and verify every
+   quoted span against the original PDF (guardrail #5). Note the fidelity ceiling
+   on the resulting source page so a reader knows.
 
 ## Guardrails
 

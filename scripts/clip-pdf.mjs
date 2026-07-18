@@ -18,22 +18,85 @@ export function titleFromPdf(pdfPath) {
   return basename(pdfPath).replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
 }
 
+// Remove running headers/footers — the repeated title line and page-number
+// footer that pdftotext emits at every page boundary, which otherwise get
+// stitched mid-sentence into an otherwise-verbatim span. pdftotext separates
+// pages with a form-feed (\f). A boundary line (first/last non-empty line of a
+// page) that recurs — after digits are masked, so "5-70"/"5-71" collapse to one
+// pattern — on at least half the pages is treated as running chrome and dropped.
+export function stripRunningHeadersFooters(text) {
+  const pages = String(text).split('\f');
+  if (pages.length < 4) return pages.join('\n'); // too few pages to detect reliably
+  const norm = (s) => s.trim().replace(/\d+/g, '#');
+  const linesOf = (pg) => pg.split('\n');
+  const nonEmptyIdx = (lines) => lines.map((l, i) => (l.trim() ? i : -1)).filter((i) => i >= 0);
+
+  const freq = new Map();
+  for (const pg of pages) {
+    const ne = nonEmptyIdx(linesOf(pg));
+    if (!ne.length) continue;
+    for (const i of [ne[0], ne[ne.length - 1]]) {
+      const n = norm(linesOf(pg)[i]);
+      freq.set(n, (freq.get(n) || 0) + 1);
+    }
+  }
+  const threshold = Math.max(3, Math.floor(pages.length * 0.5));
+  const running = new Set([...freq].filter(([, c]) => c >= threshold).map(([n]) => n));
+
+  return pages
+    .map((pg) => {
+      const lines = linesOf(pg);
+      const ne = nonEmptyIdx(lines);
+      if (ne.length) {
+        const fi = ne[0], li = ne[ne.length - 1];
+        if (running.has(norm(lines[fi]))) lines[fi] = '';
+        if (li !== fi && running.has(norm(lines[li]))) lines[li] = '';
+      }
+      return lines.join('\n');
+    })
+    .join('\n');
+}
+
+// Detect extractions that pdftotext cannot render faithfully — chiefly math:
+// symbol fonts whose glyphs have no Unicode mapping surface as '?' between
+// alphanumerics ("x2 ? 1"), the replacement char, or (cid:NN) tokens. We can't
+// fix these without OCR, but we can FLAG them so ingest paraphrases equations
+// with attribution instead of quoting mangled text as if verbatim (guardrail #5).
+export function assessFidelity(text) {
+  const words = (text.match(/\S+/g) || []).length || 1;
+  const mangledMath = (text.match(/[A-Za-z0-9)\]]\s?\?\s?[A-Za-z0-9(]/g) || []).length;
+  const replacement = (text.match(/�/g) || []).length;
+  const cid = (text.match(/\(cid:\d+\)/g) || []).length;
+  // Degraded means "don't trust verbatim spans, paraphrase math". Calibrated so
+  // math-heavy prose (many '?'-for-operator manglings) and glyph-dump PDFs
+  // ((cid:NN) tokens, high replacement-char density) trip it, while a handful of
+  // stray glyphs in figure captions of otherwise-clean prose does not.
+  const degraded = mangledMath >= 8 || cid > 5 || replacement / words > 0.015;
+  return { degraded, mangledMath, replacement, cid };
+}
+
 // Build the clipping note. Pure: no IO, no pdftotext — the testable core.
 // We store the extracted TEXT as the canonical markdown representation; the
 // binary PDF is never the source-of-truth note, so the vault stays greppable,
 // diffable, and answerable, and `[[note]]` provenance resolves to real markdown.
 export function pdfClipContent({ title, source, text, quality = 'medium', created = today() }) {
-  const md = String(text || '').replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const cleaned = stripRunningHeadersFooters(text || '');
+  const md = cleaned.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const fidelity = assessFidelity(md).degraded ? 'degraded' : 'high';
   const hash = createHash('sha256').update(md).digest('hex');
-  const fm = buildFrontmatter({ title, source, created, quality, hash });
-  return { md, wordCount: wordCount(md), body: `${fm}\n\n${md}\n` };
+  const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity });
+  return { md, wordCount: wordCount(md), fidelity, body: `${fm}\n\n${md}\n` };
 }
 
 // Extract text via poppler's pdftotext. execFileSync (not a shell) resolves the
-// Windows .exe correctly; -layout keeps reading order, '-' writes to stdout.
+// Windows .exe correctly; '-' writes to stdout. We deliberately do NOT pass
+// -layout: it preserves physical layout, which on a two-column paper interleaves
+// the columns line-by-line (unreadable, no traceable verbatim span). Default
+// reading-order mode reads each column top-to-bottom and de-hyphenates line
+// breaks, and still emits form-feeds between pages for header/footer stripping.
 export function pdfToText(pdfPath) {
-  return execFileSync('pdftotext', ['-q', '-layout', pdfPath, '-'], {
-    encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  return execFileSync('pdftotext', ['-q', pdfPath, '-'], {
+    encoding: 'utf8', maxBuffer: 128 * 1024 * 1024,
   });
 }
 
