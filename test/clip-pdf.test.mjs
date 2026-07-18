@@ -38,6 +38,16 @@ test('pdfClipContent records fidelity: degraded in frontmatter when math is mang
   assert.doesNotMatch(clean.body, /fidelity:/);
 });
 
+test('pdfClipContent records extraction: ocr in frontmatter when OCR was used', () => {
+  const clean = 'Béthune and colleagues present a clean, several-word prose paragraph here.';
+  const ocr = pdfClipContent({ title: 'T', source: 's', text: clean, extraction: 'ocr' });
+  assert.match(ocr.body, /extraction: ocr/);
+  assert.equal(ocr.extraction, 'ocr');
+  // Default text-layer extraction omits the field.
+  const txt = pdfClipContent({ title: 'T', source: 's', text: clean });
+  assert.doesNotMatch(txt.body, /extraction:/);
+});
+
 test('pdfClipContent stores extracted text as the markdown note, with provenance frontmatter', () => {
   const text = 'Abstract\r\n\r\n\r\nThis paper studies bidding.\n\n\n\nSection 1.';
   const { md, body, wordCount } = pdfClipContent({

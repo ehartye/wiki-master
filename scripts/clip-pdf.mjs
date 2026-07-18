@@ -1,5 +1,6 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -79,13 +80,13 @@ export function assessFidelity(text) {
 // We store the extracted TEXT as the canonical markdown representation; the
 // binary PDF is never the source-of-truth note, so the vault stays greppable,
 // diffable, and answerable, and `[[note]]` provenance resolves to real markdown.
-export function pdfClipContent({ title, source, text, quality = 'medium', created = today() }) {
+export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction } = {}) {
   const cleaned = stripRunningHeadersFooters(text || '');
   const md = cleaned.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const fidelity = assessFidelity(md).degraded ? 'degraded' : 'high';
   const hash = createHash('sha256').update(md).digest('hex');
-  const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity });
-  return { md, wordCount: wordCount(md), fidelity, body: `${fm}\n\n${md}\n` };
+  const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity, extraction });
+  return { md, wordCount: wordCount(md), fidelity, extraction, body: `${fm}\n\n${md}\n` };
 }
 
 // Extract text via poppler's pdftotext. execFileSync (not a shell) resolves the
@@ -95,7 +96,10 @@ export function pdfClipContent({ title, source, text, quality = 'medium', create
 // reading-order mode reads each column top-to-bottom and de-hyphenates line
 // breaks, and still emits form-feeds between pages for header/footer stripping.
 export function pdfToText(pdfPath) {
-  return execFileSync('pdftotext', ['-q', pdfPath, '-'], {
+  // -enc UTF-8 is mandatory: pdftotext defaults to Latin-1 on some poppler builds,
+  // and Node then decodes those bytes as UTF-8, turning every accent/bullet/© into
+  // U+FFFD ("Béthune" → "B�thune"). Forcing UTF-8 output makes the decode correct.
+  return execFileSync('pdftotext', ['-q', '-enc', 'UTF-8', pdfPath, '-'], {
     encoding: 'utf8', maxBuffer: 128 * 1024 * 1024,
   });
 }
@@ -104,10 +108,40 @@ function pdftotextReachable() {
   try { execFileSync('pdftotext', ['-v'], { stdio: 'ignore' }); return true; } catch { return false; }
 }
 
+export function ocrReachable() {
+  try {
+    execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
+    execFileSync('tesseract', ['--version'], { stdio: 'ignore' });
+    return true;
+  } catch { return false; }
+}
+
+// OCR path: rasterize each page with poppler's pdftoppm, then recognize with
+// Tesseract. Recovers text the embedded-font layer mangles — dropped accents
+// ("Béthune" → "B?thune"), symbol-font math, and fully scanned/image PDFs — at
+// the cost of speed and OCR's own (different) error modes. Pages are joined with
+// a form-feed so header/footer stripping still applies. Tesseract's automatic
+// page segmentation handles columns, so this also survives two-column layouts.
+export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng' } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'clip-ocr-'));
+  try {
+    execFileSync('pdftoppm', ['-png', '-r', String(dpi), pdfPath, join(dir, 'page')], { stdio: 'ignore' });
+    const imgs = readdirSync(dir)
+      .filter((f) => f.endsWith('.png'))
+      .sort((a, b) => (+(a.match(/-(\d+)\.png$/)?.[1] || 0)) - (+(b.match(/-(\d+)\.png$/)?.[1] || 0)));
+    const pages = imgs.map((f) =>
+      execFileSync('tesseract', [join(dir, f), 'stdout', '-l', lang], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    );
+    return pages.join('\f');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
-    console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low] [--decline="reason"]');
+    console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low] [--ocr] [--ocr-lang=eng] [--decline="reason"]');
     process.exit(2);
   }
   const srcArg = argv.find((a) => a.startsWith('--source='));
@@ -138,22 +172,42 @@ export function main(argv) {
 
   if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
 
-  let text;
-  try { text = pdfToText(pdfPath); }
-  catch {
-    if (!pdftotextReachable()) {
-      console.error('pdftotext (poppler) not found. Install poppler: https://poppler.freedesktop.org/');
+  const title = titleFromPdf(pdfPath);
+  const forceOcr = argv.includes('--ocr');
+  const langArg = argv.find((a) => a.startsWith('--ocr-lang='));
+  const lang = langArg ? langArg.split('=')[1] : 'eng';
+
+  let clip;
+  if (forceOcr) {
+    if (!ocrReachable()) {
+      console.error('OCR needs poppler (pdftoppm) + Tesseract. Install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki');
       process.exit(1);
     }
-    console.log(`extract failed (scanned/encrypted — OCR manually): ${pdfPath}`);
-    return { status: 'failed' };
+    console.log('OCR: rasterizing + recognizing pages (this is slow)…');
+    clip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
+  } else {
+    let text;
+    try { text = pdfToText(pdfPath); }
+    catch {
+      if (!pdftotextReachable()) {
+        console.error('pdftotext (poppler) not found. Install poppler: https://poppler.freedesktop.org/');
+        process.exit(1);
+      }
+      text = ''; // per-URL extraction failure — fall through to the OCR fallback below
+    }
+    clip = pdfClipContent({ title, source, text, quality });
+    // Auto-fallback: a thin text layer means a scanned/image PDF (or a broken
+    // font layer) — exactly OCR's job. Only replace if OCR actually recovers text.
+    if (clip.wordCount < THIN_WORD_FLOOR && ocrReachable()) {
+      console.log('thin text layer — falling back to OCR (slow)…');
+      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
+      if (oclip.wordCount >= THIN_WORD_FLOOR) clip = oclip;
+    }
   }
 
-  const title = titleFromPdf(pdfPath);
-  const clip = pdfClipContent({ title, source, text, quality });
   if (clip.wordCount < THIN_WORD_FLOOR) {
-    recordDecline(vaultPath, source, 'thin text (likely scanned/image PDF — needs OCR)');
-    console.log(`thin content (OCR manually; decline recorded): ${pdfPath}`);
+    recordDecline(vaultPath, source, 'thin text (scanned/encrypted; OCR unavailable or also failed)');
+    console.log(`thin content (OCR unavailable/failed; decline recorded): ${pdfPath}`);
     return { status: 'thin' };
   }
 
@@ -162,7 +216,7 @@ export function main(argv) {
   if (existsSync(file)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
 
   writeFileSync(file, clip.body);
-  console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, from PDF)`);
+  console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${clip.extraction === 'ocr' ? 'OCR' : 'text'})`);
   return { status: 'clipped', slug, file };
 }
 

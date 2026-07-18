@@ -32,10 +32,22 @@ prior declines, and records a decline for **thin** extractions (scanned/image PD
 that need OCR) so they are not retried blindly.
 
 Extraction is tuned for academic PDFs:
+- **UTF-8 output (`-enc UTF-8`).** pdftotext defaults to Latin-1 on some builds;
+  Node then decodes those bytes as UTF-8 and turns every accent/bullet/© into `�`
+  ("Béthune" → "B�thune"). Forcing UTF-8 fixes that at the source — no OCR needed
+  for accented text.
 - **Reading-order, not `-layout`.** `-layout` preserves physical layout, which on a
   **two-column** paper interleaves the columns line-by-line (no verbatim span is
   then traceable). Default mode reads each column top-to-bottom and de-hyphenates
   line breaks, so prose comes out quotable.
+- **OCR fallback (Tesseract).** For a **scanned/image PDF** (no text layer) the
+  clipper automatically rasterizes pages with `pdftoppm` and recognizes them with
+  **Tesseract** — previously these were just declined. Pass **`--ocr`** to force
+  the OCR path on any PDF whose embedded-font layer is broken beyond what UTF-8
+  fixes (e.g. a math-symbol font with no Unicode mapping). OCR is slower and has
+  its own error modes (superscripts, math), so it is a fallback, not the default;
+  OCR'd clippings are tagged `extraction: ocr` in frontmatter. Optional
+  `--ocr-lang=<code>` (default `eng`).
 - **Running headers/footers stripped.** The repeated title line and page-number
   footer at each page boundary are detected (a boundary line recurring on ≥ half
   the pages, with digits masked so `5-70`/`5-71` collapse) and removed — otherwise
