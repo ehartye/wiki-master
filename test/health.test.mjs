@@ -12,9 +12,14 @@ const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault
 // "index rescues orphans" fails these tests immediately.
 test('health end-to-end: fixture vault scores below 100 with attributed findings', () => {
   const r = computeHealth(computeGraphMetrics(buildGraph(FIXTURE)));
-  // broken 2*3 + orphans 1*2 + deadEnds 3*2 + hubStubs 1*5 = 19
-  assert.equal(r.score, 81);
+  // Broken links are triaged: the fixture's 2 are deferred forward-links (no
+  // near-match, and no `now` passed so none can be proven stale) → 0 penalty.
+  // orphans 1*2 + deadEnds 3*2 + hubStubs 1*5 = 13.
+  assert.equal(r.score, 87);
   assert.equal(r.brokenLinks.length, 2);
+  assert.equal(r.brokenClass.deferred.length, 2, 'both broken links classify as deferred');
+  assert.equal(r.brokenClass.defects.length, 0);
+  assert.ok(r.report.includes('deferred 2'), 'report shows the triage breakdown');
   assert.ok(r.brokenLinks.some((b) => b.source === 'wiki/concepts/gamma.md'));
   assert.equal(r.orphans.length, 1);
   assert.equal(r.deadEnds.length, 3);
