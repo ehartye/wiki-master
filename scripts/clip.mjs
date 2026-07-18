@@ -37,7 +37,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -46,6 +46,9 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   lines.push(`created: ${created}`);
   lines.push('tags: [clippings]');
   lines.push(`quality: ${quality}`);
+  // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
+  // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
+  if (fidelity && fidelity !== 'high') lines.push(`fidelity: ${fidelity}`);
   lines.push(`source-hash: ${hash}`);
   lines.push('---');
   return lines.join('\n');
