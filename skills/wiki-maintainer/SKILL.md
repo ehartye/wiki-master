@@ -39,7 +39,7 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
 
 ## Vault contract
 - `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses}`:
-  pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log.md`: append-only history.
+  pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log/`: one file per operation (view via `log.base`).
 - Wiki page frontmatter (set via `property:set`, typed):
   `type` (source|entity|concept|synthesis), `created`, `updated`, `reviewed`,
   `status` (stub|draft|maintained), `sources: [[...]]`, `ai-generated: true`.
@@ -49,13 +49,15 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   may flag claims that rest only on `low`-quality provenance.
 
 ## The log
-Every operation appends one line to `log.md`:
-`## [YYYY-MM-DD] <op> | <title>` — grep-parseable. Ops: ingest, query, lint, relink.
-**Append ONLY via `obsidian append path=log.md` (from PowerShell)** — never by
-filesystem write. All app-side writers are serialized by Obsidian's operation
-queue; a filesystem read-modify-write racing a concurrent session silently
-erases its entries. log.md is unreconstructable history — it is the one file
-that cannot be regenerated after a lost update.
+Every operation writes ONE new file under `log/`, via the shared script:
+`node ../../scripts/log-entry.mjs --op <op> --title "<title>"` with the entry
+narrative piped on stdin. It creates `log/YYYY-MM-DD-HHmmss-<op>-<slug>.md` with
+`date`/`op`/`title` frontmatter and a `## [YYYY-MM-DD] <op> | <title>` heading
+(still grep-parseable — grep the `log/` folder). Ops: ingest, discover, query,
+lint, relink. Never write a shared aggregate file: one entry = one uniquely-named
+file, so two machines can never collide (this replaces the old append-only `log.md`,
+whose cross-machine lost-update race is now structurally impossible). Browse the
+log via `log.base`.
 
 ## The catalog
 `index.md` is a **derived artifact**: the catalog between its
@@ -102,7 +104,7 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   (summary + `sources: [[raw link]]`) → update the entities/concepts it touches
   (create stubs where missing) → add `[[links]]` both directions → regenerate the
   catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
-  directory) → append to `log.md` via `obsidian append`.
+  directory) → write the log entry via `node ../../scripts/log-entry.mjs`.
   One source typically touches 10–15 pages. Stamp `reviewed`.
 - **Query** (`/wiki-query`): search relevant pages → synthesize with citations →
   offer to file the answer back as a new `wiki/syntheses/` page so it compounds.

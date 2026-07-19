@@ -80,8 +80,8 @@ explicitly with `--decline` only if you judge it permanently unclippable.
 Show the user the ranked list (title, url, quality, why) and which clips succeeded
 / were skipped (blocked, duplicate, thin). Ask whether to ingest.
 - **On confirm:** run `/wiki-ingest` (which processes the new clippings), then
-  append one line to `log.md` via `obsidian append` only:
-  `## [YYYY-MM-DD] discover | <topic> → N clipped, M ingested`.
+  write the log entry by piping a one-line summary to
+  `node ../../scripts/log-entry.mjs --op discover --title "<topic> → N clipped, M ingested"`.
 - **On decline:** leave the clippings in `raw/clippings/` for manual review.
 
 ## Guardrails

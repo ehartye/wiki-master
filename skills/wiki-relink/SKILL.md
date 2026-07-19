@@ -10,5 +10,5 @@ Load the `wiki-maintainer` skill and follow its **Relink** workflow.
    stub page and link it from the mentioning pages.
 3. Propose inferred `[[links]]` between related concepts/syntheses; apply the ones
    the user approves so they enter Obsidian's index.
-4. Build or refresh MOC hubs in `moc/` for dense clusters. Append a
-   `## [YYYY-MM-DD] relink | ...` line to `log.md`.
+4. Build or refresh MOC hubs in `moc/` for dense clusters. Write the log entry:
+   `node ../../scripts/log-entry.mjs --op relink --title "<summary>"` (details on stdin).
