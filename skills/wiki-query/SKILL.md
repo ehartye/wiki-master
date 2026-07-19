@@ -16,5 +16,5 @@ Question: $ARGUMENTS
 2. Synthesize an answer that **cites** the pages/sources it rests on.
 3. If the answer is substantive and not already captured, offer to file it as a new
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
-   (`node ../../scripts/index-gen.mjs`) and append to `log.md`
-   via `obsidian append` only.
+   (`node ../../scripts/index-gen.mjs`) and write the log entry:
+   `node ../../scripts/log-entry.mjs --op query --title "<question>"` (answer summary on stdin).

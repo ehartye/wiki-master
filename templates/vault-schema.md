@@ -8,7 +8,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   Frontmatter is pipeline state, updated only by wiki-master tooling.
   `raw/clippings/` — Web Clipper / clip.mjs output.
 - `wiki/sources|entities|concepts|syntheses` — LLM-owned pages.
-- `moc/` — Maps of Content. `index.md` — catalog. `log.md` — append-only history.
+- `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
 
 ## Frontmatter contract
 - Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, source-hash`.

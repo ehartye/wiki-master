@@ -19,6 +19,7 @@ For each source:
 3. Update the entities and concepts it touches; create stubs (`status: stub`) where
    a `[[link]]` has no page yet. Add links in both directions.
 4. Regenerate the catalog: `node ../../scripts/index-gen.mjs`
-   (never hand-edit index.md's generated fence). Append
-   `## [YYYY-MM-DD] ingest | <title>` to `log.md` via `obsidian append` only.
+   (never hand-edit index.md's generated fence). Write the log entry by piping the
+   narrative to `node ../../scripts/log-entry.mjs --op ingest --title "<title>"`
+   (creates `log/<timestamp>-ingest-<slug>.md`; resolved relative to this skill dir).
 5. Never edit anything under `raw/`.

@@ -28,3 +28,11 @@ test('scaffold is idempotent (does not clobber existing index.md)', () => {
   scaffold(dir, templatesDir);
   assert.equal(readFileSync(join(dir, 'index.md'), 'utf8'), '# Custom');
 });
+
+test('scaffold creates the log/ folder + log.base, and log.md is a pointer stub', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-'));
+  scaffold(dir, templatesDir);
+  assert.ok(existsSync(join(dir, 'log')), 'log/ folder created');
+  assert.ok(existsSync(join(dir, 'log.base')), 'log.base created');
+  assert.match(readFileSync(join(dir, 'log.md'), 'utf8'), /log\.base/, 'log.md is a pointer stub');
+});

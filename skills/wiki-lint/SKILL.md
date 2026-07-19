@@ -20,5 +20,5 @@ Load the `wiki-maintainer` skill and follow its **Lint** workflow.
    between pages, claims superseded by newer sources, concepts referenced but
    unwritten, and missing cross-references.
 5. Apply only safe, unambiguous fixes; present the rest as a proposed change list
-   for the user to approve. Stamp `reviewed` on pages you touch. Append a
-   `## [YYYY-MM-DD] lint | ...` line to `log.md`.
+   for the user to approve. Stamp `reviewed` on pages you touch. Write the log entry:
+   `node ../../scripts/log-entry.mjs --op lint --title "<summary>"` (details on stdin).

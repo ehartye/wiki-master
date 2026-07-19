@@ -1,0 +1,14 @@
+filters:
+  and:
+    - file.inFolder("log")
+views:
+  - type: table
+    name: log
+    order:
+      - date
+      - op
+      - title
+      - file.path
+    sort:
+      - property: date
+        direction: DESC

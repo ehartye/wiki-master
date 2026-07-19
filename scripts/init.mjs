@@ -5,7 +5,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
-              'wiki/syntheses', 'moc', '_templates', '.wiki-master'];
+              'wiki/syntheses', 'moc', 'log', '_templates', '.wiki-master'];
 
 function writeIfAbsent(path, content) {
   if (!existsSync(path)) writeFileSync(path, content);
@@ -15,12 +15,15 @@ export function scaffold(vaultPath, templatesDir) {
   for (const d of DIRS) mkdirSync(join(vaultPath, d), { recursive: true });
   writeIfAbsent(join(vaultPath, 'index.md'),
     '---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n');
-  writeIfAbsent(join(vaultPath, 'log.md'), '# Log\n\n');
+  writeIfAbsent(join(vaultPath, 'log.md'),
+    '# Log\n\nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.\n');
   writeIfAbsent(join(vaultPath, '.gitignore'), '.wiki-master/\n');
   if (!existsSync(join(vaultPath, 'vault-schema.md')))
     copyFileSync(join(templatesDir, 'vault-schema.md'), join(vaultPath, 'vault-schema.md'));
   if (!existsSync(join(vaultPath, 'stale.base')))
     copyFileSync(join(templatesDir, 'stale.base'), join(vaultPath, 'stale.base'));
+  if (!existsSync(join(vaultPath, 'log.base')))
+    copyFileSync(join(templatesDir, 'log.base'), join(vaultPath, 'log.base'));
   cpSync(join(templatesDir, '_templates'), join(vaultPath, '_templates'), { recursive: true });
 }
 
