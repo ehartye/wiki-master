@@ -33,6 +33,22 @@ export function slugFromUrl(url) {
   }
 }
 
+// Resolve a slug collision without losing the clipping. Same-source re-clips are
+// already caught upstream (isDuplicateUrl), so a collision reaching here is a
+// GENUINELY DISTINCT clipping — dropping it silently loses a source. The `exists`
+// predicate MUST be case-insensitive: on case-insensitive filesystems (Windows,
+// default macOS) "Foo.md" and "foo.md" are one file, and Obsidian resolves
+// [[Foo]] and [[foo]] to the same note on every OS — so two slugs differing only
+// in case must be disambiguated regardless of platform. The disambiguator (the
+// content hash) makes the fallback deterministic per distinct content.
+export function disambiguateSlug(slug, disambiguator, exists) {
+  if (!exists(slug)) return slug;
+  const short = String(disambiguator || '').replace(/[^a-z0-9]/gi, '').slice(0, 7) || 'x';
+  let candidate = `${slug}-${short}`;
+  for (let n = 2; exists(candidate); n++) candidate = `${slug}-${short}-${n}`;
+  return candidate;
+}
+
 export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }

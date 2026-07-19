@@ -27,6 +27,25 @@ test('assessFidelity flags math-mangled extractions, not clean prose', () => {
   assert.equal(assessFidelity('This is clean flowing academic prose with no mangled symbols at all.').degraded, false);
 });
 
+test('assessFidelity flags broken-font gibberish (mojibake), not long clean prose', () => {
+  // Symbol/number-dominated mojibake, >200 non-space chars, ~no letters — the
+  // failure mode that trips none of the math/cid/replacement checks.
+  const gibberish = "345689 9 9 #$%&*+,+3 -./012 32.1145 ".repeat(12);
+  const g = assessFidelity(gibberish);
+  assert.equal(g.gibberish, true);
+  assert.equal(g.degraded, true);
+  // Long clean prose (well over the length gate) stays clean.
+  const prose = 'The study examines how young learners build understanding through hands on classroom activities. '.repeat(4);
+  assert.equal(assessFidelity(prose).degraded, false);
+  // Short snippets never trip the gibberish gate regardless of composition.
+  assert.equal(assessFidelity('12 34 #$%').gibberish, false);
+});
+
+test('pdfClipContent exposes the content hash (for slug disambiguation)', () => {
+  const { hash } = pdfClipContent({ title: 'T', source: 's', text: 'Some real words here for hashing purposes.' });
+  assert.match(hash, /^[0-9a-f]{64}$/);
+});
+
 test('pdfClipContent records fidelity: degraded in frontmatter when math is mangled', () => {
   const mangled = 'The sphere x2 ? 1 = 0 and y2 ? 1 and z2 ? 1 and a2 ? 1 and b2 ? 1 and c2 ? 1 and d2 ? 1 and e2 ? 1.';
   const { body, fidelity } = pdfClipContent({ title: 'T', source: 's', text: mangled });

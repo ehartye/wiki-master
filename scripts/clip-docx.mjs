@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
-import { slugify, buildFrontmatter, knownSourceUrls } from './clip.mjs';
+import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -30,7 +30,7 @@ export function docxClipContent({ title, source, text, quality = 'medium', creat
   const md = String(text || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash });
-  return { md, wordCount: wordCount(md), body: `${fm}\n\n${md}\n` };
+  return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };
 }
 
 // Extract text via pandoc. execFileSync (not a shell) resolves the Windows .exe
@@ -106,9 +106,15 @@ export function main(argv) {
     return { status: 'thin' };
   }
 
-  const slug = slugify(title);
-  const file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
-  if (existsSync(file)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
+  // Same-source re-clips are already caught by isDuplicateUrl above, so a slug
+  // collision here is a DIFFERENT document sharing a title (or a case-variant).
+  // Disambiguate rather than drop — silently losing a distinct source is worse
+  // than a suffixed slug. Case-insensitive to match the filesystem and Obsidian's
+  // wikilink resolution.
+  const dir = join(vaultPath, 'raw', 'clippings');
+  const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
+  const slug = disambiguateSlug(slugify(title), clip.hash, (s) => taken.has(s.toLowerCase()));
+  const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, docx)`);
