@@ -34,3 +34,8 @@ test('docxClipContent omits fidelity/extraction fields — pandoc yields clean t
   assert.doesNotMatch(body, /fidelity:/);
   assert.doesNotMatch(body, /extraction:/);
 });
+
+test('docxClipContent exposes the content hash (for slug disambiguation)', () => {
+  const { hash } = docxClipContent({ title: 'T', source: 's', text: 'Some real words here for hashing purposes.' });
+  assert.match(hash, /^[0-9a-f]{64}$/);
+});

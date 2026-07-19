@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
-import { slugify, buildFrontmatter, knownSourceUrls } from './clip.mjs';
+import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -68,12 +68,26 @@ export function assessFidelity(text) {
   const mangledMath = (text.match(/[A-Za-z0-9)\]]\s?\?\s?[A-Za-z0-9(]/g) || []).length;
   const replacement = (text.match(/�/g) || []).length;
   const cid = (text.match(/\(cid:\d+\)/g) || []).length;
+  // Broken-font mojibake: a text layer that decodes to mostly non-letters —
+  // digits, punctuation, and symbols instead of words ("345689 9 9 #$%&'()6*&+").
+  // This failure mode dumps gibberish that trips none of the checks above (no
+  // math '?', no (cid:NN), no replacement char), so it needs its own signal:
+  // alphabetic density over non-space characters. Clean prose sits ~0.75-0.85;
+  // symbol/number-dominated gibberish is far lower. Gated on a minimum length so
+  // short snippets and legitimately number-dense captions do not trip it, and it
+  // is measured over the WHOLE extraction — a single garbled cover page in an
+  // otherwise-clean document is correctly not flagged.
+  const nonSpace = (text.match(/\S/g) || []).length || 1;
+  const letters = (text.match(/[A-Za-z]/g) || []).length;
+  const letterRatio = letters / nonSpace;
+  const gibberish = nonSpace >= 200 && letterRatio < 0.5;
   // Degraded means "don't trust verbatim spans, paraphrase math". Calibrated so
-  // math-heavy prose (many '?'-for-operator manglings) and glyph-dump PDFs
-  // ((cid:NN) tokens, high replacement-char density) trip it, while a handful of
-  // stray glyphs in figure captions of otherwise-clean prose does not.
-  const degraded = mangledMath >= 8 || cid > 5 || replacement / words > 0.015;
-  return { degraded, mangledMath, replacement, cid };
+  // math-heavy prose (many '?'-for-operator manglings), glyph-dump PDFs
+  // ((cid:NN) tokens, high replacement-char density), and broken-font gibberish
+  // trip it, while a handful of stray glyphs in figure captions of otherwise-clean
+  // prose does not.
+  const degraded = mangledMath >= 8 || cid > 5 || replacement / words > 0.015 || gibberish;
+  return { degraded, mangledMath, replacement, cid, letterRatio, gibberish };
 }
 
 // Build the clipping note. Pure: no IO, no pdftotext — the testable core.
@@ -86,7 +100,7 @@ export function pdfClipContent({ title, source, text, quality = 'medium', create
   const fidelity = assessFidelity(md).degraded ? 'degraded' : 'high';
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity, extraction });
-  return { md, wordCount: wordCount(md), fidelity, extraction, body: `${fm}\n\n${md}\n` };
+  return { md, wordCount: wordCount(md), fidelity, extraction, hash, body: `${fm}\n\n${md}\n` };
 }
 
 // Extract text via poppler's pdftotext. execFileSync (not a shell) resolves the
@@ -211,9 +225,15 @@ export function main(argv) {
     return { status: 'thin' };
   }
 
-  const slug = slugify(title);
-  const file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
-  if (existsSync(file)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
+  // Same-source re-clips are already caught by isDuplicateUrl above, so a slug
+  // collision here is a DIFFERENT paper that happens to share a title (or a
+  // case-variant of one). Disambiguate instead of dropping it — silently losing a
+  // distinct source is worse than a suffixed slug. Case-insensitive to match the
+  // filesystem and Obsidian's wikilink resolution.
+  const dir = join(vaultPath, 'raw', 'clippings');
+  const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
+  const slug = disambiguateSlug(slugify(title), clip.hash, (s) => taken.has(s.toLowerCase()));
+  const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${clip.extraction === 'ocr' ? 'OCR' : 'text'})`);

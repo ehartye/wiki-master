@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { slugify, slugFromUrl, normalizeUrl, isDuplicateUrl, buildFrontmatter } from '../scripts/clip.mjs';
+import { slugify, slugFromUrl, normalizeUrl, isDuplicateUrl, buildFrontmatter, disambiguateSlug } from '../scripts/clip.mjs';
 
 test('slugify strips illegal chars, collapses, caps length, defaults', () => {
   assert.equal(slugify('Neural Scaling Laws'), 'Neural Scaling Laws');
@@ -8,6 +8,25 @@ test('slugify strips illegal chars, collapses, caps length, defaults', () => {
   assert.equal(slugify('Trailing: '), 'Trailing');
   assert.equal(slugify(''), 'untitled');
   assert.equal(slugify('a'.repeat(200)).length, 120);
+});
+
+test('disambiguateSlug returns the slug unchanged when it does not collide', () => {
+  assert.equal(disambiguateSlug('Fresh Title', 'abc1234', () => false), 'Fresh Title');
+});
+
+test('disambiguateSlug appends a hash suffix on a collision (no silent drop)', () => {
+  const taken = new Set(['ai in mathematics e']); // stored lowercased
+  const exists = (s) => taken.has(s.toLowerCase());
+  // A DIFFERENT paper whose title slugifies to a case-variant of an existing one.
+  const out = disambiguateSlug('AI in Mathematics E', 'a9911ac85fbb', exists);
+  assert.equal(out, 'AI in Mathematics E-a9911ac', 'case-only collision must disambiguate, not drop');
+  assert.ok(!exists(out), 'the disambiguated slug is free');
+});
+
+test('disambiguateSlug walks past a suffixed collision too', () => {
+  const taken = new Set(['t', 't-abc1234']);
+  const out = disambiguateSlug('T', 'abc1234', (s) => taken.has(s.toLowerCase()));
+  assert.equal(out, 'T-abc1234-2');
 });
 
 test('slugFromUrl uses last path segment, decodes, falls back to host', () => {
