@@ -8,7 +8,7 @@ import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 // source-side exclusion, so its answer cannot be corrected after the fact.
 export { isContent };
 
-export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], declaredStubs = [], brokenClass = null }) {
+export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], provenanceGaps = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
   // Broken links are triaged (see classifyBrokenLinks): defects (typo/rename —
   // real bugs) and stale (abandoned low-demand forward-links) are penalized;
   // deferred forward-links are healthy by design and cost nothing. Callers
@@ -23,7 +23,12 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     Math.min(15, stale.length * 2) +
     Math.min(25, orphans.length * 2) +
     Math.min(20, deadEnds.length * 2) +
-    Math.min(15, hubStubs.length * 5);
+    Math.min(15, hubStubs.length * 5) +
+    // A source page citing no raw file is a broken provenance contract: it
+    // claims an ingest while leaving its clipping indistinguishable from one
+    // never processed. Every citation in the wiki rests on this link, so it is
+    // scored as a defect rather than filed as informational.
+    Math.min(20, provenanceGaps.length * 4);
   const score = Math.max(0, 100 - penalty);
 
   const list = (arr, fmt) => (arr.length ? `\n    ${arr.map(fmt).join('\n    ')}` : '');
@@ -44,9 +49,17 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     (hubStubs.length ? `\n    ${hubStubs.join('\n    ')}` : '') +
     `\n  declared stubs (not scored): ${declaredStubs.length}` +
     (declaredStubs.length ? `\n    ${declaredStubs.join('\n    ')}` : '') +
-    `\n  unparsed raw sources (not scored): ${unparsedSources.length}` +
-    (unparsedSources.length ? `\n    ${unparsedSources.join('\n    ')}` : '');
-  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, declaredStubs, brokenClass, report };
+    `\n  provenance gaps: ${provenanceGaps.length}` +
+    (provenanceGaps.length ? ` (source pages citing no raw/ file)\n    ${provenanceGaps.join('\n    ')}` : '') +
+    `\n  declared no provenance (not scored): ${declaredNoProvenance.length}` +
+    (declaredNoProvenance.length ? `\n    ${declaredNoProvenance.join('\n    ')}` : '') +
+    // Two distinct facts, reported separately. "Unparsed" alone invited the
+    // reading that a cited-but-unsummarized source was handled.
+    `\n  unparsed raw sources (nothing cites them): ${unparsedSources.length}` +
+    (unparsedSources.length ? `\n    ${unparsedSources.join('\n    ')}` : '') +
+    `\n  not ingested (no wiki/sources page): ${unsummarizedSources.length}` +
+    (unsummarizedSources.length ? `\n    ${unsummarizedSources.join('\n    ')}` : '');
+  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
 export function main() {

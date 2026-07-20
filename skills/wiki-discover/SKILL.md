@@ -71,12 +71,21 @@ It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
 `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
 records the decline automatically; report it for manual clipping, don't retry
-blindly. A `failed` result (403/transient) is NOT auto-declined — decline it
-explicitly with `--decline` only if you judge it permanently unclippable.
+blindly. A `failed` result (403/transient) is NOT auto-declined — it may recover,
+and a 180-day TTL would bury a source you still want.
+
+**Every unresolved link is queued for triage automatically.** `clip.mjs` records
+`failed`, `thin`, and `wrong-node` outcomes to `.wiki-master/triage.jsonl`, so a
+link that needs a human survives the terminal scrollback. Do not rely on your
+Phase 4 prose to carry them — point the user at `/wiki-triage`, where they can
+disposition each one (retry, decline, clipped-by-hand). Queue anything else that
+needs their judgement yourself with `recordIssue(vaultPath, { url, kind:
+'attention', reason })`.
 
 ## Phase 4 — confirm gate, then hand off
 Show the user the ranked list (title, url, quality, why) and which clips succeeded
-/ were skipped (blocked, duplicate, thin). Ask whether to ingest.
+/ were skipped (blocked, duplicate, thin, failed). If anything was queued for
+triage, say so and offer `/wiki-triage`. Ask whether to ingest.
 - **On confirm:** run `/wiki-ingest` (which processes the new clippings), then
   write the log entry by piping a one-line summary to
   `node ../../scripts/log-entry.mjs --op discover --title "<topic> → N clipped, M ingested"`.

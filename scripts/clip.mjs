@@ -7,6 +7,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { recordIssue } from './lib/triage.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -234,8 +235,13 @@ export function main(argv) {
       console.error(`Defuddle CLI not found. Install it: npm i -g defuddle`);
       process.exit(1);
     }
-    console.log(`clip failed (likely blocked/paywalled — clip manually): ${url}`);
-    return { status: 'failed' };
+    // A transient failure is deliberately NOT declined — it may recover, and a
+    // 180-day TTL would bury a recoverable source. It IS queued for triage, so the
+    // link survives the terminal scrollback and reaches a human.
+    const reason = 'fetch failed (likely 403/paywall/transient)';
+    recordIssue(vaultPath, { url, kind: 'failed', reason });
+    console.log(`clip failed (likely blocked/paywalled — clip manually; queued for triage): ${url}`);
+    return { status: 'failed', reason };
   }
 
   const md = data.contentMarkdown || data.content || '';
@@ -244,10 +250,16 @@ export function main(argv) {
     if (verdict.kind !== 'short_real_article') {
       // Thin/wrong-node is deterministic given this page's current markup — record
       // it so the next run skips without re-fetching. TTL re-litigates eventually.
-      // Transient fetch failures above are deliberately NOT recorded: they may recover.
       recordDecline(vaultPath, url, verdict.reason);
+      // Also queue it: the decline stops the re-fetch, but the source was still
+      // wanted and only a human can clip it manually.
+      recordIssue(vaultPath, {
+        url,
+        kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin',
+        reason: verdict.reason,
+      });
       const label = verdict.kind === 'wrong_node' ? 'possible extraction mismatch' : 'thin content';
-      console.log(`${label} (clip manually; decline recorded): ${url}`);
+      console.log(`${label} (clip manually; decline + triage recorded): ${url}`);
       return { status: 'thin', reason: verdict.reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
