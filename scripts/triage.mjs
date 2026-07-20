@@ -53,11 +53,15 @@ export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
 
-  let unparsed = [];
+  // The backlog is `unsummarizedSources`, not `unparsedSources`. A source cited
+  // only by a concept's provenance frontmatter is parsed but has no summary
+  // page — it still owes an ingest, and the looser metric would hide it.
+  let unsummarized = [];
   try {
-    unparsed = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() }).unparsedSources || [];
+    unsummarized =
+      computeGraphMetrics(buildGraph(vaultPath), { now: new Date() }).unsummarizedSources || [];
   } catch {
-    unparsed = [];
+    unsummarized = [];
   }
 
   return {
@@ -65,8 +69,8 @@ export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit
     attention: issues.filter((i) => i.kind === 'attention'),
     fidelity: [...issues.filter((i) => i.kind === 'fidelity'), ...fidelityOnly],
     expiring,
-    backlog: unparsed.slice(0, backlogLimit),
-    backlogTotal: unparsed.length,
+    backlog: unsummarized.slice(0, backlogLimit),
+    backlogTotal: unsummarized.length,
   };
 }
 
@@ -202,7 +206,7 @@ ${summary}
     ),
     group(
       `Ingest backlog${data.backlogTotal > data.backlog.length ? ` (showing ${data.backlog.length} of ${data.backlogTotal})` : ''}`,
-      'clipped but never turned into wiki pages',
+      'in raw/, but no wiki/sources page summarizes them',
       data.backlog.map((p) =>
         issueRow({ url: p, kind: 'backlog', reason: null, title: null }, BACKLOG_ACTS)
       )

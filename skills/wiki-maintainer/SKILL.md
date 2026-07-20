@@ -122,6 +122,27 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
 
+## "Has this been ingested?" — enforced, not guessed
+A raw source is **ingested iff a `wiki/sources/` page cites it**. That is the
+contract, and it is checked rather than assumed. Two separate facts, both binary:
+
+| metric | means | still owes work? |
+|---|---|---|
+| `unparsedSources` | nothing in the wiki cites it at all | yes |
+| `unsummarizedSources` | no `wiki/sources` page cites it | **yes — this is the backlog** |
+| `provenanceGaps` | a `wiki/sources` page citing no `raw/` file | yes — scored as a defect |
+
+A concept page citing a clipping in its own provenance frontmatter is a real
+citation, but it does **not** mean the source was summarized. Report
+`unsummarizedSources` when asked what still needs attention.
+
+**Never move files to record ingestion state.** `raw/` immutability is the
+load-bearing invariant, and ingestion state is *derivable* from the link graph —
+relocating files would copy a derived fact into the filesystem layout, where it
+can drift (a file in `raw/ingested/` whose summary page was later deleted now
+lies) and where two concurrent sessions race on the move. Derive it, like
+`index.md`; never store it twice.
+
 ## Known limits of the pattern
 Stated so they are not rediscovered as surprises. The pattern this vault
 implements bounds itself in ways worth tracking:

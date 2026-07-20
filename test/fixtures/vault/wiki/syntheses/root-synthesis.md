@@ -10,3 +10,6 @@ ai-generated: true
 # Root Synthesis
 The cluster overview. Links down to [[alpha]], [[beta]], [[gamma]].
 Linked only from index.md — which is its natural, healthy state.
+
+Source pages: [[source-a-summary]] and [[no-provenance]].
+Also [[declared-no-provenance]].
