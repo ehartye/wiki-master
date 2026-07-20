@@ -1,6 +1,6 @@
 {
   "name": "wiki-master",
-  "version": "0.3.15",
+  "version": "0.3.16",
   "type": "module",
   "private": true,
   "scripts": {

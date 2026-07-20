@@ -27,6 +27,48 @@ test('assessFidelity flags math-mangled extractions, not clean prose', () => {
   assert.equal(assessFidelity('This is clean flowing academic prose with no mangled symbols at all.').degraded, false);
 });
 
+test('assessFidelity does not flag ordinary sentence/heading question marks as mangled math', () => {
+  // Reproduces a real false positive: a print-to-PDF clip of an FAQ/TOC-style
+  // marketing page tripped mangledMath >= 8 purely from genuine "?" characters
+  // at heading/sentence boundaries, because pdftotext's reading-order extraction
+  // puts a line break (matched by \s) right where a heading ends and the next
+  // one begins, and the mangled-math shape ("word ? Word") is otherwise
+  // indistinguishable from "word ? word" without looking at case. Real captured
+  // pdftotext output (headings interleaved with body prose):
+  const faqToc = [
+    'Table of Contents',
+    'What is a graph database ?',
+    'Where graph database is',
+    'used?',
+    'When to use a graph',
+    'database?',
+    '',
+    'What is a graph database ?',
+    'A graph database is a type of database',
+    'that uses a graph structure to store, query,',
+    'and analyze data.',
+    '',
+    'Where graph database is',
+    'used?',
+    'Graph databases are ideal for use cases',
+    'involving highly connected data and complex,',
+    'changing data schema? Graph databases',
+    'excel here because relationships are stored',
+    'as first-class citizens.',
+    '',
+    'How can we help you today?',
+    'Interested in trying PuppyGraph? Start',
+    'a PuppyGraph live demo? Book a call with',
+    'our team.',
+  ].join('\n');
+  const f = assessFidelity(faqToc);
+  assert.equal(f.mangledMath, 0, 'genuine "?" at sentence/heading boundaries must not count as mangled math');
+  assert.equal(f.degraded, false);
+  // The real mangled-math case (digit-to-digit, same shape minus the capital
+  // letter after) must still trip the detector at the same threshold.
+  assert.equal(assessFidelity('x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1 g2 ? 1').mangledMath, 9);
+});
+
 test('assessFidelity flags broken-font gibberish (mojibake), not long clean prose', () => {
   // Symbol/number-dominated mojibake, >200 non-space chars, ~no letters — the
   // failure mode that trips none of the math/cid/replacement checks.
