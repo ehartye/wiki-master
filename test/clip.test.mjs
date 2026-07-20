@@ -44,9 +44,37 @@ test('normalizeUrl drops hash + trailing slash, lowercases host', () => {
   assert.equal(normalizeUrl('https://x.com/a/'), 'https://x.com/a');
 });
 
+test('normalizeUrl preserves the query string — it is the resource identity on many sites', () => {
+  // Real bug: news.ycombinator.com/item?id=X previously normalized to the
+  // same string for every X, so a second, genuinely distinct HN thread was
+  // silently rejected as a "duplicate" of the first before ever being fetched.
+  assert.equal(
+    normalizeUrl('https://news.ycombinator.com/item?id=44119185'),
+    'https://news.ycombinator.com/item?id=44119185',
+  );
+  assert.notEqual(
+    normalizeUrl('https://news.ycombinator.com/item?id=44119185'),
+    normalizeUrl('https://news.ycombinator.com/item?id=44119521'),
+  );
+  // Fragment is still dropped even when a query string is present.
+  assert.equal(normalizeUrl('https://x.com/a?b=1#frag'), 'https://x.com/a?b=1');
+  // Trailing slash before a query string is still normalized away.
+  assert.equal(normalizeUrl('https://x.com/a/?b=1'), 'https://x.com/a?b=1');
+});
+
 test('isDuplicateUrl matches ignoring trailing slash / fragment', () => {
   assert.equal(isDuplicateUrl('https://x.com/a/', ['https://x.com/a']), true);
   assert.equal(isDuplicateUrl('https://x.com/b', ['https://x.com/a']), false);
+});
+
+test('isDuplicateUrl does not collapse distinct query-string-identified resources', () => {
+  // The three real HN comment permalinks this bug affected.
+  const known = [
+    'https://news.ycombinator.com/item?id=44119185',
+    'https://news.ycombinator.com/item?id=39486181',
+  ];
+  assert.equal(isDuplicateUrl('https://news.ycombinator.com/item?id=44119521', known), false);
+  assert.equal(isDuplicateUrl('https://news.ycombinator.com/item?id=44119185', known), true);
 });
 
 test('buildFrontmatter injects plugin fields and omits absent optionals', () => {
