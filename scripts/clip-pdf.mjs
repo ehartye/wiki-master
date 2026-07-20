@@ -63,9 +63,19 @@ export function stripRunningHeadersFooters(text) {
 // alphanumerics ("x2 ? 1"), the replacement char, or (cid:NN) tokens. We can't
 // fix these without OCR, but we can FLAG them so ingest paraphrases equations
 // with attribution instead of quoting mangled text as if verbatim (guardrail #5).
+//
+// This must NOT trip on ordinary sentence- or heading-ending question marks
+// ("What is a graph database ?" / "...changing data schema? Graph databases").
+// Real prose question marks are followed (after optional whitespace, including
+// a line break for headings) by the capital letter starting the next sentence
+// or heading; mangled-math manglings are followed by the next term of the
+// expression, which is a digit or lowercase variable ("2 ? 1", not "? Graph").
+// The negative lookahead excludes only the capital-letter case, so a genuine
+// FAQ/TOC full of real "?"s stays clean while dense runs of "<digit> ? <digit>"
+// still trip the threshold below.
 export function assessFidelity(text) {
   const words = (text.match(/\S+/g) || []).length || 1;
-  const mangledMath = (text.match(/[A-Za-z0-9)\]]\s?\?\s?[A-Za-z0-9(]/g) || []).length;
+  const mangledMath = (text.match(/[A-Za-z0-9)\]]\s?\?\s?(?![A-Z])[A-Za-z0-9(]/g) || []).length;
   const replacement = (text.match(/�/g) || []).length;
   const cid = (text.match(/\(cid:\d+\)/g) || []).length;
   // Broken-font mojibake: a text layer that decodes to mostly non-letters —
