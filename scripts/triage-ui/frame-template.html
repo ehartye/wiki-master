@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>wiki-master :: triage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /*
+     * WIKI-MASTER TRIAGE FRAME
+     *
+     * Theme vendored from h-superpowers' brainstorming visual companion
+     * (terminal / phosphor edition) so the two surfaces read as one system.
+     * Light: blueprint on warm paper. Dark: azure phosphor CRT.
+     *
+     * Vendored deliberately rather than imported: wiki-master must work with or
+     * without h-superpowers installed, and that plugin's cache path is
+     * version-pinned. Cost of this choice: theme updates do not propagate.
+     */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    :root {
+      --bg-primary: #f4efe3;
+      --bg-secondary: #fbf7ec;
+      --bg-tertiary: #ebe4d1;
+      --ink: #141110;
+      --ink-soft: #3b342c;
+      --text-primary: #141110;
+      --text-secondary: #574c3e;
+      --text-tertiary: #8a7e6a;
+      --border: #141110;
+      --border-soft: rgba(20, 17, 16, 0.18);
+      --grid-line: rgba(30, 96, 145, 0.08);
+      --accent: #1e6091;
+      --accent-hover: #154870;
+      --accent-soft: rgba(30, 96, 145, 0.12);
+      --selected-bg: #dee9f2;
+      --selected-border: #1e6091;
+      --success: #2f6b4d;
+      --warning: #8a6d1f;
+      --error: #a73f2a;
+      --font-display: 'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      --font-body:    'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+      --font-prose:   'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+      --scan: 0;
+    }
+
+    :root[data-theme="dark"] {
+      --bg-primary: #0a0d14;
+      --bg-secondary: #10151f;
+      --bg-tertiary: #1a2334;
+      --ink: #4eb3ff;
+      --ink-soft: #2a8ad1;
+      --text-primary: #d0e3fa;
+      --text-secondary: #8fa7be;
+      --text-tertiary: #556478;
+      --border: #2a3548;
+      --border-soft: rgba(78, 179, 255, 0.15);
+      --grid-line: rgba(78, 179, 255, 0.05);
+      --accent: #4eb3ff;
+      --accent-hover: #7cc5ff;
+      --accent-soft: rgba(78, 179, 255, 0.14);
+      --selected-bg: rgba(78, 179, 255, 0.1);
+      --selected-border: #4eb3ff;
+      --success: #7cbf8a;
+      --warning: #ffb86c;
+      --error: #ff6b4a;
+      --scan: 0.035;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg-primary: #0a0d14;
+        --bg-secondary: #10151f;
+        --bg-tertiary: #1a2334;
+        --ink: #4eb3ff;
+        --ink-soft: #2a8ad1;
+        --text-primary: #d0e3fa;
+        --text-secondary: #8fa7be;
+        --text-tertiary: #556478;
+        --border: #2a3548;
+        --border-soft: rgba(78, 179, 255, 0.15);
+        --grid-line: rgba(78, 179, 255, 0.05);
+        --accent: #4eb3ff;
+        --accent-hover: #7cc5ff;
+        --accent-soft: rgba(78, 179, 255, 0.14);
+        --selected-bg: rgba(78, 179, 255, 0.1);
+        --selected-border: #4eb3ff;
+        --success: #7cbf8a;
+        --warning: #ffb86c;
+        --error: #ff6b4a;
+        --scan: 0.035;
+      }
+    }
+
+    /* ===== BASE ===== */
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-primary);
+      background-image:
+        linear-gradient(var(--grid-line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+      background-size: 28px 28px;
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      overflow-y: auto;
+    }
+
+    /* CRT scanline wash — invisible in light, faint in dark */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg, rgba(78,179,255,var(--scan)) 0px, rgba(78,179,255,var(--scan)) 1px,
+        transparent 1px, transparent 3px);
+    }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+    /* ===== HEADER ===== */
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.75rem;
+      display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+    }
+    header .brand {
+      font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink);
+    }
+    header .meta { color: var(--text-tertiary); font-size: 12px; }
+    header .spacer { flex: 1 1 auto; }
+
+    .theme-toggle {
+      font-family: var(--font-body); font-size: 11px; cursor: pointer;
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border-soft); padding: 0.25rem 0.6rem;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    h2 { font-size: 18px; font-weight: 600; margin-bottom: 0.35rem; }
+    .subtitle { color: var(--text-secondary); font-size: 13px; margin-bottom: 1.5rem; }
+
+    /* ===== SUMMARY BAR ===== */
+    .summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .stat {
+      border: 1px solid var(--border-soft); background: var(--bg-secondary);
+      padding: 0.5rem 0.85rem; min-width: 92px;
+    }
+    .stat .n { font-size: 20px; font-weight: 600; color: var(--ink); line-height: 1.1; }
+    .stat .k {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-tertiary);
+    }
+    .stat.is-zero { opacity: 0.45; }
+
+    /* ===== GROUPS ===== */
+    .group { margin-bottom: 2.25rem; }
+    .group > h3 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-secondary); border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 0.4rem; margin-bottom: 0.85rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .group > h3 .count { color: var(--text-tertiary); font-weight: 400; }
+    .group > h3 .why {
+      margin-left: auto; text-transform: none; letter-spacing: 0;
+      font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+    }
+
+    /* ===== ISSUE ROW ===== */
+    .issue {
+      border: 1px solid var(--border-soft); background: var(--bg-secondary);
+      padding: 0.85rem 1rem; margin-bottom: 0.6rem;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 0.75rem 1rem;
+      align-items: start;
+    }
+    .issue.done { opacity: 0.4; }
+    .issue.done .actions { pointer-events: none; }
+
+    .badge {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+      padding: 0.15rem 0.45rem; border: 1px solid currentColor;
+      white-space: nowrap; align-self: start; margin-top: 0.15rem;
+    }
+    .badge.failed    { color: var(--error); }
+    .badge.thin      { color: var(--warning); }
+    .badge.wrong-node{ color: var(--warning); }
+    .badge.blocked   { color: var(--text-tertiary); }
+    .badge.fidelity  { color: var(--warning); }
+    .badge.attention { color: var(--accent); }
+    .badge.expiring  { color: var(--accent); }
+    .badge.backlog   { color: var(--text-tertiary); }
+
+    .body { min-width: 0; }
+    .body .title {
+      font-weight: 600; margin-bottom: 0.15rem; word-break: break-word;
+    }
+    .body a.url {
+      color: var(--accent); text-decoration: none; font-size: 12px;
+      word-break: break-all; display: inline-block;
+    }
+    .body a.url:hover { color: var(--accent-hover); text-decoration: underline; }
+    .body .reason {
+      color: var(--text-secondary); font-size: 12px; margin-top: 0.3rem;
+      font-family: var(--font-prose);
+    }
+    .body .seen { color: var(--text-tertiary); font-size: 11px; margin-top: 0.25rem; }
+
+    /* ===== ACTIONS ===== */
+    .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
+    .act {
+      font-family: var(--font-body); font-size: 11px; cursor: pointer;
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border-soft); padding: 0.3rem 0.6rem;
+      text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    }
+    .act:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .act.chosen { border-color: var(--selected-border); background: var(--selected-bg); color: var(--accent); }
+    .act.danger:hover { border-color: var(--error); color: var(--error); background: transparent; }
+
+    /* ===== EMPTY ===== */
+    .empty {
+      border: 1px dashed var(--border-soft); padding: 2.5rem 1rem; text-align: center;
+      color: var(--text-tertiary);
+    }
+    .empty .big { font-size: 15px; color: var(--text-secondary); margin-bottom: 0.35rem; }
+
+    /* ===== FOOTER BAR ===== */
+    .bar {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      background: var(--bg-tertiary); border-top: 2px solid var(--border);
+      padding: 0.6rem 1.5rem; font-size: 12px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 1rem; z-index: 100;
+    }
+    .bar .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+      display: inline-block;
+    }
+    .bar .dot.off { background: var(--text-tertiary); }
+    .bar .spacer { flex: 1 1 auto; }
+    .bar code { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="brand">wiki-master</span>
+      <span class="meta">:: triage</span>
+      <span class="spacer"></span>
+      <button class="theme-toggle" onclick="wmToggleTheme()">theme</button>
+    </header>
+    <!-- CONTENT -->
+  </div>
+  <div class="bar">
+    <span class="dot" id="wm-conn"></span>
+    <span id="wm-status">connected</span>
+    <span class="spacer"></span>
+    <span>dispositions land in <code>.wiki-master/triage.jsonl</code></span>
+  </div>
+</body>
+</html>

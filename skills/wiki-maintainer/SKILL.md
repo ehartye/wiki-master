@@ -106,6 +106,13 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
   directory) → write the log entry via `node ../../scripts/log-entry.mjs`.
   One source typically touches 10–15 pages. Stamp `reviewed`.
+  **Prefer a named source set over the bare "process all new clippings" form.**
+  Two sessions sharing a vault is normal, and ingest is not concurrency-safe:
+  both would rewrite the same concept and index pages, last write silently wins.
+  Scoping to what you clipped keeps sessions out of each other's work.
+  **When a source discusses a concept that already has a page, revise that page
+  rather than adding a parallel one** — accumulating per-concept is what makes the
+  wiki compound instead of sprawl.
 - **Query** (`/wiki-query`): search relevant pages → synthesize with citations →
   offer to file the answer back as a new `wiki/syntheses/` page so it compounds.
 - **Lint** (`/wiki-lint`): run `/wiki-health` first (cheap); then read the flagged
@@ -114,6 +121,23 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
 - **Relink** (`/wiki-relink`): add inferred `[[links]]`; materialize entities
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
+
+## Known limits of the pattern
+Stated so they are not rediscovered as surprises. The pattern this vault
+implements bounds itself in ways worth tracking:
+- **Index-only navigation is bounded.** The source pattern claims it "works
+  surprisingly well at moderate scale (~100 sources, ~hundreds of pages)". Past
+  that, entry quietly shifts from reading `index.md` to `obsidian search` — which
+  is retrieval, the thing the pattern set out to replace. Nothing breaks when this
+  happens, so it will not announce itself. If a vault is well past the ceiling,
+  say so when it matters rather than implying the vault is inside a tested envelope.
+- **Cheap maintenance is not correct maintenance.** The pattern's justification is
+  that upkeep cost approaches zero, which addresses effort, not accuracy. It
+  specifies no verification tier — that is what `/wiki-lint`, quote-lint, and the
+  clipping-wins guardrail exist to supply.
+- **Frictionless collection is not free.** Automated discovery plus automated
+  ingest removes the cost that used to limit what got kept. Volume is not
+  progress; prefer fewer, better-corroborated sources over a larger pile.
 
 ## Cost discipline
 Cheap structural checks (`/wiki-health`) run every session and gate the expensive
