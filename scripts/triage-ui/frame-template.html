@@ -173,6 +173,18 @@
       font-size: 11px; color: var(--text-tertiary); font-weight: 400;
     }
 
+    /* ===== BULK BAR ===== */
+    .bulk-bar {
+      display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end;
+      margin: -0.35rem 0 0.7rem;
+    }
+    .bulk-act { opacity: 0.75; }
+    .bulk-act:hover { opacity: 1; }
+    .bulk-act.armed {
+      opacity: 1; border-color: var(--error); color: var(--error);
+      background: transparent; font-weight: 600;
+    }
+
     /* ===== ISSUE ROW ===== */
     .issue {
       border: 1px solid var(--border-soft); background: var(--bg-secondary);

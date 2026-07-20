@@ -1,7 +1,7 @@
 {
   "name": "wiki-master",
   "description": "Maintain a Karpathy-style LLM wiki on Obsidian using the native obsidian CLI.",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "author": {
     "name": "ehartye",
     "email": "eric@hartye.com"

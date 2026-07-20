@@ -112,3 +112,44 @@ test('the server does not cache the theme or client JS at startup', () => {
   assert.match(src, /function frameTemplate\(\)/, 'frameTemplate is a per-call read');
   assert.match(src, /function helperInjection\(\)/, 'helperInjection is a per-call read');
 });
+
+test('each group header carries bulk buttons matching its row actions', () => {
+  const html = renderScreen({
+    ...empty,
+    clipFailures: [
+      { url: 'https://a.test/1', kind: 'failed', reason: '403', occurrences: 1 },
+      { url: 'https://a.test/2', kind: 'thin', reason: 'spa', occurrences: 1 },
+    ],
+  });
+  assert.match(html, /data-bulk-act="retry"/);
+  assert.match(html, /data-bulk-act="declined"/);
+  assert.match(html, /data-bulk-group="/, 'bulk buttons are scoped to a group id');
+});
+
+test('bulk buttons state the count they actually affect', () => {
+  const html = renderScreen({
+    ...empty,
+    clipFailures: [
+      { url: 'https://a.test/1', kind: 'failed', reason: '403', occurrences: 1 },
+      { url: 'https://a.test/2', kind: 'failed', reason: '403', occurrences: 1 },
+    ],
+  });
+  assert.match(html, /data-bulk-count="2"/);
+});
+
+test('a truncated group scopes bulk to the rendered rows, not the total', () => {
+  const html = renderScreen({
+    ...empty,
+    backlog: ['raw/a.md', 'raw/b.md'],
+    backlogTotal: 85,
+  });
+  // 2 rows are in the DOM; bulk must not claim to act on 85.
+  assert.match(html, /data-bulk-count="2"/);
+  assert.doesNotMatch(html, /data-bulk-count="85"/);
+  assert.match(html, /showing 2 of 85/, 'and the truncation stays visible');
+});
+
+test('an empty group contributes no bulk buttons', () => {
+  const html = renderScreen(empty);
+  assert.doesNotMatch(html, /data-bulk-act=/);
+});

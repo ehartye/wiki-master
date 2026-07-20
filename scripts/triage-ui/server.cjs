@@ -150,33 +150,41 @@ function handleRequest(req, res) {
         res.end('{"error":"bad json"}');
         return;
       }
-      if (!payload.url || !payload.kind || !payload.disposition) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end('{"error":"url, kind and disposition are required"}');
-        return;
+      // Accepts one disposition or a batch. A bulk apply is a single request and
+      // a single append, so it cannot half-succeed and leave the UI showing rows
+      // as handled that were never recorded.
+      const items = Array.isArray(payload.items) ? payload.items : [payload];
+      const at = new Date().toISOString();
+      const events = [];
+      for (const it of items) {
+        if (!it || !it.url || !it.kind || !it.disposition) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end('{"error":"each item needs url, kind and disposition"}');
+          return;
+        }
+        events.push({
+          t: 'disposition',
+          url: it.url,
+          kind: it.kind,
+          disposition: it.disposition,
+          note: it.note || null,
+          at,
+          via: 'triage-ui',
+        });
       }
-      const event = {
-        t: 'disposition',
-        url: payload.url,
-        kind: payload.kind,
-        disposition: payload.disposition,
-        note: payload.note || null,
-        at: new Date().toISOString(),
-        via: 'triage-ui',
-      };
       try {
         fs.mkdirSync(path.dirname(TRIAGE_LOG), { recursive: true });
-        fs.appendFileSync(TRIAGE_LOG, JSON.stringify(event) + '\n');
+        fs.appendFileSync(TRIAGE_LOG, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
       } catch (e) {
         // Report the failure rather than 200-ing a write that did not happen —
-        // the client reverts the row on a non-2xx.
+        // the client reverts the rows on a non-2xx.
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message }));
         return;
       }
-      console.log(JSON.stringify({ type: 'disposition', ...event }));
+      console.log(JSON.stringify({ type: 'disposition', count: events.length }));
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{"ok":true}');
+      res.end(JSON.stringify({ ok: true, count: events.length }));
     });
     return;
   }

@@ -120,15 +120,37 @@ function issueRow(item, acts) {
 </div>`;
 }
 
-function group(title, why, rows) {
+let groupSeq = 0;
+
+// Bulk buttons name the count they will actually act on — the rows present in
+// the DOM, which for a truncated group is NOT the group total. "Apply to all"
+// over a capped list is the same silent-truncation lie the report avoids.
+function group(title, why, rows, acts = []) {
   if (!rows.length) return '';
-  return `<div class="group">
+  const id = `g${++groupSeq}`;
+  const bulk = acts.length
+    ? `<span class="bulk">${acts
+        .map(
+          (a) =>
+            `<button class="act bulk-act${a.danger ? ' danger' : ''}" data-bulk-group="${id}" data-bulk-act="${esc(
+              a.id
+            )}" data-bulk-count="${rows.length}" data-bulk-label="${esc(a.label)}">${esc(a.label)} all ${rows.length}</button>`
+        )
+        .join('')}</span>`
+    : '';
+  return `<div class="group" data-group="${id}">
   <h3>${esc(title)} <span class="count">${rows.length}</span><span class="why">${esc(why)}</span></h3>
+  ${bulk ? `<div class="bulk-bar">${bulk}</div>` : ''}
   ${rows.join('\n')}
 </div>`;
 }
 
 export function renderScreen(data) {
+  // Reset per render so a screen's group ids are deterministic — otherwise two
+  // renders of identical data produce different markup, which makes diffing
+  // screens and asserting on them needlessly awkward.
+  groupSeq = 0;
+
   const CLIP_ACTS = [
     { id: 'clipped-manually', label: 'clipped by hand' },
     { id: 'retry', label: 'retry' },
@@ -178,17 +200,20 @@ ${summary}
     group(
       'Clip failures',
       'wanted, not captured — only a human can resolve',
-      data.clipFailures.map((i) => issueRow(i, CLIP_ACTS))
+      data.clipFailures.map((i) => issueRow(i, CLIP_ACTS)),
+      CLIP_ACTS
     ),
     group(
       'Needs a decision',
       'queued explicitly by the agent',
-      data.attention.map((i) => issueRow(i, CLIP_ACTS))
+      data.attention.map((i) => issueRow(i, CLIP_ACTS)),
+      CLIP_ACTS
     ),
     group(
       'Fidelity flags',
       'in the vault, but degraded — affects what you may quote',
-      data.fidelity.map((i) => issueRow(i, FIDELITY_ACTS))
+      data.fidelity.map((i) => issueRow(i, FIDELITY_ACTS)),
+      FIDELITY_ACTS
     ),
     group(
       'Declines nearing expiry',
@@ -202,14 +227,16 @@ ${summary}
           },
           EXPIRY_ACTS
         )
-      )
+      ),
+      EXPIRY_ACTS
     ),
     group(
       `Ingest backlog${data.backlogTotal > data.backlog.length ? ` (showing ${data.backlog.length} of ${data.backlogTotal})` : ''}`,
       'in raw/, but no wiki/sources page summarizes them',
       data.backlog.map((p) =>
         issueRow({ url: p, kind: 'backlog', reason: null, title: null }, BACKLOG_ACTS)
-      )
+      ),
+      BACKLOG_ACTS
     ),
   ].filter(Boolean);
 
