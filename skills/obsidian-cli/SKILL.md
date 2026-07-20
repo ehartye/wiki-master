@@ -20,11 +20,12 @@ reads as "no results". Use the **PowerShell tool** (resolves the shim correctly)
 or Node's `execFileSync` via `vault.mjs` (also correct).
 
 ## Empty is not an answer
-The CLI exits 0 whether it found results, found nothing, or never ran at all.
-Before trusting any empty result, probe: `obsidian search query="the" total` —
-a live backend prints a number; literal empty output means the backend is dead
-(wrong binary, app not running, index rebuilding). Treat unproven empties as
-failures, not as "the vault has nothing".
+The CLI exits 0 whether it found results or never ran at all, so exit status
+alone cannot tell those apart. Probe once per session:
+`obsidian search query="the" total` — a live backend prints a number. Once it
+does, the backend is proven for the session: use the CLI normally, and read a
+later empty result as "the vault has nothing" without re-justifying it. Only an
+empty *canary* means the backend is dead.
 
 ## Read / search
 - `obsidian read path=wiki/concepts/alpha.md`
@@ -69,5 +70,5 @@ failures, not as "the vault has nothing".
 - `obsidian eval code="<js>"` — arbitrary JS in app context (last resort)
 
 If a command fails, surface the running-guard message from
-`scripts/lib/vault.mjs` (`assertRunning`). For correctness-critical reads
-(dedup, provenance), prefer the filesystem — it cannot silently return empty.
+`scripts/lib/vault.mjs` (`assertRunning`) — it fails loudly, so a command that
+returns is a command that ran.

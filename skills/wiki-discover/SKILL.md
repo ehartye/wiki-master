@@ -18,12 +18,10 @@ writer is `scripts/clip.mjs`.
 
 ## Phase 0 — dedup before searching
 Gather what the wiki already has so the search hunts for *gaps*, not dupes:
-- Known source URLs: **read the filesystem** — `scripts/clip.mjs`'s
-  `knownSourceUrls(vaultPath)` (or equivalently grep `^source:` across
-  `raw/clippings/*.md`). **Never build the dedup set from `obsidian search`:**
-  the CLI can silently return empty (app not running, index rebuilding, wrong
-  binary on Windows), and an empty dedup set fails open — everything re-clips.
-  The filesystem cannot silently be empty.
+- Known source URLs: `scripts/clip.mjs`'s `knownSourceUrls(vaultPath)` (or
+  equivalently grep `^source:` across `raw/clippings/*.md`). This reads the
+  clippings themselves, rather than querying an index built from them — the
+  shortest path to the fact, and it stays correct while the index is stale.
 - Coverage summary: read `index.md`.
 - Sanity-check the set: if the vault has clippings on disk but the known-URL
   set is empty, STOP — the collection step failed; do not proceed to search.

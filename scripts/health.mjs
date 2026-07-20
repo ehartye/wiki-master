@@ -2,11 +2,10 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 
-// Health reads the vault filesystem directly — no Obsidian CLI. A CLI answer
-// like "0 orphans" cannot be distinguished from a broken CLI (wrong binary,
-// app not running, index mid-rebuild), and its orphan/deadend verdicts are
-// computed WITH structural files' links included, which we cannot exclude
-// after the fact. The filesystem is ground truth and cannot silently be empty.
+// Health reads the vault filesystem directly — no Obsidian CLI. The CLI's
+// orphan/deadend verdicts are computed WITH structural files' links included
+// (index.md links everything, so nothing ever looks orphaned) and it offers no
+// source-side exclusion, so its answer cannot be corrected after the fact.
 export { isContent };
 
 export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], declaredStubs = [], brokenClass = null }) {
