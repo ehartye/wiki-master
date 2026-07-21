@@ -111,10 +111,11 @@ for (const [target, citers] of [...citersOf].slice(0, LIMIT)) {
     writeFileSync(abs, text);
     report.repointed++;
   }
-  if (fidelity !== 'high') {
-    report.degraded.push({ target, clip: clipRel, fidelity });
-    try { recordIssue(vault, { url: binAbs, kind: 'fidelity', reason: `extraction ${fidelity} after OCR escalation` }); } catch {}
-  }
+  // Reported, not logged. A degraded clipping leaves its own artifact — the
+  // `fidelity:` frontmatter — so triage derives it from the vault and the signal
+  // self-corrects when a better extraction lands. Logging it too would duplicate
+  // a derived fact into an append-only record that cannot un-say itself.
+  if (fidelity !== 'high') report.degraded.push({ target, clip: clipRel, fidelity });
 }
 
 console.log(JSON.stringify({

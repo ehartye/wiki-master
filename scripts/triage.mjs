@@ -49,12 +49,24 @@ export function fidelityFlagged(vaultPath) {
 }
 
 export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit = 25 } = {}) {
-  const issues = openIssues(loadIssueLog(vaultPath));
+  const log = loadIssueLog(vaultPath);
+  const issues = openIssues(log);
   const fidelity = fidelityFlagged(vaultPath);
 
-  // De-dupe: a fidelity flag already queued explicitly wins over the scan.
-  const queued = new Set(issues.map((i) => `${i.url} ${i.kind}`));
-  const fidelityOnly = fidelity.filter((f) => !queued.has(`${f.url} ${f.kind}`));
+  // De-dupe against the log, and honour dispositions. Two hazards:
+  //  - the same item reaches here by two routes with differently-escaped paths
+  //    (a log entry stores the path as passed, frontmatter stores it YAML-escaped),
+  //    so keys are normalized before comparison or the row appears twice;
+  //  - a DERIVED flag must stay suppressed once dispositioned. openIssues drops a
+  //    dispositioned issue, so matching only against OPEN issues let the frontmatter
+  //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
+  const norm = (u) => String(u ?? '').replace(/\\\\/g, '\\').toLowerCase();
+  const k = (u, kind) => `${norm(u)} ${kind}`;
+  const queued = new Set(issues.map((i) => k(i.url, i.kind)));
+  const settled = new Set(
+    log.filter((e) => e?.t === 'disposition' && e.url).map((e) => k(e.url, e.kind))
+  );
+  const fidelityOnly = fidelity.filter((f) => !queued.has(k(f.url, f.kind)) && !settled.has(k(f.url, f.kind)));
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
 

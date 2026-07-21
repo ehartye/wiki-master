@@ -90,7 +90,12 @@ export function assessFidelity(text) {
   const nonSpace = (text.match(/\S/g) || []).length || 1;
   const letters = (text.match(/[A-Za-z]/g) || []).length;
   const letterRatio = letters / nonSpace;
-  const gibberish = nonSpace >= 200 && letterRatio < 0.5;
+  // Calibrated against real content, not intuition. A legitimately numeric
+  // document — a DOT unit-price table or fuel index — is letter-sparse because
+  // the content IS numbers, and still measures 0.35-0.40 (column headers, item
+  // descriptions, dates). Broken-font mojibake measures 0.00-0.05. The old 0.5
+  // gate sat above real data and flagged every price sheet as gibberish.
+  const gibberish = nonSpace >= 200 && letterRatio < 0.2;
   // Degraded means "don't trust verbatim spans, paraphrase math". Calibrated so
   // math-heavy prose (many '?'-for-operator manglings), glyph-dump PDFs
   // ((cid:NN) tokens, high replacement-char density), and broken-font gibberish

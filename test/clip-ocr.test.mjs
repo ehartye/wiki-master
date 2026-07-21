@@ -23,6 +23,21 @@ test('assessFidelity: genuinely math-mangled text is still degraded', () => {
   assert.equal(assessFidelity('x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1 g2 ? 1').degraded, true);
 });
 
+// The gibberish gate sat at letterRatio < 0.5, above real numeric content, so
+// every DOT unit-price table and fuel index read as broken-font mojibake.
+test('assessFidelity: a letter-sparse price table is data, not gibberish', () => {
+  const a = assessFidelity('XZ1015177 Bituminous Surface TON 94 32.50 3,055.00 03/12/2026\n'.repeat(40));
+  assert.ok(a.letterRatio < 0.5, 'letter-sparse enough to have tripped the old gate');
+  assert.ok(a.letterRatio > 0.2, 'but real data keeps headers and descriptions');
+  assert.equal(a.gibberish, false);
+  assert.equal(a.degraded, false);
+});
+
+test('assessFidelity: letterless symbol soup is still gibberish', () => {
+  const a = assessFidelity('345689 9 9 #$%&*+,+3 -./012 32.1145 '.repeat(12));
+  assert.equal(a.gibberish, true, 'digit-dense but zero letters is mojibake, not data');
+});
+
 const words = (s) => (s.match(/\S+/g) || []).length;
 const mk = (md) => ({ md, wordCount: words(md), fidelity: assessFidelity(md).degraded ? 'degraded' : 'high' });
 
