@@ -8,7 +8,7 @@ import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 // source-side exclusion, so its answer cannot be corrected after the fact.
 export { isContent };
 
-export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], provenanceGaps = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
+export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0, provenanceGaps = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
   // Broken links are triaged (see classifyBrokenLinks): defects (typo/rename —
   // real bugs) and stale (abandoned low-demand forward-links) are penalized;
   // deferred forward-links are healthy by design and cost nothing. Callers
@@ -57,9 +57,16 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     // reading that a cited-but-unsummarized source was handled.
     `\n  unparsed raw sources (nothing cites them): ${unparsedSources.length}` +
     (unparsedSources.length ? `\n    ${unparsedSources.join('\n    ')}` : '') +
-    `\n  not ingested (no wiki/sources page): ${unsummarizedSources.length}` +
-    (unsummarizedSources.length ? `\n    ${unsummarizedSources.join('\n    ')}` : '');
-  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass, report };
+    `\n  not ingested (no summary records their hash): ${unsummarizedSources.length}` +
+    (unsummarizedSources.length ? `\n    ${unsummarizedSources.join('\n    ')}` : '') +
+    // Data-quality, not ingest-state: a clipping with no source-hash cannot be
+    // hash-joined at all, so it is surfaced for repair. Migration progress: source
+    // pages that cite raw but have not yet recorded a hash (fallback still credits
+    // them; the count reaches 0 when the vault is fully migrated).
+    `\n  clippings missing source-hash (repair): ${missingHash.length}` +
+    (missingHash.length ? `\n    ${missingHash.join('\n    ')}` : '') +
+    `\n  source pages awaiting hash backfill: ${backfillPending}`;
+  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
 export function main() {

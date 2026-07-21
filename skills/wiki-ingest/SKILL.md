@@ -16,6 +16,10 @@ For each source:
 1. Read it (`obsidian read path=...`). Discuss the key takeaways with the user.
 2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: [[<raw link>]]`,
    `type: source`, `ai-generated: true`, and typed `created`/`updated`/`reviewed`.
+   Also record `source-hashes: [<sha256>, …]` — the `source-hash` frontmatter value
+   of each clipping you summarized (read it from the clipping's frontmatter). This
+   is the machine key the ingest-backlog metric joins on — immune to filename and
+   citation drift; the `sources: [[…]]` wikilink stays for navigation.
 3. Update the entities and concepts it touches; create stubs (`status: stub`) where
    a `[[link]]` has no page yet. Add links in both directions.
 4. Regenerate the catalog: `node ../../scripts/index-gen.mjs`

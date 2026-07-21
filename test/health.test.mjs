@@ -30,11 +30,17 @@ test('health end-to-end: fixture vault scores below 100 with attributed findings
   // Two separate facts: nothing cites unparsed-clip/noisy-toc at all, while
   // source-b is cited by a concept's provenance yet still has no summary page.
   assert.ok(r.report.includes('unparsed raw sources (nothing cites them): 2'));
-  assert.ok(r.report.includes('not ingested (no wiki/sources page): 4'));
+  // Ingest backlog is now a content-hash join over .md clippings only. source-a
+  // is credited via the transitional link fallback (source-a-summary cites it,
+  // pre-backfill); source-b/noisy-toc/unparsed-clip remain owed a summary → 3.
+  assert.ok(r.report.includes('not ingested (no summary records their hash): 3'));
   assert.ok(r.unsummarizedSources.includes('raw/sources/source-b.md'));
-  // A PDF attachment counts too: it is cited (so not "unparsed") but has no
-  // summary page, so it is genuinely still owed one. Binary fact, no exemption.
-  assert.ok(r.unsummarizedSources.includes('raw/sources/paper.pdf'));
+  // Binaries are NOT ingestable units — the pipeline summarizes a clipping's .md,
+  // never the binary original — so a raw .pdf is excluded from the backlog.
+  assert.ok(!r.unsummarizedSources.includes('raw/sources/paper.pdf'));
+  // No fixture clipping carries a source-hash yet, and one source page (source-a-
+  // summary) cites raw without recording a hash → surfaced for repair/backfill.
+  assert.ok(r.report.includes('source pages awaiting hash backfill: 1'));
   assert.deepEqual(r.provenanceGaps, ['wiki/sources/no-provenance.md']);
   assert.ok(r.report.includes('<- wiki/concepts/gamma.md'), 'report attributes broken links');
 });

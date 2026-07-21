@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent } from '../scripts/lib/graph.mjs';
@@ -304,4 +306,87 @@ test('resolveLinkTarget resolves a link whose target name itself ends in .md', (
     'wiki/sources/GitHub — Writing a Great agents.md.md',
     'a [[Name.md]] link resolves to the Name.md.md page — the .md is part of the note name'
   );
+});
+
+// ─── Hash-based ingest-state tracking (specs/2026-07-21-hash-ingest-state-design.md) ───
+// The link-resolution backlog manufactured 172 phantom items on the live vault
+// (~0 real): 80 clippings whose `[[Title]]` citation could not bridge the
+// `-<hash7>` filename suffix, and 92 binaries that can never be a summary target.
+// Ingest-state moves onto a content-hash join: a clipping is ingested iff its
+// `source-hash` is recorded in some wiki/sources page's `source-hashes`.
+
+test('buildGraph parses source-hash and source-hashes from frontmatter', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'raw', 'clippings'), { recursive: true });
+  mkdirSync(join(dir, 'wiki', 'sources'), { recursive: true });
+  writeFileSync(
+    join(dir, 'raw', 'clippings', 'Foo-abc1234.md'),
+    '---\ntitle: "Foo"\ntags: [clippings]\nsource-hash: abc1234def5678\n---\nbody\n'
+  );
+  writeFileSync(
+    join(dir, 'wiki', 'sources', 'Foo Summary.md'),
+    '---\ntype: source\nsources: ["[[Foo-abc1234]]"]\nsource-hashes: ["abc1234def5678"]\n---\nsummary\n'
+  );
+  const g = buildGraph(dir);
+  const clip = g.pages.find((p) => p.path === 'raw/clippings/Foo-abc1234.md');
+  const src = g.pages.find((p) => p.path === 'wiki/sources/Foo Summary.md');
+  assert.equal(clip.sourceHash, 'abc1234def5678', 'clipping source-hash parsed');
+  assert.deepEqual(src.sourceHashes, ['abc1234def5678'], 'source-hashes list parsed');
+});
+
+test('unsummarizedSources: a clipping is ingested iff its source-hash is recorded (immune to the -hash7 suffix)', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo-abc1234.md', name: 'foo-abc1234', title: 'Foo', words: 40, outTargets: [], fmTargets: [], sourceHash: 'aaa1111' },
+    { path: 'raw/clippings/Bar-9990000.md', name: 'bar-9990000', title: 'Bar', words: 40, outTargets: [], fmTargets: [], sourceHash: 'bbb2222' },
+    { path: 'wiki/sources/Foo Summary.md', name: 'foo summary', title: 'Foo Summary', words: 60, outTargets: [], fmTargets: [], sourceHashes: ['aaa1111'] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.unsummarizedSources.includes('raw/clippings/Foo-abc1234.md'),
+    'hash recorded by a source page → ingested, despite no wikilink and the filename suffix');
+  assert.ok(m.unsummarizedSources.includes('raw/clippings/Bar-9990000.md'),
+    'no source page records this hash → genuine backlog');
+});
+
+test('unsummarizedSources excludes binaries — only .md clippings are ingestable units', () => {
+  const pages = [
+    { path: 'raw/proc-graphics/Paper.pdf', name: 'paper.pdf', title: 'Paper.pdf', type: 'attachment', words: 0, outTargets: [], fmTargets: [] },
+    { path: 'raw/INDOT_Unit_Prices.xlsx', name: 'indot_unit_prices.xlsx', title: 'x', type: 'attachment', words: 0, outTargets: [], fmTargets: [] },
+    { path: 'raw/clippings/ref-docs-staging/Bundle.zip', name: 'bundle.zip', title: 'x', type: 'attachment', words: 0, outTargets: [], fmTargets: [] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.deepEqual(m.unsummarizedSources, [], 'binary originals are never ingest backlog');
+});
+
+test('unsummarizedSources: a re-clipped source is backlog even if a stale wikilink still cites it (migrated page → hash is authoritative)', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo-abc1234.md', name: 'foo-abc1234', title: 'Foo', words: 40, outTargets: [], fmTargets: [], sourceHash: 'newhash' },
+    { path: 'wiki/sources/Foo Summary.md', name: 'foo summary', title: 'Foo Summary', words: 60,
+      outTargets: [], fmTargets: ['raw/clippings/Foo-abc1234.md'], sourceHashes: ['oldhash'] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(m.unsummarizedSources.includes('raw/clippings/Foo-abc1234.md'),
+    'a migrated page trusts its recorded hashes; a stale hash means re-ingest even though a wikilink still resolves');
+});
+
+test('unsummarizedSources: a legacy (pre-backfill) page credits its clipping by link, and no-hash clippings surface in missingHash', () => {
+  const pages = [
+    { path: 'raw/clippings/Legacy.md', name: 'legacy', title: 'Legacy', words: 20, outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Legacy Summary.md', name: 'legacy summary', title: 'Legacy Summary', words: 60,
+      outTargets: [], fmTargets: ['raw/clippings/Legacy.md'] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.unsummarizedSources.includes('raw/clippings/Legacy.md'),
+    'a page with no source-hashes yet still credits its clipping via link resolution (transitional)');
+  assert.deepEqual(m.missingHash, ['raw/clippings/Legacy.md'],
+    'a .md clipping with no source-hash is flagged for repair');
+});
+
+test('backfillPending counts source pages that cite raw but have not yet recorded source-hashes', () => {
+  const pages = [
+    { path: 'raw/clippings/X.md', name: 'x', title: 'X', words: 20, outTargets: [], fmTargets: [], sourceHash: 'hx' },
+    { path: 'wiki/sources/Done.md', name: 'done', title: 'Done', words: 60, outTargets: [], fmTargets: ['raw/clippings/X.md'], sourceHashes: ['hx'] },
+    { path: 'wiki/sources/Pending.md', name: 'pending', title: 'Pending', words: 60, outTargets: [], fmTargets: ['raw/clippings/X.md'] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.equal(m.backfillPending, 1, 'only the page still lacking source-hashes is pending');
 });
