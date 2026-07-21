@@ -154,27 +154,53 @@ export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays 
   return { defects, stale, deferred };
 }
 
+// The index resolveLinkTarget() resolves against: every page registers BOTH
+// its bare basename ("csx") and its full, directory-qualified,
+// extension-stripped path ("wiki/sources/csx"), both lowercased. This
+// matters because this vault has real, unavoidable basename collisions — a
+// wiki/sources/ summary page and its raw/clippings/ source frequently share
+// the exact same filename (the vault's own long-standing naming pattern) —
+// and a bare-name-only index cannot tell them apart: whichever page the
+// filesystem walk visits first silently wins, and every OTHER page sharing
+// that basename becomes permanently unreachable by name, however it is
+// linked. Measured against the live vault this was not a corner case: all
+// 117 wiki/* pages sharing a basename with a raw/clippings/ file were
+// unreachable this way, and every single one read as a false orphan. But a
+// link that names a directory ("[[wiki/sources/CSX]]") is NOT ambiguous —
+// Obsidian resolves a path-qualified link to that exact file — so
+// registering the full path as its own key lets resolveLinkTarget check for
+// an unambiguous exact match before ever falling back to the bare-basename
+// map, which remains exactly as ambiguous as before for links that truly
+// don't qualify a directory.
+export function buildNameIndex(pages) {
+  const byName = new Map();
+  for (const p of pages) {
+    if (!byName.has(p.name)) byName.set(p.name, p.path);
+    const fullKey = p.path.replace(/\.md$/i, '').toLowerCase();
+    if (!byName.has(fullKey)) byName.set(fullKey, p.path);
+  }
+  return byName;
+}
+
 // A wikilink target may be written as a bare basename ("Foo"), a
 // vault-relative path ("wiki/sources/Foo"), or a raw-file path with
 // extension ("raw/clippings/Foo.md") — this vault's own documented citation
 // convention (`sources: [[raw/clippings/X.md]]`) uses the last form
-// throughout, and Obsidian itself resolves all three identically, by
-// matching the final path segment's basename, extension-insensitive. byName
-// is keyed on bare basenames only (see buildGraph's `name` field: no
-// directory, no .md extension), so a raw `byName.get(t.toLowerCase())`
-// silently fails on any path- or extension-qualified target — which,
-// measured across the live vault, is the format actually used by roughly
-// two-thirds of existing `sources:` citations, not the exception. Every
-// lookup against byName must go through this normalization first.
+// throughout, and Obsidian itself resolves all three, preferring an exact
+// path match when one is given and falling back to basename matching only
+// for a truly unqualified link. byName (built by buildNameIndex) carries
+// both kinds of key, so checking the full (extension-stripped) target first
+// picks the exact, unambiguous match; only an unqualified bare name falls
+// through to the collision-prone basename fallback.
 export function resolveLinkTarget(byName, target) {
-  const base = target.split('/').pop() || target;
-  const bare = base.replace(/\.md$/i, '');
-  return byName.get(bare.toLowerCase());
+  const full = target.toLowerCase().replace(/\.md$/i, '');
+  if (byName.has(full)) return byName.get(full);
+  const bare = full.split('/').pop() || full;
+  return byName.get(bare);
 }
 
 export function computeGraphMetrics({ pages }, opts = {}) {
-  const byName = new Map();
-  for (const p of pages) if (!byName.has(p.name)) byName.set(p.name, p.path);
+  const byName = buildNameIndex(pages);
 
   const inbound = new Map(pages.map((p) => [p.path, 0]));
   const brokenLinks = [];
