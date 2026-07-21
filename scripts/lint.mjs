@@ -67,29 +67,42 @@ function isEvidencePath(path) {
   return path.startsWith('raw/') || path.startsWith('wiki/sources/');
 }
 
-function evidenceBodies(vaultPath, page, byName, pages) {
-  const seen = new Set();
-  const bodies = [];
-  const visit = (p, depth, viaEvidence) => {
-    if (!p || seen.has(p.path) || depth > 3) return;
-    seen.add(p.path);
-    if (p.path !== page.path && (viaEvidence || isEvidencePath(p.path))) {
-      bodies.push(splitFm(readFileSync(join(vaultPath, p.path), 'utf8')));
-    }
-    const follow = (t) => {
-      const target = pages.get(resolveLinkTarget(byName, t));
-      if (!target) return;
-      // From the page itself: only step toward evidence. From evidence pages:
-      // keep following their provenance (source page → its raw clippings).
-      if (depth === 0 ? isEvidencePath(target.path) : true) {
-        visit(target, depth + 1, isEvidencePath(target.path));
+const MAX_DEPTH = 3;
+
+// BREADTH-first, so every page is reached by its SHORTEST route. Depth-first
+// with one shared `seen` set loses evidence: a source page reached late down a
+// long chain gets marked seen at the depth limit, and the direct citation of
+// that same page — one hop from its own clipping — then bails on `seen` and is
+// never expanded. Quotes taken straight from a directly-cited source then read
+// as unverifiable. Order of a page's links must not decide what counts as
+// evidence.
+export function evidencePaths(page, byName, pages) {
+  const seen = new Set([page.path]);
+  const found = [];
+  let frontier = [{ p: page, depth: 0, viaEvidence: false }];
+  while (frontier.length) {
+    const next = [];
+    for (const { p, depth, viaEvidence } of frontier) {
+      if (p.path !== page.path && (viaEvidence || isEvidencePath(p.path))) found.push(p.path);
+      if (depth >= MAX_DEPTH) continue;
+      for (const t of [...(p.fmTargets ?? []), ...(p.outTargets ?? [])]) {
+        const target = pages.get(resolveLinkTarget(byName, t));
+        if (!target || seen.has(target.path)) continue;
+        // From the page itself: only step toward evidence. From evidence pages:
+        // keep following their provenance (source page → its raw clippings).
+        if (depth === 0 && !isEvidencePath(target.path)) continue;
+        seen.add(target.path);
+        next.push({ p: target, depth: depth + 1, viaEvidence: isEvidencePath(target.path) });
       }
-    };
-    for (const t of p.fmTargets ?? []) follow(t);
-    for (const t of p.outTargets ?? []) follow(t);
-  };
-  visit(page, 0, false);
-  return bodies;
+    }
+    frontier = next;
+  }
+  return found;
+}
+
+function evidenceBodies(vaultPath, page, byName, pages) {
+  return evidencePaths(page, byName, pages)
+    .map((p) => splitFm(readFileSync(join(vaultPath, p), 'utf8')));
 }
 
 export function checkQuotes(vaultPath, graph) {
@@ -112,7 +125,9 @@ export function checkQuotes(vaultPath, graph) {
         .map((f) => normalize(f).replace(/^[.,;:!?\s]+|[.,;:!?\s]+$/g, ''));
       if (!fragments.length) continue;
       if (!fragments.every((f) => evidence.some((e) => e.includes(f)))) {
-        findings.push({ page: p.path, quote: q.slice(0, 80), checked: evidence.length });
+        // Full quote, never truncated: a repair tool re-checking this finding must
+        // see the whole span, or a quote whose tail diverges verifies on its prefix.
+        findings.push({ page: p.path, quote: q, checked: evidence.length });
       }
     }
   }
@@ -181,7 +196,7 @@ export function main() {
   const style = checkStyle(vaultPath, graph);
   console.log(`Content lint (warn-only — flags for review, never scored)`);
   console.log(`\nUnverifiable quotes: ${quotes.length}`);
-  for (const f of quotes) console.log(`  ${f.page}\n    "${f.quote}..." (checked ${f.checked} sources)`);
+  for (const f of quotes) console.log(`  ${f.page}\n    "${f.quote.slice(0, 80)}..." (checked ${f.checked} sources)`);
   const byCat = {};
   for (const f of style) (byCat[f.category] ??= []).push(f);
   console.log(`\nStyle flags: ${style.length}`);

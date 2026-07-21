@@ -77,6 +77,38 @@ export function insertSourceHash(fileText, hash) {
 // Insert a `source-hashes: [...]` line into a page's frontmatter, after the
 // `sources:` line when present (else at the end of the block). Idempotent: a page
 // that already declares source-hashes is returned unchanged.
+// Record the source pages/clippings a page rests on, in its `sources:` frontmatter.
+// Merges rather than replaces: a page can gain provenance for one claim while
+// already declaring it for another, and dropping the existing list would break the
+// trail it already had. Compares on the link's target, so an existing aliased
+// form (`[[path|Display]]`) is never duplicated by its bare name.
+export function insertSources(fileText, links) {
+  const targets = links.map((l) => String(l).trim()).filter(Boolean);
+  if (!targets.length) return fileText;
+  const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fm) return fileText; // no frontmatter — nothing to anchor to
+  let block = fm[2];
+  const render = (ls) => `sources: [${ls.map((l) => `"[[${l}]]"`).join(', ')}]`;
+  const key = (l) => l.split('|')[0].split('/').pop().replace(/\.md$/i, '').toLowerCase();
+
+  const existing = block.match(/^sources:.*$/m);
+  if (existing) {
+    const have = [...existing[0].matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]);
+    const haveKeys = new Set(have.map(key));
+    const add = targets.filter((t) => !haveKeys.has(key(t)));
+    if (!add.length) return fileText;
+    block = block.slice(0, existing.index) + render([...have, ...add]) + block.slice(existing.index + existing[0].length);
+  } else {
+    // Sit it just after `status:` where the schema puts it, or last if absent.
+    const anchor = block.match(/^status:.*$/m);
+    const line = render(targets);
+    block = anchor
+      ? block.slice(0, anchor.index + anchor[0].length) + '\n' + line + block.slice(anchor.index + anchor[0].length)
+      : `${block}\n${line}`;
+  }
+  return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
+}
+
 export function insertSourceHashes(fileText, hashes) {
   const want = hashes.map((h) => String(h).toLowerCase());
   const render = (hs) => `source-hashes: [${hs.map((h) => `"${h}"`).join(', ')}]`;
