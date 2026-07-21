@@ -125,7 +125,9 @@ export function checkQuotes(vaultPath, graph) {
         .map((f) => normalize(f).replace(/^[.,;:!?\s]+|[.,;:!?\s]+$/g, ''));
       if (!fragments.length) continue;
       if (!fragments.every((f) => evidence.some((e) => e.includes(f)))) {
-        findings.push({ page: p.path, quote: q.slice(0, 80), checked: evidence.length });
+        // Full quote, never truncated: a repair tool re-checking this finding must
+        // see the whole span, or a quote whose tail diverges verifies on its prefix.
+        findings.push({ page: p.path, quote: q, checked: evidence.length });
       }
     }
   }
@@ -194,7 +196,7 @@ export function main() {
   const style = checkStyle(vaultPath, graph);
   console.log(`Content lint (warn-only — flags for review, never scored)`);
   console.log(`\nUnverifiable quotes: ${quotes.length}`);
-  for (const f of quotes) console.log(`  ${f.page}\n    "${f.quote}..." (checked ${f.checked} sources)`);
+  for (const f of quotes) console.log(`  ${f.page}\n    "${f.quote.slice(0, 80)}..." (checked ${f.checked} sources)`);
   const byCat = {};
   for (const f of style) (byCat[f.category] ??= []).push(f);
   console.log(`\nStyle flags: ${style.length}`);

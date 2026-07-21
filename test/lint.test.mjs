@@ -55,6 +55,18 @@ test('checkQuotes flags a fabricated quote with page attribution', () => {
   assert.ok(bad.checked >= 1, 'reports how many sources were checked');
 });
 
+// A finding must carry the WHOLE quote. Truncating it here silently corrupts any
+// tool that re-checks the finding: a long quote whose opening matches a source and
+// whose tail does not will verify on the prefix and be misread as merely miscited
+// rather than genuinely unsupported. Truncation is a display concern and belongs
+// in the printer.
+test('checkQuotes findings carry the full quote, not a truncated one', () => {
+  const f = checkQuotes(FIXTURE, graph()).find((x) => x.page === 'wiki/concepts/long-quote.md');
+  assert.ok(f, 'the long fabricated quote is flagged');
+  assert.ok(f.quote.length > 80, 'the quote is long enough for truncation to be visible');
+  assert.ok(f.quote.endsWith('visible to the assertion'), 'the tail of the quote survives');
+});
+
 test('checkQuotes follows body links to source pages (both breadcrumb channels)', () => {
   const findings = checkQuotes(FIXTURE, graph());
   // body-linked.md has NO sources: frontmatter; its trail is a body [[wikilink]]
