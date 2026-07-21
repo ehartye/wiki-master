@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.2 — 2026-07-21
+
+### Quote verification was under-reading the evidence trail
+
+Two faults in `/wiki-lint` were manufacturing unverifiable-quote reports.
+
+**The walk was depth-first.** Provenance was followed depth-first with one shared `seen`
+set and a depth cap, so a source page reached late down a long chain was marked seen at
+the limit — and the page's *direct* citation of that same source, one hop from its own
+clipping, then bailed on `seen` and was never expanded. Which evidence counted depended
+on the order of a page's links. It is breadth-first now, reaching every page by its
+shortest route. Traversal is exported as `evidencePaths` so it is testable without IO.
+
+**Findings carried a truncated quote.** `checkQuotes` clipped each finding to 80
+characters, so any tool re-checking a finding verified only the prefix — a long quote
+whose opening matches a source and whose tail diverges read as miscited rather than
+unsupported. Findings now carry the full quote; truncation moved to the printer.
+
+Together these cut the reference vault's flagged quotes 485 → 454 with no page content
+changed, and cut quotes that are verbatim-present-but-unreachable from 104 to 27. The
+difference was never drift: those are real quotes whose clipping is interrupted
+mid-sentence by extraction furniture (running heads, figure captions).
+
+### Vault repair: `repair-quote-provenance`
+
+`node scripts/repair-quote-provenance.mjs` (dry-run; `--apply`) records the source a
+page already rests on, where it quotes a clipping verbatim but cannot reach it. It never
+alters a quote, and refuses to attribute on anything short of a 40-character verbatim
+run — `quoteFragments` splits on bracketed insertions, so `"what comes after [[Some
+Page]]"` reduces to "what comes after", which matches unrelated prose and would write a
+fabricated citation. Reachability is tested against the *clipping*, not the link, since
+a cover page reachable only at the depth limit leaves its clipping one hop too far.
+
+Quotes that match nothing, or carry no distinctive run, are reported and left for a
+human. Nothing gets a citation invented for it.
+
 ## 0.5.1 — 2026-07-21
 
 ### Re-clip identity is content, not location
