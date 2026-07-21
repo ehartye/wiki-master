@@ -19,6 +19,29 @@ Escalation now also fires when the extraction assesses as degraded, and keeps wh
 reads measurably better (`shouldTryOcr` / `preferBetterExtraction`), so OCR can never make a
 clipping worse.
 
+### Triage dispositions now do the work they name
+
+A `reclip` disposition used to close the issue without performing the re-clip, so
+requests piled up unnoticed (30 sources on the reference vault, one dispositioned
+three times because it kept resurfacing). `apply-reclips.mjs` closes the loop:
+
+```
+node scripts/apply-reclips.mjs            # dry run
+node scripts/apply-reclips.mjs --apply
+```
+
+It folds the log for what was asked (latest disposition wins, so changing your mind
+is honoured), **derives** from the vault what is still needed — a source whose
+clipping now reads clean needs nothing — re-extracts through the right clipper with
+OCR escalation, and carries the content hash forward to every citing summary so the
+re-clipped source is not orphaned. A re-extraction that is still degraded is
+reported and discarded rather than swapped in.
+
+Related: triage no longer *logs* fidelity issues. A degraded clipping leaves its own
+artifact (`fidelity:` frontmatter), so it is derived and self-corrects; only problems
+that leave no trace (a 403, a blocked domain) belong in the append-only log.
+Dispositions now suppress derived flags too — previously "acceptable" never stuck.
+
 ### Repairing a vault that has binaries in it
 
 An older vault may contain binaries that summaries cite directly (`sources: ["[[X.pdf]]"]`).

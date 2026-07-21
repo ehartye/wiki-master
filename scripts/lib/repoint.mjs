@@ -1,3 +1,11 @@
+// Re-clipping a source changes its content, and therefore its hash. Every summary
+// that recorded the old hash must follow, or the freshly-clipped source is orphaned
+// and returns as ingest backlog. Exact string swap — hashes are hex, so no escaping.
+export function swapSourceHash(pageText, oldHash, newHash) {
+  if (!oldHash || !pageText.includes(oldHash)) return pageText;
+  return pageText.split(oldHash).join(newHash);
+}
+
 // Move a summary page's citation from an extracted binary to its new .md clipping.
 // Operates only inside the frontmatter block (where `sources:` lives), by exact
 // string replacement — the target may contain regex-special characters (`.`, `(`),
