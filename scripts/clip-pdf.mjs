@@ -196,6 +196,13 @@ function problemRate(clip) {
 export function preferBetterExtraction(textClip, ocrClip, { thinFloor = THIN_WORD_FLOOR } = {}) {
   if (!ocrClip || ocrClip.wordCount < thinFloor) return textClip;
   if (textClip.wordCount < thinFloor) return ocrClip;
+  // A clean pass beats a degraded one outright. Rate alone is not enough: a
+  // broken-encoding text layer is punctuation soup carrying no replacement chars,
+  // no (cid:NN) and no mangled math, so it rates 0 — tying with a perfect OCR pass
+  // and winning by fallthrough. letterRatio is the only signal that sees it.
+  const t = assessFidelity(textClip.md);
+  const o = assessFidelity(ocrClip.md);
+  if (t.degraded !== o.degraded) return o.degraded ? textClip : ocrClip;
   return problemRate(ocrClip) < problemRate(textClip) ? ocrClip : textClip;
 }
 

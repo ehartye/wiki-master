@@ -63,6 +63,18 @@ test('shouldTryOcr: clean, abundant text does not pay for OCR', () => {
   assert.equal(shouldTryOcr(CLEAN), false);
 });
 
+// Real bug: a broken-encoding text layer is punctuation soup with NO replacement
+// chars, NO (cid:NN) and NO mangled math, so its problem RATE is 0 — identical to
+// a perfect OCR pass. `0 < 0` is false, so the comparator kept the garbage. Only
+// letterRatio identifies this failure, and the rate never looked at it.
+test('preferBetterExtraction: letterless garbage loses to clean OCR even when both score zero problems', () => {
+  const garbage = mk('1, ! ) 9 ( 0 $ 0 ( ! ( # 0 ( 0 1 ( ( & ( 0 ,)-/ $ 8 , 8 '.repeat(30));
+  const clean = mk('A multivariate approach to construction contract bidding mark up strategies. '.repeat(30));
+  assert.equal(garbage.fidelity, 'degraded', 'the text layer is gibberish');
+  assert.equal(clean.fidelity, 'high', 'the OCR pass is clean');
+  assert.equal(preferBetterExtraction(garbage, clean), clean, 'clean must win the tie');
+});
+
 test('preferBetterExtraction: degraded text layer yields to a clean OCR pass', () => {
   assert.equal(preferBetterExtraction(DEGRADED, CLEAN), CLEAN);
 });
