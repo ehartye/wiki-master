@@ -6,13 +6,19 @@
 // still needed, re-extract via the right clipper, and carry the content hash
 // forward so the re-clipped source is not orphaned.
 //
-//   node scripts/apply-reclips.mjs            # dry run
+//   node scripts/apply-reclips.mjs                          # dry run
 //   node scripts/apply-reclips.mjs --apply
+//   node scripts/apply-reclips.mjs --apply --from=~/Downloads
+//
+// --from is for sources you had to fetch by hand (a paywall, a 403). Files there
+// are matched to a pending re-clip by the clipping's TITLE, because a DOI URL
+// carries no filename to match on.
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
 import { loadIssueLog, pendingReclips, recordIssue } from './lib/triage.mjs';
+import { matchLocalFile } from './lib/migrate.mjs';
 import { swapSourceHash } from './lib/repoint.mjs';
 import { splitBody } from './refresh-fidelity.mjs';
 import {
@@ -25,6 +31,11 @@ import { xlsxToText } from './clip-xlsx.mjs';
 const apply = process.argv.includes('--apply');
 const limArg = process.argv.find((a) => a.startsWith('--limit='));
 const LIMIT = limArg ? Number(limArg.slice(8)) : Infinity;
+// Where to look for hand-downloaded sources. A paywalled PDF cannot be fetched,
+// so you retrieve it yourself; this is how the pass finds it. Matched by clipping
+// TITLE, since a DOI URL carries no filename to match on.
+const FROM = process.argv.find((a) => a.startsWith('--from='))?.slice(7);
+const fromFiles = FROM ? readdirSync(FROM, { withFileTypes: true }).filter((e) => e.isFile()).map((e) => e.name) : [];
 const { path: vault } = resolveVault();
 const norm = (s) => String(s ?? '').replace(/\\\\/g, '\\').toLowerCase();
 const field = (fm, k) => (new RegExp(`^${k}:\\s*"?(.*?)"?\\s*$`, 'm').exec(fm) || [])[1];
@@ -62,7 +73,7 @@ function extract(path, meta) {
   return clip;
 }
 
-const report = { asked: 0, alreadyResolved: 0, reclipped: 0, stillDegraded: [], failed: [], noClipping: [] };
+const report = { asked: 0, alreadyResolved: 0, reclipped: 0, usedLocal: 0, stillDegraded: [], failed: [], noClipping: [] };
 const targets = pendingReclips(loadIssueLog(vault));
 report.asked = targets.length;
 
@@ -74,12 +85,17 @@ for (const url of targets.slice(0, LIMIT)) {
   if (!apply) { report.reclipped++; continue; }
 
   try {
-    const path = await localCopy(url);
-    if (!path) { report.failed.push({ url, reason: 'source file not found locally' }); continue; }
     const fm = hit.text.match(/^---\r?\n([\s\S]*?)\r?\n---/)[1];
     const oldHash = field(fm, 'source-hash');
+    const title = field(fm, 'title');
+    // A hand-downloaded copy wins over the URL: it is why you downloaded it, and
+    // re-fetching a paywalled source would only 403 again.
+    const local = FROM ? matchLocalFile(title, fromFiles) : null;
+    const path = local ? join(FROM, local) : await localCopy(url);
+    if (!path) { report.failed.push({ url, reason: 'source file not found locally' }); continue; }
+    if (local) report.usedLocal++;
     const clip = extract(path, {
-      title: field(fm, 'title'), source: field(fm, 'source'),
+      title, source: field(fm, 'source'),
       quality: field(fm, 'quality') || 'medium', created: field(fm, 'created'),
     });
     if (assessFidelity(clip.md).degraded) {

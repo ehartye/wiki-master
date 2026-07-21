@@ -13,6 +13,25 @@ const EXTRACTABLE = /\.(pdf|docx?)$/i;
 const norm = (s) =>
   s.toLowerCase().replace(/-[0-9a-f]{7}(-\d+)?$/, '').replace(/\.[a-z0-9]+$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
+// Match a hand-downloaded file to a clipping by TITLE. A paywalled source is
+// fetched manually, and its URL cannot identify the download — a DOI such as
+// /doi/10.1145/3342765 carries no filename, and browsers name the file whatever
+// the publisher says. Exact normalized match wins; otherwise a single containment
+// match is accepted. Two candidates is ambiguous and returns null — guessing which
+// paper you meant would attach the wrong evidence to a summary.
+export function matchLocalFile(title, filenames) {
+  const t = norm(title);
+  if (!t) return null;
+  const exact = filenames.filter((f) => norm(f) === t);
+  if (exact.length === 1) return exact[0];
+  if (exact.length > 1) return null;
+  const near = filenames.filter((f) => {
+    const n = norm(f);
+    return n.includes(t) || t.includes(n);
+  });
+  return near.length === 1 ? near[0] : null;
+}
+
 export function planBinaryMigration({ pages }) {
   const byName = buildNameIndex(pages);
 

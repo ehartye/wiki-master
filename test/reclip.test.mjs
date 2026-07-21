@@ -2,6 +2,34 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { pendingReclips, settledKeys } from '../scripts/lib/triage.mjs';
 import { swapSourceHash } from '../scripts/lib/repoint.mjs';
+import { matchLocalFile } from '../scripts/lib/migrate.mjs';
+
+// A paywalled source is fetched by hand into a downloads folder. It cannot be
+// matched on the URL — a DOI like /doi/10.1145/3342765 carries no filename — so
+// the match is against the CLIPPING'S TITLE. Ambiguity is never guessed.
+test('matchLocalFile matches a download to a clipping title', () => {
+  const files = ['unrelated.pdf', 'Terrain_amplification_with_implicit_3D_features.pdf'];
+  assert.equal(
+    matchLocalFile('Terrain amplification with implicit 3D features', files),
+    'Terrain_amplification_with_implicit_3D_features.pdf'
+  );
+});
+
+test('matchLocalFile tolerates extra decoration around the title', () => {
+  assert.equal(
+    matchLocalFile('Terrain amplification with implicit 3D features', ['3342765 - Terrain amplification with implicit 3D features (ACM).pdf']),
+    '3342765 - Terrain amplification with implicit 3D features (ACM).pdf'
+  );
+});
+
+test('matchLocalFile returns null when nothing matches', () => {
+  assert.equal(matchLocalFile('Terrain amplification', ['some-other-paper.pdf']), null);
+});
+
+test('matchLocalFile refuses to guess between two candidates', () => {
+  const files = ['Terrain amplification v1.pdf', 'Terrain amplification v2.pdf'];
+  assert.equal(matchLocalFile('Terrain amplification', files), null, 'ambiguous must not pick one');
+});
 
 // A `reclip` disposition asked for work. Nothing ever performed it, so 30 sources
 // sat dispositioned-but-unfixed and kept resurfacing. Fold the log to find what
