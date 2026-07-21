@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
-import { loadIssueLog, openIssues, declinesNearingExpiry } from './lib/triage.mjs';
+import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey } from './lib/triage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -60,13 +60,11 @@ export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit
   //  - a DERIVED flag must stay suppressed once dispositioned. openIssues drops a
   //    dispositioned issue, so matching only against OPEN issues let the frontmatter
   //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
-  const norm = (u) => String(u ?? '').replace(/\\\\/g, '\\').toLowerCase();
-  const k = (u, kind) => `${norm(u)} ${kind}`;
-  const queued = new Set(issues.map((i) => k(i.url, i.kind)));
-  const settled = new Set(
-    log.filter((e) => e?.t === 'disposition' && e.url).map((e) => k(e.url, e.kind))
+  const queued = new Set(issues.map((i) => issueKey(i.url, i.kind)));
+  const settled = settledKeys(log);
+  const fidelityOnly = fidelity.filter(
+    (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
   );
-  const fidelityOnly = fidelity.filter((f) => !queued.has(k(f.url, f.kind)) && !settled.has(k(f.url, f.kind)));
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
 

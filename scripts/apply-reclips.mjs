@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync } fro
 import { join, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
-import { loadIssueLog, pendingReclips } from './lib/triage.mjs';
+import { loadIssueLog, pendingReclips, recordIssue } from './lib/triage.mjs';
 import { swapSourceHash } from './lib/repoint.mjs';
 import { splitBody } from './refresh-fidelity.mjs';
 import {
@@ -83,8 +83,11 @@ for (const url of targets.slice(0, LIMIT)) {
       quality: field(fm, 'quality') || 'medium', created: field(fm, 'created'),
     });
     if (assessFidelity(clip.md).degraded) {
+      // Never trade a known-bad extraction for another one — and reopen, so the
+      // request does not sit silently behind a disposition that could not be met.
       report.stillDegraded.push({ url, clipping: hit.file });
-      continue; // never trade a known-bad extraction for another one
+      recordIssue(vault, { url, kind: 'fidelity', reason: 're-clip attempted; extraction still degraded' });
+      continue;
     }
     writeFileSync(join(clipDir, hit.file), clip.body);
     let moved = 0;
@@ -99,7 +102,12 @@ for (const url of targets.slice(0, LIMIT)) {
     report.reclipped++;
     console.log(`reclipped ${hit.file} (${moved} summary hash${moved === 1 ? '' : 'es'} updated)`);
   } catch (e) {
-    report.failed.push({ url, reason: String(e.message || e).slice(0, 120) });
+    // Could not obtain the source at all (403, paywall, moved). That leaves no
+    // artifact in the vault, so it belongs in the log — as a `failed` fetch, which
+    // is what it now is, and which reopens the item for a different decision.
+    const reason = String(e.message || e).slice(0, 120);
+    report.failed.push({ url, reason });
+    recordIssue(vault, { url, kind: 'failed', reason: `re-clip could not fetch source: ${reason}` });
   }
 }
 

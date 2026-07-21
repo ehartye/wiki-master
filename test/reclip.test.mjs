@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { pendingReclips } from '../scripts/lib/triage.mjs';
+import { pendingReclips, settledKeys } from '../scripts/lib/triage.mjs';
 import { swapSourceHash } from '../scripts/lib/repoint.mjs';
 
 // A `reclip` disposition asked for work. Nothing ever performed it, so 30 sources
@@ -30,6 +30,30 @@ test('pendingReclips de-duplicates a source dispositioned repeatedly', () => {
 test('pendingReclips ignores other kinds and other dispositions', () => {
   const log = [d('https://a.test/x', 'reclip', 'failed'), d('https://b.test/y', 'quarantine'), { t: 'issue', url: 'https://c.test/z', kind: 'fidelity' }];
   assert.deepEqual(pendingReclips(log), []);
+});
+
+// "A recurrence reopens an issue" — a disposition settles a source only until
+// something new happens to it. An attempted re-clip that FAILS (a 403, or an
+// extraction still degraded) leaves no artifact in the vault, so it is logged;
+// suppression must then yield to it or the unfulfillable work goes invisible.
+const iss = (url, kind = 'fidelity') => ({ t: 'issue', url, kind });
+
+test('settledKeys: a disposition settles a source', () => {
+  assert.equal(settledKeys([d('https://a.test/p', 'acceptable')]).size, 1);
+});
+
+test('settledKeys: an issue recorded AFTER the disposition reopens it', () => {
+  const s = settledKeys([d('https://a.test/p', 'reclip'), iss('https://a.test/p')]);
+  assert.equal(s.size, 0, 'a failed re-clip must resurface, not stay suppressed');
+});
+
+test('settledKeys: re-dispositioning after the reopen settles it again', () => {
+  const s = settledKeys([d('https://a.test/p', 'reclip'), iss('https://a.test/p'), d('https://a.test/p', 'quarantine')]);
+  assert.equal(s.size, 1, 'latest event wins');
+});
+
+test('settledKeys: an issue never dispositioned is not settled', () => {
+  assert.equal(settledKeys([iss('https://a.test/p')]).size, 0);
 });
 
 // Re-clipping changes the content, so the recorded hash must follow or the
