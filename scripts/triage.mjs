@@ -166,7 +166,12 @@ export function renderScreen(data) {
   // screens and asserting on them needlessly awkward.
   groupSeq = 0;
 
+  // `downloaded` is the answer to a paywall: you fetched the source by hand, and
+  // the disposition itself is the work order — `apply-reclips --from=<dir>` picks
+  // it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping
+  // already exists and asks only for confirmation.
   const CLIP_ACTS = [
+    { id: 'downloaded', label: 'downloaded — clip it' },
     { id: 'clipped-manually', label: 'clipped by hand' },
     { id: 'retry', label: 'retry' },
     { id: 'declined', label: 'decline', danger: true },
@@ -175,6 +180,7 @@ export function renderScreen(data) {
   const FIDELITY_ACTS = [
     { id: 'acceptable', label: 'acceptable' },
     { id: 'reclip', label: 're-clip' },
+    { id: 'downloaded', label: 'downloaded — clip it' },
     { id: 'quarantine', label: 'do not cite', danger: true },
   ];
   const EXPIRY_ACTS = [

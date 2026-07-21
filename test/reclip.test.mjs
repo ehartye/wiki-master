@@ -55,9 +55,25 @@ test('pendingReclips de-duplicates a source dispositioned repeatedly', () => {
   assert.deepEqual(pendingReclips(log), ['https://a.test/p.pdf'], 'three clicks are one job');
 });
 
-test('pendingReclips ignores other kinds and other dispositions', () => {
-  const log = [d('https://a.test/x', 'reclip', 'failed'), d('https://b.test/y', 'quarantine'), { t: 'issue', url: 'https://c.test/z', kind: 'fidelity' }];
+test('pendingReclips ignores unrelated kinds and non-request dispositions', () => {
+  const log = [d('https://a.test/x', 'reclip', 'blocked'), d('https://b.test/y', 'quarantine'), { t: 'issue', url: 'https://c.test/z', kind: 'fidelity' }];
   assert.deepEqual(pendingReclips(log), []);
+});
+
+// "downloaded" is the paywall answer: you fetched it by hand, and the disposition
+// itself is the work order. It arrives on a `failed` issue, because by then the
+// problem is that the source could not be fetched — not that it read poorly.
+test('pendingReclips queues a "downloaded" disposition', () => {
+  assert.deepEqual(pendingReclips([d('https://a.test/p.pdf', 'downloaded')]), ['https://a.test/p.pdf']);
+});
+
+test('pendingReclips queues a request recorded against a failed fetch', () => {
+  assert.deepEqual(pendingReclips([d('https://dl.acm.org/doi/10.1145/3342765', 'downloaded', 'failed')]), ['https://dl.acm.org/doi/10.1145/3342765']);
+});
+
+test('pendingReclips counts one source recorded under both kinds as one job', () => {
+  const log = [d('https://a.test/p.pdf', 'reclip', 'fidelity'), d('https://a.test/p.pdf', 'downloaded', 'failed')];
+  assert.deepEqual(pendingReclips(log), ['https://a.test/p.pdf']);
 });
 
 // "A recurrence reopens an issue" — a disposition settles a source only until
