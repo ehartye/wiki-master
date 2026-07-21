@@ -14,6 +14,9 @@ export function isContent(path) {
   if (SYSTEM_FILES.has(path)) return false;
   if (path.startsWith('_templates/')) return false;
   if (path.startsWith('raw/')) return false; // immutable sources: inputs, not scored
+  if (path.startsWith('log/')) return false; // one file per operation: the audit
+  // trail (browsed via log.base), never a wikilink-graph node. This is the same
+  // exclusion log.md already carries above — the per-op folder replaced it.
   return true;
 }
 
@@ -193,7 +196,15 @@ export function buildNameIndex(pages) {
 // picks the exact, unambiguous match; only an unqualified bare name falls
 // through to the collision-prone basename fallback.
 export function resolveLinkTarget(byName, target) {
-  const full = target.toLowerCase().replace(/\.md$/i, '');
+  // A link whose name itself ends in .md: the `agents.md` convention files the
+  // note as "X.md.md", so its page name (one .md stripped) is "X.md" — and
+  // [[X.md]] must land there, exactly as Obsidian resolves it. Check the
+  // un-stripped target first; stripping .md below would turn "X.md" into "X"
+  // and miss the page. Harmless for every other target (a bare name or a
+  // path-qualified key never carries a trailing .md in the index).
+  const lower = target.toLowerCase();
+  if (byName.has(lower)) return byName.get(lower);
+  const full = lower.replace(/\.md$/i, '');
   if (byName.has(full)) return byName.get(full);
   const bare = full.split('/').pop() || full;
   return byName.get(bare);

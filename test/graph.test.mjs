@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -260,4 +260,48 @@ test('computeGraphMetrics: a qualified backlink to a basename-colliding page cou
     'same for the entity page — a third file sharing the exact basename');
   assert.ok(!m.provenanceGaps.includes('wiki/sources/CSX.md'),
     'the qualified raw/ citation still resolves to the raw file specifically, not its wiki-page namesakes');
+});
+
+// Real bug, found live in the vault: log/ holds one file per operation (the
+// audit trail, browsed via log.base), which replaced the old aggregate log.md.
+// isContent excludes log.md but never learned about the folder that replaced
+// it, so every log/ file was scored as content: each is an orphan (nothing
+// links a log) and most are dead-ends. On the live vault 15 orphan + 13
+// dead-end log files pinned both (capped) penalties at max, making the score
+// uncorrectable by real vault work.
+test('isContent excludes log/ operation files, exactly as it excludes log.md/index.md', () => {
+  assert.equal(isContent('log/2026-07-20-120000-ingest-foo.md'), false, 'per-operation log files are structural, not content');
+  assert.equal(isContent('log.md'), false, 'the old aggregate log is already excluded');
+  assert.equal(isContent('index.md'), false);
+  assert.equal(isContent('wiki/concepts/Foo.md'), true, 'real content still counts');
+});
+
+test('computeGraphMetrics never scores a log/ file as an orphan or dead-end', () => {
+  const pages = [
+    { path: 'wiki/concepts/Foo.md', name: 'foo', title: 'Foo', words: 50, outTargets: ['Bar'], fmTargets: [] },
+    { path: 'wiki/concepts/Bar.md', name: 'bar', title: 'Bar', words: 50, outTargets: ['Foo'], fmTargets: [] },
+    // A log entry: nothing links to it (orphan) and it links nowhere resolvable (dead-end).
+    { path: 'log/2026-07-20-120000-ingest-foo.md', name: '2026-07-20-120000-ingest-foo', title: 'x', words: 30, outTargets: [], fmTargets: [] },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.orphans.some((p) => p.startsWith('log/')), 'log files are never orphans');
+  assert.ok(!m.deadEnds.some((p) => p.startsWith('log/')), 'log files are never dead-ends');
+});
+
+// Real bug, found live in the vault: the vault follows the `agents.md` naming
+// convention, so a source note is filed as "GitHub — Writing a Great agents.md.md"
+// — its page name (one .md stripped) is "…agents.md". A body link written as
+// [[GitHub — Writing a Great agents.md]] must resolve to it (Obsidian does), but
+// resolveLinkTarget stripped .md from the TARGET before lookup, turning it into
+// "…agents", which missed the "…agents.md" page. Checking the un-stripped target
+// first fixes it without disturbing the exact-path-first collision logic above.
+test('resolveLinkTarget resolves a link whose target name itself ends in .md', () => {
+  const byName = buildNameIndex([
+    { path: 'wiki/sources/GitHub — Writing a Great agents.md.md', name: 'github — writing a great agents.md' },
+  ]);
+  assert.equal(
+    resolveLinkTarget(byName, 'GitHub — Writing a Great agents.md'),
+    'wiki/sources/GitHub — Writing a Great agents.md.md',
+    'a [[Name.md]] link resolves to the Name.md.md page — the .md is part of the note name'
+  );
 });
