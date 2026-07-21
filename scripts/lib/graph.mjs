@@ -44,6 +44,16 @@ function wikilinks(text) {
   return out;
 }
 
+// Parse a `source-hashes:` frontmatter list — YAML flow (`["h1","h2"]`) or block
+// sequence (`\n  - h1\n  - h2`). Hashes are hex; the guard keeps stray prose out.
+function hashList(fm) {
+  const flow = fm.match(/^source-hashes:\s*\[([^\]]*)\]/m);
+  const src = flow ? flow[1] : fm.match(/^source-hashes:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)/m)?.[1];
+  if (!src) return undefined;
+  const out = [...src.matchAll(/([0-9a-fA-F]{6,64})/g)].map((m) => m[1].toLowerCase());
+  return out.length ? out : undefined;
+}
+
 export function buildGraph(vaultPath) {
   const pages = [];
   (function walk(dir, rel) {
@@ -58,6 +68,11 @@ export function buildGraph(vaultPath) {
         const type = fm.match(/^type:\s*"?([\w-]+)"?/m)?.[1];
         const created = fm.match(/^created:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
         const updated = fm.match(/^updated:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
+        // Ingest-state key: the clipping carries `source-hash`; a summary page
+        // carries `source-hashes` listing the clippings it covers. See
+        // docs/superpowers/specs/2026-07-21-hash-ingest-state-design.md.
+        const sourceHash = fm.match(/^source-hash:\s*"?([0-9a-fA-F]{6,64})"?/m)?.[1]?.toLowerCase();
+        const sourceHashes = hashList(fm);
         pages.push({
           path: r,
           name: e.slice(0, -3).toLowerCase(),
@@ -66,6 +81,8 @@ export function buildGraph(vaultPath) {
           type,
           created,
           updated,
+          sourceHash,
+          sourceHashes,
           words: (body.match(/\S+/g) || []).length,
           outTargets: wikilinks(body),
           fmTargets: wikilinks(fm),
@@ -260,28 +277,57 @@ export function computeGraphMetrics({ pages }, opts = {}) {
     .map((p) => p.path);
 
   const isSourcePage = (path) => path.startsWith('wiki/sources/');
-  const citedBySourcePage = new Set();
-  for (const p of pages) {
-    if (!isSourcePage(p.path)) continue;
-    for (const t of [...p.outTargets, ...(p.fmTargets ?? [])]) {
-      const target = resolveLinkTarget(byName, t);
-      if (target) citedBySourcePage.add(target);
-    }
-  }
-  // The actionable backlog: these are the sources /wiki-ingest still owes a page.
-  const unsummarizedSources = pages
-    .filter((p) => p.path.startsWith('raw/') && !citedBySourcePage.has(p.path))
-    .map((p) => p.path);
 
-  // The other half of the contract: a source page that cites no raw file claims
-  // an ingest happened while leaving its clipping indistinguishable from one
-  // never processed. Scored as a defect — it breaks provenance, which is the
-  // property every citation in the wiki rests on.
+  // A source page that cites no raw file claims an ingest happened while leaving
+  // its clipping indistinguishable from one never processed. Scored as a defect —
+  // it breaks provenance, which is the property every citation in the wiki rests on.
   const citesRaw = (p) =>
     [...p.outTargets, ...(p.fmTargets ?? [])].some((t) => {
       const target = resolveLinkTarget(byName, t);
       return target && target.startsWith('raw/');
     });
+
+  // ── Ingest backlog: a content-hash join, not link resolution ────────────────
+  // A raw clipping is ingested iff its `source-hash` is recorded in some
+  // wiki/sources page's `source-hashes`. Hash equality is immune to the
+  // `-<hash7>` filename suffix and to citation-format drift — the two failures
+  // that made link-resolution manufacture 172 phantom backlog items (~0 real).
+  // Only `.md` clippings are ingestable units: the pipeline summarizes a
+  // clipping's markdown, never the binary original, so a raw `.pdf`/`.xlsx`/`.zip`
+  // can never be a summary target and is excluded from the backlog entirely.
+  const ingestedHashes = new Set();
+  for (const p of pages) {
+    if (!isSourcePage(p.path)) continue;
+    for (const h of p.sourceHashes ?? []) ingestedHashes.add(h);
+  }
+  // Transitional fallback (remove once backfillPending hits 0 — see
+  // docs/superpowers/specs/2026-07-21-hash-ingest-state-design.md §6.1): a source
+  // page that predates `source-hashes` still credits its clipping via the old
+  // link-resolution path, so migration never regresses a real ingest. A MIGRATED
+  // page (one that already carries `source-hashes`) is trusted by hash alone — so
+  // a stale wikilink on it no longer masks a re-clip, and re-ingest-on-change
+  // begins working the moment a page is backfilled.
+  const legacyCited = new Set();
+  for (const p of pages) {
+    if (!isSourcePage(p.path) || p.sourceHashes?.length) continue;
+    for (const t of [...p.outTargets, ...(p.fmTargets ?? [])]) {
+      const target = resolveLinkTarget(byName, t);
+      if (target) legacyCited.add(target);
+    }
+  }
+  const clippings = pages.filter((p) => p.path.startsWith('raw/') && p.path.endsWith('.md'));
+  // A clipping with no `source-hash` cannot be hash-joined — a data defect
+  // surfaced for repair, not itself a verdict about ingestion.
+  const missingHash = clippings.filter((p) => !p.sourceHash).map((p) => p.path);
+  const unsummarizedSources = clippings
+    .filter((p) => !(p.sourceHash && ingestedHashes.has(p.sourceHash)) && !legacyCited.has(p.path))
+    .map((p) => p.path);
+  // Migration progress: source pages that cite a raw clipping but have not yet
+  // recorded its hash. The backfill targets exactly this set; it reaches 0 when
+  // the vault is fully migrated and the fallback above can be deleted.
+  const backfillPending = pages.filter(
+    (p) => isSourcePage(p.path) && !(p.sourceHashes?.length) && citesRaw(p)
+  ).length;
 
   const provenanceGaps = pages
     .filter((p) => isSourcePage(p.path) && !p.declaresNoSources && !citesRaw(p))
@@ -301,5 +347,5 @@ export function computeGraphMetrics({ pages }, opts = {}) {
 
   const brokenClass = classifyBrokenLinks(brokenLinks, pages, opts);
 
-  return { orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass };
+  return { orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass };
 }

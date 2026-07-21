@@ -122,26 +122,38 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
 
-## "Has this been ingested?" — enforced, not guessed
-A raw source is **ingested iff a `wiki/sources/` page cites it**. That is the
-contract, and it is checked rather than assumed. Two separate facts, both binary:
+## "Has this been ingested?" — a content-hash join, not a guess
+A raw clipping is **ingested iff its `source-hash` is recorded in some
+`wiki/sources/` page's `source-hashes`**. Hash equality is the contract — immune to
+the `-<hash7>` filename suffix and the citation-format drift that made
+link-resolution manufacture phantom backlog. Facts the metric reports:
 
 | metric | means | still owes work? |
 |---|---|---|
 | `unparsedSources` | nothing in the wiki cites it at all | yes |
-| `unsummarizedSources` | no `wiki/sources` page cites it | **yes — this is the backlog** |
+| `unsummarizedSources` | no `wiki/sources` page records its hash | **yes — this is the backlog** |
+| `missingHash` | a `.md` clipping carrying no `source-hash` | data defect — repair (re-clip) |
+| `backfillPending` | source pages that cite raw but recorded no hash | migrate — see below |
 | `provenanceGaps` | a `wiki/sources` page citing no `raw/` file | yes — scored as a defect |
 
-A concept page citing a clipping in its own provenance frontmatter is a real
-citation, but it does **not** mean the source was summarized. Report
-`unsummarizedSources` when asked what still needs attention.
+Report `unsummarizedSources` when asked what still needs ingesting. Only `.md`
+clippings are ingestable units — a binary original (`.pdf/.xlsx/.zip`) is never a
+summary target and is not backlog.
+
+**Migrating a vault (agents, any machine).** A vault written before this scheme has
+source pages without `source-hashes`; a transitional fallback keeps them credited by
+link resolution so nothing regresses, but `backfillPending > 0` means the migration
+has not run here. Repair it from the plugin root: `node scripts/backfill-source-hashes.mjs`
+(dry-run) then `--apply`. It is idempotent and guesses nothing — ambiguous/unresolved
+citations are logged for review. If the vault is git-synced, running it once and
+committing repairs every machine.
 
 **Never move files to record ingestion state.** `raw/` immutability is the
-load-bearing invariant, and ingestion state is *derivable* from the link graph —
-relocating files would copy a derived fact into the filesystem layout, where it
-can drift (a file in `raw/ingested/` whose summary page was later deleted now
-lies) and where two concurrent sessions race on the move. Derive it, like
-`index.md`; never store it twice.
+load-bearing invariant. The hash key lives *in* the markdown — each page's
+`source-hashes`, co-located with the summary that owns it — a single source of truth
+that merges cleanly across machines. Derive the backlog at read time from that key,
+like `index.md`; never copy ingestion state into the filesystem layout, where it can
+drift and where two concurrent sessions race on the move.
 
 ## Known limits of the pattern
 Stated so they are not rediscovered as surprises. The pattern this vault

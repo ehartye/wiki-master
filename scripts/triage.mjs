@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
-import { loadIssueLog, openIssues, declinesNearingExpiry } from './lib/triage.mjs';
+import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey } from './lib/triage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -13,7 +13,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // Clipped, but degraded. The content is in the vault and will be cited, so a
 // fidelity flag is a claim about how far you can trust the text — not a request
 // to re-clip. buildFrontmatter writes `fidelity` and `extraction`.
-function fidelityFlagged(vaultPath) {
+// A clipping is healthy at these grades; anything else is a real quality problem.
+const HEALTHY_FIDELITY = new Set(['high', 'ok', 'clean']);
+
+export function fidelityFlagged(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
   if (!existsSync(dir)) return [];
   const out = [];
@@ -27,15 +30,17 @@ function fidelityFlagged(vaultPath) {
     }
     const fm = head.startsWith('---') ? head.slice(3, head.indexOf('\n---', 3)) : '';
     if (!fm) continue;
-    const flag = /^(fidelity|extraction):\s*(.+)$/m.exec(fm);
-    if (!flag) continue;
-    const value = flag[2].trim().replace(/^["']|["']$/g, '');
-    if (!value || value === 'ok' || value === 'clean') continue;
+    // Read `fidelity` specifically. `extraction:` records HOW the text was read
+    // (e.g. ocr) — a method, not a defect — so it must never become a triage
+    // item; matching either key also let an earlier `extraction:` line win the
+    // regex and mask a real fidelity grade below it.
+    const fid = /^fidelity:\s*"?([\w-]+)"?/m.exec(fm)?.[1];
+    if (!fid || HEALTHY_FIDELITY.has(fid)) continue;
     const src = /^source:\s*(.+)$/m.exec(fm);
     out.push({
       url: src ? src[1].trim().replace(/^["']|["']$/g, '') : `file://${f}`,
       kind: 'fidelity',
-      reason: `${flag[1]}: ${value}`,
+      reason: `fidelity: ${fid}`,
       title: f.replace(/\.md$/, ''),
       occurrences: 1,
     });
@@ -44,12 +49,22 @@ function fidelityFlagged(vaultPath) {
 }
 
 export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit = 25 } = {}) {
-  const issues = openIssues(loadIssueLog(vaultPath));
+  const log = loadIssueLog(vaultPath);
+  const issues = openIssues(log);
   const fidelity = fidelityFlagged(vaultPath);
 
-  // De-dupe: a fidelity flag already queued explicitly wins over the scan.
-  const queued = new Set(issues.map((i) => `${i.url} ${i.kind}`));
-  const fidelityOnly = fidelity.filter((f) => !queued.has(`${f.url} ${f.kind}`));
+  // De-dupe against the log, and honour dispositions. Two hazards:
+  //  - the same item reaches here by two routes with differently-escaped paths
+  //    (a log entry stores the path as passed, frontmatter stores it YAML-escaped),
+  //    so keys are normalized before comparison or the row appears twice;
+  //  - a DERIVED flag must stay suppressed once dispositioned. openIssues drops a
+  //    dispositioned issue, so matching only against OPEN issues let the frontmatter
+  //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
+  const queued = new Set(issues.map((i) => issueKey(i.url, i.kind)));
+  const settled = settledKeys(log);
+  const fidelityOnly = fidelity.filter(
+    (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
+  );
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
 
@@ -91,11 +106,17 @@ const isHttp = (u) => /^https?:\/\//i.test(u || '');
 // here, and the client reads values via dataset.
 function actions(url, kind, acts) {
   return `<div class="actions">${acts
-    .map(
-      (a) =>
-        `<button class="act${a.danger ? ' danger' : ''}" data-url="${esc(url)}" data-kind="${esc(
-          kind
-        )}" data-act="${esc(a.id)}">${esc(a.label)}</button>`
+    .map((a) =>
+      // A browse action is a file input, not a button: the browser will not
+      // disclose a picked file's path, so the bytes go to the local server, which
+      // records where it saved them. Same disposition, plus an exact source.
+      a.browse
+        ? `<label class="act browse"><input type="file" hidden data-url="${esc(url)}" data-kind="${esc(
+            kind
+          )}">${esc(a.label)}</label>`
+        : `<button class="act${a.danger ? ' danger' : ''}" data-url="${esc(url)}" data-kind="${esc(
+            kind
+          )}" data-act="${esc(a.id)}">${esc(a.label)}</button>`
     )
     .join('')}</div>`;
 }
@@ -151,7 +172,12 @@ export function renderScreen(data) {
   // screens and asserting on them needlessly awkward.
   groupSeq = 0;
 
+  // `downloaded` is the answer to a paywall: you fetched the source by hand, and
+  // the disposition itself is the work order — `apply-reclips --from=<dir>` picks
+  // it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping
+  // already exists and asks only for confirmation.
   const CLIP_ACTS = [
+    { id: 'downloaded', label: 'browse — clip this file', browse: true },
     { id: 'clipped-manually', label: 'clipped by hand' },
     { id: 'retry', label: 'retry' },
     { id: 'declined', label: 'decline', danger: true },
@@ -160,6 +186,7 @@ export function renderScreen(data) {
   const FIDELITY_ACTS = [
     { id: 'acceptable', label: 'acceptable' },
     { id: 'reclip', label: 're-clip' },
+    { id: 'downloaded', label: 'browse — clip this file', browse: true },
     { id: 'quarantine', label: 'do not cite', danger: true },
   ];
   const EXPIRY_ACTS = [

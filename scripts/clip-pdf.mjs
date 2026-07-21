@@ -90,13 +90,26 @@ export function assessFidelity(text) {
   const nonSpace = (text.match(/\S/g) || []).length || 1;
   const letters = (text.match(/[A-Za-z]/g) || []).length;
   const letterRatio = letters / nonSpace;
-  const gibberish = nonSpace >= 200 && letterRatio < 0.5;
+  // Calibrated against real content, not intuition. A legitimately numeric
+  // document — a DOT unit-price table or fuel index — is letter-sparse because
+  // the content IS numbers, and still measures 0.35-0.40 (column headers, item
+  // descriptions, dates). Broken-font mojibake measures 0.00-0.05. The old 0.5
+  // gate sat above real data and flagged every price sheet as gibberish.
+  const gibberish = nonSpace >= 200 && letterRatio < 0.2;
   // Degraded means "don't trust verbatim spans, paraphrase math". Calibrated so
   // math-heavy prose (many '?'-for-operator manglings), glyph-dump PDFs
   // ((cid:NN) tokens, high replacement-char density), and broken-font gibberish
   // trip it, while a handful of stray glyphs in figure captions of otherwise-clean
   // prose does not.
-  const degraded = mangledMath >= 8 || cid > 5 || replacement / words > 0.015 || gibberish;
+  // mangledMath is rate-gated, not just counted: an absolute floor alone meant
+  // length decided the verdict, so any long document accumulated 8 ordinary
+  // question marks and read as math-mangled forever. Keep the floor so a short
+  // snippet is not condemned by one or two hits, but require real density too.
+  const degraded =
+    (mangledMath >= 8 && mangledMath / words > 0.005) ||
+    cid > 5 ||
+    replacement / words > 0.015 ||
+    gibberish;
   return { degraded, mangledMath, replacement, cid, letterRatio, gibberish };
 }
 
@@ -162,6 +175,37 @@ export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng' } = {}) {
   }
 }
 
+// Escalate to OCR on QUALITY as well as quantity. A broken/symbol-font text layer
+// yields plenty of words — just corrupted ones — so gating only on "thin" let
+// equation-heavy PDFs through as `degraded` with OCR never attempted (a
+// 34k-word thesis whose every equation decoded to U+FFFD).
+export function shouldTryOcr(clip, { thinFloor = THIN_WORD_FLOOR } = {}) {
+  return clip.wordCount < thinFloor || clip.fidelity === 'degraded';
+}
+
+// Problems per word — replacement chars, glyph-dump (cid:NN) tokens, and mangled
+// math — normalized by length so a long document is not penalized for being long.
+function problemRate(clip) {
+  const a = assessFidelity(clip.md);
+  return (a.replacement + a.cid + a.mangledMath) / Math.max(1, clip.wordCount);
+}
+
+// Keep whichever pass actually reads better. OCR has its own error modes, so it
+// only wins when it is both usable (not thin) and measurably cleaner — otherwise
+// escalation could trade good text for worse.
+export function preferBetterExtraction(textClip, ocrClip, { thinFloor = THIN_WORD_FLOOR } = {}) {
+  if (!ocrClip || ocrClip.wordCount < thinFloor) return textClip;
+  if (textClip.wordCount < thinFloor) return ocrClip;
+  // A clean pass beats a degraded one outright. Rate alone is not enough: a
+  // broken-encoding text layer is punctuation soup carrying no replacement chars,
+  // no (cid:NN) and no mangled math, so it rates 0 — tying with a perfect OCR pass
+  // and winning by fallthrough. letterRatio is the only signal that sees it.
+  const t = assessFidelity(textClip.md);
+  const o = assessFidelity(ocrClip.md);
+  if (t.degraded !== o.degraded) return o.degraded ? textClip : ocrClip;
+  return problemRate(ocrClip) < problemRate(textClip) ? ocrClip : textClip;
+}
+
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
@@ -220,12 +264,14 @@ export function main(argv) {
       text = ''; // per-URL extraction failure — fall through to the OCR fallback below
     }
     clip = pdfClipContent({ title, source, text, quality });
-    // Auto-fallback: a thin text layer means a scanned/image PDF (or a broken
-    // font layer) — exactly OCR's job. Only replace if OCR actually recovers text.
-    if (clip.wordCount < THIN_WORD_FLOOR && ocrReachable()) {
-      console.log('thin text layer — falling back to OCR (slow)…');
+    // Auto-fallback on quantity OR quality: a thin layer means a scanned/image
+    // PDF; an abundant-but-degraded layer means a broken/symbol font (equations
+    // decoding to U+FFFD). Both are exactly OCR's job. Keep whichever pass reads
+    // better so escalation can never make the clipping worse.
+    if (shouldTryOcr(clip) && ocrReachable()) {
+      console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
       const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
-      if (oclip.wordCount >= THIN_WORD_FLOOR) clip = oclip;
+      clip = preferBetterExtraction(clip, oclip);
     }
   }
 

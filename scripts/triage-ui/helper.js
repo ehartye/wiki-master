@@ -129,6 +129,48 @@
       });
   }
 
+  // "Browse" for a source you fetched by hand. The browser will not disclose the
+  // picked file's path, so the bytes are POSTed to the local server, which saves
+  // them outside the vault and records that path in the disposition — no filename
+  // or title matching, and it works wherever the file happens to live.
+  document.addEventListener('change', function (ev) {
+    var input = ev.target;
+    if (!input || input.type !== 'file' || !input.dataset || !input.dataset.url) return;
+    var file = input.files && input.files[0];
+    if (!file) return;
+    upload(input, file);
+  });
+
+  function upload(input, file) {
+    var row = input.closest('.issue');
+    var label = input.closest('.browse');
+    if (row) row.classList.add('done');
+    setStatus('uploading ' + file.name + '…');
+
+    fetch('/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-wm-url': input.dataset.url,
+        'x-wm-kind': input.dataset.kind,
+        'x-wm-filename': file.name
+      },
+      body: file
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function () {
+        if (label) label.classList.add('chosen');
+        setStatus('saved ' + file.name + ' → run apply-reclips to clip it');
+      })
+      .catch(function (err) {
+        if (row) row.classList.remove('done');
+        setStatus('FAILED to upload (' + err.message + ') — not saved', true);
+      });
+  }
+
   function shortUrl(u) {
     try { return new URL(u).hostname; } catch (e) { return u.slice(0, 40); }
   }
