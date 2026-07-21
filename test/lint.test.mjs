@@ -63,6 +63,21 @@ test('checkQuotes follows body links to source pages (both breadcrumb channels)'
     'quote verifies through body-link trail');
 });
 
+// Real bug, found live in the vault: evidenceBodies() builds its own byName
+// map identically to graph.mjs and does the same raw `byName.get(t.toLowerCase())`
+// lookup with no path/extension normalization. Since the vault's real
+// `sources:` convention cites raw clippings as `[[raw/clippings/X.md]]` (path
+// + extension qualified — see qualified-src-page.md), the transitive walk
+// from a concept page -> its source page -> the underlying raw clipping
+// silently broke at exactly that second hop, so a genuine quote that only
+// appears in the raw file (not restated on the source page) was falsely
+// flagged as unverifiable.
+test('checkQuotes follows a path+extension-qualified sources: citation through to the raw clipping', () => {
+  const findings = checkQuotes(FIXTURE, graph());
+  assert.ok(!findings.some((f) => f.page.includes('path-qualified-citation.md')),
+    'genuine quote in the raw file verifies through the qualified source-page -> raw/ hop');
+});
+
 test('checkQuotes exempts sentences that declare themselves unsourced', () => {
   const findings = checkQuotes(FIXTURE, graph());
   assert.ok(!findings.some((f) => f.page.includes('declared.md')),
