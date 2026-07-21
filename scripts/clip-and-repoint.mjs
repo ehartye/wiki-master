@@ -88,7 +88,11 @@ for (const [target, citers] of [...citersOf].slice(0, LIMIT)) {
       const out = execFileSync(process.execPath, [join(HERE, script), binAbs, `--source=${binAbs}`], {
         encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
       });
-      clipRel = /clipped:\s*(raw\/clippings\/.+\.md)/.exec(out)?.[1];
+      // The clipper may report that the vault already holds this content under a
+      // different name — a reuse, not a failure. `existingClip` above misses that
+      // case whenever the binary has moved since it was first clipped.
+      clipRel = /clipped:\s*(raw\/clippings\/.+\.md)/.exec(out)?.[1]
+        ?? /exists \(same content\):\s*(raw\/clippings\/.+\.md)/.exec(out)?.[1];
     } catch (e) {
       report.failed.push({ target, reason: String(e.message || e).slice(0, 140) });
       continue;

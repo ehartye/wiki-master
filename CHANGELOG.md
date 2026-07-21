@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.1 — 2026-07-21
+
+### Re-clip identity is content, not location
+
+A clipper's duplicate check matched on the **binary's path**. Move the binaries — as the
+0.5.0 vault rule requires — and every lookup misses, so a re-clip pass writes a second
+copy of content the vault already holds, beside the original as `<slug>-<hash7>.md`.
+Slug disambiguation was working correctly; it was being asked the wrong question.
+
+`clip-pdf`, `clip-docx` and `clip-xlsx` now check the extracted body's **content hash**
+before writing and report `exists (same content): <path>` instead of creating a second
+file; `clip-and-repoint` reads that as a reuse, not a failure. Disambiguation is
+unchanged, so a genuinely different document sharing a title still gets its own file.
+
+### Vault repair: `dedupe-clippings`
+
+`node scripts/dedupe-clippings.mjs` (dry-run; `--apply` to delete) removes clippings that
+duplicate another's content-hash, keeping the copy the vault cites. It **refuses** any
+group where every copy is cited or none is — the first case is a deliberate duplicate
+(one paper bookmarked twice, documented in the summary's dedup note), the second has no
+keeper it can prove correct. Idempotent and convergent.
+
+Vaults synced from another machine should run it once and commit. A vault that ran the
+0.5.0 clip-and-repoint pass will also have duplicate `wiki/sources/` pages recording the
+same `source-hashes`; those need a judgment call and are reported by `/wiki-lint`, not
+auto-merged — the newer page can hold specifics the older one lacks.
+
 ## 0.5.0 — 2026-07-21
 
 ### The vault holds only `.md` and the images those `.md` files reference
