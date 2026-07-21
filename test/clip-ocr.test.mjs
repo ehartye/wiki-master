@@ -9,6 +9,20 @@ import { assessFidelity, shouldTryOcr, preferBetterExtraction } from '../scripts
 // was never escalated, landing as `fidelity: degraded` with OCR untried.
 // Escalation must trigger on quality, not just quantity.
 
+// `mangledMath >= 8` was an ABSOLUTE count, so length alone tripped it: a
+// 198,000-word manual with 80 ordinary question marks (0.0004 per word) read as
+// "math-mangled" forever. Rate, like `replacement` already uses.
+test('assessFidelity: a long clean document is not degraded by a handful of mangled operators', () => {
+  const long = 'the quick brown fox jumps over the lazy dog '.repeat(600);
+  const a = assessFidelity(long + 'x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1');
+  assert.ok(a.mangledMath >= 8, 'still exceeds the old absolute threshold');
+  assert.equal(a.degraded, false, 'but the rate is negligible, so the document is fine');
+});
+
+test('assessFidelity: genuinely math-mangled text is still degraded', () => {
+  assert.equal(assessFidelity('x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1 g2 ? 1').degraded, true);
+});
+
 const words = (s) => (s.match(/\S+/g) || []).length;
 const mk = (md) => ({ md, wordCount: words(md), fidelity: assessFidelity(md).degraded ? 'degraded' : 'high' });
 

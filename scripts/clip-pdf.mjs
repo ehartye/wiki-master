@@ -96,7 +96,15 @@ export function assessFidelity(text) {
   // ((cid:NN) tokens, high replacement-char density), and broken-font gibberish
   // trip it, while a handful of stray glyphs in figure captions of otherwise-clean
   // prose does not.
-  const degraded = mangledMath >= 8 || cid > 5 || replacement / words > 0.015 || gibberish;
+  // mangledMath is rate-gated, not just counted: an absolute floor alone meant
+  // length decided the verdict, so any long document accumulated 8 ordinary
+  // question marks and read as math-mangled forever. Keep the floor so a short
+  // snippet is not condemned by one or two hits, but require real density too.
+  const degraded =
+    (mangledMath >= 8 && mangledMath / words > 0.005) ||
+    cid > 5 ||
+    replacement / words > 0.015 ||
+    gibberish;
   return { degraded, mangledMath, replacement, cid, letterRatio, gibberish };
 }
 
