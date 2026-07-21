@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, isContent, resolveLinkTarget, buildNameIndex } from './lib/graph.mjs';
+import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no
@@ -58,48 +58,9 @@ function quotedSpans(body) {
   return out;
 }
 
-// The breadcrumb trail (#13): a page's quotable evidence is BOTH provenance
-// channels — frontmatter sources: AND body wikilinks that point at source
-// pages or raw/ — followed transitively (concept → source page → clipping).
-// Body links to other concepts are NOT evidence: a quote must trace toward
-// raw/, not sideways into other unverified pages.
-function isEvidencePath(path) {
-  return path.startsWith('raw/') || path.startsWith('wiki/sources/');
-}
-
-const MAX_DEPTH = 3;
-
-// BREADTH-first, so every page is reached by its SHORTEST route. Depth-first
-// with one shared `seen` set loses evidence: a source page reached late down a
-// long chain gets marked seen at the depth limit, and the direct citation of
-// that same page — one hop from its own clipping — then bails on `seen` and is
-// never expanded. Quotes taken straight from a directly-cited source then read
-// as unverifiable. Order of a page's links must not decide what counts as
-// evidence.
-export function evidencePaths(page, byName, pages) {
-  const seen = new Set([page.path]);
-  const found = [];
-  let frontier = [{ p: page, depth: 0, viaEvidence: false }];
-  while (frontier.length) {
-    const next = [];
-    for (const { p, depth, viaEvidence } of frontier) {
-      if (p.path !== page.path && (viaEvidence || isEvidencePath(p.path))) found.push(p.path);
-      if (depth >= MAX_DEPTH) continue;
-      for (const t of [...(p.fmTargets ?? []), ...(p.outTargets ?? [])]) {
-        const target = pages.get(resolveLinkTarget(byName, t));
-        if (!target || seen.has(target.path)) continue;
-        // From the page itself: only step toward evidence. From evidence pages:
-        // keep following their provenance (source page → its raw clippings).
-        if (depth === 0 && !isEvidencePath(target.path)) continue;
-        seen.add(target.path);
-        next.push({ p: target, depth: depth + 1, viaEvidence: isEvidencePath(target.path) });
-      }
-    }
-    frontier = next;
-  }
-  return found;
-}
-
+// The breadcrumb trail (#13) lives in graph.mjs — health measures reachability
+// over the same walk, and two copies would drift into two different answers to
+// "can this page be walked back to raw/".
 function evidenceBodies(vaultPath, page, byName, pages) {
   return evidencePaths(page, byName, pages)
     .map((p) => splitFm(readFileSync(join(vaultPath, p), 'utf8')));

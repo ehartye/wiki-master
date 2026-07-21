@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evidencePaths } from '../scripts/lint.mjs';
-import { buildNameIndex } from '../scripts/lib/graph.mjs';
+import { buildNameIndex, evidencePaths } from '../scripts/lib/graph.mjs';
 
 // Quote verification reads a page's evidence trail: frontmatter sources: and body
 // wikilinks toward wiki/sources/ and raw/, followed transitively to a depth cap.

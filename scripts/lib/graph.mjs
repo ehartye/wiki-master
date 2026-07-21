@@ -9,6 +9,47 @@ export const HUB_MIN_BACKLINKS = 5;
 // COLLECTION time — excluded files contribute neither nodes nor edges to any
 // metric — so no downstream check can forget it.
 const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md']);
+// The evidence trail: a page's provenance is BOTH channels — frontmatter
+// `sources:` and body wikilinks pointing at source pages or raw/ — followed
+// transitively (concept → source page → clipping). Body links to other concepts
+// are NOT evidence: a trail must lead toward raw/, not sideways into other
+// unverified pages.
+export function isEvidencePath(path) {
+  return path.startsWith('raw/') || path.startsWith('wiki/sources/');
+}
+
+const MAX_EVIDENCE_DEPTH = 3;
+
+// BREADTH-first, so every page is reached by its SHORTEST route. Depth-first
+// with one shared `seen` set loses evidence: a source page reached late down a
+// long chain gets marked seen at the depth limit, and the direct citation of
+// that same page — one hop from its own clipping — then bails on `seen` and is
+// never expanded. Order of a page's links must not decide what counts as
+// evidence.
+export function evidencePaths(page, byName, pages) {
+  const seen = new Set([page.path]);
+  const found = [];
+  let frontier = [{ p: page, depth: 0, viaEvidence: false }];
+  while (frontier.length) {
+    const next = [];
+    for (const { p, depth, viaEvidence } of frontier) {
+      if (p.path !== page.path && (viaEvidence || isEvidencePath(p.path))) found.push(p.path);
+      if (depth >= MAX_EVIDENCE_DEPTH) continue;
+      for (const t of [...(p.fmTargets ?? []), ...(p.outTargets ?? [])]) {
+        const target = pages.get(resolveLinkTarget(byName, t));
+        if (!target || seen.has(target.path)) continue;
+        // From the page itself: only step toward evidence. From evidence pages:
+        // keep following their provenance (source page → its raw clippings).
+        if (depth === 0 && !isEvidencePath(target.path)) continue;
+        seen.add(target.path);
+        next.push({ p: target, depth: depth + 1, viaEvidence: isEvidencePath(target.path) });
+      }
+    }
+    frontier = next;
+  }
+  return found;
+}
+
 export function isContent(path) {
   if (!path.endsWith('.md')) return false;
   if (SYSTEM_FILES.has(path)) return false;
@@ -277,6 +318,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
     .map((p) => p.path);
 
   const isSourcePage = (path) => path.startsWith('wiki/sources/');
+  const pageByPath = new Map(pages.map((p) => [p.path, p]));
 
   // A source page that cites no raw file claims an ingest happened while leaving
   // its clipping indistinguishable from one never processed. Scored as a defect —
@@ -333,11 +375,29 @@ export function computeGraphMetrics({ pages }, opts = {}) {
     .filter((p) => isSourcePage(p.path) && !p.declaresNoSources && !citesRaw(p))
     .map((p) => p.path);
 
+  // Everything OUTSIDE wiki/sources/ went unaudited for provenance: a concept
+  // resting on nothing at all still scored a clean 100, because provenanceGaps
+  // was gated on isSourcePage. This closes that, and measures the property that
+  // actually matters for finding things — can the page be walked back to raw/ —
+  // rather than whether a particular field is filled in. Frontmatter `sources:`
+  // and body wikilinks are one and the same edge in Obsidian's link graph, so
+  // requiring a specific channel would enforce house style, not provenance.
+  //
+  // Source pages keep the stricter direct-citation rule above: a summary must
+  // cite its OWN clipping, not borrow reachability from a neighbour it links.
+  // moc/ is exempt by the vault contract — Maps of Content are navigational
+  // hubs that route to pages carrying provenance.
+  const needsTrail = (p) =>
+    p.path.startsWith('wiki/') && !isSourcePage(p.path) && !p.declaresNoSources;
+  const reachesRaw = (p) => evidencePaths(p, byName, pageByPath).some((x) => x.startsWith('raw/'));
+  const unreachableProvenance = pages.filter((p) => needsTrail(p) && !reachesRaw(p)).map((p) => p.path);
+
   // Declared, not silent: visible so a reader can audit the claim, but not
   // scored — the same treatment declaredStubs get. Penalizing a deliberate
   // disclosure would only teach authors to stop disclosing.
   const declaredNoProvenance = pages
-    .filter((p) => isSourcePage(p.path) && p.declaresNoSources && !citesRaw(p))
+    .filter((p) => p.declaresNoSources && isContent(p.path) &&
+      (isSourcePage(p.path) ? !citesRaw(p) : !reachesRaw(p)))
     .map((p) => p.path);
 
   // Pages that declare themselves stubs. Informational, not scored: the
@@ -347,5 +407,5 @@ export function computeGraphMetrics({ pages }, opts = {}) {
 
   const brokenClass = classifyBrokenLinks(brokenLinks, pages, opts);
 
-  return { orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass };
+  return { orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass };
 }

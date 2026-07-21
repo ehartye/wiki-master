@@ -8,7 +8,7 @@ import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 // source-side exclusion, so its answer cannot be corrected after the fact.
 export { isContent };
 
-export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0, provenanceGaps = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
+export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0, provenanceGaps = [], unreachableProvenance = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
   // Broken links are triaged (see classifyBrokenLinks): defects (typo/rename —
   // real bugs) and stale (abandoned low-demand forward-links) are penalized;
   // deferred forward-links are healthy by design and cost nothing. Callers
@@ -28,7 +28,13 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     // claims an ingest while leaving its clipping indistinguishable from one
     // never processed. Every citation in the wiki rests on this link, so it is
     // scored as a defect rather than filed as informational.
-    Math.min(20, provenanceGaps.length * 4);
+    Math.min(20, provenanceGaps.length * 4) +
+    // Same contract, the other 90% of the vault: a concept/entity/synthesis that
+    // cannot be walked back to raw/ is a claim with no trail, and the trail is
+    // what every citation rests on. Scored lower than a source-page gap because
+    // it is reachability, not a direct citation — the page may be one broken hop
+    // from evidence rather than resting on nothing.
+    Math.min(20, unreachableProvenance.length * 3);
   const score = Math.max(0, 100 - penalty);
 
   const list = (arr, fmt) => (arr.length ? `\n    ${arr.map(fmt).join('\n    ')}` : '');
@@ -51,6 +57,8 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     (declaredStubs.length ? `\n    ${declaredStubs.join('\n    ')}` : '') +
     `\n  provenance gaps: ${provenanceGaps.length}` +
     (provenanceGaps.length ? ` (source pages citing no raw/ file)\n    ${provenanceGaps.join('\n    ')}` : '') +
+    `\n  unreachable provenance: ${unreachableProvenance.length}` +
+    (unreachableProvenance.length ? ` (cannot be walked back to raw/)\n    ${unreachableProvenance.join('\n    ')}` : '') +
     `\n  declared no provenance (not scored): ${declaredNoProvenance.length}` +
     (declaredNoProvenance.length ? `\n    ${declaredNoProvenance.join('\n    ')}` : '') +
     // Two distinct facts, reported separately. "Unparsed" alone invited the
@@ -66,7 +74,7 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     `\n  clippings missing source-hash (repair): ${missingHash.length}` +
     (missingHash.length ? `\n    ${missingHash.join('\n    ')}` : '') +
     `\n  source pages awaiting hash backfill: ${backfillPending}`;
-  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, declaredNoProvenance, declaredStubs, brokenClass, report };
+  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
 export function main() {

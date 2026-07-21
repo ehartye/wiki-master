@@ -14,11 +14,19 @@ test('health end-to-end: fixture vault scores below 100 with attributed findings
   const r = computeHealth(computeGraphMetrics(buildGraph(FIXTURE)));
   // Broken links are triaged: the fixture's 2 are deferred forward-links (no
   // near-match, and no `now` passed so none can be proven stale) → 0 penalty.
-  // orphans 1*2 + deadEnds 3*2 + hubStubs 1*5 + provenanceGaps 1*4 = 17.
+  // orphans 1*2 + deadEnds 3*2 + hubStubs 1*5 + provenanceGaps 1*4
+  //   + unreachableProvenance 2*3 = 23.
   // The provenance gap is wiki/sources/no-provenance.md: a source page citing no
   // raw/ file, which claims an ingest while leaving its clipping
   // indistinguishable from one never processed.
-  assert.equal(r.score, 83);
+  assert.equal(r.score, 77);
+  // Provenance is now audited outside wiki/sources/ too: an entity and a synthesis
+  // that cannot be walked back to raw/ by ANY route. Before this, only source
+  // pages were checked, so the rest of the vault could rest on nothing and still
+  // read as clean.
+  assert.deepEqual(r.unreachableProvenance,
+    ['wiki/entities/orphan-entity.md', 'wiki/syntheses/hub-stub.md']);
+  assert.ok(r.report.includes('unreachable provenance: 2'));
   assert.equal(r.brokenLinks.length, 2);
   assert.equal(r.brokenClass.deferred.length, 2, 'both broken links classify as deferred');
   assert.equal(r.brokenClass.defects.length, 0);

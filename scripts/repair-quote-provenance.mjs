@@ -11,8 +11,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, buildNameIndex, resolveLinkTarget } from './lib/graph.mjs';
-import { checkQuotes, normalize, quoteFragments, evidencePaths } from './lint.mjs';
+import { buildGraph, buildNameIndex, resolveLinkTarget, evidencePaths } from './lib/graph.mjs';
+import { checkQuotes, normalize, quoteFragments } from './lint.mjs';
 import { insertSources } from './lib/backfill.mjs';
 
 const apply = process.argv.includes('--apply');

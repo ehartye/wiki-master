@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Health now audits provenance outside `wiki/sources/`
+
+`provenanceGaps` was gated on `isSourcePage()`, so roughly 90% of a vault — every
+concept, entity and synthesis — was never checked for provenance at all. A concept
+resting on nothing could score a clean 100.
+
+New `unreachableProvenance` metric: a `wiki/` page that cannot be **walked back to
+`raw/`** by any route, following frontmatter `sources:` and body wikilinks alike.
+Scored 3 each (capped 20), below a source-page gap because it measures reachability
+rather than direct citation.
+
+It deliberately does **not** require a `sources:` field. Obsidian indexes frontmatter
+and body wikilinks as the same edge — `backlinks` and `links` return both
+identically — so demanding a particular channel would enforce house style, not
+provenance. What it measures is the property that makes information findable: is
+there a trail back to evidence.
+
+Rules that keep it honest:
+
+- **Sideways is not provenance.** A chain of concepts citing each other never reaches
+  evidence, however long.
+- **Source pages keep the stricter rule.** A summary must cite its own clipping, not
+  borrow reachability from a neighbour it links.
+- **`moc/` is exempt** — Maps of Content are navigational hubs by the vault contract.
+- **`sources: []` is a declaration, not a defect.** The existing disclosure mechanism
+  now applies to every page type, reported and not scored.
+
+The evidence walk moved from `lint.mjs` into `lib/graph.mjs` so lint and health share
+one definition of "can this be walked back to raw/" rather than drifting into two.
+
 ## 0.5.2 — 2026-07-21
 
 ### Quote verification was under-reading the evidence trail
