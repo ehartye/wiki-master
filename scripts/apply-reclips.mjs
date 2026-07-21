@@ -77,7 +77,7 @@ const report = { asked: 0, alreadyResolved: 0, reclipped: 0, usedLocal: 0, still
 const targets = pendingReclips(loadIssueLog(vault));
 report.asked = targets.length;
 
-for (const url of targets.slice(0, LIMIT)) {
+for (const { url, file } of targets.slice(0, LIMIT)) {
   const hit = bySource.get(norm(url));
   if (!hit) { report.noClipping.push(url); continue; }
   // "Already done" is DERIVED: if the clipping reads clean, the re-clip is moot.
@@ -90,10 +90,14 @@ for (const url of targets.slice(0, LIMIT)) {
     const title = field(fm, 'title');
     // A hand-downloaded copy wins over the URL: it is why you downloaded it, and
     // re-fetching a paywalled source would only 403 again.
-    const local = FROM ? matchLocalFile(title, fromFiles) : null;
-    const path = local ? join(FROM, local) : await localCopy(url);
+    // Precedence: a file you picked in the UI (exact, no inference) > a match in
+    // --from (title-based, can be ambiguous) > re-fetching the URL (403s on a
+    // paywall, which is why you picked the file in the first place).
+    const picked = file && existsSync(file) ? file : null;
+    const local = !picked && FROM ? matchLocalFile(title, fromFiles) : null;
+    const path = picked ?? (local ? join(FROM, local) : await localCopy(url));
     if (!path) { report.failed.push({ url, reason: 'source file not found locally' }); continue; }
-    if (local) report.usedLocal++;
+    if (picked || local) report.usedLocal++;
     const clip = extract(path, {
       title, source: field(fm, 'source'),
       quality: field(fm, 'quality') || 'medium', created: field(fm, 'created'),

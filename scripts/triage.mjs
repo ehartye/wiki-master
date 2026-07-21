@@ -106,11 +106,17 @@ const isHttp = (u) => /^https?:\/\//i.test(u || '');
 // here, and the client reads values via dataset.
 function actions(url, kind, acts) {
   return `<div class="actions">${acts
-    .map(
-      (a) =>
-        `<button class="act${a.danger ? ' danger' : ''}" data-url="${esc(url)}" data-kind="${esc(
-          kind
-        )}" data-act="${esc(a.id)}">${esc(a.label)}</button>`
+    .map((a) =>
+      // A browse action is a file input, not a button: the browser will not
+      // disclose a picked file's path, so the bytes go to the local server, which
+      // records where it saved them. Same disposition, plus an exact source.
+      a.browse
+        ? `<label class="act browse"><input type="file" hidden data-url="${esc(url)}" data-kind="${esc(
+            kind
+          )}">${esc(a.label)}</label>`
+        : `<button class="act${a.danger ? ' danger' : ''}" data-url="${esc(url)}" data-kind="${esc(
+            kind
+          )}" data-act="${esc(a.id)}">${esc(a.label)}</button>`
     )
     .join('')}</div>`;
 }
@@ -171,7 +177,7 @@ export function renderScreen(data) {
   // it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping
   // already exists and asks only for confirmation.
   const CLIP_ACTS = [
-    { id: 'downloaded', label: 'downloaded — clip it' },
+    { id: 'downloaded', label: 'browse — clip this file', browse: true },
     { id: 'clipped-manually', label: 'clipped by hand' },
     { id: 'retry', label: 'retry' },
     { id: 'declined', label: 'decline', danger: true },
@@ -180,7 +186,7 @@ export function renderScreen(data) {
   const FIDELITY_ACTS = [
     { id: 'acceptable', label: 'acceptable' },
     { id: 'reclip', label: 're-clip' },
-    { id: 'downloaded', label: 'downloaded — clip it' },
+    { id: 'downloaded', label: 'browse — clip this file', browse: true },
     { id: 'quarantine', label: 'do not cite', danger: true },
   ];
   const EXPIRY_ACTS = [

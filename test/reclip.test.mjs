@@ -35,16 +35,17 @@ test('matchLocalFile refuses to guess between two candidates', () => {
 // sat dispositioned-but-unfixed and kept resurfacing. Fold the log to find what
 // was asked for; whether it is still NEEDED is derived from the vault, not stored.
 
-const d = (url, disposition, kind = 'fidelity') => ({ t: 'disposition', url, kind, disposition });
+const d = (url, disposition, kind = 'fidelity', note = null) => ({ t: 'disposition', url, kind, disposition, note });
+const urls = (r) => r.map((x) => x.url);
 
 test('pendingReclips returns sources whose latest disposition asked for a re-clip', () => {
-  assert.deepEqual(pendingReclips([d('https://a.test/p.pdf', 'reclip')]), ['https://a.test/p.pdf']);
+  assert.deepEqual(urls(pendingReclips([d('https://a.test/p.pdf', 'reclip')])), ['https://a.test/p.pdf']);
 });
 
 test('pendingReclips: a later disposition supersedes an earlier one', () => {
-  assert.deepEqual(pendingReclips([d('https://a.test/p.pdf', 'reclip'), d('https://a.test/p.pdf', 'acceptable')]), []);
+  assert.deepEqual(urls(pendingReclips([d('https://a.test/p.pdf', 'reclip'), d('https://a.test/p.pdf', 'acceptable')])), []);
   assert.deepEqual(
-    pendingReclips([d('https://a.test/p.pdf', 'acceptable'), d('https://a.test/p.pdf', 'reclip')]),
+    urls(pendingReclips([d('https://a.test/p.pdf', 'acceptable'), d('https://a.test/p.pdf', 'reclip')])),
     ['https://a.test/p.pdf'],
     'changing your mind back must re-queue the work'
   );
@@ -52,28 +53,43 @@ test('pendingReclips: a later disposition supersedes an earlier one', () => {
 
 test('pendingReclips de-duplicates a source dispositioned repeatedly', () => {
   const log = [d('https://a.test/p.pdf', 'reclip'), d('https://a.test/p.pdf', 'reclip'), d('https://a.test/p.pdf', 'reclip')];
-  assert.deepEqual(pendingReclips(log), ['https://a.test/p.pdf'], 'three clicks are one job');
+  assert.deepEqual(urls(pendingReclips(log)), ['https://a.test/p.pdf'], 'three clicks are one job');
+});
+
+// The browse control uploads the file and records where the server saved it, so
+// the re-clip uses that exact source instead of inferring one from a filename.
+test('pendingReclips carries the uploaded file path from a browse disposition', () => {
+  const saved = 'C:\\Temp\\wiki-master-uploads\\1784-3342765.pdf';
+  const r = pendingReclips([d('https://dl.acm.org/doi/10.1145/3342765', 'downloaded', 'failed', saved)]);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].file, saved);
+});
+
+test('pendingReclips: an uploaded file beats a bare request for the same source', () => {
+  const saved = 'C:\\Temp\\wiki-master-uploads\\1784-3342765.pdf';
+  const log = [d('https://a.test/p.pdf', 'reclip'), d('https://a.test/p.pdf', 'downloaded', 'failed', saved)];
+  assert.deepEqual(pendingReclips(log), [{ url: 'https://a.test/p.pdf', file: saved }]);
 });
 
 test('pendingReclips ignores unrelated kinds and non-request dispositions', () => {
   const log = [d('https://a.test/x', 'reclip', 'blocked'), d('https://b.test/y', 'quarantine'), { t: 'issue', url: 'https://c.test/z', kind: 'fidelity' }];
-  assert.deepEqual(pendingReclips(log), []);
+  assert.deepEqual(urls(pendingReclips(log)), []);
 });
 
 // "downloaded" is the paywall answer: you fetched it by hand, and the disposition
 // itself is the work order. It arrives on a `failed` issue, because by then the
 // problem is that the source could not be fetched — not that it read poorly.
 test('pendingReclips queues a "downloaded" disposition', () => {
-  assert.deepEqual(pendingReclips([d('https://a.test/p.pdf', 'downloaded')]), ['https://a.test/p.pdf']);
+  assert.deepEqual(urls(pendingReclips([d('https://a.test/p.pdf', 'downloaded')])), ['https://a.test/p.pdf']);
 });
 
 test('pendingReclips queues a request recorded against a failed fetch', () => {
-  assert.deepEqual(pendingReclips([d('https://dl.acm.org/doi/10.1145/3342765', 'downloaded', 'failed')]), ['https://dl.acm.org/doi/10.1145/3342765']);
+  assert.deepEqual(urls(pendingReclips([d('https://dl.acm.org/doi/10.1145/3342765', 'downloaded', 'failed')])), ['https://dl.acm.org/doi/10.1145/3342765']);
 });
 
 test('pendingReclips counts one source recorded under both kinds as one job', () => {
   const log = [d('https://a.test/p.pdf', 'reclip', 'fidelity'), d('https://a.test/p.pdf', 'downloaded', 'failed')];
-  assert.deepEqual(pendingReclips(log), ['https://a.test/p.pdf']);
+  assert.deepEqual(urls(pendingReclips(log)), ['https://a.test/p.pdf']);
 });
 
 // "A recurrence reopens an issue" — a disposition settles a source only until

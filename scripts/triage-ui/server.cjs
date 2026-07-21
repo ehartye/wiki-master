@@ -10,6 +10,7 @@
 // cache path is version-pinned and wiki-master must work without it installed.
 
 const crypto = require('crypto');
+const os = require('os');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -132,6 +133,51 @@ function handleRequest(req, res) {
   if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(render());
+    return;
+  }
+
+  // A paywalled source is fetched by hand, and the browser will not disclose the
+  // picked file's path (by design), so "browse" uploads the bytes to this local
+  // server instead. They land OUTSIDE the vault — a binary is never vault content
+  // — and the saved path rides along in the disposition's note, so the re-clip
+  // needs no filename or title matching at all.
+  if (req.method === 'POST' && req.url === '/upload') {
+    const url = req.headers['x-wm-url'];
+    const kind = req.headers['x-wm-kind'];
+    const name = path.basename(String(req.headers['x-wm-filename'] || 'source')).replace(/[^\w.\-]+/g, '_');
+    if (!url || !kind) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end('{"error":"upload needs x-wm-url and x-wm-kind"}');
+      return;
+    }
+    const chunks = [];
+    let size = 0;
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > 256 * 1024 * 1024) { req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      try {
+        const dir = path.join(os.tmpdir(), 'wiki-master-uploads');
+        fs.mkdirSync(dir, { recursive: true });
+        const saved = path.join(dir, `${Date.now()}-${name}`);
+        fs.writeFileSync(saved, Buffer.concat(chunks));
+        const event = {
+          t: 'disposition', url: String(url), kind: String(kind),
+          disposition: 'downloaded', note: saved,
+          at: new Date().toISOString(), via: 'triage-ui',
+        };
+        fs.mkdirSync(path.dirname(TRIAGE_LOG), { recursive: true });
+        fs.appendFileSync(TRIAGE_LOG, JSON.stringify(event) + '\n');
+        console.log(JSON.stringify({ type: 'upload', saved, bytes: size }));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, saved }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
     return;
   }
 
