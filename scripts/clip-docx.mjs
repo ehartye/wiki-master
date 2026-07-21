@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -106,12 +107,22 @@ export function main(argv) {
     return { status: 'thin' };
   }
 
-  // Same-source re-clips are already caught by isDuplicateUrl above, so a slug
-  // collision here is a DIFFERENT document sharing a title (or a case-variant).
-  // Disambiguate rather than drop — silently losing a distinct source is worse
-  // than a suffixed slug. Case-insensitive to match the filesystem and Obsidian's
-  // wikilink resolution.
   const dir = join(vaultPath, 'raw', 'clippings');
+
+  // isDuplicateUrl only catches a re-clip of the same PATH; a moved or renamed
+  // binary slips past it and the slug disambiguation below then mints a second
+  // file for content the vault already holds. Identity is the extracted body's
+  // hash, which does not care where the binary lives.
+  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  if (already) {
+    console.log(`exists (same content): ${already}`);
+    return { status: 'duplicate', file: already };
+  }
+
+  // A slug collision that is NOT a hash match is a DIFFERENT document sharing a
+  // title (or a case-variant). Disambiguate rather than drop — silently losing a
+  // distinct source is worse than a suffixed slug. Case-insensitive to match the
+  // filesystem and Obsidian's wikilink resolution.
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
   const slug = disambiguateSlug(slugify(title), clip.hash, (s) => taken.has(s.toLowerCase()));
   const file = join(dir, `${slug}.md`);
