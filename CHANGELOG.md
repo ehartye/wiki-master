@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1 — 2026-07-21
 
 ### Re-clip identity is content, not location
 
