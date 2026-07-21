@@ -13,7 +13,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // Clipped, but degraded. The content is in the vault and will be cited, so a
 // fidelity flag is a claim about how far you can trust the text — not a request
 // to re-clip. buildFrontmatter writes `fidelity` and `extraction`.
-function fidelityFlagged(vaultPath) {
+// A clipping is healthy at these grades; anything else is a real quality problem.
+const HEALTHY_FIDELITY = new Set(['high', 'ok', 'clean']);
+
+export function fidelityFlagged(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
   if (!existsSync(dir)) return [];
   const out = [];
@@ -27,15 +30,17 @@ function fidelityFlagged(vaultPath) {
     }
     const fm = head.startsWith('---') ? head.slice(3, head.indexOf('\n---', 3)) : '';
     if (!fm) continue;
-    const flag = /^(fidelity|extraction):\s*(.+)$/m.exec(fm);
-    if (!flag) continue;
-    const value = flag[2].trim().replace(/^["']|["']$/g, '');
-    if (!value || value === 'ok' || value === 'clean') continue;
+    // Read `fidelity` specifically. `extraction:` records HOW the text was read
+    // (e.g. ocr) — a method, not a defect — so it must never become a triage
+    // item; matching either key also let an earlier `extraction:` line win the
+    // regex and mask a real fidelity grade below it.
+    const fid = /^fidelity:\s*"?([\w-]+)"?/m.exec(fm)?.[1];
+    if (!fid || HEALTHY_FIDELITY.has(fid)) continue;
     const src = /^source:\s*(.+)$/m.exec(fm);
     out.push({
       url: src ? src[1].trim().replace(/^["']|["']$/g, '') : `file://${f}`,
       kind: 'fidelity',
-      reason: `${flag[1]}: ${value}`,
+      reason: `fidelity: ${fid}`,
       title: f.replace(/\.md$/, ''),
       occurrences: 1,
     });
