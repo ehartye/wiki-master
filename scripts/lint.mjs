@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, isContent } from './lib/graph.mjs';
+import { buildGraph, isContent, resolveLinkTarget } from './lib/graph.mjs';
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no
@@ -77,7 +77,7 @@ function evidenceBodies(vaultPath, page, byName, pages) {
       bodies.push(splitFm(readFileSync(join(vaultPath, p.path), 'utf8')));
     }
     const follow = (t) => {
-      const target = pages.get(byName.get(t.toLowerCase()));
+      const target = pages.get(resolveLinkTarget(byName, t));
       if (!target) return;
       // From the page itself: only step toward evidence. From evidence pages:
       // keep following their provenance (source page → its raw clippings).

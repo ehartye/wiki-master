@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -157,4 +157,52 @@ test('a broken frontmatter provenance cite is a real, attributed defect', () => 
   assert.ok(m.brokenLinks.some(
     (b) => b.source === 'wiki/syntheses/hub-stub.md' && b.target === 'gone-source'
   ), 'provenance pointing nowhere is reported with its source');
+});
+
+// Real bug, found live in the vault: byName is keyed on bare basenames only
+// (buildGraph's `name` field strips directory and .md extension), but the
+// vault's own documented citation convention writes `sources:` as
+// `[[raw/clippings/X.md]]` — path AND extension qualified. A raw
+// `byName.get(t.toLowerCase())` lookup never strips either, so ~two-thirds
+// of the live vault's real, correct citations were silently invisible to
+// every metric below: provenanceGaps, unsummarizedSources, deadEnds, and
+// brokenLinks all falsely flagged genuinely-cited pages/sources as gaps.
+test('resolveLinkTarget normalizes a path- and/or extension-qualified target to its bare basename', () => {
+  const byName = new Map([['foo', 'raw/clippings/Foo.md'], ['bar summary', 'wiki/sources/Bar Summary.md']]);
+  assert.equal(resolveLinkTarget(byName, 'raw/clippings/Foo.md'), 'raw/clippings/Foo.md');
+  assert.equal(resolveLinkTarget(byName, 'wiki/sources/Bar Summary'), 'wiki/sources/Bar Summary.md');
+  assert.equal(resolveLinkTarget(byName, 'Foo'), 'raw/clippings/Foo.md', 'bare name still resolves');
+  assert.equal(resolveLinkTarget(byName, 'nope'), undefined);
+});
+
+test('computeGraphMetrics recognizes a path+extension-qualified sources: citation as real provenance', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo.md', name: 'foo', title: 'Foo', words: 50, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/sources/Foo Summary.md', name: 'foo summary', title: 'Foo Summary', words: 50,
+      outTargets: [], fmTargets: ['raw/clippings/Foo.md'], // the vault's real, documented citation format
+    },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.provenanceGaps.includes('wiki/sources/Foo Summary.md'),
+    'a path+extension-qualified sources: citation must not be flagged as a provenance gap');
+  assert.ok(!m.unparsedSources.includes('raw/clippings/Foo.md'), 'the cited raw file is not unparsed');
+  assert.ok(!m.unsummarizedSources.includes('raw/clippings/Foo.md'),
+    'the raw file is cited by a wiki/sources page, so it counts as summarized');
+  assert.ok(!m.brokenLinks.some((b) => b.target === 'raw/clippings/Foo.md'),
+    'the qualified citation resolves; it must not be reported as broken');
+});
+
+test('computeGraphMetrics resolves a directory-qualified (no-extension) body wikilink for dead-end detection', () => {
+  const pages = [
+    { path: 'wiki/sources/Bar.md', name: 'bar', title: 'Bar', words: 50, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/concepts/Baz.md', name: 'baz', title: 'Baz', words: 50,
+      outTargets: ['wiki/sources/Bar'], fmTargets: [],
+    },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.deadEnds.includes('wiki/concepts/Baz.md'),
+    'a path-qualified (extensionless) body link must resolve, not read as a dead end');
+  assert.equal(m.brokenLinks.length, 0);
 });
