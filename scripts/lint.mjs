@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, isContent, resolveLinkTarget } from './lib/graph.mjs';
+import { buildGraph, isContent, resolveLinkTarget, buildNameIndex } from './lib/graph.mjs';
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no
@@ -93,8 +93,7 @@ function evidenceBodies(vaultPath, page, byName, pages) {
 }
 
 export function checkQuotes(vaultPath, graph) {
-  const byName = new Map();
-  for (const p of graph.pages) if (!byName.has(p.name)) byName.set(p.name, p.path);
+  const byName = buildNameIndex(graph.pages);
   const pages = new Map(graph.pages.map((p) => [p.path, p]));
   const findings = [];
   for (const p of graph.pages) {

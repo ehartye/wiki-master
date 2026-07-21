@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -205,4 +205,59 @@ test('computeGraphMetrics resolves a directory-qualified (no-extension) body wik
   assert.ok(!m.deadEnds.includes('wiki/concepts/Baz.md'),
     'a path-qualified (extensionless) body link must resolve, not read as a dead end');
   assert.equal(m.brokenLinks.length, 0);
+});
+
+// Real bug, found live in the vault AFTER the fix above shipped: this vault's
+// long-standing convention names a wiki/sources/ summary page (and often a
+// wiki/entities/ page too) identically to its raw/clippings/ source — e.g.
+// raw/clippings/CSX.md, wiki/sources/CSX.md, and wiki/entities/CSX.md all
+// really exist, a genuine three-way basename collision. buildGraph's `name`
+// field is bare-basename-only, so byName (as built before this fix) could
+// only ever remember ONE of the three under the key "csx" — whichever the
+// filesystem walk visited first (raw/ sorts before wiki/, so the raw file
+// always won). Every OTHER page sharing that basename became permanently
+// unreachable by name: a directory-qualified backlink like
+// `[[wiki/sources/CSX]]` still normalized to the bare "csx" and silently hit
+// the wrong file. Measured against the live vault, all 117 wiki/* pages in
+// this situation read as false orphans — not because nothing linked to them,
+// but because every link that did got misattributed to their same-named
+// raw/clippings/ (or sibling wiki/) twin instead.
+test('resolveLinkTarget prefers an exact full-path match over the ambiguous bare-basename fallback', () => {
+  const byName = buildNameIndex([
+    { path: 'raw/clippings/CSX.md', name: 'csx' },
+    { path: 'wiki/sources/CSX.md', name: 'csx' },   // second registrant for "csx" — loses the bare-name race
+    { path: 'wiki/entities/CSX.md', name: 'csx' },  // third registrant — same race, same loss
+  ]);
+  // Directory-qualified links are NOT ambiguous — each must resolve to the
+  // exact file it names, regardless of which file won the bare-name race.
+  assert.equal(resolveLinkTarget(byName, 'wiki/sources/CSX'), 'wiki/sources/CSX.md');
+  assert.equal(resolveLinkTarget(byName, 'wiki/entities/CSX'), 'wiki/entities/CSX.md');
+  assert.equal(resolveLinkTarget(byName, 'raw/clippings/CSX.md'), 'raw/clippings/CSX.md');
+  // A truly bare, unqualified link remains exactly as ambiguous as before —
+  // first-registered-in-the-walk still wins; this fix does not (and cannot)
+  // resolve genuine ambiguity, only eliminate FALSE ambiguity for links that
+  // already named an exact file.
+  assert.equal(resolveLinkTarget(byName, 'CSX'), 'raw/clippings/CSX.md');
+});
+
+test('computeGraphMetrics: a qualified backlink to a basename-colliding page counts as real inbound (the #117-orphan bug)', () => {
+  const pages = [
+    { path: 'raw/clippings/CSX.md', name: 'csx', title: 'CSX', words: 20, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/sources/CSX.md', name: 'csx', title: 'CSX', words: 50,
+      outTargets: ['wiki/entities/CSX'], fmTargets: ['raw/clippings/CSX.md'],
+    },
+    { path: 'wiki/entities/CSX.md', name: 'csx', title: 'CSX', words: 50, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/concepts/Neo4j.md', name: 'neo4j', title: 'Neo4j', words: 50,
+      outTargets: ['wiki/sources/CSX', 'wiki/entities/CSX'], fmTargets: [],
+    },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.orphans.includes('wiki/sources/CSX.md'),
+    'Neo4j.md\'s qualified backlink must count as real inbound, not get swallowed by the same-named raw file');
+  assert.ok(!m.orphans.includes('wiki/entities/CSX.md'),
+    'same for the entity page — a third file sharing the exact basename');
+  assert.ok(!m.provenanceGaps.includes('wiki/sources/CSX.md'),
+    'the qualified raw/ citation still resolves to the raw file specifically, not its wiki-page namesakes');
 });
