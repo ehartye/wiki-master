@@ -1,5 +1,73 @@
 # Changelog
 
+## Unreleased
+
+### The vault holds only `.md` and the images those `.md` files reference
+
+Binaries (`.pdf`, `.docx`, `.xlsx`, `.zip`) are **never** in the vault, and the tooling
+**never moves them**. They stay wherever you keep them. `clip-pdf` / `clip-docx` read a
+binary **in place** and write only the resulting `.md` into `raw/clippings/`, recording the
+binary's own path in the clipping's `source:`. Download a PDF → "clip that" → the PDF does
+not move; a `.md` appears in the vault.
+
+### OCR escalation now triggers on quality, not just quantity
+
+`clip-pdf` previously escalated to OCR only when the text layer was *thin*
+(`wordCount < 100`). A broken or symbol-font PDF yields **plenty** of words — just corrupted
+ones — so those were never escalated and landed as `fidelity: degraded` with OCR untried.
+Escalation now also fires when the extraction assesses as degraded, and keeps whichever pass
+reads measurably better (`shouldTryOcr` / `preferBetterExtraction`), so OCR can never make a
+clipping worse.
+
+### Repairing a vault that has binaries in it
+
+An older vault may contain binaries that summaries cite directly (`sources: ["[[X.pdf]]"]`).
+Those citations have no readable provenance and no `source-hash` to join on. To repair:
+
+1. **Move the binaries out of the vault** to any location you choose (this is a one-time
+   cleanup — the tooling neither knows nor manages that location).
+2. **Clip and repoint**, pointing the pass at wherever you put them:
+
+   ```
+   node scripts/clip-and-repoint.mjs --from=<dir>            # dry run
+   node scripts/clip-and-repoint.mjs --from=<dir> --apply
+   ```
+
+   For each dangling citation it clips the binary in place, writes the `.md` to
+   `raw/clippings/`, repoints every citing summary, and stamps `source-hashes`. Re-running is
+   safe: a binary already clipped is reused, not re-clipped. Degraded extractions are still
+   repointed (their `fidelity:` records the caveat) and filed to `/wiki-triage`.
+3. **Stamp any hash-less clippings.** Clippings written before `source-hash` existed
+   carry none, so they can never be hash-joined and their summaries stay stuck at
+   `backfillPending`:
+
+   ```
+   node scripts/repair-missing-hash.mjs --apply
+   node scripts/backfill-source-hashes.mjs --apply   # record the new hashes on the summaries
+   ```
+
+4. **Verify** with a health run. `provenanceGaps`, `backlog`, `missingHash`, and
+   `backfillPending` should all reach 0; any remainder is a source with no text
+   extractor (e.g. a spreadsheet), which is reference data rather than a prose source.
+
+### Extraction prerequisites — and a Windows gotcha that will bite you
+
+- **poppler** (`pdftotext`, `pdftoppm`) — PDF text + rasterizing. Required.
+- **tesseract** — OCR fallback for scanned/degraded PDFs. Optional but strongly recommended.
+- **pandoc** — `.docx` extraction. Required only for Word sources.
+
+**On Windows, run extraction from PowerShell, not Git Bash.** Invoked from Git Bash,
+`pdftotext` can emit Latin-1 bytes that Node then decodes as UTF-8, turning every non-ASCII
+glyph into `U+FFFD`. The symptom is deceptive: ASCII prose extracts perfectly while every
+equation, accent, and symbol becomes `░░░░`, so the clipping looks like a font/OCR problem when
+it is purely an encoding artifact of the shell. The same PDF extracts cleanly under PowerShell.
+If a clipping shows a high replacement-character count, re-extract from PowerShell before
+concluding the source is bad. (See also `CLAUDE.md` §6.)
+
+Also note a freshly-installed tool may be registered on the user PATH but absent from an
+already-running shell's environment — verify with `Get-Command <tool>` from a new shell rather
+than assuming it is missing.
+
 ## 0.4.0 — 2026-07-21
 
 ### Ingest-state tracking moves to a content-hash join

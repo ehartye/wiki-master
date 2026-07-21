@@ -17,6 +17,8 @@ test('a binary with a .md twin is move-only (content already captured)', () => {
   ];
   const p = planBinaryMigration({ pages });
   assert.deepEqual(p.moveOnly.map((x) => x.binary), ['raw/proc-graphics/A_Survey_of_Procedural_Content_Generatio.pdf']);
+  assert.equal(p.moveOnly[0].twin, 'raw/clippings/A Survey of Procedural Content Generatio-b87e401.md',
+    'the plan carries the twin so its source: pointer can be refreshed after the move');
   assert.equal(p.extract.length, 0);
 });
 

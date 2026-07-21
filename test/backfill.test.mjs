@@ -1,6 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planSourceHashBackfill, insertSourceHashes } from '../scripts/lib/backfill.mjs';
+import { planSourceHashBackfill, insertSourceHashes, insertSourceHash } from '../scripts/lib/backfill.mjs';
+
+// Clippings written before `source-hash` existed carry none, so they can never be
+// hash-joined and their summaries stay permanently un-recordable. Stamping the
+// hash of the clipping's own body repairs them in place.
+test('insertSourceHash stamps a source-hash into a clipping that lacks one', () => {
+  const text = '---\ntitle: "Foo"\ntags: [clippings]\n---\nbody text\n';
+  const out = insertSourceHash(text, 'abc1234def');
+  assert.match(out, /^source-hash: abc1234def$/m);
+  assert.equal((out.match(/^source-hash:/gm) || []).length, 1);
+  assert.ok(out.endsWith('---\nbody text\n'), 'body and fence preserved');
+});
+
+test('insertSourceHash leaves a clipping that already has one untouched', () => {
+  const text = '---\ntitle: "Foo"\nsource-hash: aaa1111\n---\nbody\n';
+  assert.equal(insertSourceHash(text, 'bbb2222'), text);
+});
+
+test('insertSourceHash is not confused by a source-hashes (plural) line', () => {
+  const text = '---\ntitle: "Foo"\nsource-hashes: ["aaa1111"]\n---\nbody\n';
+  assert.match(insertSourceHash(text, 'ccc3333'), /^source-hash: ccc3333$/m);
+});
 
 // The backfill's whole job is to bridge the gap the runtime metric cannot: a
 // legacy source page cites `[[Title]]` but the clipping file is `Title-<hash7>.md`,
@@ -17,6 +38,24 @@ test('plan: a bare [[Title]] citation matches the hash-suffixed clipping and yie
   assert.deepEqual(r.pages, [{ path: 'wiki/sources/Survey Summary.md', hashes: ['b87e401fullhash'] }]);
   assert.equal(r.ambiguous.length, 0);
   assert.equal(r.unresolved.length, 0);
+});
+
+// The sweep case: a page migrated earlier, then repointed at a newly-clipped
+// source. It HAS a source-hashes line, but not this clipping's hash — so the
+// clipping is orphaned. The plan must cover partially-recorded pages, not just
+// pages with no source-hashes at all.
+test('plan: a page whose source-hashes omit a cited clipping is planned for the missing hash', () => {
+  const pages = [
+    { path: 'raw/clippings/Old-aaa1111.md', name: 'old-aaa1111', title: 'Old', outTargets: [], fmTargets: [], sourceHash: 'aaa1111' },
+    { path: 'raw/clippings/New-bbb2222.md', name: 'new-bbb2222', title: 'New', outTargets: [], fmTargets: [], sourceHash: 'bbb2222' },
+    {
+      path: 'wiki/sources/Both.md', name: 'both', title: 'Both', outTargets: [],
+      fmTargets: ['Old', 'raw/clippings/New-bbb2222.md'], sourceHashes: ['aaa1111'],
+    },
+  ];
+  const r = planSourceHashBackfill({ pages });
+  assert.deepEqual(r.pages, [{ path: 'wiki/sources/Both.md', hashes: ['bbb2222'] }],
+    'only the missing hash is planned; the already-recorded one is not repeated');
 });
 
 test('plan: a source page that already carries source-hashes is left untouched (idempotent)', () => {
@@ -75,7 +114,19 @@ test('insertSourceHashes adds the field after the sources: line, preserving the 
   assert.ok(out.endsWith('---\nbody text\n'), 'frontmatter fence and body are preserved');
 });
 
-test('insertSourceHashes is idempotent — never adds a second source-hashes line', () => {
-  const text = '---\ntype: source\nsources: ["[[Foo]]"]\nsource-hashes: ["aaa"]\n---\nbody\n';
-  assert.equal(insertSourceHashes(text, ['bbb']), text);
+// A page can gain a second source later (e.g. a binary citation replaced by a
+// freshly-clipped .md). Skipping the write because SOME source-hashes line already
+// existed orphaned the new clipping — it was cited by nobody and reappeared as
+// ingest backlog. Merge into the list instead; still exactly one line.
+test('insertSourceHashes merges a new hash into an existing list (one line, both hashes)', () => {
+  const text = '---\ntype: source\nsources: ["[[Foo]]"]\nsource-hashes: ["aaa1111"]\n---\nbody\n';
+  const out = insertSourceHashes(text, ['bbb2222']);
+  assert.match(out, /source-hashes: \["aaa1111", "bbb2222"\]/);
+  assert.equal((out.match(/^source-hashes:/gm) || []).length, 1, 'never a second source-hashes line');
+  assert.ok(out.endsWith('---\nbody\n'));
+});
+
+test('insertSourceHashes does not duplicate a hash already recorded', () => {
+  const text = '---\nsources: ["[[Foo]]"]\nsource-hashes: ["aaa1111"]\n---\nbody\n';
+  assert.equal(insertSourceHashes(text, ['aaa1111']), text, 'no-op when nothing new');
 });

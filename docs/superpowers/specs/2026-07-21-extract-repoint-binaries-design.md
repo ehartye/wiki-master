@@ -1,179 +1,69 @@
-# Extract-and-repoint: make the raw evidence layer uniform — Design Spec
+# Clip-in-place: give binary-cited summaries a real `.md` source — Design Spec
 
 **Date:** 2026-07-21
-**Status:** Draft → awaiting confirmation of §8 decisions, then implementation.
+**Status:** Revised. Supersedes an earlier draft that proposed relocating binaries into a
+holding directory — that idea is dropped entirely.
 **Author:** Design conversation (follow-up to `2026-07-21-hash-ingest-state-design.md`)
 
 ---
 
-## 1. Summary
+## 1. The vault rule
 
-~92 `wiki/sources/` pages cite a **binary original directly** — `sources: ["[[X.pdf]]"]` —
-because a bulk import (the construction-bidding corpus) dropped PDFs/xlsx/docx into `raw/`
-and summarized them without ever running the clip pipeline. Confirmed: **0 of the 92 have a
-`.md` clipping twin.** This violates the clip contract (*"store the MD representation, never the
-binary document, so provenance resolves to real notes"*) and is why they have no `source-hash` to
-join on — their provenance points at an unreadable blob.
+**The vault contains only `.md` files and the images those `.md` files reference. Nothing else.**
 
-This pass makes the raw layer **uniform**: for each such binary, **mechanically extract** its text
-to a `.md` clipping (with a `source-hash`), then **repoint** the citing summary from the binary to
-the new clipping. No re-summarization — the summary already exists; it just gains a real, hashable
-evidence artifact to cite. After this pass, every prose source is a hashed `.md` clipping, so
-`backfillPending`, `missingHash`, and the backlog can all reach a true 0 without any terminal-marker
-machinery for these pages.
+Binaries (`.pdf`, `.docx`, `.xlsx`, `.zip`) are **never** in the vault, and tooling **never moves
+them**. They live wherever you keep them — a downloads folder, a papers directory, anywhere. The
+clip pipeline **reads a binary in place** and writes only the resulting `.md` into
+`raw/clippings/`, recording the binary's own path in the clipping's `source:` frontmatter.
 
-**Two layers, and only one must be uniform:**
-- `raw/clippings/*.md` — mechanical **text extraction** (the evidence), carries `source-hash`. **Uniform.**
-- `wiki/sources/*.md` — the LLM's **semantic summary** (compiled knowledge), *cites* the clipping. Untouched here except the one citation it repoints.
+Download a PDF → "clip that" → the PDF stays exactly where it was; a `.md` appears in
+`raw/clippings/`. The pipeline is non-destructive to your files and imports nothing.
 
----
+`scripts/clip-pdf.mjs` already behaves this way (it takes a path to a PDF anywhere on disk and
+writes only the `.md`), so **no change is needed to the forward pipeline.**
 
-## 2. Scope
+## 2. The problem this pass fixes
 
-- **In:** binaries under `raw/` that a `wiki/sources/` page cites via a `[[…]]` wikilink and that have
-  **no `.md` twin** — `.pdf` → `clip-pdf`, `.docx` → `clip-docx`.
-- **Terminal remainder (not forced uniform):** `.xlsx` (≈3) and any binary that fails extraction or
-  extracts to poor fidelity. A spreadsheet of unit prices is reference *data*, not a prose source; a
-  scanned PDF that won't OCR is genuinely unextractable. These are **not** repointed — they are queued
-  to triage and become candidates for the empty-inbox marker (`source-hashes: []`, per the hash-ingest
-  spec's follow-up), the honest terminal state for the small irreducible set.
-- **Exempt — images stay.** The vault rule is "no binary **source documents**," not "no binaries."
-  Display images (`.png/.jpg/.jpeg/.gif/.svg/.webp`) are rendered content a note embeds, not sources to
-  read — they live in the vault and are retained. The enforcement guard (§7) whitelists image extensions;
-  it flags/evicts only source-document binaries (`.pdf/.docx/.xlsx/.zip`). (The vault has 0 images today,
-  so this is a forward-looking exemption, not a migration.)
-- **Out:** the 17 `missingHash` `.md` clippings (already `.md`; a separate trivial "stamp the hash"
-  pass, see §9); re-summarizing; fidelity-diffing a summary against its extraction.
+107 `wiki/sources/` pages cite a binary directly — `sources: ["[[X.pdf]]"]` — with no `.md`
+clipping behind them, because a bulk import put binaries in the vault and summarized them without
+running the clip pipeline. Those summaries' provenance resolves to an unreadable blob, and they
+have no `source-hash` to join on (they are the bulk of `backfillPending`).
 
----
+## 3. The pass
 
-## 3. Principles
+For each such summary's binary, wherever it now lives:
 
-- **Reuse the existing extractors** — `scripts/clip-pdf.mjs` (`pdfToText`, `pdfToTextOcr`,
-  `pdfClipContent`, `assessFidelity`) and `scripts/clip-docx.mjs`. No new extraction logic; this pass
-  is orchestration over battle-tested clippers.
-- **The `.md` extract becomes the in-vault source of truth; the binary is moved OUT, not deleted.**
-  The pass adds the `raw/clippings/*.md` extraction, repoints the summary's one citation, and — **only
-  after the extract passes the sanity check** — **moves** the binary from the vault to the originals
-  working dir (`WIKI_MASTER_ORIGINALS`, default `~/.wiki-master-original-binaries`), preserving its
-  relative subpath. The clipping's `source:` records the new location, so the original stays available
-  for reprocessing but is never in the vault or its git sync. Content (`.md` + images) is what syncs.
-- **Sanity-check gates the move (the one hard guard).** Clean extraction → repoint + move the binary out.
-  Degraded/failed/no-extractor → **leave the binary in place**, do **not** repoint, queue to triage.
-  We never strand a source's content by evicting a binary we couldn't capture.
-- **Going forward: binaries never persist in the vault.** New ingests extract to `.md` in place, then the
-  original binary lands in the originals working dir — the clip pipeline never leaves a doc binary under
-  `raw/`. Images are the sole exception (`raw/attachments/`, kept).
-- **Dry-run by default, idempotent.** `--apply` to write; re-runnable (skips binaries that already have
-  a twin). Git-tracked vault → reversible.
+1. **Clip it in place** — extract text → `raw/clippings/<slug>-<hash7>.md`, with `source:` set to
+   the binary's path and a `source-hash` computed from the extracted markdown.
+2. **Repoint the summary** — swap the `[[X.pdf]]` citation for the new clipping (`repointCitation`)
+   and record `source-hashes: [<hash>]` (`insertSourceHashes`).
 
----
+The 84 binaries that already have a `.md` twin need **no action** — their content is captured and
+their summaries already cite the clipping.
 
-## 4. Mechanics
+## 4. Extraction quality — surfaced, then solved
 
-For each in-scope binary `B` cited by summary page(s) `P`:
+A degraded extraction is a **quality signal raised during clipping**, not a gate that blocks the
+pass. `assessFidelity` earns its keep: on an equation-heavy thesis it correctly caught that the
+prose extracted cleanly while every equation decoded to nothing (a symbol font pdftotext can't map).
 
-1. **Skip if already uniform** — a `raw/clippings/*.md` whose `source:` frontmatter is `B` already
-   exists (idempotency). 
-2. **Extract** — `.pdf`: `pdfToText(B)`; if `assessFidelity` reports degraded and OCR is reachable,
-   escalate to `pdfToTextOcr(B)` (mirrors `clip-pdf.mjs main`). `.docx`: the `clip-docx` extractor.
-   Build the clipping via `pdfClipContent({ title: titleFromPdf(B), source: <vault-rel path of B>, text })`
-   → `{ body, hash, fidelity, slug }`.
-3. **Write the clipping** — `raw/clippings/<slug>-<hash7>.md` (disambiguated as the clippers already do).
-   The clipping's `source:` records `B`, so provenance chains summary → clipping → original.
-4. **Gate on fidelity:**
-   - `fidelity === 'high'` → **repoint** every citing page `P`: in `P`, replace the exact `[[<B-target>]]`
-     token in `sources:` with `[[raw/clippings/<slug>-<hash7>.md]]`, and add `source-hashes: [<hash>]`
-     (reuse `insertSourceHashes`). Other citations on `P` are untouched.
-   - `fidelity === 'degraded'` (or extraction threw) → **do not repoint.** Keep the clipping for review,
-     leave `P` citing `B`, and `recordIssue(vault, { url: B, kind: 'fidelity', reason })` so it surfaces
-     in `/wiki-triage`.
-5. **Report** — `{ extracted, repointed, degraded, skipped-existing, terminal-xlsx, failed }` with paths.
+The remedy is better extraction, not abandonment: `pdfToTextOcr` (poppler `pdftoppm` + `tesseract`,
+both present) exists exactly for "dropped accents, **symbol-font math**, and scanned PDFs." The work
+is to make the text-layer → OCR escalation actually fire and to prefer whichever result assesses
+cleaner. A clip that still degrades after escalation is reported for a human pass — nothing is lost,
+since the binary is untouched wherever it lives.
 
-A binary cited by multiple pages is extracted once and every citing page is repointed. A page citing
-multiple binaries has each citation handled independently.
+**Do not persist a clipping that fails the gate into `raw/clippings/`** — an unrepointed clipping
+becomes an orphan and pollutes the ingest backlog. Assess first, write only what passes.
 
----
+## 5. Enforcement
 
-## 5. New code
+A `binariesInVault` health check flags any file in the vault that is not `.md` and not an image
+referenced by a `.md`. That keeps the §1 rule true going forward instead of assumed.
 
-- `scripts/lib/repoint.mjs` (pure, unit-tested):
-  - `repointCitation(pageText, fromTarget, toTarget)` — replace the exact `[[fromTarget]]` wikilink with
-    `[[toTarget]]` inside the `sources:` line only; returns unchanged text if not present.
-  - reuses `insertSourceHashes` from `lib/backfill.mjs`.
-  - `planExtractRepoint({ pages })` → the in-scope binary → citing-pages map, by extension, excluding
-    binaries that already have a twin. Pure over the graph (I/O-free) for testing.
-- `scripts/extract-repoint.mjs` — CLI orchestrator: `buildGraph` → `planExtractRepoint` → per binary
-  extract (clip-pdf/clip-docx) → gate → write clipping + repoint (only under `--apply`) → JSON report.
-  Dry-run prints the plan and the extension/fidelity tally without extracting.
+## 6. Out of scope
 
----
-
-## 6. Test plan (TDD — write first)
-
-Pure-function tests (`test/repoint.test.mjs`):
-1. `repointCitation` swaps `[[X.pdf]]` → `[[raw/clippings/X-abc1234.md]]` in the `sources:` line, leaving
-   body and other frontmatter intact.
-2. `repointCitation` leaves a page unchanged when the target isn't present (idempotent / not-a-match).
-3. A multi-source `sources:` list repoints only the matching entry, preserves the others.
-4. `planExtractRepoint` selects only binaries with a citing `wiki/sources` page and **no** `.md` twin;
-   excludes `.pdf` that already has a twin; buckets `.xlsx` as terminal.
-5. Combined with `insertSourceHashes`: a repointed page ends with the new wikilink **and**
-   `source-hashes: [<hash>]`.
-
-Extraction itself is already covered by `test/clip-pdf.test.mjs` / `test/clip-docx.test.mjs`; this pass
-adds an integration test that a high-fidelity fixture PDF yields a clipping and a repointed page, while a
-degraded fixture yields a clipping + a triage issue and **no** repoint.
-
----
-
-## 7. Metric interaction
-
-- After a fully-applied pass, the 82 binary-only pending pages become migrated (`source-hashes` present) →
-  `backfillPending` drops toward the terminal remainder (xlsx + degraded), and combined with the §9
-  missing-hash pass reaches **0**.
-- **Decision (D3):** the binary is **moved out** of the vault after its content is captured, so it never
-  lingers as an uncited `raw/` file and `unparsedSources` is unaffected — the vault stays text-only. A
-  `binariesInVault` guard (whitelisting images) flags any doc binary still under `raw/` (the un-captured
-  remainder), so the invariant is visible and enforced rather than assumed.
-
----
-
-## 8. Decisions to confirm
-
-| # | Decision | Recommendation | Alternative |
-|---|---|---|---|
-| **D1** | `.xlsx` (≈3) + unextractable | **Terminal remainder** — queue to triage, mark `source-hashes: []` later | Force a lossy table→markdown extraction |
-| **D2** | Degraded-fidelity extractions | **Write clipping, don't repoint, queue to triage** (human confirms) | Auto-repoint anyway (risks citing gibberish) |
-| **D3** | The original binary, post-capture | **Move it out to `~/.wiki-master-original-binaries` once content is captured** (clean extract or `.md` twin) — preserved for reprocessing, never in vault/sync | Delete (lossy, irreplaceable) / keep in vault (not text-only) |
-| **D4** | Repoint citation form | **Hash-qualified path `[[raw/clippings/…-hash7.md]]` + `source-hashes`** | Bare basename wikilink + `source-hashes` |
-
----
-
-## 9. Companion (separate, trivial) — the 17 `missingHash` clippings
-
-Out of this spec's scope but needed for a true 0: the 17 `.md` clippings lacking a `source-hash` are
-already uniform in *format* — they only need the field stamped. A `--repair-missing-hash` pass computes
-`sha256` of each clipping's markdown body and writes `source-hash:` into its frontmatter (legitimate — raw
-frontmatter is pipeline state), then the backfill migrates their pages. Can be folded into
-`extract-repoint.mjs` or shipped as its own tiny script.
-
----
-
-## 10. Acceptance
-
-- Every in-scope `.pdf`/`.docx` either has a high-fidelity `.md` twin with its citing page repointed, or a
-  written clipping + a triage issue (degraded).
-- `backfillPending` and `missingHash` reach the terminal remainder only (xlsx + genuinely-degraded), and
-  0 after the §9 pass + triage dispositions.
-- Backlog stays 0; every prose source resolves to a readable `.md` clipping, not a binary.
-- Full test suite green; the pass is dry-run-first and reversible via git.
-
----
-
-## 11. Out of scope
-
-- Re-summarizing (summaries already exist and are untouched but for the one repointed citation).
-- Diffing each summary against its fresh extraction for fidelity (a separate quality pass worth doing later).
-- Deleting binaries — they are moved to the originals working dir, never deleted (D3).
-- The transitional-fallback removal in the hash-ingest spec (gated on all vaults migrating).
+- **Any holding/originals/archive directory for binaries.** Deliberately not a pattern; binaries
+  simply are not the vault's concern.
+- Re-summarizing (summaries exist; only their citation changes).
+- Image localization — separate pass (download `.md`-referenced images into the vault).

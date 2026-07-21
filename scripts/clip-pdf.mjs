@@ -162,6 +162,30 @@ export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng' } = {}) {
   }
 }
 
+// Escalate to OCR on QUALITY as well as quantity. A broken/symbol-font text layer
+// yields plenty of words — just corrupted ones — so gating only on "thin" let
+// equation-heavy PDFs through as `degraded` with OCR never attempted (a
+// 34k-word thesis whose every equation decoded to U+FFFD).
+export function shouldTryOcr(clip, { thinFloor = THIN_WORD_FLOOR } = {}) {
+  return clip.wordCount < thinFloor || clip.fidelity === 'degraded';
+}
+
+// Problems per word — replacement chars, glyph-dump (cid:NN) tokens, and mangled
+// math — normalized by length so a long document is not penalized for being long.
+function problemRate(clip) {
+  const a = assessFidelity(clip.md);
+  return (a.replacement + a.cid + a.mangledMath) / Math.max(1, clip.wordCount);
+}
+
+// Keep whichever pass actually reads better. OCR has its own error modes, so it
+// only wins when it is both usable (not thin) and measurably cleaner — otherwise
+// escalation could trade good text for worse.
+export function preferBetterExtraction(textClip, ocrClip, { thinFloor = THIN_WORD_FLOOR } = {}) {
+  if (!ocrClip || ocrClip.wordCount < thinFloor) return textClip;
+  if (textClip.wordCount < thinFloor) return ocrClip;
+  return problemRate(ocrClip) < problemRate(textClip) ? ocrClip : textClip;
+}
+
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
@@ -220,12 +244,14 @@ export function main(argv) {
       text = ''; // per-URL extraction failure — fall through to the OCR fallback below
     }
     clip = pdfClipContent({ title, source, text, quality });
-    // Auto-fallback: a thin text layer means a scanned/image PDF (or a broken
-    // font layer) — exactly OCR's job. Only replace if OCR actually recovers text.
-    if (clip.wordCount < THIN_WORD_FLOOR && ocrReachable()) {
-      console.log('thin text layer — falling back to OCR (slow)…');
+    // Auto-fallback on quantity OR quality: a thin layer means a scanned/image
+    // PDF; an abundant-but-degraded layer means a broken/symbol font (equations
+    // decoding to U+FFFD). Both are exactly OCR's job. Keep whichever pass reads
+    // better so escalation can never make the clipping worse.
+    if (shouldTryOcr(clip) && ocrReachable()) {
+      console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
       const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
-      if (oclip.wordCount >= THIN_WORD_FLOOR) clip = oclip;
+      clip = preferBetterExtraction(clip, oclip);
     }
   }
 

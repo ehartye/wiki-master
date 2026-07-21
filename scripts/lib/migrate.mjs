@@ -16,10 +16,12 @@ const norm = (s) =>
 export function planBinaryMigration({ pages }) {
   const byName = buildNameIndex(pages);
 
-  // Normalized names of every raw `.md` clipping — "content already captured".
-  const clipNorms = new Set();
+  // Normalized name -> raw `.md` clipping that already captures that content.
+  const clipByNorm = new Map();
   for (const p of pages) {
-    if (p.path.startsWith('raw/') && p.path.endsWith('.md')) clipNorms.add(norm(p.name));
+    if (p.path.startsWith('raw/') && p.path.endsWith('.md') && !clipByNorm.has(norm(p.name))) {
+      clipByNorm.set(norm(p.name), p.path);
+    }
   }
 
   // Which wiki/sources pages cite each raw binary (so an extract can repoint them).
@@ -40,7 +42,8 @@ export function planBinaryMigration({ pages }) {
     if (!p.path.startsWith('raw/') || p.path.endsWith('.md') || IMAGE.test(p.path)) continue;
     const base = p.path.split('/').pop();
     const citers = citersOf.get(p.path) || [];
-    if (clipNorms.has(norm(base))) plan.moveOnly.push({ binary: p.path, citers });
+    const twin = clipByNorm.get(norm(base));
+    if (twin) plan.moveOnly.push({ binary: p.path, twin, citers });
     else if (EXTRACTABLE.test(base)) plan.extract.push({ binary: p.path, citers });
     else plan.blocked.push({ binary: p.path, reason: 'no clean extractor', citers });
   }
