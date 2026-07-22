@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.5.4 — 2026-07-22
+
+### The skill asserted a scale bound its source never stated
+
+`wiki-maintainer` told agents that "index-only navigation **is bounded**" at ~100
+sources and that "**past that**" entry shifts to search. The source pattern says no
+such thing. It reports that index-first navigation "works surprisingly well at
+moderate scale (~100 sources, ~hundreds of pages)" — a positive claim about a range,
+with no threshold and no failure mode. Six lines later, under a heading marked
+*Optional*, it separately says "as the wiki grows you want proper search" and
+suggests `qmd`, attaching no number. The two passages are not joined in the source.
+
+Welding them turned "works well at X" into "fails past X" and manufactured a
+threshold agents would cite as the source's own. The section now states the range,
+says explicitly that ~100 is **not** a ceiling and must not be presented as the
+trigger for adopting search tooling, and gives what is fair to assert instead: a
+vault far past that figure is outside the range the source reports, and nobody has
+measured what that costs.
+
+**Why nothing caught it.** Every quotation in the chain was verbatim. The drift lived
+entirely in the unquoted framing around an accurate quote — `bounds`, `explicitly`,
+`stated ceiling`, `anticipates this`. Quote-lint compares quoted spans against
+clippings and has no way to see that a correct quote has been mischaracterised by the
+sentence introducing it. Worth recording as a limit of the verification tier rather
+than a bug to fix: guardrail #5 covers fidelity of *quotation*; nothing yet covers
+fidelity of *characterisation*.
+
 ## 0.5.3 — 2026-07-21
 
 ### Health now audits provenance outside `wiki/sources/`
