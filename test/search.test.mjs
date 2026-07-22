@@ -1,0 +1,183 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch, keywordSearch } from '../scripts/search.mjs';
+
+// A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
+// pointing the same direction as the query score 1; orthogonal score 0.
+const VEC = { query: [1, 0], same: [1, 0], orthogonal: [0, 1], opposite: [-1, 0] };
+const embedFn = async (text) => VEC[text];
+
+test('semanticSearch ranks by cosine similarity, descending', async () => {
+  const pages = [
+    { path: 'a.md', body: 'orthogonal' },
+    { path: 'b.md', body: 'same' },
+    { path: 'c.md', body: 'opposite' },
+  ];
+  const results = await semanticSearch('query', pages, { embedFn });
+  assert.deepEqual(results.map((r) => r.path), ['b.md', 'a.md', 'c.md']);
+  assert.equal(results[0].score, 1);
+});
+
+test('semanticSearch respects topN', async () => {
+  const pages = [
+    { path: 'a.md', body: 'orthogonal' },
+    { path: 'b.md', body: 'same' },
+    { path: 'c.md', body: 'opposite' },
+  ];
+  const results = await semanticSearch('query', pages, { embedFn, topN: 1 });
+  assert.equal(results.length, 1);
+  assert.equal(results[0].path, 'b.md');
+});
+
+test('semanticSearch reuses the cache: an already-cached hash is never re-embedded', async () => {
+  let calls = 0;
+  const countingEmbed = async (text) => { calls++; return VEC[text]; };
+  const cache = {};
+  const pages = [{ path: 'a.md', body: 'same' }];
+  await semanticSearch('query', pages, { embedFn: countingEmbed, cache });
+  const callsAfterFirst = calls;
+  await semanticSearch('query', pages, { embedFn: countingEmbed, cache });
+  // Second run re-embeds the query (always fresh) but not the unchanged page body.
+  assert.equal(calls, callsAfterFirst + 1, 'only the query re-embeds; the cached page body does not');
+});
+
+// Found live against the real vault: a long page (~8.6K chars) made Ollama
+// return HTTP 500 ("the input length exceeds the context length") -- an
+// embedding-model context-window limit, not a wiki-master bug, but one
+// oversized page must not take the whole search down with it.
+test('semanticSearch skips a page whose embedding fails and still ranks the rest', async () => {
+  const flaky = async (text) => {
+    if (text === 'query') return [1, 0];
+    if (text === 'too-long') throw new Error('the input length exceeds the context length');
+    return VEC[text];
+  };
+  const pages = [
+    { path: 'oversized.md', body: 'too-long' },
+    { path: 'b.md', body: 'same' },
+  ];
+  const results = await semanticSearch('query', pages, { embedFn: flaky });
+  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the failing page is skipped, not fatal');
+});
+
+test('semanticSearch still throws if the QUERY itself cannot be embedded (nothing to rank against)', async () => {
+  const alwaysFails = async () => { throw new Error('boom'); };
+  await assert.rejects(() => semanticSearch('query', [{ path: 'a.md', body: 'x' }], { embedFn: alwaysFails }));
+});
+
+test('mergeRRF combines two ranked lists, deduplicated, by reciprocal rank', () => {
+  const keyword = ['x.md', 'y.md'];
+  const semantic = ['y.md', 'z.md'];
+  const merged = mergeRRF([keyword, semantic]);
+  const paths = merged.map((r) => r.path);
+  assert.deepEqual(new Set(paths), new Set(['x.md', 'y.md', 'z.md']), 'every page appears exactly once');
+  // y.md is ranked in BOTH lists (rank 2 keyword, rank 1 semantic) so it must
+  // outscore x.md/z.md, each ranked in only one list.
+  assert.equal(paths[0], 'y.md');
+});
+
+test('mergeRRF is deterministic given the same input', () => {
+  const a = mergeRRF([['x.md', 'y.md'], ['y.md', 'z.md']]);
+  const b = mergeRRF([['x.md', 'y.md'], ['y.md', 'z.md']]);
+  assert.deepEqual(a, b);
+});
+
+test('qmdAvailable reflects whether the probe command succeeds', () => {
+  assert.equal(qmdAvailable(() => {}), true);
+  assert.equal(qmdAvailable(() => { throw new Error('not found'); }), false);
+});
+
+test('search: qmd tier wins when qmd is available and succeeds', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => { throw new Error('should not be called'); },
+    qmdProbe: () => true,
+    qmdRun: async () => [{ path: 'qmd-result.md' }],
+    ollamaAvailable: async () => true,
+    semanticRun: async () => { throw new Error('should not be called'); },
+  });
+  assert.equal(r.tier, 'qmd');
+  assert.deepEqual(r.results, [{ path: 'qmd-result.md' }]);
+});
+
+test('search: falls back to hybrid when qmd is absent but Ollama is available', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    qmdProbe: () => false,
+    qmdRun: async () => { throw new Error('should not be called'); },
+    ollamaAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9 }],
+  });
+  assert.equal(r.tier, 'hybrid');
+  assert.deepEqual(new Set(r.results.map((x) => x.path)), new Set(['k.md', 's.md']));
+});
+
+test('search: falls back to keyword-only when both qmd and Ollama are unavailable', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    qmdProbe: () => false,
+    qmdRun: async () => { throw new Error('should not be called'); },
+    ollamaAvailable: async () => false,
+    semanticRun: async () => { throw new Error('should not be called'); },
+  });
+  assert.equal(r.tier, 'keyword');
+  assert.deepEqual(r.results, [{ path: 'k.md' }]);
+});
+
+test('search: a qmd runtime failure (present but broken) falls through to the next tier', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    qmdProbe: () => true,
+    qmdRun: async () => { throw new Error('qmd index corrupt'); },
+    ollamaAvailable: async () => false,
+    semanticRun: async () => { throw new Error('should not be called'); },
+  });
+  assert.equal(r.tier, 'keyword', 'a broken qmd degrades gracefully rather than erroring out');
+});
+
+// Real shape, confirmed live against `qmd search "..." --json` (not guessed from
+// docs): a bare JSON array of {docid, score, file: "qmd://<collection>/<path>",
+// line, title, snippet}. This fixture is the actual output captured during
+// implementation (collection name substituted for "wiki-master").
+const REAL_QMD_OUTPUT = JSON.stringify([
+  {
+    docid: '#461bef',
+    score: 0.44,
+    file: 'qmd://wiki-master/wiki/sources/Provenance.md',
+    line: 2,
+    title: 'Provenance',
+    snippet: '@@ -1,3 @@ (0 before, 0 after)\n# Provenance\n...',
+  },
+]);
+
+test('qmdSearch strips the qmd://<collection>/ URI prefix down to a vault-relative path', () => {
+  const results = qmdSearch('provenance', { execImpl: () => REAL_QMD_OUTPUT });
+  assert.deepEqual(results, [{ path: 'wiki/sources/Provenance.md', score: 0.44 }]);
+});
+
+test('qmdSearch invokes `qmd search` (never `query`/`vsearch`) to avoid their multi-GB model downloads', () => {
+  let calledWith = '';
+  qmdSearch('provenance', { execImpl: (cmd) => { calledWith = cmd; return '[]'; } });
+  assert.match(calledWith, /^qmd search /, 'must use the lightweight `search` subcommand');
+  assert.doesNotMatch(calledWith, /qmd (query|vsearch)/);
+});
+
+// Found live during implementation, against the real vault: the `obsidian` CLI's
+// `search` command prints the plain-text sentence "No matches found." even when
+// `format=json` is requested, which is not valid JSON -- a zero-hit search must
+// not crash the tiering ladder that depends on this function.
+test('keywordSearch treats the obsidian CLI\'s "No matches found." text as zero hits, not a crash', () => {
+  const results = keywordSearch('nonexistent query', {
+    obsidianJsonImpl: () => { throw new SyntaxError('Unexpected token N, "No matches found." is not valid JSON'); },
+  });
+  assert.deepEqual(results, []);
+});
+
+test('keywordSearch passes through real hits unchanged', () => {
+  const results = keywordSearch('provenance', { obsidianJsonImpl: () => ['a.md', 'b.md'] });
+  assert.deepEqual(results, ['a.md', 'b.md']);
+});
+
+test('qmdSearch drops entries with no usable file field rather than returning a garbage path', () => {
+  const malformed = JSON.stringify([{ docid: '#x', score: 0.1 }]); // no `file` field
+  const results = qmdSearch('q', { execImpl: () => malformed });
+  assert.deepEqual(results, []);
+});

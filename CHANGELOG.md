@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.7.0 — 2026-07-22
+
+### `/wiki-query` gets real semantic search — tiered, never a hard dependency
+
+`/wiki-query`'s entire retrieval step was one `obsidian search` keyword call. The source pattern
+wiki-master implements explicitly anticipates this gap and explicitly names a tool for it (`qmd`),
+while explicitly licensing a simpler home-built alternative in the same breath. Measured directly,
+this vault (357 sources, 563 wiki pages) is already past the range the source pattern says
+index-only navigation covers comfortably.
+
+New `scripts/search.mjs`: three tiers, each degrading to the next.
+1. `qmd`, if detected on `PATH` (never a package.json dependency — shelled out to exactly like
+   `obsidian`/`defuddle` already are).
+2. Ollama embedding + brute-force cosine, reusing the *existing* `embed.mjs` client and
+   `.wiki-master/embeddings.json` cache `drift.mjs` already populates (extracted into a shared
+   `lib/embed-cache.mjs` so the two features can never drift apart) — merged with the keyword
+   channel by Reciprocal Rank Fusion.
+3. `obsidian search` keyword-only — the pre-existing baseline, always available.
+
+Two real bugs surfaced only by testing against the live vault, both fixed:
+- The `obsidian` CLI's `search` command prints the plain-text `"No matches found."` even with
+  `format=json` requested, which broke JSON parsing on any zero-hit query.
+- One real wiki page exceeded the embedding model's context window; Ollama returned HTTP 500.
+  A single oversized page now degrades to "skip and log," not "crash the whole search."
+
+`qmd`, if used, is invoked via its lightweight `search` subcommand specifically — its `vsearch`/
+`query` commands were confirmed, live, to each pull an additional 1.28GB+ model on first use, a
+surprise this integration deliberately avoids triggering.
+
+Full design: `docs/superpowers/specs/2026-07-22-semantic-search-design.md`. Implementation plan
++ real findings: `docs/superpowers/plans/2026-07-22-semantic-search.md`. Prior art:
+`docs/superpowers/research/2026-07-22-semantic-search-prior-art.md`.
+
 ## 0.6.0 — 2026-07-22
 
 ### A fifth page type for content that never had a `raw/` source

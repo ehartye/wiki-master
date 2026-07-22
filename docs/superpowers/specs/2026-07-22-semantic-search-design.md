@@ -1,10 +1,10 @@
 # Semantic search over the wiki — Design Spec
 
 **Date:** 2026-07-22
-**Status:** Decisions confirmed 2026-07-22 by @Eric-Hartye_HON (D1/D2/D5 explicitly; D3/D4 carried
-through as part of the overall approval — see §8). **Still no implementation** — the next artifact,
-`docs/superpowers/plans/2026-07-22-semantic-search.md`, is now written (TDD task breakdown); actual
-code lands only once that plan is executed.
+**Status:** Implemented (2026-07-22, same day) — `scripts/search.mjs` + tests shipped per
+`docs/superpowers/plans/2026-07-22-semantic-search.md`, which also records real findings from
+testing against the live vault (qmd's confirmed JSON shape, an `obsidian` CLI zero-hit quirk, and
+an embedding-model context-length limit) that weren't and couldn't have been known at spec time.
 **Author:** Design conversation with @Eric-Hartye_HON
 **Prior art:** `docs/superpowers/research/2026-07-22-semantic-search-prior-art.md` (read first —
 this spec assumes its findings)
