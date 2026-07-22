@@ -158,12 +158,17 @@ drift and where two concurrent sessions race on the move.
 ## Known limits of the pattern
 Stated so they are not rediscovered as surprises. The pattern this vault
 implements bounds itself in ways worth tracking:
-- **Index-only navigation is bounded.** The source pattern claims it "works
-  surprisingly well at moderate scale (~100 sources, ~hundreds of pages)". Past
-  that, entry quietly shifts from reading `index.md` to `obsidian search` — which
-  is retrieval, the thing the pattern set out to replace. Nothing breaks when this
-  happens, so it will not announce itself. If a vault is well past the ceiling,
-  say so when it matters rather than implying the vault is inside a tested envelope.
+- **Index-only navigation is untested past the scale the source reports.** The
+  source pattern says it "works surprisingly well at moderate scale (~100 sources,
+  ~hundreds of pages)" — a claim about where it works, **not a ceiling**. It names
+  no threshold and no failure mode. Separately, under an *Optional* heading, it
+  says "as the wiki grows you want proper search" and suggests `qmd`, attaching no
+  number; the two passages are not joined in the source, so do not present ~100 as
+  the trigger for adopting search tooling. What is fair to say: a vault far past
+  that figure is outside the range the source reports, entry may have shifted from
+  reading `index.md` to `obsidian search` without anyone noticing, and **nobody has
+  measured whether that costs anything**. Say that, and say it is untested — do not
+  upgrade it into a bound the source never stated.
 - **Cheap maintenance is not correct maintenance.** The pattern's justification is
   that upkeep cost approaches zero, which addresses effort, not accuracy. It
   specifies no verification tier — that is what `/wiki-lint`, quote-lint, and the
