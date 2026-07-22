@@ -11,7 +11,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   frontmatter. The line is semantic (never alter the evidence), not byte-level (freeze the file).
   `raw/clippings/` — Web Clipper / clip.mjs output. `raw/attachments/` — downloaded assets,
   content-hash named.
-- `wiki/sources|entities|concepts|syntheses` — LLM-owned pages.
+- `wiki/sources|entities|concepts|syntheses|authored` — LLM-owned pages.
 - `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
 
 ## Frontmatter contract
@@ -21,5 +21,10 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   clipping they summarize; this is the content key the ingest-backlog metric joins on.
 
 ## Rules
-- Raw is the source of truth. Every wiki page cites its `raw/` provenance.
+- Raw is the source of truth. Every wiki page cites its `raw/` provenance —
+  **except** `wiki/authored/`: original, primary content (advisory documentation,
+  policy, house style) written directly into the wiki, not derived from a
+  captured source. These pages declare the exception explicitly (`sources: []`)
+  rather than by omission; they are living pages like any other `wiki/` page,
+  never requiring a `raw/` counterpart.
 - Links are `[[wikilinks]]`; embeds `![[...]]` are transclusion only.

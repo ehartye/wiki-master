@@ -17,6 +17,7 @@ export const END_MARK = '%% END GENERATED CATALOG %%';
 
 const SECTIONS = [
   ['synthesis', '## Syntheses'],
+  ['authored', '## Authored'],
   ['moc', '## Maps of Content'],
   ['concept', '## Concepts'],
   ['source', '## Sources'],

@@ -96,6 +96,17 @@ test('checkQuotes exempts sentences that declare themselves unsourced', () => {
     'declared-unsourced is the policy working, not a violation');
 });
 
+// A page declaring `sources: []` (wiki/authored/ and anywhere else) has, by its
+// own declaration, no external artifact to verify a quote against. Before this
+// exemption, ANY quotation on such a page was flagged unverifiable against zero
+// evidence — a 100% false-positive rate the page's own frontmatter already
+// explained away.
+test('checkQuotes exempts pages that declare `sources: []` entirely', () => {
+  const findings = checkQuotes(FIXTURE, graph());
+  assert.ok(!findings.some((f) => f.page.includes('wiki/authored/policy.md')),
+    'a declared-no-provenance page is not checked for quote provenance at all');
+});
+
 test('checkStyle applies the full list to entities and flags by category', () => {
   const findings = checkStyle(FIXTURE, graph());
   const puffy = findings.filter((f) => f.page === 'wiki/entities/puffy.md');
@@ -119,4 +130,13 @@ test('checkStyle exempts quoted spans', () => {
   // declared.md's flagged-word-free prose plus quotes must produce no style hits;
   // more precisely: nothing inside quotation marks is ever flagged.
   assert.ok(!findings.some((f) => f.page.includes('declared.md')));
+});
+
+// wiki/authored/ carries the same permissive license as wiki/syntheses/: these
+// are the vault's own first-party voice (advisory documentation, policy, house
+// style), and directive language ("clearly", "world-class", "revealed") is the
+// point, not a defect to flag.
+test('checkStyle applies no style license to wiki/authored/', () => {
+  const findings = checkStyle(FIXTURE, graph());
+  assert.deepEqual(findings.filter((f) => f.page === 'wiki/authored/policy.md'), []);
 });

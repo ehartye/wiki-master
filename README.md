@@ -84,13 +84,16 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 
 ```
 raw/            immutable sources (never edited)   raw/clippings/  Web Clipper output
-wiki/           sources · entities · concepts · syntheses (LLM-owned)
+wiki/           sources · entities · concepts · syntheses · authored (LLM-owned)
 moc/            Maps of Content        index.md    catalog        log.md  history
 stale.base      native Bases freshness dashboard   .wiki-master/  embedding cache (git-ignored)
 ```
 
 Every wiki page carries `sources: [[...]]` provenance back to `raw/` and
 `ai-generated: true` — the guardrails against hallucination contamination.
+`wiki/authored/` is the disclosed exception: original content with no `raw/`
+counterpart (advisory documentation, policy, house style) declares it via
+`sources: []` instead.
 
 ## Development
 

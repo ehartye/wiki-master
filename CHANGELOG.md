@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.6.0 — 2026-07-22
+
+### A fifth page type for content that never had a `raw/` source
+
+Everything under `wiki/` was, until now, a summary or analysis derived from a
+captured `raw/` source, and the vault contract enforced that: every wiki page
+cites its provenance, scored as a defect when it doesn't. That left nowhere to
+put a genuinely original document — advisory documentation, policy, house
+style — written directly into the wiki rather than derived from anything.
+
+New `wiki/authored/` (`type: authored`): original, primary content that
+declares its exception explicitly via the vault's existing `sources: []`
+disclosure (unchanged mechanism — a page stating it rests on no external
+artifact was already excluded from provenance scoring; this just gives it a
+first-class folder, catalog section, template, and a full narrative license
+like `wiki/syntheses/`). It is a living page like any other under `wiki/`:
+revised in place over time, never requiring a `raw/` counterpart.
+
+Bundled fix: `checkQuotes` (quote-lint) did not consult the `sources: []`
+disclosure at all, so any quotation on a declared-no-provenance page was
+flagged as unverifiable against zero evidence — 100% false-positive by
+construction. It now skips those pages entirely, the same way it already skips
+sentences that declare themselves unsourced.
+
+See `docs/superpowers/specs/2026-07-22-authored-pages-design.md` for the full
+design and the decisions behind the naming and licensing choices.
+
 ## 0.5.4 — 2026-07-22
 
 ### The skill asserted a scale bound its source never stated

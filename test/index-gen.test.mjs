@@ -26,6 +26,18 @@ test('buildGraph parses type from frontmatter', () => {
   assert.equal(alpha.type, 'concept');
 });
 
+// wiki/authored/ holds original, no-provenance content (advisory documentation,
+// policy, house style) — a first-class category, not the catch-all "## Other".
+// Tested with an in-memory page array (not the shared FIXTURE) so this contract
+// check never perturbs the shared vault's pinned health-score assertions.
+test('renderCatalog groups an authored page under its own section', () => {
+  const catalog = renderCatalog({ pages: [
+    { path: 'wiki/authored/policy.md', type: 'authored', status: 'maintained' },
+  ] });
+  assert.ok(catalog.includes('## Authored'), 'has Authored section');
+  assert.ok(catalog.includes('[[policy]]'), 'lists the authored page');
+});
+
 test('renderCatalog groups wiki pages by type and flags stubs', () => {
   const catalog = renderCatalog(buildGraph(FIXTURE));
   assert.ok(catalog.includes('## Concepts'), 'has Concepts section');

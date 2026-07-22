@@ -16,6 +16,11 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
    may be updated by wiki-master tooling only.
 2. **Provenance on every claim.** Each wiki page you write carries `sources: [[...]]`
    linking back to the `raw/` notes it derives from, plus `ai-generated: true`.
+   **Exception: `wiki/authored/`** — original content with no `raw/` counterpart
+   (advisory documentation, policy, house style) declares this explicitly via
+   `sources: []`, never by omission. `ai-generated` still records actual
+   authorship (`true` if you drafted it, `false` if the human did) — the
+   disclosure is about provenance, not about who wrote the words.
 3. **Cite when you answer.** Query answers reference the pages/sources they rest on.
 4. **Flag, don't invent.** If sources contradict or are silent, say so — never
    paper over a gap with plausible text.
@@ -38,11 +43,19 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
      asserting or deleting them. The vault cannot cite what it does not hold.
 
 ## Vault contract
-- `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses}`:
+- `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses,authored}`:
   pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log/`: one file per operation (view via `log.base`).
 - Wiki page frontmatter (set via `property:set`, typed):
-  `type` (source|entity|concept|synthesis), `created`, `updated`, `reviewed`,
+  `type` (source|entity|concept|synthesis|authored), `created`, `updated`, `reviewed`,
   `status` (stub|draft|maintained), `sources: [[...]]`, `ai-generated: true`.
+- **`wiki/authored/`** is where original, primary content lives — advisory
+  documentation, policy, house style, or any other work you're writing directly
+  into the vault rather than deriving from a captured source. It is not a
+  special case of the pipeline: it declares `sources: []` (the vault's existing
+  disclosure for "rests on no external artifact," extended here as the default
+  for the whole category) and is otherwise a wiki page like any other — living,
+  revisable, never needing a `raw/` counterpart. Use `_templates/authored-note.md`
+  to start one.
 - Links are `[[wikilinks]]`. `![[embeds]]` are transclusion only — not relationship edges.
 - Clippings from `/wiki-discover` carry `quality: high|medium|low` (AI credibility
   rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
@@ -98,6 +111,11 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   rules 1–3.
 - `wiki/syntheses/` — the licensed narrative layer: weigh, judge, conclude —
   bounded by rules 1–3, and labeled as the wiki's synthesis.
+- `wiki/authored/` — the vault's own first-party voice: advisory documentation,
+  policy, house style, or other original work with no `raw/` evidence behind it
+  by design. Same full narrative license as syntheses; state recommendations
+  directly. Rule 3 (breadcrumb to `raw/`) does not apply — there is deliberately
+  nothing to trail, declared via `sources: []` rather than left silent.
 
 ## Workflows
 - **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
@@ -121,6 +139,13 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
 - **Relink** (`/wiki-relink`): add inferred `[[links]]`; materialize entities
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
+- **Authoring** (`wiki/authored/`, no dedicated skill): write these directly —
+  there is no source to ingest from. Use `_templates/authored-note.md`, set
+  `type: authored` and `sources: []`, and record `ai-generated` honestly (`true`
+  if you drafted it, `false` if the human did). Treat it as a living page like
+  any other: revise it in place as it evolves, stamp `reviewed`/`updated`, and
+  never invent a `raw/` counterpart to satisfy the provenance guardrail — the
+  disclosure *is* satisfying it.
 
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
