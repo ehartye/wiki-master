@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { semanticSearch, mergeRRF, qmdAvailable, search } from '../scripts/search.mjs';
+import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch } from '../scripts/search.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
@@ -108,4 +108,37 @@ test('search: a qmd runtime failure (present but broken) falls through to the ne
     semanticRun: async () => { throw new Error('should not be called'); },
   });
   assert.equal(r.tier, 'keyword', 'a broken qmd degrades gracefully rather than erroring out');
+});
+
+// Real shape, confirmed live against `qmd search "..." --json` (not guessed from
+// docs): a bare JSON array of {docid, score, file: "qmd://<collection>/<path>",
+// line, title, snippet}. This fixture is the actual output captured during
+// implementation (collection name substituted for "wiki-master").
+const REAL_QMD_OUTPUT = JSON.stringify([
+  {
+    docid: '#461bef',
+    score: 0.44,
+    file: 'qmd://wiki-master/wiki/sources/Provenance.md',
+    line: 2,
+    title: 'Provenance',
+    snippet: '@@ -1,3 @@ (0 before, 0 after)\n# Provenance\n...',
+  },
+]);
+
+test('qmdSearch strips the qmd://<collection>/ URI prefix down to a vault-relative path', () => {
+  const results = qmdSearch('provenance', { execImpl: () => REAL_QMD_OUTPUT });
+  assert.deepEqual(results, [{ path: 'wiki/sources/Provenance.md', score: 0.44 }]);
+});
+
+test('qmdSearch invokes `qmd search` (never `query`/`vsearch`) to avoid their multi-GB model downloads', () => {
+  let calledWith = '';
+  qmdSearch('provenance', { execImpl: (cmd) => { calledWith = cmd; return '[]'; } });
+  assert.match(calledWith, /^qmd search /, 'must use the lightweight `search` subcommand');
+  assert.doesNotMatch(calledWith, /qmd (query|vsearch)/);
+});
+
+test('qmdSearch drops entries with no usable file field rather than returning a garbage path', () => {
+  const malformed = JSON.stringify([{ docid: '#x', score: 0.1 }]); // no `file` field
+  const results = qmdSearch('q', { execImpl: () => malformed });
+  assert.deepEqual(results, []);
 });

@@ -1,5 +1,11 @@
-import { cosine } from './lib/embed.mjs';
-import { hash } from './lib/embed-cache.mjs';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { cosine, embed as ollamaEmbed, isAvailable } from './lib/embed.mjs';
+import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
+import { resolveVault, obsidian, obsidianJson } from './lib/vault.mjs';
+import { isContent } from './lib/graph.mjs';
 
 // Ranks every candidate page's (cached-or-freshly-embedded) vector against one
 // query embedding. `pages` is [{path, body}]; `cache` is the SAME hash-keyed map
@@ -64,4 +70,91 @@ export async function search(query, deps) {
     return { tier: 'hybrid', results: mergeRRF([keywordHits, semanticHits.map((h) => h.path)]) };
   }
   return { tier: 'keyword', results: keywordHits.map((path) => ({ path })) };
+}
+
+// The one-time setup this tier requires (documented, not automated -- auto-
+// provisioning a qmd collection behind a user's back was rejected: they may
+// already use qmd with their own collection naming scheme, and this stays an
+// optional accelerator, not something with silent side effects):
+//   qmd collection add <vault>/wiki --name wiki-master && qmd embed
+const QMD_COLLECTION = 'wiki-master';
+
+// Shells out to `qmd search` specifically -- never `query` or `vsearch`.
+// Confirmed live during implementation: `search` (hybrid BM25+vector, no LLM
+// step) needs only the ~330MB embedding model `qmd embed` already fetched;
+// `vsearch` and `query` BOTH additionally pull a 1.28GB query-expansion model
+// (and `query` a further reranking model) on first use -- a surprise
+// multi-gigabyte download this integration deliberately avoids triggering.
+// qmd is invoked purely as an external CLI, never an in-process import, so
+// its own Node >=22 engine requirement is never wiki-master's constraint.
+//
+// Real output shape below is confirmed against a live `qmd search --json`
+// run, not assumed from documentation: a bare JSON array of
+// {docid, score, file: "qmd://<collection>/<path>", line, title, snippet}.
+export function qmdSearch(query, { execImpl = execSync, limit = 10 } = {}) {
+  const out = execImpl(
+    `qmd search ${JSON.stringify(query)} -c ${QMD_COLLECTION} --json -n ${limit}`,
+    { encoding: 'utf8' }
+  );
+  const hits = JSON.parse(out);
+  const prefix = `qmd://${QMD_COLLECTION}/`;
+  return hits
+    .map((h) => ({
+      path: typeof h.file === 'string' && h.file.startsWith(prefix) ? h.file.slice(prefix.length) : null,
+      score: h.score,
+    }))
+    .filter((h) => h.path);
+}
+
+export async function main(query, { limit = 10 } = {}) {
+  const { path: vaultPath } = resolveVault();
+  const cacheDir = join(vaultPath, '.wiki-master');
+  const cache = loadCache(cacheDir);
+  const cachedEmbed = async (text) => {
+    const k = hash(text);
+    if (cache[k]) return cache[k];
+    const v = await ollamaEmbed(text);
+    cache[k] = v;
+    return v;
+  };
+
+  const keywordSearch = async (q) =>
+    obsidianJson(['search', `query=${q}`, 'path=wiki', `limit=${limit}`]) ?? [];
+
+  const semanticRun = async (q) => {
+    const files = obsidian(['files', 'ext=md']).split(/\r?\n/).filter(Boolean);
+    const pages = files
+      .filter((rel) => rel.startsWith('wiki/') && isContent(rel))
+      .map((rel) => ({ path: rel, body: readFileSync(join(vaultPath, rel), 'utf8') }));
+    // Honesty, not silence: a cold cache means embedding every uncached page
+    // before the first real answer -- up to low-hundreds of sequential Ollama
+    // calls on a vault this size (spec S4's "known, honest cost"). Report it
+    // rather than let the caller wonder why the first call is slow.
+    const uncached = pages.filter((p) => !cache[hash(p.body)]).length;
+    if (uncached > 5) console.error(`warming semantic cache: ${uncached}/${pages.length} pages`);
+    return semanticSearch(q, pages, { embedFn: cachedEmbed, cache, topN: limit });
+  };
+
+  const r = await search(query, {
+    keywordSearch,
+    qmdProbe: () => qmdAvailable((cmd) => execSync(cmd, { stdio: 'ignore' })),
+    qmdRun: async (q) => qmdSearch(q, { limit }),
+    ollamaAvailable: () => isAvailable(),
+    semanticRun,
+  });
+
+  saveCache(cacheDir, cache);
+  return r;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const query = process.argv.slice(2).join(' ');
+  if (!query) {
+    console.error('usage: node scripts/search.mjs "<question>"');
+    process.exit(1);
+  }
+  main(query).then((r) => {
+    console.log(`(${r.tier})`);
+    for (const hit of r.results) console.log(`  ${hit.path}`);
+  });
 }
