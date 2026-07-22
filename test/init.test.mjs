@@ -11,7 +11,7 @@ test('scaffold creates the vault contract folders and starter files', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wm-'));
   scaffold(dir, templatesDir);
   for (const d of ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
-                   'wiki/syntheses', 'moc', '_templates', '.wiki-master']) {
+                   'wiki/syntheses', 'wiki/authored', 'moc', '_templates', '.wiki-master']) {
     assert.ok(existsSync(join(dir, d)), `missing ${d}`);
   }
   assert.ok(existsSync(join(dir, 'index.md')));

@@ -72,6 +72,13 @@ export function checkQuotes(vaultPath, graph) {
   const findings = [];
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
+    // A page declaring `sources: []` has, by its own frontmatter, no external
+    // artifact to verify a quote against — checking it would flag every
+    // quotation as unverifiable against zero evidence, 100% false-positive by
+    // construction. This is what makes wiki/authored/ pages usable: they carry
+    // the disclosure by convention and quote-lint honors it, same as the
+    // existing per-sentence "unsourced" exemption below honors a narrower claim.
+    if (p.declaresNoSources) continue;
     const body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
     const quotes = quotedSpans(body);
     if (!quotes.length) continue;
@@ -117,6 +124,9 @@ const LICENSE = {
   'wiki/concepts/': ['editorializing', 'weasel'],
   'wiki/sources/': ['editorializing', 'weasel'],
   'wiki/syntheses/': [],
+  // Original, no-provenance content (advisory documentation, policy, house
+  // style) — the vault's own first-party voice, same license as syntheses.
+  'wiki/authored/': [],
 };
 
 const CONNECTIVES = /\b(however|but|despite|yet)\b/i;

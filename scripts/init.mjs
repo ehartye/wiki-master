@@ -5,7 +5,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
-              'wiki/syntheses', 'moc', 'log', '_templates', '.wiki-master'];
+              'wiki/syntheses', 'wiki/authored', 'moc', 'log', '_templates', '.wiki-master'];
 
 function writeIfAbsent(path, content) {
   if (!existsSync(path)) writeFileSync(path, content);

@@ -68,6 +68,19 @@ test('a page declaring `sources: []` is reported separately, not as a defect', (
   assert.deepEqual(m.declaredNoProvenance, ['wiki/concepts/Design Brief.md']);
 });
 
+// The contract is folder-agnostic by construction (needsTrail/isSourcePage key off
+// path prefixes and declaresNoSources, never a fixed allowlist) — proven here for
+// wiki/authored/, a page category that exists specifically to hold original,
+// no-provenance content (advisory documentation, policy, house style) with no
+// raw/ counterpart at all.
+test('wiki/authored/ pages get the same declared-no-provenance treatment as any other wiki page', () => {
+  const m = computeGraphMetrics({ pages: [
+    pg('wiki/authored/policy.md', [], { declaresNoSources: true }),
+  ] });
+  assert.deepEqual(m.unreachableProvenance, []);
+  assert.deepEqual(m.declaredNoProvenance, ['wiki/authored/policy.md']);
+});
+
 // MOCs are navigational hubs by the vault contract — they route to pages that
 // carry provenance and are not expected to carry it themselves.
 test('a MOC is never flagged for unreachable provenance', () => {
