@@ -1,9 +1,9 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { resolveVault, obsidian, assertRunning } from './lib/vault.mjs';
 import { embed as ollamaEmbed, isAvailable, cosine } from './lib/embed.mjs';
+import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 
 const DEFAULT_THRESHOLD = 0.5;
 
@@ -28,16 +28,8 @@ export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHO
   return { drifted, evaluated, skipped: false };
 }
 
-// Hash-keyed embedding cache so unchanged text is not re-embedded.
-function loadCache(dir) {
-  const f = join(dir, 'embeddings.json');
-  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
-}
-function saveCache(dir, cache) {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'embeddings.json'), JSON.stringify(cache));
-}
-function hash(text) { return createHash('sha256').update(text).digest('hex'); }
+// Hash-keyed embedding cache (loadCache/saveCache/hash) now lives in
+// lib/embed-cache.mjs, shared with search.mjs.
 
 export async function main() {
   if (!(await isAvailable())) {
