@@ -35,3 +35,33 @@ export function mergeRRF(lists) {
     .sort((a, b) => b[1] - a[1])
     .map(([path, score]) => ({ path, score }));
 }
+
+// Mirrors init.mjs's defuddleAvailable() exactly: try the command, ignore
+// stdio, catch -> false. qmd is never a package.json dependency -- only ever
+// detected on PATH, the same relationship this codebase already has with
+// Ollama and Defuddle (present -> used; absent -> the next tier down).
+export function qmdAvailable(execImpl) {
+  try { execImpl('qmd --version'); return true; } catch { return false; }
+}
+
+// The tiering ladder, isolated from real I/O behind injected deps so it is
+// unit-testable without a live qmd/Ollama/Obsidian. `keywordSearch` always
+// runs when needed (obsidian search always works or the vault is broken
+// anyway); `qmdRun`/`semanticRun` are each optional and independently probed.
+// A qmd that is PRESENT but fails at runtime (corrupt index, model load
+// error) falls through rather than surfacing a hard error from what is by
+// design an optional accelerator, not a load-bearing dependency.
+export async function search(query, deps) {
+  const { keywordSearch, qmdProbe, qmdRun, ollamaAvailable, semanticRun } = deps;
+  if (qmdProbe()) {
+    try {
+      return { tier: 'qmd', results: await qmdRun(query) };
+    } catch { /* fall through to the next tier */ }
+  }
+  const keywordHits = await keywordSearch(query);
+  if (await ollamaAvailable()) {
+    const semanticHits = await semanticRun(query);
+    return { tier: 'hybrid', results: mergeRRF([keywordHits, semanticHits.map((h) => h.path)]) };
+  }
+  return { tier: 'keyword', results: keywordHits.map((path) => ({ path })) };
+}
