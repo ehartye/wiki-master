@@ -1,7 +1,10 @@
 # Semantic search over the wiki — Design Spec
 
 **Date:** 2026-07-22
-**Status:** Proposed — no implementation in this change. This is a spec + recommendation only.
+**Status:** Decisions confirmed 2026-07-22 by @Eric-Hartye_HON (D1/D2/D5 explicitly; D3/D4 carried
+through as part of the overall approval — see §8). **Still no implementation** — the next artifact,
+`docs/superpowers/plans/2026-07-22-semantic-search.md`, is now written (TDD task breakdown); actual
+code lands only once that plan is executed.
 **Author:** Design conversation with @Eric-Hartye_HON
 **Prior art:** `docs/superpowers/research/2026-07-22-semantic-search-prior-art.md` (read first —
 this spec assumes its findings)
@@ -143,14 +146,15 @@ to redefine unilaterally.
 
 ## 8. Decisions to confirm before implementation
 
+**Confirmed 2026-07-22 by @Eric-Hartye_HON** — recommended column adopted for all five.
+
 | # | Decision | Recommendation | Alternative (and cost) |
 |---|---|---|---|
-| D1 | Primary mechanism | **Own tiered script, reusing `embed.mjs`/Ollama** (§2 Option A) | Adopt `qmd` as sole mechanism — best quality, but a load-bearing third-party dependency with a Node ≥22 floor if ever vendored in-process |
-| D2 | `qmd`'s role | **Optional, auto-detected Tier 1 accelerator, CLI-only** (§4) | Ignore it entirely — forgoes real quality gains (query expansion, LLM rerank) for users willing to install it |
-| D3 | Integration point | **Extend `/wiki-query`'s existing step** (§5) | New `/wiki-search` skill — premature with only one consumer |
-| D4 | Corpus scope | **`wiki/` only, matching current `path=wiki`** (§6) | Include `raw/` — breaks the evidence/navigable-layer distinction the vault contract relies on |
-| D5 | "No vector database" principle | **Read as "no service/daemon," not "no embedded index"** (§3) — brute-force cosine and even qmd's embedded SQLite both stay inside it | Read literally — would rule out qmd entirely (even CLI-only) and cap Option A at pure keyword, defeating the point |
+| D1 | Primary mechanism | **✅ Confirmed — own tiered script, reusing `embed.mjs`/Ollama** (§2 Option A) | Adopt `qmd` as sole mechanism — best quality, but a load-bearing third-party dependency with a Node ≥22 floor if ever vendored in-process |
+| D2 | `qmd`'s role | **✅ Confirmed — optional, auto-detected Tier 1 accelerator, CLI-only** (§4) | Ignore it entirely — forgoes real quality gains (query expansion, LLM rerank) for users willing to install it |
+| D3 | Integration point | **✅ Confirmed — extend `/wiki-query`'s existing step** (§5) | New `/wiki-search` skill — premature with only one consumer |
+| D4 | Corpus scope | **✅ Confirmed — `wiki/` only, matching current `path=wiki`** (§6) | Include `raw/` — breaks the evidence/navigable-layer distinction the vault contract relies on |
+| D5 | "No vector database" principle | **✅ Confirmed — read as "no service/daemon," not "no embedded index"** (§3) — brute-force cosine and even qmd's embedded SQLite both stay inside it | Read literally — would rule out qmd entirely (even CLI-only) and cap Option A at pure keyword, defeating the point |
 
-If the recommended column is confirmed, the next artifact is an implementation plan (TDD task
-breakdown) under `docs/superpowers/plans/`, against a new `scripts/search.mjs`, its test file, and
-the one-line change to `skills/wiki-query/SKILL.md`.
+Implementation plan: `docs/superpowers/plans/2026-07-22-semantic-search.md` (TDD task breakdown
+against a new `scripts/search.mjs`, its tests, and the one-line `/wiki-query` change).
