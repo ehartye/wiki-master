@@ -1,9 +1,44 @@
 # Semantic search — Implementation Plan
 
+**Status: Implemented** (this session, 2026-07-22) — see "Post-implementation notes" below for
+what shipped, what deviated from the original sketch, and three real bugs found only by testing
+against the live vault (not hypothetical — reproduced and fixed).
+
 > **How to use this doc:** task-by-task, in order, strict TDD (write the failing test, run it,
 > watch it fail for the *stated* reason, implement the minimal code, run it again, commit) — the
-> convention this repo's other `docs/superpowers/plans/*.md` already follow. Steps use `- [ ]` so
+> convention this repo's other `docs/superpowers/plans/*.md` already follow. Steps use `- [x]` so
 > progress is trackable.
+
+## Post-implementation notes (real findings, not hypothetical)
+
+1. **qmd's real `--json` shape, confirmed live** (installed via `npx @tobilu/qmd`, Node 22 already
+   present): a bare JSON array of `{docid, score, file: "qmd://<collection>/<path>", line, title,
+   snippet}` — matches what Task 3's spike anticipated needing to confirm. `qmdSearch` uses this
+   shape directly.
+2. **`qmd search` vs `vsearch`/`query` — a real, material cost difference, not documented anywhere
+   this clearly:** `qmd search` (hybrid BM25+vector, no LLM step) needs only the ~330MB embedding
+   model. `qmd vsearch` and `qmd query` **both** additionally pulled a 1.28GB query-expansion model
+   on first use (confirmed by timing out waiting for it), and `query` would pull a further
+   reranking model on top of that. `qmdSearch` deliberately invokes `search`, never `query`/
+   `vsearch`, specifically to avoid triggering a surprise multi-gigabyte download the first time
+   someone's qmd tier fires.
+3. **Bug found live, fixed:** the `obsidian` CLI's `search` command prints the plain-text sentence
+   `"No matches found."` even with `format=json` requested, which breaks `obsidianJson`'s
+   `JSON.parse`. Fixed locally in a new exported `keywordSearch()` (not in the shared `vault.mjs`
+   helper — this is specific to the `search` command's zero-hit text, and `obsidianJson` has another
+   caller, `stale.mjs`, whose own zero-hit behavior wasn't verified and wasn't this task's to touch).
+4. **Bug found live, fixed:** one real wiki page (`wiki/concepts/Tauri.md`, 8.6K chars) exceeds
+   `nomic-embed-text`'s context window, and Ollama returns HTTP 500 rather than truncating.
+   `semanticSearch` now catches a per-page embedding failure, logs it, and skips that page rather
+   than crashing the whole search — verified against the real vault (563 pages, 1 skip, correct
+   results returned) and covered by a unit test with a deliberately-flaky `embedFn`.
+5. **Extra export not in the original sketch:** `keywordSearch()` was pulled out as its own
+   testable function (mirroring `qmdSearch`'s `execImpl`-injection pattern) rather than staying an
+   inline closure inside `main()`, specifically so finding #3 above could be unit-tested without a
+   live Obsidian instance.
+6. **Cold-cache reality, measured:** first real run against the live vault (563 wiki pages, cold
+   cache) took roughly 90 seconds; the identical cache-warm second run took 0.67 seconds. The
+   "warming semantic cache: N/M pages" notice (spec S4's "known, honest cost") fires correctly.
 
 **Goal:** give `/wiki-query` a real semantic retrieval layer without adding a hard dependency,
 per the confirmed spec decisions (D1 approved, D2 `qmd` optional/CLI-only, D5 "no vector database"
@@ -61,12 +96,12 @@ writes to `.wiki-master/embeddings.json` — reusing it (not a parallel copy) is
   imports only `computeDrift`, never the private cache functions, so this refactor is behavior-only
   and needs no new test of its own)
 
-- [ ] **Step 1: Run the existing drift tests to record the baseline**
+- [x] **Step 1: Run the existing drift tests to record the baseline**
 
 Run: `npm test -- test/drift.test.mjs` (or `node --test test/drift.test.mjs`)
 Expected: PASS (all current drift tests green) — this is the regression guard for this task.
 
-- [ ] **Step 2: Create `scripts/lib/embed-cache.mjs`**
+- [x] **Step 2: Create `scripts/lib/embed-cache.mjs`**
 
 ```js
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -88,7 +123,7 @@ export function saveCache(dir, cache) {
 
 (Byte-for-byte the logic already in `drift.mjs` today — a pure extraction, not a rewrite.)
 
-- [ ] **Step 3: Update `scripts/drift.mjs` to import instead of define these**
+- [x] **Step 3: Update `scripts/drift.mjs` to import instead of define these**
 
 Remove `drift.mjs`'s own `loadCache`/`saveCache`/`hash` (currently private, module-level) and add:
 
@@ -96,13 +131,13 @@ Remove `drift.mjs`'s own `loadCache`/`saveCache`/`hash` (currently private, modu
 import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 ```
 
-- [ ] **Step 4: Run the drift tests again — must be byte-identical pass**
+- [x] **Step 4: Run the drift tests again — must be byte-identical pass**
 
 Run: `node --test test/drift.test.mjs`
 Expected: PASS, same test count as Step 1. If anything changes, the extraction wasn't behavior-only
 — stop and diff against the original functions rather than pushing forward.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/lib/embed-cache.mjs scripts/drift.mjs
@@ -117,7 +152,7 @@ git commit -m "refactor: extract embedding cache from drift.mjs for reuse by sea
 - Create: `scripts/search.mjs`
 - Create: `test/search.test.mjs`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `test/search.test.mjs` (first part — more tests are appended in later tasks, do not run
 `qmdAvailable`/`search` tests yet, they land in Task 2):
@@ -184,12 +219,12 @@ test('mergeRRF is deterministic given the same input', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- test/search.test.mjs`
 Expected: FAIL — `Cannot find module '../scripts/search.mjs'`.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 Create `scripts/search.mjs` (this much of it — `qmdAvailable`/`qmdSearch`/`search`/`main` are added
 in Tasks 2–3, do not add them yet):
@@ -234,13 +269,13 @@ export function mergeRRF(lists) {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- test/search.test.mjs`
 Expected: PASS — all 5 tests green; run the FULL suite (`npm test`) too and confirm no regressions
 (Task 0's drift tests in particular).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/search.mjs test/search.test.mjs
@@ -255,7 +290,7 @@ git commit -m "feat: add scripts/search.mjs — semantic ranking + RRF merge (ra
 - Modify: `scripts/search.mjs` (append)
 - Modify: `test/search.test.mjs` (append)
 
-- [ ] **Step 1: Append the failing tests**
+- [x] **Step 1: Append the failing tests**
 
 Add to `test/search.test.mjs`:
 
@@ -315,12 +350,12 @@ test('search: a qmd runtime failure (present but broken) falls through to the ne
 });
 ```
 
-- [ ] **Step 2: Run to verify these fail**
+- [x] **Step 2: Run to verify these fail**
 
 Run: `npm test -- test/search.test.mjs`
 Expected: FAIL — `qmdAvailable`/`search` are not exported yet.
 
-- [ ] **Step 3: Append the implementation**
+- [x] **Step 3: Append the implementation**
 
 Add to `scripts/search.mjs`:
 
@@ -356,12 +391,12 @@ export async function search(query, deps) {
 }
 ```
 
-- [ ] **Step 4: Run to verify all pass**
+- [x] **Step 4: Run to verify all pass**
 
 Run: `npm test -- test/search.test.mjs` then the full `npm test`.
 Expected: PASS — 10 tests total in `search.test.mjs`; no regressions elsewhere.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/search.mjs test/search.test.mjs
@@ -386,7 +421,7 @@ the work, not confirmed field-level code.
 - Modify: `scripts/search.mjs` (append `qmdSearch`, `main`)
 - Modify: `test/search.test.mjs` (append — real shape TBD per the warning above)
 
-- [ ] **Step 1: Spike — confirm qmd's actual `--json` output shape**
+- [x] **Step 1: Spike — confirm qmd's actual `--json` output shape**
 
 ```bash
 npm install -g @tobilu/qmd   # requires Node >=22 in whatever shell runs this — unrelated to
@@ -400,7 +435,7 @@ qmd query "provenance" --json -n 3   # <-- read this output; it decides qmdSearc
 Record the real field names actually seen (expected candidates per the README: a `file` field
 holding a `qmd://collection/path`-style URI, and a relevance `score`) before writing Step 3.
 
-- [ ] **Step 2: Write the failing test(s), using the shape confirmed in Step 1**
+- [x] **Step 2: Write the failing test(s), using the shape confirmed in Step 1**
 
 Sketch only — replace `<field names from Step 1>` before this is real:
 
@@ -414,7 +449,7 @@ test('qmdSearch parses qmd --json output into {path, score} results', () => {
 
 Run: `npm test -- test/search.test.mjs` → expect FAIL (`qmdSearch` not exported yet).
 
-- [ ] **Step 3: Implement `qmdSearch` and `main()`**
+- [x] **Step 3: Implement `qmdSearch` and `main()`**
 
 ```js
 import { execSync } from 'node:child_process';
@@ -456,11 +491,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 }
 ```
 
-- [ ] **Step 4: Run to verify pass; then the full suite**
+- [x] **Step 4: Run to verify pass; then the full suite**
 
 Run: `npm test` — Expected: PASS, no regressions.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/search.mjs test/search.test.mjs
@@ -475,7 +510,7 @@ Prose-only edit (no test — matches how the log-folder plan's Task 3 treats ski
 
 **Files:** `skills/wiki-query/SKILL.md`
 
-- [ ] **Step 1: Replace the retrieval step**
+- [x] **Step 1: Replace the retrieval step**
 
 Find:
 
@@ -494,12 +529,12 @@ Replace with:
    Read the most relevant pages returned.
 ```
 
-- [ ] **Step 2: Verify no other skill/doc references the now-superseded direct call**
+- [x] **Step 2: Verify no other skill/doc references the now-superseded direct call**
 
 Run: `grep -rn 'obsidian search query=.*path=wiki' skills templates`
 Expected: no matches (empty).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add skills/wiki-query/SKILL.md
@@ -510,13 +545,13 @@ git commit -m "docs: point /wiki-query at scripts/search.mjs instead of raw obsi
 
 ## Task 5: Full verification + PR
 
-- [ ] **Step 1: Full suite**
+- [x] **Step 1: Full suite**
 
 Run: `npm test` — Expected: PASS (every existing suite + all new `search.test.mjs` cases; the one
 pre-existing unrelated `clip-xlsx.test.mjs` failure, if still present on `main` at implementation
 time, is not this task's to fix).
 
-- [ ] **Step 2: Smoke test against the real vault (manual, not automated)**
+- [x] **Step 2: Smoke test against the real vault (manual, not automated)**
 
 ```bash
 node scripts/search.mjs "provenance"
@@ -526,14 +561,14 @@ Expected: prints a tier line and a handful of ranked `wiki/` paths; confirm the 
 actually available in the shell (Ollama running with `nomic-embed-text` pulled → `hybrid`; also
 `qmd` installed and indexed → `qmd`; neither → `keyword`).
 
-- [ ] **Step 3: Cold-cache honesty check**
+- [x] **Step 3: Cold-cache honesty check**
 
 On a vault/cache without a prior `drift`/`search` run, time a first `hybrid`-tier call and confirm
 it reports progress (per spec §4's "known, honest cost" — do not ship this silent). If `main()` as
 written doesn't yet report progress, add it here before calling this task done — this was named
 explicitly in the spec as a UX requirement, not a nice-to-have.
 
-- [ ] **Step 4: Push + open PR**
+- [x] **Step 4: Push + open PR**
 
 ```bash
 git push -u origin <branch>

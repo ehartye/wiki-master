@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch } from '../scripts/search.mjs';
+import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch, keywordSearch } from '../scripts/search.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
@@ -39,6 +39,29 @@ test('semanticSearch reuses the cache: an already-cached hash is never re-embedd
   await semanticSearch('query', pages, { embedFn: countingEmbed, cache });
   // Second run re-embeds the query (always fresh) but not the unchanged page body.
   assert.equal(calls, callsAfterFirst + 1, 'only the query re-embeds; the cached page body does not');
+});
+
+// Found live against the real vault: a long page (~8.6K chars) made Ollama
+// return HTTP 500 ("the input length exceeds the context length") -- an
+// embedding-model context-window limit, not a wiki-master bug, but one
+// oversized page must not take the whole search down with it.
+test('semanticSearch skips a page whose embedding fails and still ranks the rest', async () => {
+  const flaky = async (text) => {
+    if (text === 'query') return [1, 0];
+    if (text === 'too-long') throw new Error('the input length exceeds the context length');
+    return VEC[text];
+  };
+  const pages = [
+    { path: 'oversized.md', body: 'too-long' },
+    { path: 'b.md', body: 'same' },
+  ];
+  const results = await semanticSearch('query', pages, { embedFn: flaky });
+  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the failing page is skipped, not fatal');
+});
+
+test('semanticSearch still throws if the QUERY itself cannot be embedded (nothing to rank against)', async () => {
+  const alwaysFails = async () => { throw new Error('boom'); };
+  await assert.rejects(() => semanticSearch('query', [{ path: 'a.md', body: 'x' }], { embedFn: alwaysFails }));
 });
 
 test('mergeRRF combines two ranked lists, deduplicated, by reciprocal rank', () => {
@@ -135,6 +158,22 @@ test('qmdSearch invokes `qmd search` (never `query`/`vsearch`) to avoid their mu
   qmdSearch('provenance', { execImpl: (cmd) => { calledWith = cmd; return '[]'; } });
   assert.match(calledWith, /^qmd search /, 'must use the lightweight `search` subcommand');
   assert.doesNotMatch(calledWith, /qmd (query|vsearch)/);
+});
+
+// Found live during implementation, against the real vault: the `obsidian` CLI's
+// `search` command prints the plain-text sentence "No matches found." even when
+// `format=json` is requested, which is not valid JSON -- a zero-hit search must
+// not crash the tiering ladder that depends on this function.
+test('keywordSearch treats the obsidian CLI\'s "No matches found." text as zero hits, not a crash', () => {
+  const results = keywordSearch('nonexistent query', {
+    obsidianJsonImpl: () => { throw new SyntaxError('Unexpected token N, "No matches found." is not valid JSON'); },
+  });
+  assert.deepEqual(results, []);
+});
+
+test('keywordSearch passes through real hits unchanged', () => {
+  const results = keywordSearch('provenance', { obsidianJsonImpl: () => ['a.md', 'b.md'] });
+  assert.deepEqual(results, ['a.md', 'b.md']);
 });
 
 test('qmdSearch drops entries with no usable file field rather than returning a garbage path', () => {

@@ -19,8 +19,21 @@ export async function semanticSearch(query, pages, { embedFn, cache = {}, topN =
   const scored = [];
   for (const p of pages) {
     const h = hash(p.body);
-    const vec = cache[h] ?? (cache[h] = await embedFn(p.body));
-    scored.push({ path: p.path, score: cosine(qVec, vec) });
+    if (cache[h]) {
+      scored.push({ path: p.path, score: cosine(qVec, cache[h]) });
+      continue;
+    }
+    // A single oversized/unusual page must not take the whole search down.
+    // Confirmed live: a long page exceeding the embedding model's context
+    // window makes Ollama return HTTP 500 -- an embedding-model limit, not a
+    // wiki-master defect, but one page's failure is not fatal to the rest.
+    try {
+      const vec = await embedFn(p.body);
+      cache[h] = vec;
+      scored.push({ path: p.path, score: cosine(qVec, vec) });
+    } catch (err) {
+      console.error(`search: skipping ${p.path} (embedding failed: ${err.message})`);
+    }
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, topN);
 }
@@ -106,6 +119,20 @@ export function qmdSearch(query, { execImpl = execSync, limit = 10 } = {}) {
     .filter((h) => h.path);
 }
 
+// The `obsidian` CLI's `search` command prints the plain-text sentence "No
+// matches found." even when `format=json` is requested -- confirmed live
+// during implementation, where it broke `obsidianJson`'s JSON.parse with a
+// SyntaxError. A zero-hit search is not a failure; it just means the keyword
+// channel contributes nothing to this query, so it is treated the same as an
+// empty result list rather than allowed to crash the whole tiering ladder.
+export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJson } = {}) {
+  try {
+    return obsidianJsonImpl(['search', `query=${query}`, 'path=wiki', `limit=${limit}`]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function main(query, { limit = 10 } = {}) {
   const { path: vaultPath } = resolveVault();
   const cacheDir = join(vaultPath, '.wiki-master');
@@ -117,9 +144,6 @@ export async function main(query, { limit = 10 } = {}) {
     cache[k] = v;
     return v;
   };
-
-  const keywordSearch = async (q) =>
-    obsidianJson(['search', `query=${q}`, 'path=wiki', `limit=${limit}`]) ?? [];
 
   const semanticRun = async (q) => {
     const files = obsidian(['files', 'ext=md']).split(/\r?\n/).filter(Boolean);
@@ -136,7 +160,7 @@ export async function main(query, { limit = 10 } = {}) {
   };
 
   const r = await search(query, {
-    keywordSearch,
+    keywordSearch: async (q) => keywordSearch(q, { limit }),
     qmdProbe: () => qmdAvailable((cmd) => execSync(cmd, { stdio: 'ignore' })),
     qmdRun: async (q) => qmdSearch(q, { limit }),
     ollamaAvailable: () => isAvailable(),
