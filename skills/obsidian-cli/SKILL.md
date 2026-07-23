@@ -31,12 +31,17 @@ mechanical, so it needs no restating elsewhere.
 ## Empty is not an answer
 Obsidian publishes no exit-code contract and does not document how a command
 signals "no results" — neither the official reference nor kepano's first-party
-skill says. That gap, not tool unreliability, is why a probe is worth running.
+skill says. That gap, not tool unreliability, is why an *empty* result needs one
+cheap check before anything is decided on the strength of it.
 
-Probe once per session: `obsidian search query="the" total` — a live backend
-prints a number. Once it does, the backend is proven for the session: use the CLI
-normally, and read a later empty result as "the vault has nothing" without
-re-justifying it. Only an empty *canary* means the backend is dead.
+Probe lazily, never upfront. Run nothing in advance: any command that returns
+results has already proven the backend alive — from then on, trust empties too.
+Only when a command returns empty **and** that emptiness is about to drive a
+decision (report "not ingested", declare no backlinks, skip a page) run
+`obsidian search query="the" total` — a live backend prints a number, which
+means the empty was real; trust it and every later empty without re-probing.
+An empty canary means the backend is dead. A session whose commands all return
+hits never probes at all.
 
 Two failure modes people assume and neither holds: **the app not running cannot
 produce a silent empty** — per the official docs, "If Obsidian is not running,
