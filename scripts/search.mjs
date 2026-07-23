@@ -14,7 +14,14 @@ import { isContent } from './lib/graph.mjs';
 // `body` must be hashed the same way drift.mjs hashes it (full file content,
 // frontmatter included -- see drift.mjs's own `body` variable) or the two
 // features' cache entries will never hit each other.
-export async function semanticSearch(query, pages, { embedFn, cache = {}, topN = 10 } = {}) {
+// nomic-embed-text rejects an input past its context window with HTTP 500
+// rather than truncating (confirmed live: an 8.6K-char page trips it). 4000
+// chars stays safely under that even for token-dense markdown, while keeping
+// the page's most representative slice (title, frontmatter, opening) as its
+// semantic fingerprint.
+const EMBED_TRUNCATE_CHARS = 4000;
+
+export async function semanticSearch(query, pages, { embedFn, cache = {}, topN = 10, truncateAt = EMBED_TRUNCATE_CHARS } = {}) {
   const qVec = await embedFn(query);
   const scored = [];
   for (const p of pages) {
@@ -27,11 +34,27 @@ export async function semanticSearch(query, pages, { embedFn, cache = {}, topN =
     // Confirmed live: a long page exceeding the embedding model's context
     // window makes Ollama return HTTP 500 -- an embedding-model limit, not a
     // wiki-master defect, but one page's failure is not fatal to the rest.
+    // When the body is long enough that length plausibly IS the failure,
+    // retry its opening slice and cache the vector under the FULL body hash
+    // -- the drift.mjs-shared key -- so the page stays semantically visible
+    // and no later run re-fails it. A short failing body gets no retry: an
+    // identical input would just fail identically (e.g. Ollama is down).
     try {
       const vec = await embedFn(p.body);
       cache[h] = vec;
       scored.push({ path: p.path, score: cosine(qVec, vec) });
     } catch (err) {
+      if (p.body.length > truncateAt) {
+        try {
+          const vec = await embedFn(p.body.slice(0, truncateAt));
+          cache[h] = vec;
+          scored.push({ path: p.path, score: cosine(qVec, vec) });
+          console.error(`search: embedded ${p.path} truncated to ${truncateAt} chars (full body exceeds the embedding context)`);
+          continue;
+        } catch (retryErr) {
+          err = retryErr;
+        }
+      }
       console.error(`search: skipping ${p.path} (embedding failed: ${err.message})`);
     }
   }
@@ -74,7 +97,12 @@ export async function search(query, deps) {
   const { keywordSearch, qmdProbe, qmdRun, ollamaAvailable, semanticRun } = deps;
   if (qmdProbe()) {
     try {
-      return { tier: 'qmd', results: await qmdRun(query) };
+      // `qmd search` has no query expansion (deliberately -- see qmdSearch),
+      // so a natural-language query can legitimately hit nothing. From an
+      // optional accelerator an empty answer is not an answer: fall through
+      // to a tier that may still produce one.
+      const results = await qmdRun(query);
+      if (results.length > 0) return { tier: 'qmd', results };
     } catch { /* fall through to the next tier */ }
   }
   const keywordHits = await keywordSearch(query);
@@ -104,18 +132,35 @@ const QMD_COLLECTION = 'wiki-master';
 // Real output shape below is confirmed against a live `qmd search --json`
 // run, not assumed from documentation: a bare JSON array of
 // {docid, score, file: "qmd://<collection>/<path>", line, title, snippet}.
-export function qmdSearch(query, { execImpl = execSync, limit = 10 } = {}) {
+// qmd slugifies filenames inside its URIs: punctuation runs (spaces, em-
+// dashes, commas) collapse to single hyphens, confirmed live ("Foale — A
+// Listener-Centred Approach.md" -> "Foale-A-Listener-Centred-Approach.md").
+// Reversal is ambiguous (real names legitimately contain hyphens), so hits
+// are resolved against the actual vault file list by comparing canonical
+// forms: everything but alphanumerics and path separators collapses to "-".
+const canon = (p) => p.toLowerCase().replace(/[^a-z0-9/]+/g, '-');
+
+export function qmdSearch(query, { execImpl = execSync, limit = 10, vaultFiles = null } = {}) {
   const out = execImpl(
     `qmd search ${JSON.stringify(query)} -c ${QMD_COLLECTION} --json -n ${limit}`,
     { encoding: 'utf8' }
   );
   const hits = JSON.parse(out);
   const prefix = `qmd://${QMD_COLLECTION}/`;
+  const byCanon = new Map((vaultFiles ?? []).map((f) => [canon(f), f]));
   return hits
-    .map((h) => ({
-      path: typeof h.file === 'string' && h.file.startsWith(prefix) ? h.file.slice(prefix.length) : null,
-      score: h.score,
-    }))
+    .map((h) => {
+      if (typeof h.file !== 'string' || !h.file.startsWith(prefix)) return { path: null };
+      // qmd file URIs are COLLECTION-relative: under the documented setup
+      // (collection rooted at <vault>/wiki) a hit is "sources/X.md", missing
+      // the wiki/ prefix every other tier's vault-relative paths carry.
+      // Normalize either root to the vault-relative shape consumers read.
+      const rel = h.file.slice(prefix.length);
+      const path = rel.startsWith('wiki/') ? rel : `wiki/${rel}`;
+      // An unresolvable hit passes through as-is rather than being dropped:
+      // a wrong-but-close path a human can still recognize beats silence.
+      return { path: byCanon.get(canon(path)) ?? path, score: h.score };
+    })
     .filter((h) => h.path);
 }
 
@@ -145,10 +190,12 @@ export async function main(query, { limit = 10 } = {}) {
     return v;
   };
 
+  const wikiFiles = () => obsidian(['files', 'ext=md']).split(/\r?\n/).filter(Boolean)
+    .filter((rel) => rel.startsWith('wiki/'));
+
   const semanticRun = async (q) => {
-    const files = obsidian(['files', 'ext=md']).split(/\r?\n/).filter(Boolean);
-    const pages = files
-      .filter((rel) => rel.startsWith('wiki/') && isContent(rel))
+    const pages = wikiFiles()
+      .filter((rel) => isContent(rel))
       .map((rel) => ({ path: rel, body: readFileSync(join(vaultPath, rel), 'utf8') }));
     // Honesty, not silence: a cold cache means embedding every uncached page
     // before the first real answer -- up to low-hundreds of sequential Ollama
@@ -162,7 +209,7 @@ export async function main(query, { limit = 10 } = {}) {
   const r = await search(query, {
     keywordSearch: async (q) => keywordSearch(q, { limit }),
     qmdProbe: () => qmdAvailable((cmd) => execSync(cmd, { stdio: 'ignore' })),
-    qmdRun: async (q) => qmdSearch(q, { limit }),
+    qmdRun: async (q) => qmdSearch(q, { limit, vaultFiles: wikiFiles() }),
     ollamaAvailable: () => isAvailable(),
     semanticRun,
   });

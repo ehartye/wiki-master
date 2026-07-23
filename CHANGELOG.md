@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.7.1 — 2026-07-22
+
+### Oversized pages become searchable (truncate-on-failure) + drift run survives them
+
+0.7.0 shipped "skip and log" for a page exceeding the embedding model's context window. Against
+the live vault that had grown to 23 pages (~2% of the corpus) that were invisible to the semantic
+channel and re-failed on every single search (23 doomed Ollama calls per run, forever, because a
+failure is never cached).
+
+- `semanticSearch` now retries a failing oversized body truncated to its first 4000 chars — the
+  page's most representative slice (title, frontmatter, opening) — and caches the vector under the
+  **full**-body hash, the same key `drift.mjs` shares. The page becomes semantically searchable and
+  no later run re-fails it. A *short* failing body gets no retry: an identical input would fail
+  identically (e.g. Ollama is down). Verified live: all 23 pages embedded, two of them immediately
+  surfaced in a real query's results.
+- `computeDrift` gets the per-page guard `semanticSearch` already had (it was never backported):
+  one un-embeddable page or raw source — raw sources run longest, so they're likeliest to trip the
+  context limit — no longer crashes the entire drift run. Failures are returned as `failed` and
+  reported, never silent.
+
+Full chunking was considered and deliberately deferred: it breaks the one-vector-per-page cache
+contract shared with `drift.mjs` and starts re-implementing what the qmd tier already does
+properly. If semantic recall on long pages matters, install qmd (tier 1).
+
+### Tier 1 (qmd) actually exercised for the first time — three live bugs fixed
+
+0.7.0 shipped the qmd tier tested only against stubs (qmd wasn't installed). Running it for real:
+
+- **Empty is not an answer.** `qmd search` has no query expansion (deliberately — that's the
+  multi-GB model download the integration avoids), so a natural-language query can legitimately
+  hit nothing. The ladder returned `(qmd)` with zero results as the final answer; it now falls
+  through to a tier that can still answer.
+- **Collection-relative paths.** Under the documented setup (collection rooted at `<vault>/wiki`)
+  qmd's file URIs come back as `sources/X.md`, missing the `wiki/` prefix every other tier
+  carries. The 0.7.0 fixture was captured from a vault-rooted collection, which masked this.
+  Either root now normalizes to vault-relative.
+- **Slugified filenames.** qmd collapses punctuation runs (spaces, em-dashes, commas) to single
+  hyphens inside its URIs — `Foale — A Listener-Centred Approach.md` came back as a path that
+  does not exist on disk. Since real filenames legitimately contain hyphens, reversal is resolved
+  against the actual vault file list by canonical-form comparison; unresolvable hits pass through
+  rather than being dropped.
+
 ## 0.7.0 — 2026-07-22
 
 ### `/wiki-query` gets real semantic search — tiered, never a hard dependency

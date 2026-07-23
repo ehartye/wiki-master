@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch, keywordSearch } from '../scripts/search.mjs';
+import { hash } from '../scripts/lib/embed-cache.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
@@ -57,6 +58,53 @@ test('semanticSearch skips a page whose embedding fails and still ranks the rest
   ];
   const results = await semanticSearch('query', pages, { embedFn: flaky });
   assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the failing page is skipped, not fatal');
+});
+
+// The 23-pages-invisible problem: an oversized body fails every run because the
+// failure is never cached. Truncate-on-failure retries with the body's opening
+// slice and caches the result under the FULL body hash, so the page becomes
+// semantically searchable and later runs (and drift.mjs, sharing the cache) hit
+// the cached vector instead of re-failing.
+test('semanticSearch retries an oversized failing body truncated, ranks it, and caches under the full-body hash', async () => {
+  const oversized = 'L'.repeat(20);
+  const embedded = [];
+  const sizeLimited = async (text) => {
+    embedded.push(text);
+    if (text.length > 10) throw new Error('the input length exceeds the context length');
+    return [1, 0];
+  };
+  const cache = {};
+  const results = await semanticSearch('query', [{ path: 'big.md', body: oversized }],
+    { embedFn: sizeLimited, cache, truncateAt: 10 });
+  assert.deepEqual(results.map((r) => r.path), ['big.md'], 'the oversized page is ranked, not skipped');
+  assert.ok(embedded.includes(oversized.slice(0, 10)), 'the retry embeds the truncated prefix');
+  assert.ok(cache[hash(oversized)], 'the vector is cached under the FULL body hash (the drift.mjs-shared key)');
+});
+
+test('semanticSearch does not retry a short body whose embedding fails (failure cannot be length)', async () => {
+  let bodyAttempts = 0;
+  const failsOnBody = async (text) => {
+    if (text === 'query') return [1, 0];
+    bodyAttempts++;
+    throw new Error('connection refused');
+  };
+  const results = await semanticSearch('query', [{ path: 'short.md', body: 'tiny' }],
+    { embedFn: failsOnBody, truncateAt: 10 });
+  assert.deepEqual(results, [], 'the page is skipped');
+  assert.equal(bodyAttempts, 1, 'no pointless retry with an identical (already short) body');
+});
+
+test('semanticSearch skips the page when the truncated retry also fails, still ranking the rest', async () => {
+  const alwaysFailsBodies = async (text) => {
+    if (text === 'query') return [1, 0];
+    if (text === 'same') return VEC.same;
+    throw new Error('Ollama embeddings HTTP 500');
+  };
+  const results = await semanticSearch('query', [
+    { path: 'doomed.md', body: 'D'.repeat(20) },
+    { path: 'b.md', body: 'same' },
+  ], { embedFn: alwaysFailsBodies, truncateAt: 10 });
+  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the doubly-failing page is skipped, not fatal');
 });
 
 test('semanticSearch still throws if the QUERY itself cannot be embedded (nothing to rank against)', async () => {
@@ -122,6 +170,23 @@ test('search: falls back to keyword-only when both qmd and Ollama are unavailabl
   assert.deepEqual(r.results, [{ path: 'k.md' }]);
 });
 
+// Found live the first time tier 1 actually ran: `qmd search` (no query
+// expansion -- that is the multi-GB model this integration avoids) returned []
+// for a natural-language query the hybrid tier answers well, and the ladder
+// presented "(qmd)" with zero results as the final answer. From an optional
+// accelerator, an empty answer is not an answer.
+test('search: an empty qmd result set falls through to the next tier instead of answering with nothing', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    qmdProbe: () => true,
+    qmdRun: async () => [],
+    ollamaAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9 }],
+  });
+  assert.equal(r.tier, 'hybrid', 'zero qmd hits must not preempt a tier that can answer');
+  assert.deepEqual(new Set(r.results.map((x) => x.path)), new Set(['k.md', 's.md']));
+});
+
 test('search: a qmd runtime failure (present but broken) falls through to the next tier', async () => {
   const r = await search('q', {
     keywordSearch: async () => ['k.md'],
@@ -180,4 +245,47 @@ test('qmdSearch drops entries with no usable file field rather than returning a 
   const malformed = JSON.stringify([{ docid: '#x', score: 0.1 }]); // no `file` field
   const results = qmdSearch('q', { execImpl: () => malformed });
   assert.deepEqual(results, []);
+});
+
+// Found live under the documented setup (`qmd collection add <vault>/wiki`):
+// qmd's file URIs are COLLECTION-relative, so hits come back as
+// "qmd://wiki-master/sources/X.md" -- missing the wiki/ prefix every other
+// tier's vault-relative paths carry. The 0.7.0 fixture above was captured from
+// a vault-rooted collection, which masked this; both roots must normalize to
+// the same vault-relative shape.
+// Found live: qmd slugifies filenames inside its URIs -- "Foale — A
+// Listener-Centred Approach.md" comes back as "Foale-A-Listener-Centred-
+// Approach.md", a path that does not exist on disk. Punctuation runs (spaces,
+// em-dashes, commas) collapse to single hyphens, so naive reversal is
+// ambiguous (real filenames legitimately contain hyphens); the only safe
+// mapping is resolving against the actual vault file list.
+test('qmdSearch resolves slugified qmd filenames back to the real on-disk vault paths', () => {
+  const vaultFiles = [
+    'wiki/sources/Foale — A Listener-Centred Approach.md',
+    'wiki/concepts/Second Brain.md',
+    'wiki/syntheses/bid-master-dq-md.md', // real hyphens: must map to itself
+  ];
+  const hits = JSON.stringify([
+    { docid: '#a', score: 0.9, file: 'qmd://wiki-master/sources/Foale-A-Listener-Centred-Approach.md' },
+    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Second-Brain.md' },
+    { docid: '#c', score: 0.7, file: 'qmd://wiki-master/syntheses/bid-master-dq-md.md' },
+    { docid: '#d', score: 0.6, file: 'qmd://wiki-master/concepts/Not-In-The-Vault.md' },
+  ]);
+  const results = qmdSearch('q', { execImpl: () => hits, vaultFiles });
+  assert.deepEqual(results.map((r) => r.path), [
+    'wiki/sources/Foale — A Listener-Centred Approach.md',
+    'wiki/concepts/Second Brain.md',
+    'wiki/syntheses/bid-master-dq-md.md',
+    'wiki/concepts/Not-In-The-Vault.md', // unresolvable: passed through, not dropped
+  ]);
+});
+
+test('qmdSearch normalizes collection-relative hits to vault-relative wiki/ paths', () => {
+  const collectionRelative = JSON.stringify([
+    { docid: '#a', score: 0.85, file: 'qmd://wiki-master/sources/Some Source.md' },
+    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Some Concept.md' },
+  ]);
+  const results = qmdSearch('q', { execImpl: () => collectionRelative });
+  assert.deepEqual(results.map((r) => r.path),
+    ['wiki/sources/Some Source.md', 'wiki/concepts/Some Concept.md']);
 });

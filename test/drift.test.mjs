@@ -28,3 +28,37 @@ test('computeDrift skips pages with no sources', async () => {
   assert.deepEqual(r.drifted, []);
   assert.deepEqual(r.evaluated, []);
 });
+
+// search.mjs got this guard when the context-window 500 was found live;
+// computeDrift never did -- one oversized page (or raw source, typically even
+// longer) crashed the entire drift run. A failed page is recorded, not fatal,
+// and never silent.
+test('computeDrift records a page whose body embedding fails and still evaluates the rest', async () => {
+  const failsOn = async (t) => {
+    if (t === 'oversized body') throw new Error('Ollama embeddings HTTP 500');
+    return fakeEmbed(t);
+  };
+  const pages = [
+    { path: 'big.md', body: 'oversized body',
+      sources: [{ path: 'source-a.md', content: 'source about neural scaling' }] },
+    { path: 'alpha.md', body: 'alpha body about neural scaling',
+      sources: [{ path: 'source-a.md', content: 'source about neural scaling' }] },
+  ];
+  const r = await computeDrift(pages, { embedFn: failsOn, threshold: 0.5 });
+  assert.deepEqual(r.evaluated.map((e) => e.path), ['alpha.md'], 'the healthy page is still evaluated');
+  assert.deepEqual(r.failed.map((f) => f.path), ['big.md'], 'the failing page is recorded, not fatal');
+});
+
+test('computeDrift records a page whose SOURCE embedding fails (raw sources run longest)', async () => {
+  const failsOn = async (t) => {
+    if (t === 'oversized raw source') throw new Error('Ollama embeddings HTTP 500');
+    return fakeEmbed(t);
+  };
+  const pages = [
+    { path: 'alpha.md', body: 'alpha body about neural scaling',
+      sources: [{ path: 'huge-source.md', content: 'oversized raw source' }] },
+  ];
+  const r = await computeDrift(pages, { embedFn: failsOn, threshold: 0.5 });
+  assert.deepEqual(r.evaluated, []);
+  assert.deepEqual(r.failed.map((f) => f.path), ['alpha.md']);
+});
