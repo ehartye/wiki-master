@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.1 — 2026-07-22
+
+### Oversized pages become searchable (truncate-on-failure) + drift run survives them
+
+0.7.0 shipped "skip and log" for a page exceeding the embedding model's context window. Against
+the live vault that had grown to 23 pages (~2% of the corpus) that were invisible to the semantic
+channel and re-failed on every single search (23 doomed Ollama calls per run, forever, because a
+failure is never cached).
+
+- `semanticSearch` now retries a failing oversized body truncated to its first 4000 chars — the
+  page's most representative slice (title, frontmatter, opening) — and caches the vector under the
+  **full**-body hash, the same key `drift.mjs` shares. The page becomes semantically searchable and
+  no later run re-fails it. A *short* failing body gets no retry: an identical input would fail
+  identically (e.g. Ollama is down). Verified live: all 23 pages embedded, two of them immediately
+  surfaced in a real query's results.
+- `computeDrift` gets the per-page guard `semanticSearch` already had (it was never backported):
+  one un-embeddable page or raw source — raw sources run longest, so they're likeliest to trip the
+  context limit — no longer crashes the entire drift run. Failures are returned as `failed` and
+  reported, never silent.
+
+Full chunking was considered and deliberately deferred: it breaks the one-vector-per-page cache
+contract shared with `drift.mjs` and starts re-implementing what the qmd tier already does
+properly. If semantic recall on long pages matters, install qmd (tier 1).
+
 ## 0.7.0 — 2026-07-22
 
 ### `/wiki-query` gets real semantic search — tiered, never a hard dependency

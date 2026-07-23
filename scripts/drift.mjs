@@ -15,17 +15,24 @@ function centroid(vecs) {
 }
 
 export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHOLD } = {}) {
-  const drifted = [], evaluated = [];
+  const drifted = [], evaluated = [], failed = [];
   for (const page of pages) {
     if (!page.sources || page.sources.length === 0) continue;
-    const pageVec = await embedFn(page.body);
-    const srcVecs = [];
-    for (const s of page.sources) srcVecs.push(await embedFn(s.content));
-    const sim = cosine(pageVec, centroid(srcVecs));
-    evaluated.push({ path: page.path, sim });
-    if (sim < threshold) drifted.push({ path: page.path, sim });
+    // One un-embeddable page (or raw source -- typically the longest content
+    // in the vault, so likeliest to exceed the embedding model's context
+    // window) must not take the whole drift run down. Recorded, never silent.
+    try {
+      const pageVec = await embedFn(page.body);
+      const srcVecs = [];
+      for (const s of page.sources) srcVecs.push(await embedFn(s.content));
+      const sim = cosine(pageVec, centroid(srcVecs));
+      evaluated.push({ path: page.path, sim });
+      if (sim < threshold) drifted.push({ path: page.path, sim });
+    } catch (err) {
+      failed.push({ path: page.path, error: err.message });
+    }
   }
-  return { drifted, evaluated, skipped: false };
+  return { drifted, evaluated, failed, skipped: false };
 }
 
 // Hash-keyed embedding cache (loadCache/saveCache/hash) now lives in
@@ -34,7 +41,7 @@ export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHO
 export async function main() {
   if (!(await isAvailable())) {
     console.log('drift skipped (embedder unavailable)');
-    return { drifted: [], evaluated: [], skipped: true };
+    return { drifted: [], evaluated: [], failed: [], skipped: true };
   }
   assertRunning();
   const { path: vaultPath } = resolveVault();
@@ -69,6 +76,7 @@ export async function main() {
   saveCache(cacheDir, cache);
   if (r.drifted.length === 0) console.log('drift: no pages diverged from their sources');
   for (const d of r.drifted) console.log(`  drift ${d.sim.toFixed(2)}  ${d.path}`);
+  for (const f of r.failed) console.error(`  drift: could not evaluate ${f.path} (${f.error})`);
   return r;
 }
 

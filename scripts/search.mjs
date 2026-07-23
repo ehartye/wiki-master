@@ -14,7 +14,14 @@ import { isContent } from './lib/graph.mjs';
 // `body` must be hashed the same way drift.mjs hashes it (full file content,
 // frontmatter included -- see drift.mjs's own `body` variable) or the two
 // features' cache entries will never hit each other.
-export async function semanticSearch(query, pages, { embedFn, cache = {}, topN = 10 } = {}) {
+// nomic-embed-text rejects an input past its context window with HTTP 500
+// rather than truncating (confirmed live: an 8.6K-char page trips it). 4000
+// chars stays safely under that even for token-dense markdown, while keeping
+// the page's most representative slice (title, frontmatter, opening) as its
+// semantic fingerprint.
+const EMBED_TRUNCATE_CHARS = 4000;
+
+export async function semanticSearch(query, pages, { embedFn, cache = {}, topN = 10, truncateAt = EMBED_TRUNCATE_CHARS } = {}) {
   const qVec = await embedFn(query);
   const scored = [];
   for (const p of pages) {
@@ -27,11 +34,27 @@ export async function semanticSearch(query, pages, { embedFn, cache = {}, topN =
     // Confirmed live: a long page exceeding the embedding model's context
     // window makes Ollama return HTTP 500 -- an embedding-model limit, not a
     // wiki-master defect, but one page's failure is not fatal to the rest.
+    // When the body is long enough that length plausibly IS the failure,
+    // retry its opening slice and cache the vector under the FULL body hash
+    // -- the drift.mjs-shared key -- so the page stays semantically visible
+    // and no later run re-fails it. A short failing body gets no retry: an
+    // identical input would just fail identically (e.g. Ollama is down).
     try {
       const vec = await embedFn(p.body);
       cache[h] = vec;
       scored.push({ path: p.path, score: cosine(qVec, vec) });
     } catch (err) {
+      if (p.body.length > truncateAt) {
+        try {
+          const vec = await embedFn(p.body.slice(0, truncateAt));
+          cache[h] = vec;
+          scored.push({ path: p.path, score: cosine(qVec, vec) });
+          console.error(`search: embedded ${p.path} truncated to ${truncateAt} chars (full body exceeds the embedding context)`);
+          continue;
+        } catch (retryErr) {
+          err = retryErr;
+        }
+      }
       console.error(`search: skipping ${p.path} (embedding failed: ${err.message})`);
     }
   }

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch, keywordSearch } from '../scripts/search.mjs';
+import { hash } from '../scripts/lib/embed-cache.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
@@ -57,6 +58,53 @@ test('semanticSearch skips a page whose embedding fails and still ranks the rest
   ];
   const results = await semanticSearch('query', pages, { embedFn: flaky });
   assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the failing page is skipped, not fatal');
+});
+
+// The 23-pages-invisible problem: an oversized body fails every run because the
+// failure is never cached. Truncate-on-failure retries with the body's opening
+// slice and caches the result under the FULL body hash, so the page becomes
+// semantically searchable and later runs (and drift.mjs, sharing the cache) hit
+// the cached vector instead of re-failing.
+test('semanticSearch retries an oversized failing body truncated, ranks it, and caches under the full-body hash', async () => {
+  const oversized = 'L'.repeat(20);
+  const embedded = [];
+  const sizeLimited = async (text) => {
+    embedded.push(text);
+    if (text.length > 10) throw new Error('the input length exceeds the context length');
+    return [1, 0];
+  };
+  const cache = {};
+  const results = await semanticSearch('query', [{ path: 'big.md', body: oversized }],
+    { embedFn: sizeLimited, cache, truncateAt: 10 });
+  assert.deepEqual(results.map((r) => r.path), ['big.md'], 'the oversized page is ranked, not skipped');
+  assert.ok(embedded.includes(oversized.slice(0, 10)), 'the retry embeds the truncated prefix');
+  assert.ok(cache[hash(oversized)], 'the vector is cached under the FULL body hash (the drift.mjs-shared key)');
+});
+
+test('semanticSearch does not retry a short body whose embedding fails (failure cannot be length)', async () => {
+  let bodyAttempts = 0;
+  const failsOnBody = async (text) => {
+    if (text === 'query') return [1, 0];
+    bodyAttempts++;
+    throw new Error('connection refused');
+  };
+  const results = await semanticSearch('query', [{ path: 'short.md', body: 'tiny' }],
+    { embedFn: failsOnBody, truncateAt: 10 });
+  assert.deepEqual(results, [], 'the page is skipped');
+  assert.equal(bodyAttempts, 1, 'no pointless retry with an identical (already short) body');
+});
+
+test('semanticSearch skips the page when the truncated retry also fails, still ranking the rest', async () => {
+  const alwaysFailsBodies = async (text) => {
+    if (text === 'query') return [1, 0];
+    if (text === 'same') return VEC.same;
+    throw new Error('Ollama embeddings HTTP 500');
+  };
+  const results = await semanticSearch('query', [
+    { path: 'doomed.md', body: 'D'.repeat(20) },
+    { path: 'b.md', body: 'same' },
+  ], { embedFn: alwaysFailsBodies, truncateAt: 10 });
+  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the doubly-failing page is skipped, not fatal');
 });
 
 test('semanticSearch still throws if the QUERY itself cannot be embedded (nothing to rank against)', async () => {
