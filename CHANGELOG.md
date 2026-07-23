@@ -24,6 +24,24 @@ Full chunking was considered and deliberately deferred: it breaks the one-vector
 contract shared with `drift.mjs` and starts re-implementing what the qmd tier already does
 properly. If semantic recall on long pages matters, install qmd (tier 1).
 
+### Tier 1 (qmd) actually exercised for the first time — three live bugs fixed
+
+0.7.0 shipped the qmd tier tested only against stubs (qmd wasn't installed). Running it for real:
+
+- **Empty is not an answer.** `qmd search` has no query expansion (deliberately — that's the
+  multi-GB model download the integration avoids), so a natural-language query can legitimately
+  hit nothing. The ladder returned `(qmd)` with zero results as the final answer; it now falls
+  through to a tier that can still answer.
+- **Collection-relative paths.** Under the documented setup (collection rooted at `<vault>/wiki`)
+  qmd's file URIs come back as `sources/X.md`, missing the `wiki/` prefix every other tier
+  carries. The 0.7.0 fixture was captured from a vault-rooted collection, which masked this.
+  Either root now normalizes to vault-relative.
+- **Slugified filenames.** qmd collapses punctuation runs (spaces, em-dashes, commas) to single
+  hyphens inside its URIs — `Foale — A Listener-Centred Approach.md` came back as a path that
+  does not exist on disk. Since real filenames legitimately contain hyphens, reversal is resolved
+  against the actual vault file list by canonical-form comparison; unresolvable hits pass through
+  rather than being dropped.
+
 ## 0.7.0 — 2026-07-22
 
 ### `/wiki-query` gets real semantic search — tiered, never a hard dependency

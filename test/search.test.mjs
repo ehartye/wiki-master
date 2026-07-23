@@ -170,6 +170,23 @@ test('search: falls back to keyword-only when both qmd and Ollama are unavailabl
   assert.deepEqual(r.results, [{ path: 'k.md' }]);
 });
 
+// Found live the first time tier 1 actually ran: `qmd search` (no query
+// expansion -- that is the multi-GB model this integration avoids) returned []
+// for a natural-language query the hybrid tier answers well, and the ladder
+// presented "(qmd)" with zero results as the final answer. From an optional
+// accelerator, an empty answer is not an answer.
+test('search: an empty qmd result set falls through to the next tier instead of answering with nothing', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    qmdProbe: () => true,
+    qmdRun: async () => [],
+    ollamaAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9 }],
+  });
+  assert.equal(r.tier, 'hybrid', 'zero qmd hits must not preempt a tier that can answer');
+  assert.deepEqual(new Set(r.results.map((x) => x.path)), new Set(['k.md', 's.md']));
+});
+
 test('search: a qmd runtime failure (present but broken) falls through to the next tier', async () => {
   const r = await search('q', {
     keywordSearch: async () => ['k.md'],
@@ -228,4 +245,47 @@ test('qmdSearch drops entries with no usable file field rather than returning a 
   const malformed = JSON.stringify([{ docid: '#x', score: 0.1 }]); // no `file` field
   const results = qmdSearch('q', { execImpl: () => malformed });
   assert.deepEqual(results, []);
+});
+
+// Found live under the documented setup (`qmd collection add <vault>/wiki`):
+// qmd's file URIs are COLLECTION-relative, so hits come back as
+// "qmd://wiki-master/sources/X.md" -- missing the wiki/ prefix every other
+// tier's vault-relative paths carry. The 0.7.0 fixture above was captured from
+// a vault-rooted collection, which masked this; both roots must normalize to
+// the same vault-relative shape.
+// Found live: qmd slugifies filenames inside its URIs -- "Foale — A
+// Listener-Centred Approach.md" comes back as "Foale-A-Listener-Centred-
+// Approach.md", a path that does not exist on disk. Punctuation runs (spaces,
+// em-dashes, commas) collapse to single hyphens, so naive reversal is
+// ambiguous (real filenames legitimately contain hyphens); the only safe
+// mapping is resolving against the actual vault file list.
+test('qmdSearch resolves slugified qmd filenames back to the real on-disk vault paths', () => {
+  const vaultFiles = [
+    'wiki/sources/Foale — A Listener-Centred Approach.md',
+    'wiki/concepts/Second Brain.md',
+    'wiki/syntheses/bid-master-dq-md.md', // real hyphens: must map to itself
+  ];
+  const hits = JSON.stringify([
+    { docid: '#a', score: 0.9, file: 'qmd://wiki-master/sources/Foale-A-Listener-Centred-Approach.md' },
+    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Second-Brain.md' },
+    { docid: '#c', score: 0.7, file: 'qmd://wiki-master/syntheses/bid-master-dq-md.md' },
+    { docid: '#d', score: 0.6, file: 'qmd://wiki-master/concepts/Not-In-The-Vault.md' },
+  ]);
+  const results = qmdSearch('q', { execImpl: () => hits, vaultFiles });
+  assert.deepEqual(results.map((r) => r.path), [
+    'wiki/sources/Foale — A Listener-Centred Approach.md',
+    'wiki/concepts/Second Brain.md',
+    'wiki/syntheses/bid-master-dq-md.md',
+    'wiki/concepts/Not-In-The-Vault.md', // unresolvable: passed through, not dropped
+  ]);
+});
+
+test('qmdSearch normalizes collection-relative hits to vault-relative wiki/ paths', () => {
+  const collectionRelative = JSON.stringify([
+    { docid: '#a', score: 0.85, file: 'qmd://wiki-master/sources/Some Source.md' },
+    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Some Concept.md' },
+  ]);
+  const results = qmdSearch('q', { execImpl: () => collectionRelative });
+  assert.deepEqual(results.map((r) => r.path),
+    ['wiki/sources/Some Source.md', 'wiki/concepts/Some Concept.md']);
 });
