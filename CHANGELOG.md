@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.2 — 2026-07-22
+
+### The obsidian-cli canary goes lazy
+
+The "probe once per session" upfront canary is replaced by a lazy one: nothing runs in advance,
+and any command that returns hits proves the backend alive on its own. The probe fires only when
+a command returns empty **and** that emptiness is about to drive a decision — the one moment
+"vault has nothing" and "backend is dead" are actually indistinguishable. A session whose
+commands all return results never probes at all. Detection unchanged; ritual removed.
+
 ## 0.7.1 — 2026-07-22
 
 ### Oversized pages become searchable (truncate-on-failure) + drift run survives them
