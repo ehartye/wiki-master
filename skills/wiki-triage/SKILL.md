@@ -9,6 +9,11 @@ argument-hint: "[blank to show everything, or a kind: failed | thin | fidelity |
 > plugin-root env var is set under Copilot CLI, so use this relative path, not
 > `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
 
+> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
+> this session, load it — it carries the vault location, the provenance/`raw/`-immutability
+> guardrails, and the shared metrics (the ingest backlog is one) these steps assume.
+> Skip the load if you arrived here mid-run from a wiki-master skill that already pulled it in.
+
 ## What this is for
 Some links cannot be resolved by the pipeline: a 403, a paywalled SPA, an extraction that
 landed on the wrong node, a PDF whose fonts decoded to gibberish. Printing those to the

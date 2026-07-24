@@ -18,6 +18,12 @@ one question `/wiki-ingest` asks was the hardest line to find.
   default `~/.wiki-master-vault`) so a cold-start agent reads it from the skill instead
   of searching the disk — the convention lived only in `scripts/lib/vault.mjs` and the
   README, neither of which the runtime agent loads.
+- **The six standalone skills that don't hard-load `wiki-maintainer`** (`wiki-health`,
+  `wiki-discover`, `wiki-stale`, `wiki-triage`, `clip-docx`, `clip-pdf`) gained a **lazy**
+  context guard: load `wiki-maintainer` only if it isn't already in the session, so an
+  agent entering cold through one of these still gets the vault location, guardrails, and
+  shared metrics — and pays nothing when it arrived mid-run with them already loaded.
+  `wiki-init` is deliberately excluded — a fresh scaffold has no vault contract to inherit.
 
 ## 0.7.2 — 2026-07-22
 

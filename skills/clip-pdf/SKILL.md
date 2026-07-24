@@ -6,6 +6,11 @@ argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|l
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/clip-pdf.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
 
+> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
+> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
+> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
+> from a wiki-master skill that already pulled it in.
+
 # Clipping a PDF into the wiki
 
 `/wiki-discover`'s clipper (`clip.mjs` → Defuddle) handles **HTML** pages only; a

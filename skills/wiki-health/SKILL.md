@@ -3,6 +3,11 @@ name: wiki-health
 description: Fast, zero-LLM structural health report for the wiki (orphans, dead-ends, broken links, hub-stubs, 0–100 score).
 ---
 
+> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
+> this session, load it — it carries the vault location, the provenance/`raw/`-immutability
+> guardrails, and the shared metrics these steps assume. Skip the load if you arrived
+> here mid-run from a wiki-master skill that already pulled it in.
+
 Run the deterministic health check and report the result to the user.
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/<name>.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
