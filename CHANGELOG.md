@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0 — 2026-07-24
+
+### `/wiki-ingest` finds the backlog by hash-join, not by hand
+
+The empty-args branch of `/wiki-ingest` told the agent to `obsidian search
+query="tag:clippings"` and hand-diff the results against `wiki/sources/` — the exact
+fuzzy link-resolution the `source-hashes` content-join was built to replace. It now
+runs `node scripts/health.mjs --backlog`: the **not ingested (no summary records
+their hash)** count is the backlog, authoritative and drift-proof. The full report
+already computed this; it just sat last, under every deferred forward-link, where the
+one question `/wiki-ingest` asks was the hardest line to find.
+
+- **New `--backlog` flag on `health.mjs`** prints only the four ingest lines, leading
+  with the not-ingested count. `backlogReport()` is exported and covered by a test.
+- **The obsidian-cli skill now states the vault path convention** (`WIKI_MASTER_VAULT`,
+  default `~/.wiki-master-vault`) so a cold-start agent reads it from the skill instead
+  of searching the disk — the convention lived only in `scripts/lib/vault.mjs` and the
+  README, neither of which the runtime agent loads.
+
 ## 0.7.2 — 2026-07-22
 
 ### The obsidian-cli canary goes lazy

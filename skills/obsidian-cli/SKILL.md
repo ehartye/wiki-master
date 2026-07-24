@@ -6,7 +6,11 @@ description: Reference for driving the native Obsidian command-line interface (v
 # Driving the Obsidian CLI
 
 The vault is targeted by name: `obsidian vault=<name> <command> ...`. wiki-master
-resolves `<name>` from `WIKI_MASTER_VAULT_NAME` or the vault folder's basename.
+resolves `<name>` from `WIKI_MASTER_VAULT_NAME` or the vault folder's basename, and
+its **filesystem path** from `WIKI_MASTER_VAULT`, defaulting to `~/.wiki-master-vault`
+(this convention lives in `scripts/lib/vault.mjs` — the bundled scripts use it, so
+`node scripts/health.mjs` and friends need no path argument). Start there rather than
+searching the disk for the vault.
 `file=` resolves by name (like wikilinks); `path=` is an exact vault-relative path.
 Prefer the `scripts/lib/vault.mjs` wrapper from Node; use raw commands when acting
 directly. `obsidian vault info=path` prints the vault's filesystem root — get it

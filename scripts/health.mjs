@@ -77,9 +77,27 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
   return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
+// The ingest backlog is the first question /wiki-ingest asks, and in the full
+// report its four lines sit last, under every deferred forward-link. --backlog
+// prints just those lines so the answer is not buried.
+export function backlogReport({ unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0 }) {
+  const list = (arr) => (arr.length ? `\n    ${arr.join('\n    ')}` : '');
+  return (
+    `Ingest backlog\n` +
+    `  not ingested (no summary records their hash): ${unsummarizedSources.length}` + list(unsummarizedSources) +
+    `\n  unparsed raw sources (nothing cites them): ${unparsedSources.length}` + list(unparsedSources) +
+    `\n  clippings missing source-hash (repair): ${missingHash.length}` + list(missingHash) +
+    `\n  source pages awaiting hash backfill: ${backfillPending}`
+  );
+}
+
 export function main() {
   const { path: vaultPath } = resolveVault();
   const metrics = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
+  if (process.argv.includes('--backlog')) {
+    console.log(backlogReport(metrics));
+    return metrics;
+  }
   const r = computeHealth(metrics);
   console.log(r.report);
   return r;

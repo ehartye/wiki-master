@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeHealth, isContent } from '../scripts/health.mjs';
+import { computeHealth, isContent, backlogReport } from '../scripts/health.mjs';
 import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
@@ -66,6 +66,17 @@ test('computeHealth returns a bounded 0-100 score', () => {
 test('computeHealth returns 100 for a clean vault', () => {
   const r = computeHealth({ orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [] });
   assert.equal(r.score, 100);
+});
+
+test('backlogReport surfaces the ingest lines and leads with the not-ingested count', () => {
+  const report = backlogReport(computeGraphMetrics(buildGraph(FIXTURE)));
+  // The not-ingested (unsummarized) count is the backlog and must come first.
+  const firstMetric = report.split('\n').find((l) => l.includes(':'));
+  assert.match(firstMetric, /not ingested \(no summary records their hash\): 3/);
+  assert.match(report, /unparsed raw sources \(nothing cites them\): 2/);
+  assert.match(report, /source pages awaiting hash backfill: 1/);
+  // It names the actual backlog files, not just counts.
+  assert.ok(report.includes('raw/sources/source-b.md'));
 });
 
 test('isContent excludes structural/system/raw files, includes wiki notes', () => {
