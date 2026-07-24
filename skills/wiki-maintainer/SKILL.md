@@ -43,6 +43,12 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
      asserting or deleting them. The vault cannot cite what it does not hold.
 
 ## Vault contract
+- **Where the vault lives:** `$WIKI_MASTER_VAULT`, default `~/.wiki-master-vault`
+  (`$WIKI_MASTER_VAULT_NAME` / folder basename is the Obsidian vault name). The
+  bundled `scripts/` resolve this via `scripts/lib/vault.mjs`, so `node
+  scripts/health.mjs` and friends need no path argument. Start there rather than
+  searching the disk; for ad-hoc `Read`/`Grep`, `obsidian vault info=path` prints
+  the filesystem root.
 - `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses,authored}`:
   pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log/`: one file per operation (view via `log.base`).
 - Wiki page frontmatter (set via `property:set`, typed):
@@ -161,7 +167,12 @@ link-resolution manufacture phantom backlog. Facts the metric reports:
 | `backfillPending` | source pages that cite raw but recorded no hash | migrate — see below |
 | `provenanceGaps` | a `wiki/sources` page citing no `raw/` file | yes — scored as a defect |
 
-Report `unsummarizedSources` when asked what still needs ingesting. Only `.md`
+Report `unsummarizedSources` when asked what still needs ingesting — obtain it
+with `node scripts/health.mjs --backlog`, which prints just these ingest lines led
+by the not-ingested count (the full `health.mjs` report carries the same lines at
+the bottom). Do **not** re-derive the backlog by searching `tag:clippings` and
+hand-diffing `wiki/sources/` — that fuzzy link-resolution is the drift this
+content-hash join exists to replace. Only `.md`
 clippings are ingestable units — a binary original (`.pdf/.xlsx/.zip`) is never a
 summary target and is not backlog.
 
