@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.1 — 2026-07-24
+
+### PDF and DOCX clippers get the cross-platform title fix
+
+0.8.0 fixed `titleFromXlsx` deriving titles with `node:path` `basename`, which honors `\`
+as a separator only on Windows — a Windows-style path handled on a POSIX runner kept its
+`C:\dir\` prefix in the title. The PDF and DOCX clippers carried the identical pattern;
+their tests only ever passed POSIX paths, so the bug sat latent there while the xlsx test
+alone went red. Both now split on both separators, and both test suites gained the
+Windows-path assertion that would have caught it.
+
 ## 0.8.0 — 2026-07-24
 
 ### `/wiki-ingest` finds the backlog by hash-join, not by hand

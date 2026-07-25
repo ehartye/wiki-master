@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync, readdirSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -15,9 +15,13 @@ function wordCount(md) { return (md.match(/\S+/g) || []).length; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 // A Word document has no HTML <title>; derive a human title from the filename.
-// Handles both .docx (modern) and .doc (legacy) extensions.
+// Handles both .docx (modern) and .doc (legacy) extensions. Split on both
+// separators, not node:path basename — basename only honors `\` on Windows, so a
+// Windows-style path handled on a POSIX runner keeps its `C:\dir\` prefix and
+// leaks it into the title (same fix as titleFromXlsx).
 export function titleFromDocx(docxPath) {
-  return basename(docxPath).replace(/\.docx?$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
+  const base = docxPath.split(/[\\/]/).pop();
+  return base.replace(/\.docx?$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
 }
 
 // Build the clipping note. Pure: no IO, no pandoc — the testable core. The

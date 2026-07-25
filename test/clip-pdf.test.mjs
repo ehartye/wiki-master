@@ -6,6 +6,8 @@ test('titleFromPdf humanizes the filename, drops extension', () => {
   assert.equal(titleFromPdf('/a/b/Abdellatif_MultiState_DOT_Cost_Estimation_ML.pdf'),
     'Abdellatif MultiState DOT Cost Estimation ML');
   assert.equal(titleFromPdf('paper.PDF'), 'paper');
+  // Windows-style path on any platform — the case that caught titleFromXlsx.
+  assert.equal(titleFromPdf('C:\\x\\Bid_Tabs_2025.pdf'), 'Bid Tabs 2025');
   assert.equal(titleFromPdf('/x/.pdf'), 'untitled');
 });
 

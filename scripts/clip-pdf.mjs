@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -15,9 +15,13 @@ const THIN_WORD_FLOOR = 100;
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
-// A PDF has no HTML <title>; derive a human title from the filename.
+// A PDF has no HTML <title>; derive a human title from the filename. Split on
+// both separators, not node:path basename — basename only honors `\` on Windows,
+// so a Windows-style path handled on a POSIX runner keeps its `C:\dir\` prefix
+// and leaks it into the title (same fix as titleFromXlsx).
 export function titleFromPdf(pdfPath) {
-  return basename(pdfPath).replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
+  const base = pdfPath.split(/[\\/]/).pop();
+  return base.replace(/\.pdf$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
 }
 
 // Remove running headers/footers — the repeated title line and page-number
