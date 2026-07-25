@@ -8,9 +8,11 @@ argument-hint: "[path-or-name of a raw source, or blank to process new clippings
 
 Load the `wiki-maintainer` skill and follow its **Ingest** workflow for: $ARGUMENTS
 
-If $ARGUMENTS is empty, find unprocessed clippings:
-`obsidian search query="tag:clippings" format=json` and process any not yet
-summarized in `wiki/sources/`.
+If $ARGUMENTS is empty, find the backlog with the hash-join metric — run
+`node ../../scripts/health.mjs --backlog`. The **not ingested (no summary records
+their hash)** list is the backlog; process those clippings. If it is `0`, nothing
+is pending — stop and say so. (See wiki-maintainer's "Has this been ingested?" for
+why this beats hand-diffing `tag:clippings` against `wiki/sources/`.)
 
 For each source:
 1. Read it (`obsidian read path=...`). Discuss the key takeaways with the user.

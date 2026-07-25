@@ -4,6 +4,11 @@ description: Autonomously discover web sources on a topic — perspective resear
 argument-hint: <topic>
 ---
 
+> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
+> this session, load it — it carries the vault location, the provenance/`raw/`-immutability
+> guardrails, and the shared metrics these steps assume. Skip the load if you arrived
+> here mid-run from a wiki-master skill that already pulled it in.
+
 # Discovering sources for the wiki
 
 Given a topic ($ARGUMENTS), find the best web sources, credibility-rank them, clip

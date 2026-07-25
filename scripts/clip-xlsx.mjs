@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -16,9 +16,12 @@ function wordCount(md) { return (md.match(/\S+/g) || []).length; }
 function today() { return new Date().toISOString().slice(0, 10); }
 
 // A workbook carries no title worth trusting; derive one from the filename, as the
-// PDF and DOCX clippers do.
+// PDF and DOCX clippers do. Split on both separators, not node:path basename —
+// basename only honors `\` on Windows, so a Windows-style path handled on a POSIX
+// runner (e.g. CI) keeps its `C:\dir\` prefix and leaks it into the title.
 export function titleFromXlsx(xlsxPath) {
-  return basename(xlsxPath).replace(/\.(xlsx?|xlsm)$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
+  const base = xlsxPath.split(/[\\/]/).pop();
+  return base.replace(/\.(xlsx?|xlsm)$/i, '').replace(/[_]+/g, ' ').trim() || 'untitled';
 }
 
 // Build the clipping note. Pure: no IO, no converters — the testable core. Mirrors
