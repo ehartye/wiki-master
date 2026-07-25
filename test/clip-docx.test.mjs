@@ -6,6 +6,8 @@ test('titleFromDocx humanizes the filename, drops .docx/.doc extension', () => {
   assert.equal(titleFromDocx('/a/b/Uses_Artificial_intelligence_in_Math.docx'),
     'Uses Artificial intelligence in Math');
   assert.equal(titleFromDocx('paper.DOCX'), 'paper');
+  // Windows-style path on any platform — the case that caught titleFromXlsx.
+  assert.equal(titleFromDocx('C:\\x\\Cost_Report_2025.docx'), 'Cost Report 2025');
   assert.equal(titleFromDocx('/x/legacy.doc'), 'legacy');
   assert.equal(titleFromDocx('/x/.docx'), 'untitled');
 });
