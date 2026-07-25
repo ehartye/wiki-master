@@ -24,6 +24,10 @@ one question `/wiki-ingest` asks was the hardest line to find.
   agent entering cold through one of these still gets the vault location, guardrails, and
   shared metrics — and pays nothing when it arrived mid-run with them already loaded.
   `wiki-init` is deliberately excluded — a fresh scaffold has no vault contract to inherit.
+- **Fix: `titleFromXlsx` now derives the title cross-platform.** It used `node:path`
+  `basename`, which only treats `\` as a separator on Windows, so a Windows-style path
+  handled on a POSIX runner kept its `C:\dir\` prefix in the title. Splits on both
+  separators instead. (Pre-existing; unrelated to the ingest work but shipped here.)
 
 ## 0.7.2 — 2026-07-22
 
