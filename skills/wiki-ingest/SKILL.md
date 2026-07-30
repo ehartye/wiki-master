@@ -18,10 +18,21 @@ For each source:
 1. Read it (`obsidian read path=...`). Discuss the key takeaways with the user.
 2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: [[<raw link>]]`,
    `type: source`, `ai-generated: true`, and typed `created`/`updated`/`reviewed`.
+   **Cite the clipping by its actual filesystem path — `sources: [[raw/clippings/
+   <exact filename>.md]]` — copied from the path you just read, never retyped from
+   the source's title.** The clipper slugifies a title into a filename (`/`, `:`,
+   `#`, `*`, `?`, quotes and brackets all become `-`, then a 120-char cap), so any
+   title carrying one of those characters or running long does NOT name its own
+   file. Citing the remembered title produces a link to a file that does not exist:
+   the page becomes a `provenanceGap` and its clipping reads as unparsed, even
+   though the ingest itself was correct. Run `ls raw/clippings/` or reuse the path
+   from step 1 rather than reconstructing it.
    Also record `source-hashes: [<sha256>, …]` — the `source-hash` frontmatter value
    of each clipping you summarized (read it from the clipping's frontmatter). This
    is the machine key the ingest-backlog metric joins on — immune to filename and
    citation drift; the `sources: [[…]]` wikilink stays for navigation.
+   To repair vaults that already drifted this way:
+   `node ../../scripts/repair-provenance-links.mjs` (dry run) then `--apply`.
 3. Update the entities and concepts it touches; create stubs (`status: stub`) where
    a `[[link]]` has no page yet. Add links in both directions.
 4. Regenerate the catalog: `node ../../scripts/index-gen.mjs`

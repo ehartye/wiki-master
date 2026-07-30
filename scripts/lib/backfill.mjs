@@ -1,4 +1,5 @@
 import { buildNameIndex, resolveLinkTarget } from './graph.mjs';
+import { slugify } from '../clip.mjs';
 
 // Clipping filenames carry a `-<hash7>` disambiguator (optionally `-<hash7>-<n>`
 // for a same-title re-clip). A legacy citation names the bare title, so matching
@@ -59,6 +60,62 @@ export function planSourceHashBackfill({ pages }) {
     // recorded page re-reporting its binary citations every run is just noise.
     if (hashes.size || !have.size) {
       for (const k of ['ambiguous', 'unresolved', 'nohash']) plan[k].push(...issues[k]);
+    }
+  }
+  return plan;
+}
+
+// Plan the repair of citations that name a clipping's ORIGINAL TITLE rather than
+// its filename. The clipper slugifies a title into a filename (`slugify`: `/`, `:`,
+// `#`, `*`, `?`, quotes and brackets all become `-`, then a 120-char cap), but
+// ingest wrote `sources: [[<remembered title>]]`. Every source whose title carried
+// one of those characters, or ran long, therefore cited a file that never existed:
+// the citation trail dead-ended at the one hop the whole vault rests on, and the
+// clipping read as unparsed. On the live vault this was 11 source pages and 11
+// clippings — all of them correctly ingested, all of them uncitable.
+//
+// The join is the CONTENT HASH, never the title — the title is precisely what
+// drifted. `slugify` is only used to decide WHICH of a page's own clippings an
+// unresolved target meant, and only among candidates the hash already vouched for.
+// A target that cannot be pinned that way is reported, never guessed.
+//
+// Returns { repairs: [{page, from, to}], ambiguous, unresolved }. Pure over the
+// graph; the CLI does the file I/O.
+export function planCitationRepair({ pages }) {
+  const byName = buildNameIndex(pages);
+  const clipByHash = new Map();
+  for (const p of pages) {
+    if (p.path.startsWith('raw/') && p.path.endsWith('.md') && p.sourceHash) {
+      if (!clipByHash.has(p.sourceHash)) clipByHash.set(p.sourceHash, p.path);
+    }
+  }
+
+  const plan = { repairs: [], ambiguous: [], unresolved: [] };
+  for (const p of pages) {
+    const hashes = (p.sourceHashes ?? []).map((h) => String(h).toLowerCase());
+    if (!hashes.length) continue;
+    const targets = p.fmTargets ?? [];
+    const broken = targets.filter((t) => !resolveLinkTarget(byName, t));
+    if (!broken.length) continue;
+
+    // Only clippings this page's hashes vouch for, minus the ones it already
+    // cites correctly — those are spoken for and must not be re-used.
+    const cited = new Set(targets.map((t) => resolveLinkTarget(byName, t)).filter(Boolean));
+    const free = hashes.map((h) => clipByHash.get(h)).filter((c) => c && !cited.has(c));
+
+    for (const from of broken) {
+      const want = slugify(from).toLowerCase();
+      const bySlug = free.filter((c) => deSuffix(bareName(c)) === want);
+      // Derived match, or the unambiguous 1:1 case where there is nothing else it
+      // could mean. Anything else needs a human.
+      const to = bySlug.length === 1 ? bySlug[0]
+        : (broken.length === 1 && free.length === 1 ? free[0] : undefined);
+      if (!to) {
+        (free.length ? plan.ambiguous : plan.unresolved).push({ page: p.path, target: from, candidates: free });
+        continue;
+      }
+      plan.repairs.push({ page: p.path, from, to });
+      free.splice(free.indexOf(to), 1);
     }
   }
   return plan;

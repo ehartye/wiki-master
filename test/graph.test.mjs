@@ -235,11 +235,81 @@ test('resolveLinkTarget prefers an exact full-path match over the ambiguous bare
   assert.equal(resolveLinkTarget(byName, 'wiki/sources/CSX'), 'wiki/sources/CSX.md');
   assert.equal(resolveLinkTarget(byName, 'wiki/entities/CSX'), 'wiki/entities/CSX.md');
   assert.equal(resolveLinkTarget(byName, 'raw/clippings/CSX.md'), 'raw/clippings/CSX.md');
-  // A truly bare, unqualified link remains exactly as ambiguous as before —
-  // first-registered-in-the-walk still wins; this fix does not (and cannot)
-  // resolve genuine ambiguity, only eliminate FALSE ambiguity for links that
-  // already named an exact file.
+  // A truly bare, unqualified link stays ambiguous: the provenance channel still
+  // takes walk order, and only the navigation channel prefers a content page.
   assert.equal(resolveLinkTarget(byName, 'CSX'), 'raw/clippings/CSX.md');
+  assert.equal(resolveLinkTarget(byName, 'CSX', { nav: true }), 'wiki/sources/CSX.md');
+});
+
+// The other half of the #117-orphan bug, still live after the full-path key
+// shipped: a body link that does NOT qualify a directory. Walk order decided it,
+// and `raw/` sorts before `wiki/`, so the clipping won every bare-name collision.
+// Measured on the live vault, five pages read as orphans with zero inbound links
+// while `obsidian backlinks` showed each had several — every one of those links
+// had been credited to the same-named clipping instead.
+//
+// The channels must stay separate. Preferring content for BOTH was tried and
+// regressed the live vault from 0 to 126 provenance gaps: `sources: [[Foo]]`
+// means raw/clippings/Foo.md, and resolving it to wiki/sources/Foo.md reports a
+// gap on a page that cited its evidence perfectly well.
+test('buildNameIndex: a content page outranks a raw/ clipping for the NAVIGATION bare name only', () => {
+  const byName = buildNameIndex([
+    { path: 'raw/clippings/Parallel transport.md', name: 'parallel transport' },
+    { path: 'wiki/concepts/Parallel Transport.md', name: 'parallel transport' },
+  ]);
+  assert.equal(resolveLinkTarget(byName, 'Parallel Transport', { nav: true }),
+    'wiki/concepts/Parallel Transport.md', 'Obsidian resolves this body link to the concept page; so must we');
+  assert.equal(resolveLinkTarget(byName, 'Parallel Transport'), 'raw/clippings/Parallel transport.md',
+    'the provenance channel must still cite the evidence');
+  // The clipping stays reachable by the unambiguous path-qualified form either way.
+  for (const nav of [true, false]) {
+    assert.equal(resolveLinkTarget(byName, 'raw/clippings/Parallel transport.md', { nav }),
+      'raw/clippings/Parallel transport.md');
+  }
+});
+
+test('buildNameIndex: the nav key prefers content regardless of walk order', () => {
+  const content = { path: 'wiki/concepts/Foo.md', name: 'foo' };
+  const raw = { path: 'raw/clippings/Foo.md', name: 'foo' };
+  for (const order of [[raw, content], [content, raw]]) {
+    assert.equal(resolveLinkTarget(buildNameIndex(order), 'Foo', { nav: true }), 'wiki/concepts/Foo.md');
+  }
+});
+
+test('buildNameIndex: log/ and _templates/ are evidence-class too — they never win the nav name', () => {
+  for (const other of ['log/2026-01-01-000000-ingest-foo.md', '_templates/foo.md']) {
+    const byName = buildNameIndex([{ path: other, name: 'foo' }, { path: 'wiki/concepts/Foo.md', name: 'foo' }]);
+    assert.equal(resolveLinkTarget(byName, 'Foo', { nav: true }), 'wiki/concepts/Foo.md', `${other} must not win`);
+  }
+});
+
+test('computeGraphMetrics: a bare body backlink to a clipping-colliding page is real inbound, not an orphan', () => {
+  const pages = [
+    { path: 'raw/clippings/Parallel transport.md', name: 'parallel transport', words: 50, outTargets: [], fmTargets: [] },
+    { path: 'wiki/concepts/Parallel Transport.md', name: 'parallel transport', words: 50, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/concepts/Exponential Map.md', name: 'exponential map', words: 50,
+      outTargets: ['Parallel Transport'], fmTargets: [],
+    },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.ok(!m.orphans.includes('wiki/concepts/Parallel Transport.md'),
+    'the bare body link must be credited to the concept page, not swallowed by the clipping');
+  assert.equal(m.brokenLinks.length, 0);
+});
+
+// The regression guard for the fix above.
+test('computeGraphMetrics: a bare sources: citation still resolves to the clipping, not the summary page', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo.md', name: 'foo', words: 50, outTargets: [], fmTargets: [] },
+    {
+      path: 'wiki/sources/Foo.md', name: 'foo', words: 50,
+      outTargets: [], fmTargets: ['Foo'], sourceHashes: [],
+    },
+  ];
+  const m = computeGraphMetrics({ pages });
+  assert.deepEqual(m.provenanceGaps, [], 'the bare citation cites raw/clippings/Foo.md — not a gap');
+  assert.ok(!m.unparsedSources.includes('raw/clippings/Foo.md'), 'the clipping is cited, so not unparsed');
 });
 
 test('computeGraphMetrics: a qualified backlink to a basename-colliding page counts as real inbound (the #117-orphan bug)', () => {

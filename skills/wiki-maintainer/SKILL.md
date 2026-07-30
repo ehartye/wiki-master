@@ -184,6 +184,16 @@ has not run here. Repair it from the plugin root: `node scripts/backfill-source-
 citations are logged for review. If the vault is git-synced, running it once and
 committing repairs every machine.
 
+**Repairing title-shaped citations (`provenanceGaps > 0`).** A separate, older drift:
+ingest wrote `sources: [[<the source's title>]]`, but the clipper had already
+slugified that title into the filename (`/`, `:`, `#` → `-`, 120-char cap). Any title
+carrying one of those characters or running long cites a file that does not exist —
+the page is a `provenanceGap` and its clipping reads as unparsed, though the ingest
+was correct. Repair from the plugin root: `node scripts/repair-provenance-links.mjs`
+(dry-run) then `--apply`. It joins on `source-hash`, never on the title (the title is
+what drifted), and reports anything it cannot pin to exactly one clipping instead of
+guessing. Always cite a clipping by its **path**, `[[raw/clippings/<file>.md]]`.
+
 **Never move files to record ingestion state.** `raw/` immutability is the
 load-bearing invariant. The hash key lives *in* the markdown — each page's
 `source-hashes`, co-located with the summary that owns it — a single source of truth

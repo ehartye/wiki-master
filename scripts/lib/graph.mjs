@@ -233,10 +233,32 @@ export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays 
 // an unambiguous exact match before ever falling back to the bare-basename
 // map, which remains exactly as ambiguous as before for links that truly
 // don't qualify a directory.
+//
+// For an ambiguous BARE name the right answer depends on which link channel is
+// asking (see the two-channel note above), so the index carries both answers:
+//
+//   "<name>"           provenance/default — first-wins by walk order, which in
+//                      practice means the raw/clippings/ file. `sources: [[Foo]]`
+//                      means the evidence, and resolving it to the summary page
+//                      would report a provenance gap on a correctly-cited page.
+//   "<name>\0nav"      navigation — a content page (isContent) outranks a
+//                      raw/log/template file. NUL-delimited so the key can never
+//                      collide with a real page name.
+//
+// The nav key exists because walk order is an arbitrary tie-break and `raw/` sorts
+// before `wiki/`, so the clipping won every collision: a concept page linked as
+// [[Parallel Transport]] had its backlinks credited to raw/clippings/Parallel
+// transport.md and read as an orphan, while Obsidian resolved that same body link
+// to the concept page. Collisions WITHIN a class stay first-wins — genuinely
+// ambiguous, and the full-path key above is how you say which one you meant.
+const NAV = '\u0000nav';
 export function buildNameIndex(pages) {
   const byName = new Map();
   for (const p of pages) {
     if (!byName.has(p.name)) byName.set(p.name, p.path);
+    const navKey = p.name + NAV;
+    const navPrior = byName.get(navKey);
+    if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path))) byName.set(navKey, p.path);
     const fullKey = p.path.replace(/\.md$/i, '').toLowerCase();
     if (!byName.has(fullKey)) byName.set(fullKey, p.path);
   }
@@ -253,19 +275,28 @@ export function buildNameIndex(pages) {
 // both kinds of key, so checking the full (extension-stripped) target first
 // picks the exact, unambiguous match; only an unqualified bare name falls
 // through to the collision-prone basename fallback.
-export function resolveLinkTarget(byName, target) {
+// `nav: true` asks the navigation question ("which page would a reader land on?")
+// and is what body wikilinks, orphan counts and dead-end counts use. The default
+// asks the provenance question ("which file does this cite?") and is what
+// `sources:` frontmatter uses. They differ ONLY for an ambiguous bare name that
+// collides across the content/evidence line; every qualified form is identical.
+export function resolveLinkTarget(byName, target, { nav = false } = {}) {
   // A link whose name itself ends in .md: the `agents.md` convention files the
   // note as "X.md.md", so its page name (one .md stripped) is "X.md" — and
   // [[X.md]] must land there, exactly as Obsidian resolves it. Check the
   // un-stripped target first; stripping .md below would turn "X.md" into "X"
   // and miss the page. Harmless for every other target (a bare name or a
   // path-qualified key never carries a trailing .md in the index).
+  // Consult the nav-preferred entry first at whichever key matches. A
+  // path-qualified key has no nav twin, so it falls straight through to the one
+  // exact file it names — the disambiguation above is unaffected.
+  const pick = (k) => (nav ? byName.get(k + NAV) : undefined) ?? byName.get(k);
   const lower = target.toLowerCase();
-  if (byName.has(lower)) return byName.get(lower);
+  if (byName.has(lower)) return pick(lower);
   const full = lower.replace(/\.md$/i, '');
-  if (byName.has(full)) return byName.get(full);
+  if (byName.has(full)) return pick(full);
   const bare = full.split('/').pop() || full;
-  return byName.get(bare);
+  return pick(bare);
 }
 
 export function computeGraphMetrics({ pages }, opts = {}) {
@@ -276,8 +307,15 @@ export function computeGraphMetrics({ pages }, opts = {}) {
   const seenBroken = new Set();
   for (const p of pages) {
     if (!isContent(p.path)) continue; // source-side exclusion, applied once
-    for (const t of [...p.outTargets, ...(p.fmTargets ?? [])]) {
-      const target = resolveLinkTarget(byName, t);
+    // Resolve each channel by its own semantics: a body link is navigation (a
+    // reader lands on the content page), a sources: link is provenance (it cites
+    // the evidence file). Collapsing them made `sources: [[Foo]]` resolve to the
+    // summary page and reported a provenance gap on a correctly-cited page.
+    for (const [t, nav] of [
+      ...p.outTargets.map((t) => [t, true]),
+      ...(p.fmTargets ?? []).map((t) => [t, false]),
+    ]) {
+      const target = resolveLinkTarget(byName, t, { nav });
       if (target) inbound.set(target, inbound.get(target) + 1);
       else {
         const key = `${p.path} ${t}`;
@@ -298,7 +336,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
     .filter((p) => !isRoot(p.path) && inbound.get(p.path) === 0)
     .map((p) => p.path);
   const deadEnds = content
-    .filter((p) => !p.outTargets.some((t) => resolveLinkTarget(byName, t)))
+    .filter((p) => !p.outTargets.some((t) => resolveLinkTarget(byName, t, { nav: true })))
     .map((p) => p.path);
   const hubStubs = content
     .filter((p) => inbound.get(p.path) >= HUB_MIN_BACKLINKS && isStub(p))
