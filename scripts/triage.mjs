@@ -48,7 +48,10 @@ export function fidelityFlagged(vaultPath) {
   return out;
 }
 
-export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit = 25 } = {}) {
+export function collectTriage(
+  vaultPath,
+  { expiringWithinDays = 30, backlogLimit = 25, hubStubLimit = 25 } = {}
+) {
   const log = loadIssueLog(vaultPath);
   const issues = openIssues(log);
   const fidelity = fidelityFlagged(vaultPath);
@@ -71,12 +74,20 @@ export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit
   // The backlog is `unsummarizedSources`, not `unparsedSources`. A source cited
   // only by a concept's provenance frontmatter is parsed but has no summary
   // page — it still owes an ingest, and the looser metric would hide it.
+  // hubStubs rides along on the same graph pass. It is no longer scored by
+  // health.mjs (see the note there): "5+ pages route through an empty page" is a
+  // real signal but a bad grade, because its cheapest fix — deleting links or
+  // padding with unsourced prose — makes the wiki worse. As a worklist it is
+  // exactly right: each row is a page the vault leans on that someone must write.
   let unsummarized = [];
+  let hubStubs = [];
   try {
-    unsummarized =
-      computeGraphMetrics(buildGraph(vaultPath), { now: new Date() }).unsummarizedSources || [];
+    const m = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
+    unsummarized = m.unsummarizedSources || [];
+    hubStubs = m.hubStubs || [];
   } catch {
     unsummarized = [];
+    hubStubs = [];
   }
 
   return {
@@ -86,6 +97,8 @@ export function collectTriage(vaultPath, { expiringWithinDays = 30, backlogLimit
     expiring,
     backlog: unsummarized.slice(0, backlogLimit),
     backlogTotal: unsummarized.length,
+    hubStubs: hubStubs.slice(0, hubStubLimit),
+    hubStubTotal: hubStubs.length,
   };
 }
 
@@ -198,11 +211,17 @@ export function renderScreen(data) {
     { id: 'ignore', label: 'skip' },
   ];
 
+  const HUB_STUB_ACTS = [
+    { id: 'ingest', label: 'find sources' },
+    { id: 'ignore', label: 'leave stub' },
+  ];
+
   const stats = [
     ['clip failures', data.clipFailures.length],
     ['fidelity', data.fidelity.length],
     ['expiring', data.expiring.length],
     ['backlog', data.backlogTotal],
+    ['hub-stubs', data.hubStubTotal ?? 0],
     ['attention', data.attention.length],
   ];
 
@@ -216,9 +235,9 @@ export function renderScreen(data) {
     )
     .join('')}</div>`;
 
-  if (total === 0 && data.backlogTotal === 0) {
+  if (total === 0 && data.backlogTotal === 0 && !(data.hubStubTotal ?? 0)) {
     return `<h2>Nothing needs you</h2>
-<p class="subtitle">No unresolved clip failures, fidelity flags, expiring declines, or ingest backlog.</p>
+<p class="subtitle">No unresolved clip failures, fidelity flags, expiring declines, ingest backlog, or hub-stubs.</p>
 ${summary}
 <div class="empty"><div class="big">Queue is clear.</div><div>New issues appear here as they are recorded.</div></div>`;
   }
@@ -265,12 +284,20 @@ ${summary}
       ),
       BACKLOG_ACTS
     ),
+    group(
+      `Hub-stubs${(data.hubStubTotal ?? 0) > (data.hubStubs?.length ?? 0) ? ` (showing ${data.hubStubs.length} of ${data.hubStubTotal})` : ''}`,
+      '5+ pages link here, but the page is empty — needs sources, not padding',
+      (data.hubStubs ?? []).map((p) =>
+        issueRow({ url: p, kind: 'hub-stub', reason: null, title: null }, HUB_STUB_ACTS)
+      ),
+      HUB_STUB_ACTS
+    ),
   ].filter(Boolean);
 
   return `<h2>Triage</h2>
 <p class="subtitle">${total} item${total === 1 ? '' : 's'} needing a decision${
     data.backlogTotal ? ` · ${data.backlogTotal} in ingest backlog` : ''
-  }. Dispositions are recorded immediately.</p>
+  }${data.hubStubTotal ? ` · ${data.hubStubTotal} hub-stub${data.hubStubTotal === 1 ? '' : 's'}` : ''}. Dispositions are recorded immediately.</p>
 ${summary}
 ${groups.join('\n')}`;
 }
@@ -338,6 +365,7 @@ export async function main() {
     fidelity: data.fidelity.length,
     expiring: data.expiring.length,
     backlog: data.backlogTotal,
+    hubStubs: data.hubStubTotal,
   };
 
   if (info) {

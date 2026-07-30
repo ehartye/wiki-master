@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.8.3 — 2026-07-30
+
+### Hub-stubs are a worklist, not a grade
+
+`hubStubs` is still detected and still printed in the health report — it is now
+surfaced in `/wiki-triage` instead of subtracting from the score. Four reasons, in
+increasing order of how much they mattered:
+
+- **It was the only content-shaped signal in a structural metric.** Every other
+  penalty is a broken or missing *edge* — objectively wrong, fixable mechanically.
+  "This page is unwritten" is the normal state of a growing wiki, and `status: stub`
+  is a sanctioned value in the vault schema. The report literally prints
+  `declared stubs (not scored)` on the next line, which scoring them contradicted.
+- **The cap made it useless as a gradient.** At weight 5 capped at 15, a vault went
+  from 10 hub-stubs to 3 with *no score movement at all*; only the last two moved the
+  number. It reported "15 points of work left" when it meant "more than two."
+- **The provenance guardrail forbids the fast fix.** You cannot write these pages
+  without sources, so the score penalized a state the contract bars you from clearing
+  quickly.
+- **It was the only category whose cheapest fix makes the wiki worse.** A hub-stub
+  clears if you delete inbound links until it drops under `HUB_MIN_BACKLINKS`, or if
+  you pad the page with unsourced prose. Both score better; both damage the vault.
+  Everywhere else the cheapest fix is the correct fix. That asymmetry is what settled
+  it.
+
+Health now means one clean thing: **no broken edges** — defects, orphans, dead-ends,
+provenance gaps, unreachable provenance. A structurally sound vault reaches 100
+however many hub-stubs it carries, and there is a regression test pinning exactly
+that.
+
+The signal itself is real — five or more pages routing a reader into an empty page —
+so `/wiki-triage` grows a **Hub-stubs** group, framed as *"needs sources, not
+padding"* with `find sources` / `leave stub` dispositions, counted in the summary
+strip, and enough on its own to keep the queue from reading all-clear.
+
+On the live vault this moved the score from 85 to **100/100** while the ten hub-stubs
+stayed fully visible — they just stopped being a grade.
+
 ## 0.8.2 — 2026-07-30
 
 ### Bare wikilinks resolve by channel, and title-shaped citations can be repaired

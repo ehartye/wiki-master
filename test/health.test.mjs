@@ -14,12 +14,14 @@ test('health end-to-end: fixture vault scores below 100 with attributed findings
   const r = computeHealth(computeGraphMetrics(buildGraph(FIXTURE)));
   // Broken links are triaged: the fixture's 2 are deferred forward-links (no
   // near-match, and no `now` passed so none can be proven stale) → 0 penalty.
-  // orphans 1*2 + deadEnds 3*2 + hubStubs 1*5 + provenanceGaps 1*4
-  //   + unreachableProvenance 2*3 = 23.
+  // orphans 1*2 + deadEnds 3*2 + provenanceGaps 1*4
+  //   + unreachableProvenance 2*3 = 18.
+  // hubStubs is reported but NOT scored — see the note in computeHealth. The
+  // fixture's 1 hub-stub therefore costs nothing.
   // The provenance gap is wiki/sources/no-provenance.md: a source page citing no
   // raw/ file, which claims an ingest while leaving its clipping
   // indistinguishable from one never processed.
-  assert.equal(r.score, 77);
+  assert.equal(r.score, 82);
   // Provenance is now audited outside wiki/sources/ too: an entity and a synthesis
   // that cannot be walked back to raw/ by ANY route. Before this, only source
   // pages were checked, so the rest of the vault could rest on nothing and still
@@ -60,7 +62,21 @@ test('computeHealth returns a bounded 0-100 score', () => {
     brokenLinks: Array(40).fill({ source: 'a.md', target: 'b' }),
     hubStubs: Array(40).fill('x.md'),
   });
-  assert.equal(r.score, 10); // caps: 30+25+20+15 = 90
+  assert.equal(r.score, 25); // caps: 30+25+20 = 75 (hubStubs contributes nothing)
+});
+
+// The regression guard for the change: hub-stubs are surfaced, never scored.
+// Scoring them was the only penalty whose cheapest fix — deleting inbound links
+// or padding the page with unsourced prose — makes the wiki worse.
+test('computeHealth reports hub-stubs but never penalizes them', () => {
+  const clean = computeHealth({ orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [] });
+  const stubby = computeHealth({
+    orphans: [], deadEnds: [], brokenLinks: [],
+    hubStubs: Array(50).fill('wiki/entities/popular-but-empty.md'),
+  });
+  assert.equal(stubby.score, 100, 'a structurally sound vault stays at 100 however many hub-stubs it has');
+  assert.equal(stubby.score, clean.score);
+  assert.ok(stubby.report.includes('hub-stubs:    50'), 'still reported — it is a worklist, not a grade');
 });
 
 test('computeHealth returns 100 for a clean vault', () => {
