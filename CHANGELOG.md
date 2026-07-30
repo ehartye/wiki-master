@@ -1,5 +1,58 @@
 # Changelog
 
+## 0.8.2 — 2026-07-30
+
+### Bare wikilinks resolve by channel, and title-shaped citations can be repaired
+
+Two defects found while repairing a live vault, which scored 31/100 almost entirely
+because of them. Both made a metric lie in the direction that invents work: one
+reported orphans that were not orphans, the other hid broken provenance inside the
+"deferred" bucket where nothing looks wrong.
+
+- **`buildNameIndex` decided bare-name collisions by filesystem walk order.**
+  `raw/` sorts before `wiki/`, so the clipping won every time. A concept page linked
+  as `[[Parallel Transport]]` had all of its backlinks credited to
+  `raw/clippings/Parallel transport.md` and read as an orphan with zero inbound
+  links — while Obsidian resolved that very same link to the concept page. The
+  comment at `graph.mjs:225` had already documented this (it cites 117 false
+  orphans); registering the full path as its own key only fixed it for links that
+  *qualified a directory*, and bare links kept losing. On the live vault five pages
+  read as orphans this way, each with several real backlinks.
+
+  The index now carries **both** answers, because the right one depends on which
+  link channel is asking — a distinction `graph.mjs` already drew but did not act
+  on. A **body wikilink is navigation**: a content page (`isContent`) outranks a
+  raw/log/template file, matching where Obsidian actually lands the reader. A
+  **`sources:` wikilink is provenance**: it still resolves to the evidence file.
+  `resolveLinkTarget(byName, target, { nav })` selects the channel; every
+  path-qualified form is unchanged, and collisions *within* a class remain
+  first-wins (genuinely ambiguous — qualify the path to disambiguate).
+
+  Preferring content for both channels was tried first and is a trap worth naming:
+  it fixed the orphans and regressed the same vault from 0 to **126** provenance
+  gaps, because `sources: [[Foo]]` means `raw/clippings/Foo.md`, and resolving it to
+  `wiki/sources/Foo.md` reports a gap on a page that cited its evidence correctly.
+  There is a regression test for exactly that.
+
+- **New `scripts/repair-provenance-links.mjs` — citations that name a title, not a
+  file.** The clipper slugifies a title into a filename (`/`, `:`, `#`, `*`, `?`,
+  quotes and brackets → `-`, then a 120-char cap), but ingest wrote
+  `sources: [[<remembered title>]]`. Every source whose title carried one of those
+  characters or ran long cited a file that never existed: the page became a
+  `provenanceGap` and its clipping read as unparsed, though the ingest itself was
+  correct. On the live vault this was 11 source pages and 11 clippings — a whole
+  topic cluster that looked like lost work and was in fact eleven broken links.
+
+  The repair joins on **`source-hash`**, never on the title — the title is precisely
+  what drifted. `slugify` is used only to decide which of a page's *own* clippings
+  an unresolved citation meant, and only among candidates the hash already vouched
+  for. Anything it cannot pin to exactly one clipping is reported, never guessed.
+  Dry-run by default, `--apply` to write, idempotent.
+
+- **`/wiki-ingest` and `wiki-maintainer` now say to cite the clipping by path**
+  (`[[raw/clippings/<file>.md]]`, copied from the path just read) rather than
+  retyping the source's title, so the drift above cannot be reintroduced.
+
 ## 0.8.1 — 2026-07-24
 
 ### PDF and DOCX clippers get the cross-platform title fix
