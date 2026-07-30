@@ -153,3 +153,34 @@ test('an empty group contributes no bulk buttons', () => {
   const html = renderScreen(empty);
   assert.doesNotMatch(html, /data-bulk-act=/);
 });
+
+// Hub-stubs moved here from the health score: "5+ pages link to this empty page"
+// is a real signal but a bad grade, because its cheapest fix (delete inbound links
+// or pad with unsourced prose) makes the wiki worse. As a worklist it is right.
+test('hub-stubs render as their own group with a sources-not-padding framing', () => {
+  const html = renderScreen({
+    ...empty,
+    hubStubs: ['wiki/entities/Blender.md', 'wiki/entities/Tron Legacy.md'],
+    hubStubTotal: 2,
+  });
+  assert.match(html, /Hub-stubs/);
+  assert.match(html, /needs sources, not padding/);
+  assert.match(html, /wiki\/entities\/Blender\.md/);
+  assert.match(html, /2 hub-stubs/, 'counted in the subtitle');
+});
+
+test('hub-stubs alone are enough to keep the queue from reading all-clear', () => {
+  const html = renderScreen({ ...empty, hubStubs: ['wiki/entities/Blender.md'], hubStubTotal: 1 });
+  assert.doesNotMatch(html, /Nothing needs you/);
+  assert.match(html, /1 hub-stub\b/, 'singular, not "1 hub-stubs"');
+});
+
+test('a truncated hub-stub list never lets bulk actions overclaim', () => {
+  const html = renderScreen({ ...empty, hubStubs: ['wiki/entities/A.md'], hubStubTotal: 40 });
+  assert.match(html, /showing 1 of 40/);
+  assert.doesNotMatch(html, /data-bulk-count="40"/);
+});
+
+test('a vault with no hub-stubs still renders the all-clear', () => {
+  assert.match(renderScreen({ ...empty, hubStubs: [], hubStubTotal: 0 }), /Nothing needs you/);
+});

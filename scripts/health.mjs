@@ -23,7 +23,25 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     Math.min(15, stale.length * 2) +
     Math.min(25, orphans.length * 2) +
     Math.min(20, deadEnds.length * 2) +
-    Math.min(15, hubStubs.length * 5) +
+    // hubStubs is REPORTED but deliberately NOT SCORED. It is the only signal here
+    // that measures content rather than structure — "this page is unwritten" — and
+    // it behaved badly as a grade:
+    //  - Every other penalty is a broken or missing EDGE: objectively wrong, and
+    //    fixable mechanically. A stub is the normal state of a growing wiki, and
+    //    `status: stub` is a sanctioned value in the vault schema — the report even
+    //    prints "declared stubs (not scored)", which scoring them contradicted.
+    //  - It was the only category whose CHEAPEST fix makes the wiki worse. Clearing
+    //    a hub-stub by deleting inbound links until it drops under HUB_MIN_BACKLINKS,
+    //    or by padding it with unsourced prose, both scored better and both damage
+    //    the vault. Everywhere else the cheapest fix is the correct fix.
+    //  - The cap made it useless as a gradient anyway: at weight 5 capped at 15, a
+    //    vault went 10 hub-stubs -> 3 hub-stubs with no score movement at all.
+    //  - The provenance guardrail forbids the fast fix — you cannot write these
+    //    without sources — so it penalized a state the contract bars you from
+    //    clearing quickly.
+    // It remains a real signal ("5+ pages route through an empty page"), so it is
+    // surfaced as a WORKLIST in /wiki-triage instead, where it is actionable.
+    // Health now means one clean thing: no broken edges.
     // A source page citing no raw file is a broken provenance contract: it
     // claims an ingest while leaving its clipping indistinguishable from one
     // never processed. Every citation in the wiki rests on this link, so it is
