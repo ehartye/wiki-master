@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planSourceHashBackfill, insertSourceHashes, insertSourceHash } from '../scripts/lib/backfill.mjs';
+import { planSourceHashBackfill, insertSourceHashes, insertSourceHash, fixSourcesOrder } from '../scripts/lib/backfill.mjs';
 
 // Clippings written before `source-hash` existed carry none, so they can never be
 // hash-joined and their summaries stay permanently un-recordable. Stamping the
@@ -129,4 +129,69 @@ test('insertSourceHashes merges a new hash into an existing list (one line, both
 test('insertSourceHashes does not duplicate a hash already recorded', () => {
   const text = '---\nsources: ["[[Foo]]"]\nsource-hashes: ["aaa1111"]\n---\nbody\n';
   assert.equal(insertSourceHashes(text, ['aaa1111']), text, 'no-op when nothing new');
+});
+
+// `sources:` can also be written as a YAML block list — `sources:` bare on its own
+// line, then `  - [[...]]` continuation lines — rather than the inline
+// `sources: [[...]]` form every other test above uses. The insertion point was
+// computed from `/^sources:.*$/m`, which only matches that FIRST bare line: the
+// new `source-hashes:` line landed between the bare `sources:` key and its own
+// list item, producing invalid YAML (confirmed with a real YAML parser — this is
+// not just a style nit, `sources` becomes unparseable and every OTHER property on
+// the page goes with it, since a broken block ends frontmatter parsing entirely).
+// Found on the live vault: 193 of 476 wiki/sources pages, all single-citation.
+test('insertSourceHashes keeps a block-list sources: value intact (does not split it)', () => {
+  const text = '---\ntype: source\nsources:\n  - [[raw/clippings/Foo.md]]\nai-generated: true\n---\nbody\n';
+  const out = insertSourceHashes(text, ['aaa1111']);
+  assert.match(out, /^sources:\r?\n {2}- \[\[raw\/clippings\/Foo\.md\]\]\r?\nsource-hashes: \["aaa1111"\]\r?\nai-generated: true$/m);
+  assert.ok(out.endsWith('---\nbody\n'));
+});
+
+test('insertSourceHashes keeps a multi-item block-list sources: value intact', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/A.md]]\n  - [[raw/clippings/B.md]]\nai-generated: true\n---\nbody\n';
+  const out = insertSourceHashes(text, ['aaa1111', 'bbb2222']);
+  assert.match(
+    out,
+    /^sources:\r?\n {2}- \[\[raw\/clippings\/A\.md\]\]\r?\n {2}- \[\[raw\/clippings\/B\.md\]\]\r?\nsource-hashes: \["aaa1111", "bbb2222"\]\r?\nai-generated: true$/m
+  );
+});
+
+// `fixSourcesOrder` repairs EXISTING damage from the bug above — it does not
+// merely stop the bug from recurring. Confirmed live: 193 of 476 wiki/sources
+// pages already have `source-hashes:` sitting between the bare `sources:` key
+// and its own list item(s). A real YAML parser rejects this outright
+// ("expected <block end>, but found '<block sequence start>'"), and Obsidian
+// itself reports "No frontmatter found" on these pages — every property, not
+// just `sources`, becomes invisible to the app, Bases, and any property-driven
+// view, even though wiki-master's own regex-based scripts tolerate it.
+test('fixSourcesOrder repairs a single-item page (the common case: 192 of 193 live)', () => {
+  const text = '---\ntype: source\nsources:\nsource-hashes: ["abc1234"]\n  - [[raw/clippings/Foo.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixSourcesOrder(text);
+  assert.equal(out, '---\ntype: source\nsources:\n  - [[raw/clippings/Foo.md]]\nsource-hashes: ["abc1234"]\nai-generated: true\n---\nbody\n');
+});
+
+test('fixSourcesOrder repairs a multi-item page (1 of 193 live)', () => {
+  const text =
+    '---\nsources:\nsource-hashes: ["h1", "h2"]\n  - [[raw/clippings/A.md]]\n  - [[raw/clippings/B.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixSourcesOrder(text);
+  assert.equal(
+    out,
+    '---\nsources:\n  - [[raw/clippings/A.md]]\n  - [[raw/clippings/B.md]]\nsource-hashes: ["h1", "h2"]\nai-generated: true\n---\nbody\n'
+  );
+});
+
+test('fixSourcesOrder is a no-op on an already-correct block-list page', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/Foo.md]]\nsource-hashes: ["abc1234"]\n---\nbody\n';
+  assert.equal(fixSourcesOrder(text), text);
+});
+
+test('fixSourcesOrder is a no-op on an inline sources: page', () => {
+  const text = '---\nsources: [[raw/clippings/Foo.md]]\nsource-hashes: ["abc1234"]\n---\nbody\n';
+  assert.equal(fixSourcesOrder(text), text);
+});
+
+test('fixSourcesOrder is idempotent — running it twice is the same as running it once', () => {
+  const text = '---\nsources:\nsource-hashes: ["abc1234"]\n  - [[raw/clippings/Foo.md]]\n---\nbody\n';
+  const once = fixSourcesOrder(text);
+  assert.equal(fixSourcesOrder(once), once);
 });

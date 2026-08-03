@@ -187,12 +187,44 @@ export function insertSourceHashes(fileText, hashes) {
   }
 
   const list = render(want);
-  const s = block.match(/^sources:.*$/m);
-  if (s) {
-    const idx = s.index + s[0].length;
+  // `sources:` is written either inline (`sources: [[X]]`, matched whole by
+  // `.*` on its own line) or as a YAML block list (`sources:` bare, then
+  // `  - [[X]]` continuation lines). `/^sources:.*$/m` only ever matched the
+  // FIRST line, so on a block list it landed `source-hashes:` between the bare
+  // key and its own list items — invalid YAML that takes the whole frontmatter
+  // block down with it, not just `sources`. Walk past every continuation line
+  // before inserting.
+  const bare = block.match(/^sources:[ \t]*$/m);
+  let idx;
+  if (bare) {
+    idx = bare.index + bare[0].length;
+    const items = block.slice(idx).match(/^(\r?\n[ \t]*-.*)*/);
+    if (items) idx += items[0].length;
+  } else {
+    const inline = block.match(/^sources:.*$/m);
+    idx = inline ? inline.index + inline[0].length : null;
+  }
+  if (idx != null) {
     block = block.slice(0, idx) + '\n' + list + block.slice(idx);
   } else {
     block = `${block}\n${list}`;
   }
+  return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
+}
+
+// Repairs EXISTING damage from the bug `insertSourceHashes` used to have: a bare
+// `sources:` key with `source-hashes:` wedged before its own list item(s) instead
+// of after — invalid YAML (a real parser rejects it outright), which is why
+// Obsidian reports "No frontmatter found" on an affected page rather than just
+// missing `sources`. Pure string surgery, no YAML parsing, so it can't reformat
+// anything it doesn't specifically recognize; anything else is returned as-is.
+export function fixSourcesOrder(fileText) {
+  const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fm) return fileText;
+  const defect = fm[2].match(/^sources:[ \t]*\r?\n(source-hashes:.*)\r?\n((?:[ \t]*-.*\r?\n?)+)/m);
+  if (!defect) return fileText;
+  const [whole, hashLine, items] = defect;
+  const fixed = `sources:\n${items.replace(/\r?\n?$/, '\n')}${hashLine}\n`;
+  const block = fm[2].slice(0, defect.index) + fixed + fm[2].slice(defect.index + whole.length);
   return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
 }

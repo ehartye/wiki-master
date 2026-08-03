@@ -194,6 +194,16 @@ was correct. Repair from the plugin root: `node scripts/repair-provenance-links.
 what drifted), and reports anything it cannot pin to exactly one clipping instead of
 guessing. Always cite a clipping by its **path**, `[[raw/clippings/<file>.md]]`.
 
+**Repairing invalid `sources:`/`source-hashes:` ordering.** A now-fixed bug in
+`insertSourceHashes` could insert `source-hashes:` between a block-list `sources:`
+key and its own `- [[...]]` item instead of after it — invalid YAML that a real
+parser rejects outright, so Obsidian reports "No frontmatter found" on the page
+(every property, not just `sources`) even though wiki-master's own regex-based
+scripts tolerate it and never flagged it as a defect. Repair from the plugin root:
+`node scripts/repair-sources-order.mjs` (dry-run) then `--apply`. Pure string
+surgery — it recognizes and reorders only that exact shape and is a no-op on
+anything else — idempotent and safe to re-run.
+
 **Never move files to record ingestion state.** `raw/` immutability is the
 load-bearing invariant. The hash key lives *in* the markdown — each page's
 `source-hashes`, co-located with the summary that owns it — a single source of truth

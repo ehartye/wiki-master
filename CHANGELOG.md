@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.8.4 — 2026-08-03
+
+### `sources:`/`source-hashes:` ordering — one more bare-YAML defect, found the same way
+
+Found while reviewing a live vault's health report by hand rather than trusting the
+score alone: `health.mjs` read 0 `provenanceGaps` on 476 `wiki/sources` pages, but
+`obsidian properties` reported **"No frontmatter found"** on 193 of them (~40%).
+Every property — not just `sources` — was invisible to Obsidian, Bases, and any
+property-driven view, while wiki-master's own scripts stayed silent because they
+regex-scan the raw frontmatter text rather than parse it as YAML.
+
+Root cause: `insertSourceHashes` (`scripts/lib/backfill.mjs`) anchored its
+insertion point on `/^sources:.*$/m`, which only ever matches a `sources:` line's
+FIRST line. That is correct when `sources:` is written inline (`sources: [[X]]`),
+but when it is a YAML block list (`sources:` bare, then `  - [[X]]` continuation
+lines — the shape every affected page happened to use), the new `source-hashes:`
+line landed between the bare key and its own list item. A real YAML parser
+rejects that outright (`expected <block end>, but found '<block sequence
+start>'`) — this is not a formatting nit, it takes the whole frontmatter block
+down, which is why Obsidian reported nothing rather than just a missing field.
+No existing test exercised the block-list form, so nothing caught it.
+
+Fixed the insertion point to walk past every continuation line before inserting,
+so no future run of `backfill-source-hashes.mjs` can reproduce this. Existing
+damage needed its own repair, since re-running the (now-fixed) backfill only
+merges hash *values* and never repositions an already-present `source-hashes:`
+line: new `scripts/repair-sources-order.mjs` recognizes and reorders only that
+exact defect shape (pure string surgery, no YAML parsing, so anything else is
+left untouched), dry-run by default, `--apply` to write, idempotent. On the live
+vault this was 193 pages, 192 single-citation and 1 multi-citation.
+
 ## 0.8.3 — 2026-07-30
 
 ### Hub-stubs are a worklist, not a grade
