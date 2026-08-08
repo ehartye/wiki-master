@@ -925,17 +925,18 @@ test('isGitRepo is true inside a repo and false outside one', () => {
 });
 
 // The bug this feature exists to fix: a working-tree change that never becomes a
-// commit is not a change anything else can see. The bin must be staged too, so
-// its leading dot must not hide it.
-test('commitAll stages a moved file, including into a dot-prefixed folder', () => {
+// commit is not a change anything else can see. A purge stages a MOVE — a
+// deletion at the original path and an addition under .recycle/ — and the bin's
+// leading dot must not hide it from staging.
+test('commitPaths stages a move, including into a dot-prefixed folder', () => {
   const repo = tempRepo();
   try {
     writeFileSync(join(repo, 'a.md'), 'hello\n');
-    commitAll(repo, 'initial');
+    commitPaths(repo, ['a.md'], 'initial');
     mkdirSync(join(repo, '.recycle', 'id', 'wiki'), { recursive: true });
     writeFileSync(join(repo, '.recycle', 'id', 'wiki', 'a.md'), 'hello\n');
     rmSync(join(repo, 'a.md'));
-    const r = commitAll(repo, 'purge: topic');
+    const r = commitPaths(repo, ['a.md', '.recycle/id/wiki/a.md'], 'purge: topic');
     assert.equal(r.committed, true);
     const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
     assert.match(files, /a\.md/);
@@ -945,21 +946,59 @@ test('commitAll stages a moved file, including into a dot-prefixed folder', () =
   }
 });
 
-test('commitAll reports committed:false when there is nothing to commit', () => {
+// The reason this is commitPaths and not commitAll. A vault with auto-commit
+// disabled carries the user's in-progress work; a purge must not label it as
+// part of the purge.
+test('commitPaths leaves unrelated working-tree changes alone', () => {
   const repo = tempRepo();
   try {
     writeFileSync(join(repo, 'a.md'), 'hello\n');
-    commitAll(repo, 'initial');
-    assert.deepEqual(commitAll(repo, 'again'), { committed: false, reason: 'nothing to commit' });
+    writeFileSync(join(repo, 'unrelated.md'), 'draft\n');
+    commitPaths(repo, ['a.md', 'unrelated.md'], 'initial');
+    writeFileSync(join(repo, 'unrelated.md'), 'draft, still being written\n');
+    writeFileSync(join(repo, 'a.md'), 'purged\n');
+    const r = commitPaths(repo, ['a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /a\.md/);
+    assert.equal(/unrelated\.md/.test(files), false, 'the user\'s draft must not ride along');
+    assert.deepEqual(uncommittedElsewhere(repo), ['unrelated.md']);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
 });
 
-test('commitAll refuses politely when the directory is not a repo', () => {
+// This vault has filenames with em-dashes and quotes, and a topic purge can move
+// hundreds of files. NUL-delimited stdin sidesteps both quoting and argv limits.
+test('commitPaths handles filenames with spaces, em-dashes and quotes', () => {
+  const repo = tempRepo();
+  try {
+    const odd = 'Gottman — R is for "Repair".md';
+    writeFileSync(join(repo, odd), 'x\n');
+    const r = commitPaths(repo, [odd], 'add odd name');
+    assert.equal(r.committed, true);
+    assert.deepEqual(uncommittedElsewhere(repo), []);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('commitPaths reports committed:false when the named paths are unchanged', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    commitPaths(repo, ['a.md'], 'initial');
+    assert.deepEqual(commitPaths(repo, ['a.md'], 'again'), { committed: false, reason: 'nothing to commit' });
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('commitPaths refuses politely when the directory is not a repo', () => {
   const plain = mkdtempSync(join(tmpdir(), 'wm-plain-'));
   try {
-    assert.deepEqual(commitAll(plain, 'x'), { committed: false, reason: 'not a git repository' });
+    assert.deepEqual(commitPaths(plain, ['a.md'], 'x'), { committed: false, reason: 'not a git repository' });
+    assert.deepEqual(uncommittedElsewhere(plain), []);
   } finally {
     rmSync(plain, { recursive: true, force: true });
   }
@@ -982,8 +1021,8 @@ import { execFileSync } from 'node:child_process';
 // push. No force, no history rewriting, no branch switching, no merge conflict
 // resolution — a vault is a user's knowledge base, and an automated tool that
 // rewrites its history is a worse failure than the one this feature fixes.
-function git(cwd, args) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+function git(cwd, args, { input } = {}) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', input }).trim();
 }
 
 export function isGitRepo(cwd) {
@@ -994,16 +1033,41 @@ export function isGitRepo(cwd) {
   }
 }
 
-export function commitAll(cwd, message) {
+// Stages ONLY the paths purge touched — never `git add -A`. A vault whose
+// obsidian-git auto-commit is disabled accumulates unrelated edits, and sweeping
+// those into a commit titled "purge: <topic>" both mislabels the user's own work
+// and makes the purge non-atomic to revert, which is the recoverability the whole
+// design rests on.
+//
+// Paths arrive NUL-delimited on stdin rather than as argv: a topic purge can move
+// hundreds of files, and this vault has filenames carrying em-dashes and quotes.
+// --pathspec-file-nul sidesteps both the argv length ceiling and every quoting
+// question. Requires git 2.25+ (2020).
+//
+// `git add -- <path>` stages deletions as well as additions, which is essential
+// here — half of what a purge stages is a MOVE: a deletion at the original path
+// and an addition under .recycle/.
+export function commitPaths(cwd, paths, message) {
   if (!isGitRepo(cwd)) return { committed: false, reason: 'not a git repository' };
-  // `git add -A` stages dot-prefixed paths; only .gitignore excludes, and the
-  // vault ignores .wiki-master/ specifically, not every dotfolder.
-  git(cwd, ['add', '-A']);
-  if (git(cwd, ['status', '--porcelain']) === '') {
+  if (!paths.length) return { committed: false, reason: 'nothing to commit' };
+  git(cwd, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { input: paths.join('\0') });
+  if (git(cwd, ['diff', '--cached', '--name-only']) === '') {
     return { committed: false, reason: 'nothing to commit' };
   }
   git(cwd, ['commit', '-q', '-m', message]);
   return { committed: true, sha: git(cwd, ['rev-parse', 'HEAD']) };
+}
+
+// What purge deliberately did NOT commit, so the CLI can say so rather than
+// leaving the user to discover it. Silence here would read as "the purge
+// committed everything," which is exactly the wrong impression to give in a
+// feature built because an uncommitted change failed to survive a sync.
+export function uncommittedElsewhere(cwd) {
+  if (!isGitRepo(cwd)) return [];
+  return git(cwd, ['status', '--porcelain'])
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((l) => l.slice(3).replace(/^"|"$/g, ''));
 }
 
 export function push(cwd) {
@@ -1259,6 +1323,7 @@ function moveInto(vaultPath, from, to) {
 // copy parks in resurrected-N so the original capture is never overwritten.
 export function applyPurge(vaultPath, manifest, { asResurrection = false } = {}) {
   let moved = 0;
+  const touched = [];
   for (const e of manifest.entries) {
     const src = join(vaultPath, e.from);
     if (!existsSync(src)) continue;
@@ -1278,8 +1343,12 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
     }
     moveInto(vaultPath, e.from, to);
     moved += 1;
+    // Both sides of every move, so the caller can stage exactly what changed.
+    // The destination is only known here — a resurrection diverts to
+    // resurrected-<n>/ — so returning it is what lets Task 8 avoid `git add -A`.
+    touched.push(e.from, to);
   }
-  return { moved };
+  return { moved, touched };
 }
 
 // The inverse. A file that exists at the original path is NEVER overwritten —
@@ -1436,7 +1505,7 @@ import { buildGraph } from './lib/graph.mjs';
 import { planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
 import { loadDeclines, recordDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
-import { commitAll, push, isGitRepo } from './lib/git.mjs';
+import { commitPaths, push, isGitRepo, uncommittedElsewhere } from './lib/git.mjs';
 import { main as searchMain } from './search.mjs';
 
 const MAX_SEEDS = 25;
@@ -1549,9 +1618,9 @@ export async function main(argv) {
   });
 
   writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
-  const { moved } = applyPurge(vaultPath, manifest);
+  const { moved, touched } = applyPurge(vaultPath, manifest);
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
-  writeLogEntry({
+  const logPath = writeLogEntry({
     vaultPath, op: 'purge', title: arg,
     body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n\n` +
           (manifest.collateral.length ? `Collateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
@@ -1562,9 +1631,27 @@ export async function main(argv) {
     console.log('NEXT: repair references on the collateral pages, then run node scripts/index-gen.mjs');
   }
   if (isGitRepo(vaultPath)) {
-    const c = commitAll(vaultPath, `purge: ${arg} (${id})`);
+    // Exactly what this purge touched, and nothing else. index.md is included
+    // because the catalog is regenerated after a purge; the log entry because it
+    // is the audit record of it. `.wiki-master/declined.json` is deliberately
+    // absent — it is gitignored and does not sync, which is precisely why the
+    // manifest carries declines for reconcile to replay.
+    const paths = [...new Set([
+      ...touched,
+      `${BIN_DIR}/${id}/manifest.json`,
+      'index.md',
+      logPath,
+    ])];
+    const c = commitPaths(vaultPath, paths, `purge: ${arg} (${id})`);
     console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
-    console.log('Run `git push` from the vault (or ask the skill to) to make this purge visible to your other machines.');
+    const others = uncommittedElsewhere(vaultPath);
+    if (others.length) {
+      console.log(`\n${others.length} other file(s) in the vault have uncommitted changes. Purge did NOT`);
+      console.log('commit them — they are your work, not part of this purge:');
+      for (const o of others.slice(0, 10)) console.log(`  ${o}`);
+      if (others.length > 10) console.log(`  … and ${others.length - 10} more`);
+    }
+    console.log('\nRun `git push` from the vault (or ask the skill to) to make this purge visible to your other machines.');
   } else {
     console.log('WARNING: this vault is not a git repository — the purge is local to this machine only.');
   }
