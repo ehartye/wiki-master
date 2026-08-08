@@ -1003,6 +1003,58 @@ test('uncommittedElsewhere does not mangle a non-ASCII filename', () => {
   }
 });
 
+// The mutation that survived the first implementation. `git commit -m` with no
+// pathspec commits the WHOLE INDEX, so work the user staged before purge ran
+// lands in a commit titled "purge: <topic>" — and when the purge itself moved
+// nothing, that commit contains only their work while reporting success.
+test('commitPaths does not commit work the user had already staged', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one\n');
+    commitPaths(repo, ['a.md', 'my-draft.md'], 'initial');
+
+    // The user stages their own work, then a purge runs that moves nothing.
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one, revised\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo });
+    const r = commitPaths(repo, ['a.md'], 'purge: topic');
+
+    assert.deepEqual(r, { committed: false, reason: 'nothing to commit' });
+    assert.equal(
+      execFileSync('git', ['log', '--oneline'], { cwd: repo, encoding: 'utf8' }).trim().split('\n').length,
+      1, 'no commit should have been created');
+    // Their staged work is still staged, untouched.
+    assert.deepEqual(uncommittedElsewhere(repo), ['my-draft.md']);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// Same hazard, the case where the purge DID move something: the user's staged
+// work must not ride along into the purge commit.
+test('a real purge commit excludes the user\'s pre-staged work', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one\n');
+    commitPaths(repo, ['a.md', 'my-draft.md'], 'initial');
+
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one, revised\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo });
+    mkdirSync(join(repo, '.recycle', 'id'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'a.md'), 'hello\n');
+    rmSync(join(repo, 'a.md'));
+
+    const r = commitPaths(repo, ['a.md', '.recycle/id/a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.equal(/my-draft\.md/.test(files), false, 'pre-staged work must not ride along');
+    assert.deepEqual(uncommittedElsewhere(repo), ['my-draft.md']);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('commitPaths reports committed:false when the named paths are unchanged', () => {
   const repo = tempRepo();
   try {
@@ -1049,9 +1101,19 @@ import { execFileSync } from 'node:child_process';
 // core.quotePath=false stops git octal-escaping non-ASCII bytes in paths. It does
 // NOT stop git wrapping such a path in literal double quotes — confirmed against
 // git-for-windows 2.55 with xxd — so uncommittedElsewhere still strips the pair.
+// --literal-pathspecs because --pathspec-file-nul settles DELIMITING, not
+// INTERPRETATION: `:(exclude)`, `:!`, `:/` and wildcards stay live otherwise.
+// `[` is legal on NTFS, so purging `Notes [draft].md` would glob-match and stage
+// an unrelated `Notes d.md` the user was editing. Git tries a literal match
+// first, so the target is always staged correctly — the bug is over-matching
+// siblings. POSIX allows `?`, `*` and a leading `:` too, and this runs on the
+// user's other machines.
 function git(cwd, args, { input } = {}) {
-  return execFileSync('git', ['-c', 'core.quotePath=false', ...args], { cwd, encoding: 'utf8', input })
-    .replace(/\s+$/, '');
+  return execFileSync(
+    'git',
+    ['-c', 'core.quotePath=false', '--literal-pathspecs', ...args],
+    { cwd, encoding: 'utf8', input, maxBuffer: 32 * 1024 * 1024 }
+  ).replace(/\s+$/, '');
 }
 
 export function isGitRepo(cwd) {
@@ -1079,12 +1141,35 @@ export function isGitRepo(cwd) {
 export function commitPaths(cwd, paths, message) {
   if (!isGitRepo(cwd)) return { committed: false, reason: 'not a git repository' };
   if (!paths.length) return { committed: false, reason: 'nothing to commit' };
-  git(cwd, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { input: paths.join('\0') });
-  if (git(cwd, ['diff', '--cached', '--name-only']) === '') {
-    return { committed: false, reason: 'nothing to commit' };
+  const fromStdin = ['--pathspec-from-file=-', '--pathspec-file-nul'];
+  const stdin = { input: paths.join('\0') };
+  // add narrows STAGING; commit without its own pathspec would still commit the
+  // whole index, so anything the user pre-staged would land in a commit titled
+  // "purge: <topic>" — and if the purge itself moved nothing, that commit would
+  // contain ONLY their work while reporting {committed: true} back to the CLI.
+  // Reverting "the purge" would then revert their writing.
+  //
+  // The guard must be scoped the same way or the pre-staged case still misfires:
+  // an unscoped `diff --cached` asks "is the index non-empty?" when it means
+  // "did OUR paths change?". -z gives NUL-delimited, unquoted output, so the
+  // comparison needs no unquoting.
+  //
+  // Everything is wrapped: by the time this runs, purge has ALREADY moved files
+  // on disk. A raw throw (a .gitignore'd destination, a path matching nothing)
+  // would leave originals deleted, copies in .recycle/, and nothing committed —
+  // the working-tree-only deletion this whole feature exists to prevent, reached
+  // by crash instead of by sync.
+  try {
+    git(cwd, ['add', ...fromStdin], stdin);
+    const staged = new Set(git(cwd, ['diff', '--cached', '--name-only', '-z']).split('\0').filter(Boolean));
+    if (!paths.some((p) => staged.has(p))) {
+      return { committed: false, reason: 'nothing to commit' };
+    }
+    git(cwd, ['commit', '-q', '-m', message, ...fromStdin], stdin);
+    return { committed: true, sha: git(cwd, ['rev-parse', 'HEAD']) };
+  } catch (err) {
+    return { committed: false, reason: (err.stderr || err.message || '').toString().trim() };
   }
-  git(cwd, ['commit', '-q', '-m', message]);
-  return { committed: true, sha: git(cwd, ['rev-parse', 'HEAD']) };
 }
 
 // What purge deliberately did NOT commit, so the CLI can say so rather than
