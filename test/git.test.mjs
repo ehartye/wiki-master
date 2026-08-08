@@ -131,6 +131,37 @@ test('commitPaths does not commit pre-staged work when the purge itself is a no-
   }
 });
 
+// Same hazard as the no-op case, but on the path where the commit actually
+// runs. The scoped `diff --cached` guard returns early when the purge moved
+// nothing, so that test never exercises the commit's own pathspec — mutating
+// the commit back to unscoped leaves the whole file green without this one.
+test('a real purge commit excludes the user\'s pre-staged work', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one\n');
+    commitPaths(repo, ['a.md', 'my-draft.md'], 'initial');
+
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one, revised\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo }); // user pre-stages their own work
+    mkdirSync(join(repo, '.recycle', 'id'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'a.md'), 'hello\n');
+    rmSync(join(repo, 'a.md'));                                  // purge moves a.md
+
+    const r = commitPaths(repo, ['a.md', '.recycle/id/a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /\.recycle\/id\/a\.md/, 'the purge itself must be committed');
+    assert.equal(/my-draft\.md/.test(files), false, 'pre-staged work must not ride along');
+    assert.match(
+      execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }),
+      /^M {2}my-draft\.md$/m,
+      'and it must remain staged afterwards, neither committed nor lost');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('commitPaths reports committed:false when the named paths are unchanged', () => {
   const repo = tempRepo();
   try {
