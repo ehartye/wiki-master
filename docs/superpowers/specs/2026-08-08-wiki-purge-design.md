@@ -106,29 +106,30 @@ independently filters both retrieval channels to `wiki/`: `wikiFiles()` applies
 documents `path=wiki` as the default scope. The clippers (`clip*.mjs`, `apply-reclips`,
 `refresh-fidelity`) scan `raw/clippings` by path and are out of scope.
 
-**Two readers are not covered by either mechanism**, and they are the reason §8 matters more than a
-footnote:
+The two readers that do **not** route through `buildGraph` were checked individually, because they
+consume Obsidian's index rather than a filesystem walk. Both turn out to be covered by their own
+anchored prefix filters:
 
 | Reader | Enumerates via | Excluded by |
 |---|---|---|
 | `graph.mjs` + its 10 consumers | `readdirSync` walk | Structural dot-skip (`graph.mjs:102`) |
-| `search.mjs` (both channels) | `obsidian files` / `search path=wiki` | `wiki/` prefix filter |
-| **`drift.mjs`** | `obsidian files ext=md` — **no prefix filter** (`drift.mjs:58`) | Obsidian's indexer only |
-| **`stale.mjs`** | `obsidian base:query file=stale.base` (`stale.mjs:32`) | Obsidian's indexer + the base's own filters |
+| `search.mjs` (both channels) | `obsidian files` / `search path=wiki` | `rel.startsWith('wiki/')`, `path=wiki` |
+| `drift.mjs` | `obsidian files ext=md` (`drift.mjs:58`) | `if (!/^wiki\/(concepts\|syntheses)\//.test(rel)) continue;` (`drift.mjs:61`) |
+| `stale.mjs` | `obsidian base:query file=stale.base` (`stale.mjs:32`) | `file.inFolder("wiki")` in `stale.base` |
 
-`drift.mjs` is the sharper case: unlike `search.mjs` it consumes the full `obsidian files ext=md`
-list unfiltered, so if Obsidian indexes dot-folders it would embed purged pages and report semantic
-drift on content that no longer exists.
+**No reader needs a new guard.** Every exclusion is either the leading-dot walk skip or an anchored
+`wiki/`-prefix filter, and a bin path beginning `.recycle/` fails both.
 
-**Therefore, regardless of the §8 probe outcome, implementation adds an explicit guard to both** — a
-leading-dot skip in `drift.mjs`'s file loop, and a folder exclusion in `stale.base`. Two lines that
-remove the dependency entirely rather than resting it on a behavior this repo has not measured. The
-probe still runs, because it determines whether the *Obsidian-side* channels (`obsidian search`,
-backlinks, graph view) need the `userIgnoreFilters` fallback.
+**This makes the bin's internal layout load-bearing.** Purged files must be stored at
+`.recycle/<id>/<original-path>` — the dot-prefixed segment *first*. The prefix filters above are
+anchored with `^` (or `inFolder`), so `.recycle/<id>/wiki/concepts/Foo.md` correctly fails
+`/^wiki\//` while a hypothetical layout that hoisted `wiki/` to the front would silently pass it and
+re-expose every purged page to drift and stale. This is a constraint on the implementation, not an
+incidental detail, and it is tested (§10, test 7).
 
-With those two guards, the requirement that all find and search skills ignore the bin is met by
-construction, and — more importantly — inherited by readers not yet written, since none of them will
-walk a dot-folder either.
+The requirement that all find and search skills ignore the bin is thus met by construction, and —
+more importantly — inherited by readers not yet written, since none of them will walk a dot-folder
+or match an anchored `wiki/` prefix against one.
 
 Only `.wiki-master/`, `.obsidian/workspace.json`, and `.obsidian/workspace-mobile.json` appear in the
 vault's `.gitignore`, so `.recycle/` is tracked and syncs.
@@ -239,10 +240,11 @@ step of implementation is that probe**, before any code depends on it.
 (Obsidian's "Excluded files" setting; currently `{}` in this vault) and have `wiki-init` write it.
 One extra file, same outcome.
 
-Scope of the dependency, precisely: the `graph.mjs` walk and `search.mjs`'s `wiki/` filter hold
-either way. The `drift.mjs` and `stale.mjs` guards from §4 are added unconditionally, so they hold
-either way too. What genuinely rides on the probe is only the Obsidian-side channels a human or an
-agent touches directly — `obsidian search` without `path=`, `obsidian backlinks`, and graph view.
+Scope of the dependency, precisely: every reader in §4's table is excluded by a filesystem walk skip
+or an anchored `wiki/` prefix filter, and holds either way. What genuinely rides on the probe is only
+the Obsidian-side channels a human or an agent touches **directly** — `obsidian search` without a
+`path=` argument, `obsidian backlinks`, `obsidian files`, and graph view. That is a usability
+question (does a purged page still surface when you search by hand?), not a pipeline-correctness one.
 
 ## 9. Effect on existing metrics
 
@@ -267,13 +269,9 @@ off-topic page.
 | 4 | Reconcile re-bins a re-clip whose `source-hash` matches under a new filename | Identity across renames |
 | 5 | Reconcile replays a decline missing from local `declined.json` | The non-syncing `.wiki-master/` gap |
 | 6 | Reconcile run twice is a no-op | Idempotence |
-| 7 | `buildGraph` over a vault containing `.recycle/` returns no bin paths | The exclusion contract |
-| 8 | `drift.mjs`'s file loop skips leading-dot paths given a bin entry in the `files` list | §4's uncovered reader |
-| 9 | A page left with zero surviving provenance blocks rather than passing | Guardrail #2 |
-| 10 | `health.mjs` score after purge ≥ score before | §9 |
-
-`stale.base`'s exclusion is a declarative filter in a `.base` file, verified by inspection and by the
-§8 probe rather than by a unit test — there is no seam to test it through without a live Obsidian.
+| 7 | `buildGraph` over a vault containing `.recycle/` returns no bin paths, **and** every bin path fails `/^wiki\//` | The exclusion contract, including §4's layout constraint |
+| 8 | A page left with zero surviving provenance blocks rather than passing | Guardrail #2 |
+| 9 | `health.mjs` score after purge ≥ score before | §9 |
 
 ## 11. Documentation changes
 
@@ -283,9 +281,9 @@ off-topic page.
   dot.* Agents can read anything; the skill has to say not to.
 - `templates/vault-schema.md` — `.recycle/` in the layout section.
 - `README.md` — the command.
-- `templates/` `stale.base` — folder exclusion for `.recycle` (§4). Existing vaults carry their own
-  copy, so `wiki-init` writing it only helps new ones; the migration note belongs in the release
-  notes.
+
+No changes to `drift.mjs`, `stale.base`, `search.mjs`, or `graph.mjs`: §4 establishes they already
+exclude the bin. Touching them would be unrequested change to code the feature does not need.
 
 ## 12. Non-goals, and one named gap
 
