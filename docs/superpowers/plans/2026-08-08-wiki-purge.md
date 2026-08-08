@@ -1205,11 +1205,18 @@ export function applyRestore(vaultPath, manifest) {
   return { restored, skipped };
 }
 
+// Sorted, for the same reason planPurge sorts its pages. planReconcile shares
+// one `seen` set across all manifests, so when two manifests list the same path
+// — a file purged, restored, and purged again — the manifest iterated FIRST
+// claims it, and the resurrected copy is filed under that purge's id. Left to
+// readdirSync that is filesystem order, so two machines would bin the same file
+// under different ids. Sorting by id is chronological (ids begin with the date),
+// so the earliest purge claiming a path wins, identically everywhere.
 export function readManifests(vaultPath) {
   const binRoot = join(vaultPath, BIN_DIR);
   if (!existsSync(binRoot)) return [];
   const out = [];
-  for (const id of readdirSync(binRoot)) {
+  for (const id of readdirSync(binRoot).sort()) {
     const f = join(binRoot, id, 'manifest.json');
     if (!existsSync(f) || !statSync(join(binRoot, id)).isDirectory()) continue;
     try {
