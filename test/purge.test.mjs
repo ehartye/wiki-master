@@ -46,3 +46,32 @@ test('inboundMap ignores self-links', () => {
   const inbound = inboundMap(pages, buildNameIndex(pages));
   assert.deepEqual([...inbound.get('wiki/concepts/A.md')], []);
 });
+
+// nav and provenance diverge only on a bare name colliding across the
+// content/evidence line — the one case the two channels exist for.
+// Page order is load-bearing: buildNameIndex is first-writer-wins on the plain
+// key while the nav key upgrades to content, so the clipping must precede the
+// source page or the two channels resolve to the same target and never diverge.
+test('each channel resolves by its own semantics on a colliding bare name', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/concepts/Citer.md', name: 'citer', outTargets: ['Foo'], fmTargets: ['Foo'] },
+  ];
+  const inbound = inboundMap(pages, buildNameIndex(pages));
+  assert.deepEqual([...inbound.get('wiki/sources/Foo.md')], ['wiki/concepts/Citer.md'], 'body link navigates to the content page');
+  assert.deepEqual([...inbound.get('raw/clippings/Foo.md')], ['wiki/concepts/Citer.md'], 'sources: link cites the clipping');
+});
+
+// isStructural excludes structural pages from the "is anything OUTSIDE the
+// topic referencing this" test, but that filtering is the caller's job, not
+// inboundMap's — inboundMap must record every edge, structural source or not,
+// or a future refactor could quietly fold the filter in here and no test would notice.
+test('inboundMap records edges from structural pages too (filtering is the caller\'s job)', () => {
+  const pages = [
+    { path: 'index.md', name: 'index', outTargets: ['A'], fmTargets: [] },
+    { path: 'wiki/concepts/A.md', name: 'a', outTargets: [], fmTargets: [] },
+  ];
+  const inbound = inboundMap(pages, buildNameIndex(pages));
+  assert.deepEqual([...inbound.get('wiki/concepts/A.md')], ['index.md']);
+});
