@@ -968,16 +968,36 @@ test('commitPaths leaves unrelated working-tree changes alone', () => {
   }
 });
 
-// This vault has filenames with em-dashes and quotes, and a topic purge can move
-// hundreds of files. NUL-delimited stdin sidesteps both quoting and argv limits.
-test('commitPaths handles filenames with spaces, em-dashes and quotes', () => {
+// Modeled on a real filename in the live vault. NTFS forbids " < > : \ | ? * in
+// filenames, so no vault on Windows can contain a straight double quote — an
+// earlier draft of this test used one and could not create its own fixture.
+// Em-dash, ampersand and apostrophe are what actually occur, and a topic purge
+// can move hundreds of such files; NUL-delimited stdin sidesteps both the
+// quoting and the argv-length questions.
+test('commitPaths handles filenames with spaces, em-dashes, ampersands and apostrophes', () => {
   const repo = tempRepo();
   try {
-    const odd = 'Gottman — R is for "Repair".md';
+    const odd = "Weeks & Ruppanner — Typology of US Parents' Mental Loads.md";
     writeFileSync(join(repo, odd), 'x\n');
     const r = commitPaths(repo, [odd], 'add odd name');
     assert.equal(r.committed, true);
     assert.deepEqual(uncommittedElsewhere(repo), []);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// core.quotePath=false stops the octal escaping; the outer quote pair survives
+// it, so uncommittedElsewhere must strip that too or a non-ASCII path comes back
+// wrapped and never matches anything the caller compares it against.
+test('uncommittedElsewhere does not mangle a non-ASCII filename', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'seed.md'), 'x\n');
+    commitPaths(repo, ['seed.md'], 'initial');
+    const odd = 'Gottman — R is for Repair.md';
+    writeFileSync(join(repo, odd), 'x\n');
+    assert.deepEqual(uncommittedElsewhere(repo), [odd]);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -1021,8 +1041,17 @@ import { execFileSync } from 'node:child_process';
 // push. No force, no history rewriting, no branch switching, no merge conflict
 // resolution — a vault is a user's knowledge base, and an automated tool that
 // rewrites its history is a worse failure than the one this feature fixes.
+// TRAILING whitespace only. A blanket .trim() corrupts `git status --porcelain`,
+// whose lines are fixed-width `XY <path>` — the leading space in " M path" means
+// "modified but not staged", and eating it shifts every column left so slice(3)
+// returns "nrelated.md". Verified: this bug was in an earlier draft of this file.
+//
+// core.quotePath=false stops git octal-escaping non-ASCII bytes in paths. It does
+// NOT stop git wrapping such a path in literal double quotes — confirmed against
+// git-for-windows 2.55 with xxd — so uncommittedElsewhere still strips the pair.
 function git(cwd, args, { input } = {}) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', input }).trim();
+  return execFileSync('git', ['-c', 'core.quotePath=false', ...args], { cwd, encoding: 'utf8', input })
+    .replace(/\s+$/, '');
 }
 
 export function isGitRepo(cwd) {
@@ -1067,7 +1096,7 @@ export function uncommittedElsewhere(cwd) {
   return git(cwd, ['status', '--porcelain'])
     .split(/\r?\n/)
     .filter(Boolean)
-    .map((l) => l.slice(3).replace(/^"|"$/g, ''));
+    .map((l) => l.slice(3).replace(/^"(.*)"$/, '$1'));
 }
 
 export function push(cwd) {
