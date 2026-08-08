@@ -836,7 +836,14 @@ export function planReconcile({ manifests, pages, declines }) {
   const knownDeclines = new Set((declines ?? []).map((d) => d.toLowerCase()));
   const replayDeclines = [];
 
-  for (const m of manifests) {
+  // Earliest purge claims a contested path. Sorted here, not trusted from the
+  // caller: ids are date-prefixed, and `seen` makes iteration order decide which
+  // bin a resurrected file returns to. A page purged, restored, and purged again
+  // appears in two manifests by construction — the exact resurrection scenario
+  // this feature exists for. Relational comparator, not localeCompare, for the
+  // same reason sortedByPath uses one: locale-dependent collation would put
+  // cross-machine divergence back in a form no single-machine test can catch.
+  for (const m of [...manifests].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
     for (const e of m.entries ?? []) {
       // Path first: it is the exact identity. Only fall through to the hash when
       // nothing sits at the original path, or a re-clip and its original would
