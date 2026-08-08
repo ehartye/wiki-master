@@ -712,17 +712,64 @@ test('a clean vault yields an empty plan', () => {
   assert.deepEqual(r.replayDeclines, []);
 });
 
-// Whichever machine runs it converges, and running it twice changes nothing.
-test('reconcile is idempotent — the plan for an already-reconciled vault is empty', () => {
-  const first = planReconcile({
-    manifests: [manifest],
-    pages: [{ path: 'wiki/concepts/Foo.md', name: 'foo' }],
+// Applying a plan removes rebinned files from the live set (they land in
+// dot-skipped .recycle/) and adds replayed declines to the store. Convergence
+// means re-planning after that yields nothing — the spec's actual sentence.
+// Hand-building a second input instead would pass even if applying the first
+// plan produced something reconcile disagreed with.
+function apply({ pages, declines }, plan) {
+  const moved = new Set(plan.rebin.map((r) => r.from));
+  return {
+    pages: pages.filter((p) => !moved.has(p.path)),
+    declines: [...declines, ...plan.replayDeclines],
+  };
+}
+
+function roundsToConverge(state, manifests, max = 5) {
+  const counts = [];
+  for (let i = 0; i < max; i += 1) {
+    const plan = planReconcile({ ...state, manifests });
+    counts.push(plan.rebin.length);
+    if (!plan.rebin.length && !plan.replayDeclines.length) break;
+    state = apply(state, plan);
+  }
+  return counts;
+}
+
+test('reconcile converges in one application — path match', () => {
+  const state = { pages: [{ path: 'wiki/concepts/Foo.md', name: 'foo' }], declines: [] };
+  assert.deepEqual(roundsToConverge(state, [manifest]), [1, 0]);
+});
+
+test('reconcile converges in one application — hash match', () => {
+  const state = {
+    pages: [{ path: 'raw/clippings/Src-zzz9999.md', name: 'src-zzz9999', sourceHash: 'abc1234deadbeef' }],
     declines: [],
-  });
-  assert.equal(first.rebin.length, 1);
-  const second = planReconcile({ manifests: [manifest], pages: [], declines: manifest.declines });
-  assert.deepEqual(second.rebin, []);
-  assert.deepEqual(second.replayDeclines, []);
+  };
+  assert.deepEqual(roundsToConverge(state, [manifest]), [1, 0]);
+});
+
+// Two live clippings sharing a source-hash is a real condition — dedupe.mjs
+// groups on exactly this key, and the live vault has two such groups. A
+// last-write-wins hash index binned only one per pass, so reconcile reported
+// success while the vault still disagreed with its manifest.
+test('duplicate source-hash clippings all bin in ONE pass', () => {
+  const state = {
+    pages: [
+      { path: 'raw/clippings/Src-dup1111.md', name: 'src-dup1111', sourceHash: 'abc1234deadbeef' },
+      { path: 'raw/clippings/Src-dup2222.md', name: 'src-dup2222', sourceHash: 'abc1234deadbeef' },
+    ],
+    declines: [],
+  };
+  assert.deepEqual(roundsToConverge(state, [manifest]), [2, 0]);
+});
+
+test('duplicate source-hash rebin order is identical across input orders', () => {
+  const a = { path: 'raw/clippings/Src-dup1111.md', name: 'src-dup1111', sourceHash: 'abc1234deadbeef' };
+  const b = { path: 'raw/clippings/Src-dup2222.md', name: 'src-dup2222', sourceHash: 'abc1234deadbeef' };
+  const forward = planReconcile({ manifests: [manifest], pages: [a, b], declines: [] });
+  const reverse = planReconcile({ manifests: [manifest], pages: [b, a], declines: [] });
+  assert.deepEqual(forward.rebin, reverse.rebin);
 });
 
 // Files already inside the bin are not live pages coming back.
@@ -768,10 +815,21 @@ export function planReconcile({ manifests, pages, declines }) {
   // bin. Kept because planReconcile is a pure function whose caller could pass
   // anything, and because a future collector that forgets to dot-skip would
   // otherwise make reconcile treat its own bin as a vault full of resurrections.
-  const live = pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`));
+  const live = sortedByPath(pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`)));
   const byPath = new Map(live.map((p) => [p.path, p]));
+  // A MULTIMAP, not last-write-wins: two live clippings can genuinely share a
+  // source-hash (dedupe.mjs exists to find exactly that, and the live vault has
+  // two such groups today). Keeping only one made reconcile need a second pass
+  // to bin the other — so it reported success while the vault still disagreed
+  // with its manifest — and made the choice of which one depend on filesystem
+  // order. sortedByPath then fixes the row order across machines.
   const byHash = new Map();
-  for (const p of live) if (p.sourceHash) byHash.set(p.sourceHash.toLowerCase(), p);
+  for (const p of live) {
+    if (!p.sourceHash) continue;
+    const h = p.sourceHash.toLowerCase();
+    if (!byHash.has(h)) byHash.set(h, []);
+    byHash.get(h).push(p);
+  }
 
   const rebin = [];
   const seen = new Set();
@@ -789,8 +847,8 @@ export function planReconcile({ manifests, pages, declines }) {
         continue;
       }
       const h = e['source-hash']?.toLowerCase();
-      const hit = h ? byHash.get(h) : undefined;
-      if (hit && !seen.has(hit.path)) {
+      for (const hit of (h ? byHash.get(h) ?? [] : [])) {
+        if (seen.has(hit.path)) continue;
         seen.add(hit.path);
         rebin.push({ id: m.id, from: hit.path, reason: 'source-hash' });
       }
@@ -1028,6 +1086,29 @@ test('applyPurge parks a resurrection in resurrected-N rather than overwriting',
   }
 });
 
+// A hash-matched resurrection is a re-clip under a NEW filename, so it never
+// collides with the original capture. Without the flag it lands at the bin's top
+// level, indistinguishable from a file the original purge moved there and absent
+// from that folder's manifest.json — and anything auditing resurrections by
+// scanning resurrected-*/ misses every re-clip.
+test('a hash-matched resurrection lands in resurrected-N even though it does not collide', () => {
+  const v = tempVault();
+  try {
+    applyPurge(v, { id: 'id', entries: [{ layer: 'raw', from: 'raw/clippings/Src-abc1234.md', sha256: 'x' }] });
+    // The source returns re-clipped under a different filename.
+    writeFileSync(join(v, 'raw', 'clippings', 'Src-zzz9999.md'),
+      '---\ntitle: "Src"\nsource-hash: abc1234deadbeef\n---\ntext\n');
+    applyPurge(v, { id: 'id', entries: [{ from: 'raw/clippings/Src-zzz9999.md' }] }, { asResurrection: true });
+    assert.equal(
+      existsSync(join(v, '.recycle', 'id', 'resurrected-1', 'raw', 'clippings', 'Src-zzz9999.md')), true);
+    assert.equal(
+      existsSync(join(v, '.recycle', 'id', 'raw', 'clippings', 'Src-zzz9999.md')), false,
+      'must not sit at the bin top level beside the original capture');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
 test('the bin is invisible to buildGraph', () => {
   const v = tempVault();
   try {
@@ -1169,13 +1250,21 @@ function moveInto(vaultPath, from, to) {
 // Moves every manifest entry into the bin. Re-running is safe and is how
 // reconcile re-bins a resurrection: when the bin slot is taken, the returning
 // copy parks in resurrected-N so the original capture is never overwritten.
-export function applyPurge(vaultPath, manifest) {
+export function applyPurge(vaultPath, manifest, { asResurrection = false } = {}) {
   let moved = 0;
   for (const e of manifest.entries) {
     const src = join(vaultPath, e.from);
     if (!existsSync(src)) continue;
     let to = binPathFor(manifest.id, e.from);
-    if (existsSync(join(vaultPath, to))) {
+    // `asResurrection` is set by reconcile, and it matters for the hash-matched
+    // case specifically. A path-matched resurrection collides with the original
+    // capture and gets diverted here anyway; a HASH-matched one is a re-clip
+    // under a new filename, so it never collides — without this flag it would
+    // land at the top level of the bin, indistinguishable from a file the
+    // original purge moved there and absent from that folder's manifest.json.
+    // Anything auditing resurrections by scanning resurrected-*/ would then
+    // silently miss every re-clip.
+    if (asResurrection || existsSync(join(vaultPath, to))) {
       let n = 1;
       while (existsSync(join(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) n += 1;
       to = `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`;
@@ -1405,7 +1494,10 @@ export async function main(argv) {
     const pages = buildGraph(vaultPath);
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
     for (const r of plan.rebin) {
-      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] });
+      // asResurrection regardless of match reason: a hash-matched re-clip has a
+      // new filename and would otherwise not collide, landing at the bin's top
+      // level as though the original purge had put it there.
+      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] }, { asResurrection: true });
       console.log(`re-binned ${r.from} (matched by ${r.reason})`);
     }
     for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
