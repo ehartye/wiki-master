@@ -225,20 +225,30 @@ vault's `.gitignore` excludes — **it does not sync today.** Carrying declines 
 replaying them locally is the only thing that gets a purge's declines to the user's other machines,
 and it incidentally narrows a gap that already affects `/wiki-discover`'s dedup.
 
-## 8. The one unverified assumption
+## 8. The assumption — verified 2026-08-08
 
-Obsidian's own indexer is expected to ignore dot-prefixed folders — the behavior that keeps
-`.obsidian`, `.trash`, and `.git` out of search results. **This was not verified live:** Obsidian was
-not running during the design session, and the probe (`obsidian search`, `obsidian files ext=md`
-against a `.recycle-probe/` folder) returned "The CLI is unable to find Obsidian" on all three
-commands. The probe folder was removed.
+Obsidian's own indexer ignores dot-prefixed folders — the behavior that keeps `.obsidian`, `.trash`,
+and `.git` out of search results. **Verified live** against the real vault with Obsidian running:
 
-Per this repo's own guardrail — verify against the artifact, never assert from memory — **the first
-step of implementation is that probe**, before any code depends on it.
+```
+planted: .recycle/probe-task1/wiki/concepts/Probe.md  (body: "zzqqxx-purge-probe-token")
 
-**Fallback if the probe fails:** add `.recycle` to `userIgnoreFilters` in `.obsidian/app.json`
-(Obsidian's "Excluded files" setting; currently `{}` in this vault) and have `wiki-init` write it.
-One extra file, same outcome.
+obsidian search query="zzqqxx-purge-probe-token"   → No matches found.
+obsidian files ext=md  | filter "probe-task1"      → (nothing)
+obsidian search query="the" total                  → 2928
+```
+
+The third command is the load-bearing one. Per the `obsidian-cli` skill's "Empty is not an answer"
+rule, Obsidian publishes no exit-code contract for "no results," so an empty result that is about to
+drive a decision needs one cheap canary: a live backend printing a number means the two empties above
+are real answers rather than a dead CLI. It printed 2928. The probe folder was then removed.
+
+**The `userIgnoreFilters` fallback is therefore not needed and was not implemented.** Had the probe
+found the file, the fallback would have been to add `.recycle` to `userIgnoreFilters` in
+`.obsidian/app.json` (Obsidian's "Excluded files" setting) and have `wiki-init` write it.
+
+This closes the last open question in the design. Every channel in §4's table is now confirmed
+excluded: three by code that was read, and the Obsidian-side channels by measurement.
 
 Scope of the dependency, precisely: every reader in §4's table is excluded by a filesystem walk skip
 or an anchored `wiki/` prefix filter, and holds either way. What genuinely rides on the probe is only
