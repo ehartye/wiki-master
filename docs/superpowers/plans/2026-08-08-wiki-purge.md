@@ -279,7 +279,14 @@ test('a clipping shared with an off-topic page is NEVER purged', () => {
 test('a page linked from outside the set lands on collateral, not in the bin', () => {
   const r = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
   assert.ok(!r.purge.includes('wiki/concepts/Outside Page.md'));
-  assert.deepEqual(r.collateral, ['wiki/concepts/Outside Page.md']);
+  // Two survivors, for different reasons, and BOTH are collateral:
+  //   Outside Page  — links [[Topic Concept]] from outside the topic.
+  //   Topic Source  — nothing links to it, so refs.length === 0 and it is never
+  //                   admitted; but its body links [[Topic Concept]], which IS
+  //                   purged, so it is left holding a dangling link.
+  // Collateral is "survives but references purged content" (spec §5) — how a
+  // page came to survive is irrelevant to whether it needs repair.
+  assert.deepEqual(r.collateral, ['wiki/concepts/Outside Page.md', 'wiki/sources/Topic Source.md']);
 });
 
 // index.md links everything. If it counted as an outside referent the closure
