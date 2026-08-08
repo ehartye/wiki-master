@@ -155,6 +155,21 @@ test('a raw clipping is never collateral', () => {
   assert.deepEqual(r.collateral, []);
 });
 
+// A clipping's wikilink counts as an outside referent and protects its target.
+// Deliberately NOT graph.mjs:309's source-side exclusion: an edge from immutable
+// captured text is weak evidence, but ignoring it purges a page graph.mjs would
+// have left alone — the over-match direction this design refuses. 78 of the 1100
+// clippings in the live vault carry [[...]], so this is a real condition.
+test('a raw clipping linking to a page protects it from the closure', () => {
+  const pages = [
+    { path: 'wiki/concepts/Seed.md', name: 'seed', outTargets: ['Length'], fmTargets: [] },
+    { path: 'wiki/concepts/Length.md', name: 'length', outTargets: [], fmTargets: [] },
+    { path: 'raw/clippings/Spec-abc1234.md', name: 'spec-abc1234', outTargets: ['Length'], fmTargets: [] },
+  ];
+  const r = planPurge({ pages, seedPaths: ['wiki/concepts/Seed.md'] });
+  assert.ok(!r.purge.includes('wiki/concepts/Length.md'));
+});
+
 test('an unreferenced page unrelated to the topic is not swept in', () => {
   const r = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
   assert.ok(!r.purge.includes('wiki/concepts/Unrelated.md'));
@@ -162,6 +177,10 @@ test('an unreferenced page unrelated to the topic is not swept in', () => {
 
 // Guardrail #2: a page whose entire provenance was purged is a claim with no
 // evidence. Purge must not decide that silently in either direction.
+// blocking is a SUBSET of collateral by construction (see planPurge's header
+// comment) — assert both so a future change that breaks the subset property
+// is caught here, not discovered when Task 7 repairs a page it should have
+// stopped on instead.
 test('a page losing all provenance is reported as blocking', () => {
   const pages = [
     { path: 'wiki/sources/S.md', name: 's', outTargets: [], fmTargets: ['raw/clippings/E-ccc3333.md'] },
@@ -169,6 +188,7 @@ test('a page losing all provenance is reported as blocking', () => {
   ];
   const r = planPurge({ pages, seedPaths: ['raw/clippings/E-ccc3333.md'] });
   assert.deepEqual(r.blocking, ['wiki/sources/S.md']);
+  assert.deepEqual(r.collateral, ['wiki/sources/S.md']);
 });
 
 test('a page keeping at least one source is not blocking', () => {
@@ -182,9 +202,41 @@ test('a page keeping at least one source is not blocking', () => {
   assert.deepEqual(r.blocking, []);
 });
 
-test('the plan is deterministic and sorted', () => {
-  const a = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
-  const b = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
-  assert.deepEqual(a.purge, b.purge);
-  assert.deepEqual(a.purge, [...a.purge].sort());
+// buildNameIndex is first-writer-wins on the plain key, so without sorting the
+// pages array first, a bare `sources: [[Foo]]` citation binds to whichever
+// homonym the walk visited first — readdirSync is alphabetical on NTFS but
+// hash-ordered on ext4, so two machines reading the identical vault would
+// compute different purge sets. This fixture reproduces the exact collision:
+// raw/clippings/Foo.md and wiki/sources/Foo.md share the bare name "foo", and
+// Citer.md cites it via the ambiguous provenance channel.
+function collisionVault() {
+  return [
+    { path: 'raw/clippings/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/concepts/Citer.md', name: 'citer', outTargets: [], fmTargets: ['Foo'] },
+  ];
+}
+
+function permutations(arr) {
+  if (arr.length <= 1) return [arr];
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = [...arr.slice(0, i), ...arr.slice(i + 1)];
+    for (const p of permutations(rest)) out.push([arr[i], ...p]);
+  }
+  return out;
+}
+
+test('the plan is order-independent and sorted, across every array order of a colliding fixture', () => {
+  const seeds = ['wiki/concepts/Citer.md'];
+  // The bare citation must always resolve to the clipping, per the vault's
+  // documented `sources: [[raw/clippings/X.md]]` convention — never to the
+  // wiki/sources/ summary page that happens to share its basename.
+  const reference = planPurge({ pages: collisionVault(), seedPaths: seeds }).purge;
+  assert.deepEqual(reference, ['raw/clippings/Foo.md', 'wiki/concepts/Citer.md']);
+  for (const perm of permutations(collisionVault())) {
+    const r = planPurge({ pages: perm, seedPaths: seeds });
+    assert.deepEqual(r.purge, reference);
+    assert.deepEqual(r.purge, [...r.purge].sort());
+  }
 });

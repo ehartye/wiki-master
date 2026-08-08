@@ -49,7 +49,21 @@ export function inboundMap(pages, byName) {
 //   blocking   — survive, but ALL their provenance is inside the set. Guardrail
 //                #2 says a claim with no evidence is a defect, so purge stops
 //                and asks rather than guessing.
-export function planPurge({ pages, seedPaths }) {
+// blocking ⊆ collateral by construction: a page whose every resolved fmTarget
+// is in the set necessarily has a target in the set, so it always shows up in
+// collateral too. Resolve blocking FIRST — Task 7's repair step acts on
+// collateral, and repairing a page the user is about to purge (by resolving
+// the blocking prompt) would be wasted or wrong work.
+export function planPurge({ pages: inputPages, seedPaths }) {
+  // Sorted before indexing, not for tidiness: buildNameIndex is first-writer-wins
+  // on the plain key, so array order decides which file a bare `sources: [[Foo]]`
+  // citation resolves to — and therefore which files get binned. readdirSync is
+  // alphabetical on NTFS but hash-ordered on ext4, so without this two machines
+  // compute different purge sets from the same vault, defeating the cross-machine
+  // convergence this feature exists for. Sorting puts raw/ before wiki/, so a bare
+  // provenance citation resolves to the clipping — which is what the vault's
+  // documented `sources: [[raw/clippings/X.md]]` convention means anyway.
+  const pages = [...inputPages].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const byName = buildNameIndex(pages);
   const inbound = inboundMap(pages, byName);
   const known = new Set(pages.map((p) => p.path));
@@ -60,9 +74,22 @@ export function planPurge({ pages, seedPaths }) {
     grew = false;
     for (const p of pages) {
       if (set.has(p.path) || isStructural(p.path)) continue;
+      // Filters by isStructural, not isContent — a deliberate departure from
+      // graph.mjs:309's source-side exclusion, which drops raw/ pages from every
+      // graph metric at collection time "so no downstream check can forget it."
+      // Here a raw clipping's wikilink DOES count as an outside referent: an edge
+      // from immutable captured text is weak evidence, but ignoring it would purge
+      // a page graph.mjs would have left alone — the over-match direction this
+      // design refuses. 78 of the 1100 clippings in the live vault carry [[...]]
+      // (mostly W3C internal-slot notation like [[length]]), so this is a real
+      // condition, not a hypothetical.
       const refs = [...inbound.get(p.path)].filter((r) => !isStructural(r));
       // No referent at all is not evidence of topic membership — an orphan
-      // unrelated to the topic would otherwise be swept in by vacuous truth.
+      // unrelated to the topic would otherwise be swept in by vacuous truth. This
+      // also catches pages referenced ONLY by structural pages (refs is already
+      // structural-filtered above) — e.g. linked solely from index.md, which
+      // links everything, so admitting that class would sweep in every
+      // content-orphan in the vault. Do not narrow this to "refs is empty."
       if (refs.length === 0) continue;
       if (refs.every((r) => set.has(r))) {
         set.add(p.path);
