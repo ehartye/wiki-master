@@ -105,6 +105,32 @@ test('uncommittedElsewhere does not mangle a non-ASCII filename', () => {
   }
 });
 
+// The critical bug the reviewer's follow-up caught: a bare `git commit -m`
+// commits the WHOLE INDEX, not just what was just staged. If the purge's own
+// paths resolve to no actual change (nothing to purge) while the user has
+// separately pre-staged their own work, a naive implementation reports success
+// and commits the user's pre-staged work under a "purge:" message — the same
+// mislabelling failure this module exists to prevent, triggered from the
+// pre-staged side rather than the unstaged side.
+test('commitPaths does not commit pre-staged work when the purge itself is a no-op', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    commitPaths(repo, ['a.md'], 'initial');
+    writeFileSync(join(repo, 'my-draft.md'), 'draft\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo }); // user pre-stages their own work
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    const r = commitPaths(repo, ['a.md'], 'purge: topic'); // a.md unchanged: purge moved nothing
+    assert.deepEqual(r, { committed: false, reason: 'nothing to commit' });
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    assert.equal(after, before, 'no commit should have been made');
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' });
+    assert.match(status, /^A {2}my-draft\.md$/m, 'the pre-staged file must remain staged, not committed');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('commitPaths reports committed:false when the named paths are unchanged', () => {
   const repo = tempRepo();
   try {
