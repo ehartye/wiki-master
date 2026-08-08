@@ -149,11 +149,20 @@ test('two live clippings sharing a source-hash are both rebinned in a single pas
   assert.deepEqual(shuffled.rebin, expected);
 });
 
-// Files already inside the bin are not live pages coming back.
+// Files already inside the bin are not live pages coming back. A path-only
+// fixture can't defend this filter: nothing in the bin matches `from` by path
+// OR by hash unless the bin page also carries the source-hash a binned
+// clipping keeps in its frontmatter. This is the real hazard — a collector
+// that forgot to dot-skip would hash-match a file already in the bin and
+// reconcile would nest it deeper (.recycle/<id>/raw/... -> .recycle/<id>/.recycle/...).
 test('bin contents are never treated as resurrections', () => {
   const r = planReconcile({
     manifests: [manifest],
-    pages: [{ path: '.recycle/2026-08-08-topic/wiki/concepts/Foo.md', name: 'foo' }],
+    pages: [{
+      path: '.recycle/2026-08-08-topic/raw/clippings/Src-abc1234.md',
+      name: 'src-abc1234',
+      sourceHash: 'abc1234deadbeef',
+    }],
     declines: manifest.declines,
   });
   assert.deepEqual(r.rebin, []);
@@ -167,4 +176,69 @@ test('one entry never yields two rebin rows when path and hash both match', () =
   });
   assert.equal(r.rebin.length, 1);
   assert.equal(r.rebin[0].reason, 'path');
+});
+
+// Two entries in the SAME manifest sharing a source-hash is the duplicate-
+// clipping condition that motivated the multimap: without the `seen` guard
+// inside the hash loop, both entries would emit a row for the one live file.
+test('two manifest entries sharing a source-hash never double-count the same live file', () => {
+  const dupEntries = {
+    id: '2026-08-08-dup-entries',
+    entries: [
+      { layer: 'raw', from: 'raw/clippings/Src-orig-a.md', sha256: 'sha-a',
+        'source-hash': 'dupdupdupdupdup', url: 'https://example.com/dup-a' },
+      { layer: 'raw', from: 'raw/clippings/Src-orig-b.md', sha256: 'sha-b',
+        'source-hash': 'dupdupdupdupdup', url: 'https://example.com/dup-b' },
+    ],
+    declines: [],
+  };
+  const page = { path: 'raw/clippings/Src-live0000.md', name: 'src-live0000', sourceHash: 'dupdupdupdupdup' };
+  const r = planReconcile({ manifests: [dupEntries], pages: [page], declines: [] });
+  assert.deepEqual(r.rebin, [{ id: '2026-08-08-dup-entries', from: page.path, reason: 'source-hash' }]);
+});
+
+// Earliest purge claims a contested path — a page purged, restored, and
+// purged again in a later purge appears in both manifests by construction,
+// and the module must not let caller order decide which bin it comes back to.
+// This also defends the `seen` guard in the path branch: without it, two
+// manifests listing the same live path would each emit a row for it.
+test('a path claimed by two manifests goes to the earliest purge, regardless of manifest order', () => {
+  const alpha = {
+    id: '2026-08-01-alpha',
+    entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'sha-alpha' }],
+    declines: [],
+  };
+  const beta = {
+    id: '2026-09-01-beta',
+    entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'sha-beta' }],
+    declines: [],
+  };
+  const pages = [{ path: 'wiki/concepts/Foo.md', name: 'foo' }];
+  const expected = [{ id: '2026-08-01-alpha', from: 'wiki/concepts/Foo.md', reason: 'path' }];
+
+  const forward = planReconcile({ manifests: [alpha, beta], pages, declines: [] });
+  const reverse = planReconcile({ manifests: [beta, alpha], pages, declines: [] });
+  assert.deepEqual(forward.rebin, expected);
+  assert.deepEqual(reverse.rebin, expected);
+});
+
+// Local declines are recorded in whatever case a prior run happened to use;
+// the join must not miss a match on case alone.
+test('a decline already present is matched case-insensitively', () => {
+  const r = planReconcile({ manifests: [manifest], pages: [], declines: ['HTTPS://EXAMPLE.COM/A'] });
+  assert.deepEqual(r.replayDeclines, []);
+});
+
+// Manifests are hand-editable JSON; a hash recorded in a different case must
+// still resolve to the live clipping's (always-lowercased) hash key.
+test('a source-hash match is case-insensitive against the manifest entry', () => {
+  const caseManifest = {
+    id: '2026-08-08-case',
+    entries: [{ layer: 'raw', from: 'raw/clippings/Src-orig.md', sha256: 'sha-case',
+      'source-hash': 'ABC1234DEADBEEF' }],
+    declines: [],
+  };
+  const page = { path: 'raw/clippings/Src-newname.md', name: 'src-newname', sourceHash: 'abc1234deadbeef' };
+  const r = planReconcile({ manifests: [caseManifest], pages: [page], declines: [] });
+  assert.deepEqual(r.rebin, [{ id: '2026-08-08-case', from: page.path, reason: 'source-hash' }]);
 });

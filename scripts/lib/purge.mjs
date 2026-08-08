@@ -230,7 +230,11 @@ export function planReconcile({ manifests, pages, declines }) {
   const knownDeclines = new Set((declines ?? []).map((d) => d.toLowerCase()));
   const replayDeclines = [];
 
-  for (const m of manifests) {
+  // Earliest purge claims a contested path. Sorted here, not trusted from the
+  // caller: ids are date-prefixed, and `seen` makes iteration order decide which
+  // bin a resurrected file returns to — see sortedByPath for the same reasoning.
+  const orderedManifests = [...manifests].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const m of orderedManifests) {
     for (const e of m.entries ?? []) {
       // Path first: it is the exact identity. Only fall through to the hash when
       // nothing sits at the original path, or a re-clip and its original would
