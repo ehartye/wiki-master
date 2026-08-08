@@ -18,7 +18,7 @@
 
 **The two link channels — this trips people up.** `buildGraph` gives each page `outTargets` (wikilinks found in the body) and `fmTargets` (wikilinks found in frontmatter). They resolve differently: body links use `resolveLinkTarget(byName, t, { nav: true })` and frontmatter links use `resolveLinkTarget(byName, t)` (nav defaults false). See `graph.mjs:315-316` for the existing precedent — copy that convention exactly, do not pick one for both.
 
-**Page shape** returned by `buildGraph(vaultPath)` — a flat array, each entry:
+**Page shape.** `buildGraph(vaultPath)` returns **`{ pages }`**, NOT a flat array — verified against `graph.mjs`'s own return statement and every consumer in `scripts/`. Destructure it or use `.pages`. Each entry:
 ```
 { path, name, title, type, status, created, updated, sourceHash, sourceHashes,
   words, outTargets, fmTargets, declaresNoSources }
@@ -1298,7 +1298,7 @@ test('the bin is invisible to buildGraph', () => {
   const v = tempVault();
   try {
     applyPurge(v, { id: 'id', entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }] });
-    const pages = buildGraph(v);
+    const pages = buildGraph(v).pages;
     assert.equal(pages.some((p) => p.path.includes('.recycle')), false);
     assert.equal(pages.some((p) => p.path === 'wiki/concepts/Foo.md'), false);
   } finally {
@@ -1380,7 +1380,7 @@ test('readManifests on a vault with no bin returns an empty list', () => {
 test('enrichPages reads the source url off a clipping', () => {
   const v = tempVault();
   try {
-    const pages = enrichPages(v, buildGraph(v));
+    const pages = enrichPages(v, buildGraph(v).pages);
     const clip = pages.find((p) => p.path === 'raw/clippings/Src-abc1234.md');
     assert.equal(clip.url, 'https://example.com/a');
   } finally {
@@ -1681,7 +1681,7 @@ export async function main(argv) {
 
   if (mode === '--reconcile') {
     const manifests = readManifests(vaultPath);
-    const pages = buildGraph(vaultPath);
+    const pages = buildGraph(vaultPath).pages;
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
     for (const r of plan.rebin) {
       // asResurrection regardless of match reason: a hash-matched re-clip has a
@@ -1701,7 +1701,7 @@ export async function main(argv) {
     return;
   }
 
-  const pages = enrichPages(vaultPath, buildGraph(vaultPath));
+  const pages = enrichPages(vaultPath, buildGraph(vaultPath).pages);
   const seedPaths = await collectSeeds(arg);
   if (!seedPaths.length) {
     console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
@@ -2050,7 +2050,7 @@ function fixtureCopy() {
 test('end to end: purging the topic keeps the shared clipping and its off-topic dependent', () => {
   const v = fixtureCopy();
   try {
-    const pages = enrichPages(v, buildGraph(v));
+    const pages = enrichPages(v, buildGraph(v).pages);
     const plan = planPurge({
       pages,
       seedPaths: ['wiki/concepts/Topic Concept.md', 'wiki/sources/Topic Source.md'],
@@ -2079,7 +2079,7 @@ test('end to end: purging the topic keeps the shared clipping and its off-topic 
 test('end to end: the purged clipping leaves the backlog rather than lingering as un-ingested', () => {
   const v = fixtureCopy();
   try {
-    const pages = enrichPages(v, buildGraph(v));
+    const pages = enrichPages(v, buildGraph(v).pages);
     const plan = planPurge({ pages, seedPaths: ['wiki/concepts/Topic Concept.md'] });
     const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
     const manifest = buildManifest({
@@ -2089,7 +2089,7 @@ test('end to end: the purged clipping leaves the backlog rather than lingering a
     applyPurge(v, manifest);
     // unsummarizedSources is an array of path STRINGS — health.mjs:87 prints it
     // with .join(), which only works on strings.
-    const { unsummarizedSources } = computeGraphMetrics({ pages: buildGraph(v) });
+    const { unsummarizedSources } = computeGraphMetrics(buildGraph(v));
     assert.equal(unsummarizedSources.some((p) => p.includes('Only-aaa1111')), false);
   } finally {
     rmSync(v, { recursive: true, force: true });
