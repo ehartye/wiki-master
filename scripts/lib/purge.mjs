@@ -172,6 +172,9 @@ export function buildManifest({ id, topic, date, purge, collateral, pages, hashe
     const entry = {
       layer: from.startsWith('raw/') ? 'raw' : 'wiki',
       from,
+      // Integrity record for a human or a future verifier — nothing downstream
+      // reads it today. planReconcile joins on `from` and `source-hash`;
+      // applyPurge uses only `from` and manifest.id.
       sha256: hashes[from],
     };
     if (page.sourceHash) entry['source-hash'] = page.sourceHash;
@@ -186,4 +189,55 @@ export function buildManifest({ id, topic, date, purge, collateral, pages, hashe
     declines: entries.map((e) => e.url).filter(Boolean),
     collateral,
   };
+}
+
+// ---- reconcile ----
+
+// Convergence, not cleanup. A purge is a fact recorded in a manifest; a vault
+// that disagrees with the manifest is a vault that has drifted — on any machine,
+// for any reason (an uncommitted restore, a merge that kept a modified file, a
+// re-clip). Reconcile makes the vault agree again, and says nothing when it
+// already does.
+export function planReconcile({ manifests, pages, declines }) {
+  // Belt-and-braces, not load-bearing: buildGraph's walk skips every dot-prefixed
+  // entry, so pages from the real collector can never contain a .recycle/ path —
+  // measured from the other side too, since Obsidian's own indexer ignores the
+  // bin. Kept because planReconcile is a pure function whose caller could pass
+  // anything, and because a future collector that forgets to dot-skip would
+  // otherwise make reconcile treat its own bin as a vault full of resurrections.
+  const live = pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`));
+  const byPath = new Map(live.map((p) => [p.path, p]));
+  const byHash = new Map();
+  for (const p of live) if (p.sourceHash) byHash.set(p.sourceHash.toLowerCase(), p);
+
+  const rebin = [];
+  const seen = new Set();
+  const knownDeclines = new Set((declines ?? []).map((d) => d.toLowerCase()));
+  const replayDeclines = [];
+
+  for (const m of manifests) {
+    for (const e of m.entries ?? []) {
+      // Path first: it is the exact identity. Only fall through to the hash when
+      // nothing sits at the original path, or a re-clip and its original would
+      // both report and the caller would move one file twice.
+      if (byPath.has(e.from) && !seen.has(e.from)) {
+        seen.add(e.from);
+        rebin.push({ id: m.id, from: e.from, reason: 'path' });
+        continue;
+      }
+      const h = e['source-hash']?.toLowerCase();
+      const hit = h ? byHash.get(h) : undefined;
+      if (hit && !seen.has(hit.path)) {
+        seen.add(hit.path);
+        rebin.push({ id: m.id, from: hit.path, reason: 'source-hash' });
+      }
+    }
+    for (const url of m.declines ?? []) {
+      if (!knownDeclines.has(url.toLowerCase())) {
+        knownDeclines.add(url.toLowerCase());
+        replayDeclines.push(url);
+      }
+    }
+  }
+  return { rebin, replayDeclines };
 }

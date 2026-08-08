@@ -156,7 +156,7 @@ test('a raw clipping is never collateral', () => {
 });
 
 // A clipping's wikilink counts as an outside referent and protects its target.
-// Deliberately NOT graph.mjs:309's source-side exclusion: an edge from immutable
+// Deliberately NOT computeGraphMetrics's source-side exclusion: an edge from immutable
 // captured text is weak evidence, but ignoring it purges a page graph.mjs would
 // have left alone — the over-match direction this design refuses. 78 of the 1100
 // clippings in the live vault carry [[...]], so this is a real condition.
