@@ -205,10 +205,25 @@ export function planReconcile({ manifests, pages, declines }) {
   // bin. Kept because planReconcile is a pure function whose caller could pass
   // anything, and because a future collector that forgets to dot-skip would
   // otherwise make reconcile treat its own bin as a vault full of resurrections.
-  const live = pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`));
+  // Sorted for the same reason sortedByPath exists at all: dedupe.mjs's own
+  // group-by-source-hash shows duplicate hashes among live clippings are a real,
+  // expected condition (not hypothetical), and readdirSync order is filesystem-
+  // dependent — without this, which duplicate reconcile picks (and therefore
+  // whether one pass or two is needed to converge) would vary machine to machine.
+  const live = sortedByPath(pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`)));
   const byPath = new Map(live.map((p) => [p.path, p]));
+  // Multimap, not last-write-wins: two live clippings can legitimately share a
+  // source-hash (a bookmarked-twice paper, still mid-dedupe). A single-value map
+  // would make only one of them reachable per pass, so a manifest whose entry's
+  // hash matches both would need two reconcile runs to fully converge instead
+  // of one.
   const byHash = new Map();
-  for (const p of live) if (p.sourceHash) byHash.set(p.sourceHash.toLowerCase(), p);
+  for (const p of live) {
+    if (!p.sourceHash) continue;
+    const h = p.sourceHash.toLowerCase();
+    if (!byHash.has(h)) byHash.set(h, []);
+    byHash.get(h).push(p);
+  }
 
   const rebin = [];
   const seen = new Set();
@@ -226,8 +241,8 @@ export function planReconcile({ manifests, pages, declines }) {
         continue;
       }
       const h = e['source-hash']?.toLowerCase();
-      const hit = h ? byHash.get(h) : undefined;
-      if (hit && !seen.has(hit.path)) {
+      for (const hit of h ? byHash.get(h) ?? [] : []) {
+        if (seen.has(hit.path)) continue;
         seen.add(hit.path);
         rebin.push({ id: m.id, from: hit.path, reason: 'source-hash' });
       }
