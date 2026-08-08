@@ -762,6 +762,12 @@ Append to `scripts/lib/purge.mjs`:
 // re-clip). Reconcile makes the vault agree again, and says nothing when it
 // already does.
 export function planReconcile({ manifests, pages, declines }) {
+  // Belt-and-braces, not load-bearing: buildGraph's walk skips every dot-prefixed
+  // entry, so pages from the real collector can never contain a .recycle/ path —
+  // measured from the other side too, since Obsidian's own indexer ignores the
+  // bin. Kept because planReconcile is a pure function whose caller could pass
+  // anything, and because a future collector that forgets to dot-skip would
+  // otherwise make reconcile treat its own bin as a vault full of resurrections.
   const live = pages.filter((p) => !p.path.startsWith(`${BIN_DIR}/`));
   const byPath = new Map(live.map((p) => [p.path, p]));
   const byHash = new Map();
@@ -1073,6 +1079,27 @@ test('readManifests returns every manifest in the bin', () => {
   }
 });
 
+// Two topics that slugify identically on the same day must not share a folder.
+test('claimPurgeId suffixes rather than reusing an occupied bin folder', () => {
+  const v = tempVault();
+  try {
+    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety');
+    writeManifest(v, { id: '2026-08-08-ai-safety', topic: 'AI safety', entries: [] });
+    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-2');
+    writeManifest(v, { id: '2026-08-08-ai-safety-2', topic: 'AI-safety', entries: [] });
+    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-3');
+    // Both manifests survive — neither overwrote the other.
+    assert.deepEqual(readManifests(v).map((m) => m.topic).sort(), ['AI safety', 'AI-safety']);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The date the manifest reports must survive the suffix.
+test('a suffixed id still yields the right date via slice(0, 10)', () => {
+  assert.equal('2026-08-08-ai-safety-2'.slice(0, 10), '2026-08-08');
+});
+
 test('readManifests on a vault with no bin returns an empty list', () => {
   const v = tempVault();
   try {
@@ -1198,6 +1225,27 @@ export function writeManifest(vaultPath, manifest) {
   const dir = join(vaultPath, BIN_DIR, manifest.id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+// purgeId slugifies free text, so "AI safety", "AI-safety" and "ai_safety" all
+// yield the same id on the same day — and an all-punctuation or all-non-ASCII
+// topic yields the bare `<date>-purge` fallback. Two such purges sharing a
+// folder is silent data loss: writeManifest would overwrite the first manifest,
+// and applyPurge's per-file guard would file the second purge's files under
+// resurrected-<n>/ — reconcile's vocabulary for "this came back" — inside the
+// first purge's folder. A lost manifest costs exactly what manifests are for:
+// its entries never re-bin on resurrection and its declines never replay, so
+// those URLs get re-discovered and re-clipped, the "re-litigated forever"
+// failure decline.mjs exists to prevent.
+//
+// Never reuse an occupied id, even for the same topic — a second purge of one
+// topic is still a second purge with its own entries. id.slice(0, 10) still
+// yields the date with a suffix attached, so the manifest's `date` is unaffected.
+export function claimPurgeId(vaultPath, id) {
+  let candidate = id;
+  let n = 2;
+  while (existsSync(join(vaultPath, BIN_DIR, candidate))) candidate = `${id}-${n++}`;
+  return candidate;
 }
 ```
 
@@ -1385,7 +1433,7 @@ export async function main(argv) {
     return;
   }
 
-  const id = purgeId(arg);
+  const id = claimPurgeId(vaultPath, purgeId(arg));
   const hashes = Object.fromEntries(
     plan.purge.map((p) => [p, sha256(readFileSync(join(vaultPath, p), 'utf8'))])
   );
