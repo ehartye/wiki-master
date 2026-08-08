@@ -1,12 +1,14 @@
 import { buildNameIndex, resolveLinkTarget, isContent } from './graph.mjs';
 
+// ---- closure ----
+
 // Pages that exist to point at other pages. index.md catalogs everything and a
 // MOC's whole job is linking, so an inbound edge from one carries no evidence
 // that the target belongs to a topic. They are excluded from the "is anything
 // outside the set referencing this?" test — never from being purged, which a
 // seed can still do explicitly.
-// Mirrors graph.mjs's SYSTEM_FILES (graph.mjs:11) for the file-set part; if a
-// fourth system file is ever added there, add it here too.
+// Mirrors graph.mjs's SYSTEM_FILES for the file-set part; if a fourth system
+// file is ever added there, add it here too.
 const STRUCTURAL_FILES = new Set(['index.md', 'log.md', 'vault-schema.md']);
 // Deliberately NOT the same prefix set graph.mjs's isContent() excludes:
 // raw/ is omitted because clippings are purge targets, not structure, and
@@ -17,6 +19,19 @@ const STRUCTURAL_PREFIXES = ['moc/', 'log/', '_templates/'];
 
 export function isStructural(path) {
   return STRUCTURAL_FILES.has(path) || STRUCTURAL_PREFIXES.some((p) => path.startsWith(p));
+}
+
+// Any function that builds a name index (buildNameIndex is first-writer-wins on
+// the plain key) must sort pages by path first, or array order decides which
+// file a bare `sources: [[Foo]]` citation resolves to — and therefore which
+// files get binned. readdirSync is alphabetical on NTFS but hash-ordered on
+// ext4, so without this two machines compute different purge sets from the
+// same vault, defeating the cross-machine convergence this feature exists for.
+// Sorting puts raw/ before wiki/, so a bare provenance citation resolves to the
+// clipping — which is what the vault's documented `sources: [[raw/clippings/X.md]]`
+// convention means anyway.
+export function sortedByPath(pages) {
+  return [...pages].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
 // Inverts the graph: target path -> set of page paths linking to it. The two
@@ -55,15 +70,8 @@ export function inboundMap(pages, byName) {
 // collateral, and repairing a page the user is about to purge (by resolving
 // the blocking prompt) would be wasted or wrong work.
 export function planPurge({ pages: inputPages, seedPaths }) {
-  // Sorted before indexing, not for tidiness: buildNameIndex is first-writer-wins
-  // on the plain key, so array order decides which file a bare `sources: [[Foo]]`
-  // citation resolves to — and therefore which files get binned. readdirSync is
-  // alphabetical on NTFS but hash-ordered on ext4, so without this two machines
-  // compute different purge sets from the same vault, defeating the cross-machine
-  // convergence this feature exists for. Sorting puts raw/ before wiki/, so a bare
-  // provenance citation resolves to the clipping — which is what the vault's
-  // documented `sources: [[raw/clippings/X.md]]` convention means anyway.
-  const pages = [...inputPages].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  // Sorted before indexing, not for tidiness — see sortedByPath's comment.
+  const pages = sortedByPath(inputPages);
   const byName = buildNameIndex(pages);
   const inbound = inboundMap(pages, byName);
   const known = new Set(pages.map((p) => p.path));
@@ -75,8 +83,8 @@ export function planPurge({ pages: inputPages, seedPaths }) {
     for (const p of pages) {
       if (set.has(p.path) || isStructural(p.path)) continue;
       // Filters by isStructural, not isContent — a deliberate departure from
-      // graph.mjs:309's source-side exclusion, which drops raw/ pages from every
-      // graph metric at collection time "so no downstream check can forget it."
+      // computeGraphMetrics's source-side exclusion, which drops raw/ pages from
+      // every graph metric at collection time "so no downstream check can forget it."
       // Here a raw clipping's wikilink DOES count as an outside referent: an edge
       // from immutable captured text is weak evidence, but ignoring it would purge
       // a page graph.mjs would have left alone — the over-match direction this
@@ -100,7 +108,7 @@ export function planPurge({ pages: inputPages, seedPaths }) {
 
   const targetsOf = (p) => [
     ...(p.outTargets ?? []).map((t) => resolveLinkTarget(byName, t, { nav: true })),
-    ...(p.fmTargets ?? []).map((t) => resolveLinkTarget(byName, t)),
+    ...(p.fmTargets ?? []).map((t) => resolveLinkTarget(byName, t, { nav: false })),
   ].filter(Boolean);
 
   // The collateral/blocking pool asks a DIFFERENT question from the refs filter
@@ -121,11 +129,61 @@ export function planPurge({ pages: inputPages, seedPaths }) {
 
   const blocking = survivors
     .filter((p) => {
-      const evidence = (p.fmTargets ?? []).map((t) => resolveLinkTarget(byName, t)).filter(Boolean);
+      const evidence = (p.fmTargets ?? []).map((t) => resolveLinkTarget(byName, t, { nav: false })).filter(Boolean);
       return evidence.length > 0 && evidence.every((e) => set.has(e));
     })
     .map((p) => p.path)
     .sort();
 
   return { purge: [...set].sort(), collateral, blocking };
+}
+
+// ---- manifest ----
+
+export const BIN_DIR = '.recycle';
+
+// The dot segment comes first, always. See the test — three readers exclude the
+// bin with anchored ^wiki/ filters, and only leading-dot placement satisfies
+// them together with graph.mjs's readdir dot-skip.
+export function binPathFor(id, originalPath) {
+  return `${BIN_DIR}/${id}/${originalPath}`;
+}
+
+export function purgeId(topic, now = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  const day = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+  const slug = String(topic)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+  return `${day}-${slug || 'purge'}`;
+}
+
+// Keyed by BOTH path and content hash: path finds a file that came back where it
+// was, `source-hash` finds one that came back under a different name. Same join
+// health.mjs --backlog already uses, so it inherits a contract already proven
+// against filename drift.
+export function buildManifest({ id, topic, date, purge, collateral, pages, hashes }) {
+  const byPath = new Map(pages.map((p) => [p.path, p]));
+  const entries = purge.map((from) => {
+    const page = byPath.get(from) ?? {};
+    const entry = {
+      layer: from.startsWith('raw/') ? 'raw' : 'wiki',
+      from,
+      sha256: hashes[from],
+    };
+    if (page.sourceHash) entry['source-hash'] = page.sourceHash;
+    if (page.url) entry.url = page.url;
+    return entry;
+  });
+  return {
+    id,
+    topic,
+    date,
+    entries,
+    declines: entries.map((e) => e.url).filter(Boolean),
+    collateral,
+  };
 }

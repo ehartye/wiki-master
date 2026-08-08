@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isStructural, inboundMap, planPurge } from '../scripts/lib/purge.mjs';
+import { isStructural, inboundMap, planPurge, binPathFor, purgeId, buildManifest } from '../scripts/lib/purge.mjs';
 import { buildNameIndex } from '../scripts/lib/graph.mjs';
 
 // Structural pages link everything (index.md catalogs the vault; a MOC exists to
@@ -232,11 +232,105 @@ test('the plan is order-independent and sorted, across every array order of a co
   // The bare citation must always resolve to the clipping, per the vault's
   // documented `sources: [[raw/clippings/X.md]]` convention — never to the
   // wiki/sources/ summary page that happens to share its basename.
-  const reference = planPurge({ pages: collisionVault(), seedPaths: seeds }).purge;
-  assert.deepEqual(reference, ['raw/clippings/Foo.md', 'wiki/concepts/Citer.md']);
+  const reference = planPurge({ pages: collisionVault(), seedPaths: seeds });
+  assert.deepEqual(reference.purge, ['raw/clippings/Foo.md', 'wiki/concepts/Citer.md']);
+  // wiki/sources/Foo.md survives (nothing cites it directly) but carries no
+  // targets of its own, so it is neither collateral nor blocking here.
+  assert.deepEqual(reference.collateral, []);
+  assert.deepEqual(reference.blocking, []);
   for (const perm of permutations(collisionVault())) {
     const r = planPurge({ pages: perm, seedPaths: seeds });
-    assert.deepEqual(r.purge, reference);
+    assert.deepEqual(r.purge, reference.purge);
     assert.deepEqual(r.purge, [...r.purge].sort());
+    assert.deepEqual(r.collateral, reference.collateral);
+    assert.deepEqual(r.blocking, reference.blocking);
   }
+});
+
+// A survivor whose ONLY provenance is the ambiguous bare name must resolve it
+// via the PROVENANCE channel (nav: false) even where planPurge relies on
+// resolveLinkTarget's default rather than passing the option explicitly. The
+// seed (raw/clippings/Foo.md) is purged unconditionally — a seed purges
+// despite outside referents, per planPurge's header comment — so Downstream's
+// citation of it cannot block admission the way it would for a closure-grown
+// page; it only decides Downstream's own collateral/blocking verdict. If
+// graph.mjs ever flipped resolveLinkTarget's default to nav: true, Downstream's
+// fmTargets would resolve to wiki/sources/Foo.md (the nav-preferred content
+// page, outside the set) instead of raw/clippings/Foo.md (inside it), and both
+// verdicts below would flip silently.
+test('a survivor citing the colliding bare name via sources: is collateral and blocking by the provenance channel, not nav', () => {
+  const pages = [
+    { path: 'raw/clippings/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Downstream.md', name: 'downstream', outTargets: [], fmTargets: ['Foo'] },
+  ];
+  const r = planPurge({ pages, seedPaths: ['raw/clippings/Foo.md'] });
+  assert.deepEqual(r.purge, ['raw/clippings/Foo.md']);
+  assert.deepEqual(r.collateral, ['wiki/sources/Downstream.md']);
+  assert.deepEqual(r.blocking, ['wiki/sources/Downstream.md']);
+});
+
+// Spec §4: the dot segment must come FIRST. Every reader that is not a
+// filesystem walk excludes the bin with an anchored ^wiki/ style filter
+// (search.mjs, drift.mjs:61, stale.base). A layout that hoisted wiki/ to the
+// front would pass those filters and re-expose every purged page.
+test('binPathFor nests the original path under the dot-prefixed bin', () => {
+  assert.equal(
+    binPathFor('2026-08-08-topic', 'wiki/concepts/Foo.md'),
+    '.recycle/2026-08-08-topic/wiki/concepts/Foo.md'
+  );
+});
+
+test('every bin path fails the anchored wiki/ filters the other readers use', () => {
+  const p = binPathFor('2026-08-08-topic', 'wiki/concepts/Foo.md');
+  assert.equal(/^wiki\//.test(p), false);
+  assert.equal(/^wiki\/(concepts|syntheses)\//.test(p), false);
+  assert.equal(p.startsWith('.'), true);
+});
+
+test('binPathFor keeps raw paths distinct from wiki paths', () => {
+  assert.equal(
+    binPathFor('id1', 'raw/clippings/Src-abc1234.md'),
+    '.recycle/id1/raw/clippings/Src-abc1234.md'
+  );
+});
+
+test('purgeId slugifies the topic behind the date', () => {
+  assert.equal(purgeId('Parenting / Conflict Resolution!', new Date('2026-08-08T12:00:00')),
+    '2026-08-08-parenting-conflict-resolution');
+});
+
+test('buildManifest records path, hash, layer, and url per entry', () => {
+  const pages = [
+    { path: 'wiki/concepts/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'raw/clippings/Src-abc1234.md', name: 'src-abc1234', outTargets: [], fmTargets: [],
+      sourceHash: 'abc1234deadbeef', url: 'https://example.com/a' },
+  ];
+  const m = buildManifest({
+    id: '2026-08-08-topic',
+    topic: 'topic',
+    date: '2026-08-08',
+    purge: ['wiki/concepts/Foo.md', 'raw/clippings/Src-abc1234.md'],
+    collateral: ['wiki/syntheses/Keep.md'],
+    pages,
+    hashes: { 'wiki/concepts/Foo.md': 'sha-foo', 'raw/clippings/Src-abc1234.md': 'sha-src' },
+  });
+  assert.equal(m.id, '2026-08-08-topic');
+  assert.deepEqual(m.collateral, ['wiki/syntheses/Keep.md']);
+  assert.deepEqual(m.entries[0], { layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'sha-foo' });
+  assert.deepEqual(m.entries[1], {
+    layer: 'raw', from: 'raw/clippings/Src-abc1234.md', sha256: 'sha-src',
+    'source-hash': 'abc1234deadbeef', url: 'https://example.com/a',
+  });
+  assert.deepEqual(m.declines, ['https://example.com/a']);
+});
+
+test('buildManifest omits declines for clippings with no url', () => {
+  const pages = [{ path: 'raw/clippings/Local-eee5555.md', name: 'local-eee5555', outTargets: [], fmTargets: [], sourceHash: 'eee5555' }];
+  const m = buildManifest({
+    id: 'id', topic: 't', date: '2026-08-08',
+    purge: ['raw/clippings/Local-eee5555.md'], collateral: [], pages,
+    hashes: { 'raw/clippings/Local-eee5555.md': 'sha' },
+  });
+  assert.deepEqual(m.declines, []);
 });
