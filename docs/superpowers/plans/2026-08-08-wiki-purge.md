@@ -352,11 +352,43 @@ test('a page keeping at least one source is not blocking', () => {
   assert.deepEqual(r.blocking, []);
 });
 
-test('the plan is deterministic and sorted', () => {
-  const a = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
-  const b = planPurge({ pages: topicVault(), seedPaths: ['wiki/concepts/Topic Concept.md'] });
-  assert.deepEqual(a.purge, b.purge);
-  assert.deepEqual(a.purge, [...a.purge].sort());
+// A clipping's wikilink counts as an outside referent and protects its target.
+// Deliberately NOT graph.mjs:309's source-side exclusion: an edge from immutable
+// captured text is weak evidence, but ignoring it purges a page graph.mjs would
+// have left alone — the over-match direction this design refuses. 78 of the 1100
+// clippings in the live vault carry [[...]], so this is a real condition.
+test('a raw clipping linking to a page protects it from the closure', () => {
+  const pages = [
+    { path: 'wiki/concepts/Seed.md', name: 'seed', outTargets: ['Length'], fmTargets: [] },
+    { path: 'wiki/concepts/Length.md', name: 'length', outTargets: [], fmTargets: [] },
+    { path: 'raw/clippings/Spec-abc1234.md', name: 'spec-abc1234', outTargets: ['Length'], fmTargets: [] },
+  ];
+  const r = planPurge({ pages, seedPaths: ['wiki/concepts/Seed.md'] });
+  assert.ok(!r.purge.includes('wiki/concepts/Length.md'));
+});
+
+// Comparing two runs over the SAME array order is trivially equal for any pure
+// function and tests nothing. What matters is that a vault enumerated in a
+// different order — NTFS is alphabetical, ext4 is hash-ordered — yields the same
+// purge set, or two machines bin different files. Use a fixture with a real
+// bare-name collision across the content/evidence line, which is the only case
+// buildNameIndex's first-writer-wins behavior can expose.
+test('the plan is order-independent and sorted, across every array order of a colliding fixture', () => {
+  const base = [
+    { path: 'raw/clippings/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/sources/Foo.md', name: 'foo', outTargets: [], fmTargets: [] },
+    { path: 'wiki/concepts/Citer.md', name: 'citer', outTargets: [], fmTargets: ['Foo'] },
+  ];
+  const permutations = [
+    [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
+  ];
+  const results = permutations.map((order) =>
+    planPurge({ pages: order.map((i) => base[i]), seedPaths: ['wiki/concepts/Citer.md'] }).purge
+  );
+  for (const r of results) {
+    assert.deepEqual(r, results[0], 'array order must not change which files are purged');
+    assert.deepEqual(r, [...r].sort());
+  }
 });
 ```
 
@@ -384,7 +416,16 @@ import { buildNameIndex, resolveLinkTarget, isContent } from './graph.mjs';
 //   blocking   — survive, but ALL their provenance is inside the set. Guardrail
 //                #2 says a claim with no evidence is a defect, so purge stops
 //                and asks rather than guessing.
-export function planPurge({ pages, seedPaths }) {
+export function planPurge({ pages: inputPages, seedPaths }) {
+  // Sorted before indexing, not for tidiness: buildNameIndex is first-writer-wins
+  // on the plain key, so array order decides which file a bare `sources: [[Foo]]`
+  // citation resolves to — and therefore which files get binned. readdirSync is
+  // alphabetical on NTFS but hash-ordered on ext4, so without this two machines
+  // compute different purge sets from the same vault, defeating the cross-machine
+  // convergence this feature exists for. Sorting puts raw/ before wiki/, so a bare
+  // provenance citation resolves to the clipping — which is what the vault's
+  // documented `sources: [[raw/clippings/X.md]]` convention means anyway.
+  const pages = [...inputPages].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   const byName = buildNameIndex(pages);
   const inbound = inboundMap(pages, byName);
   const known = new Set(pages.map((p) => p.path));
