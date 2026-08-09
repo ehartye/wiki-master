@@ -902,6 +902,8 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { isGitRepo, commitAll } from '../scripts/lib/git.mjs';
 
 function tempRepo() {
@@ -1088,6 +1090,8 @@ Create `scripts/lib/git.mjs`:
 
 ```js
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 // The single place wiki-master touches git. Deliberately narrow: stage, commit,
 // push. No force, no history rewriting, no branch switching, no merge conflict
@@ -1159,13 +1163,27 @@ export function commitPaths(cwd, paths, message) {
   // would leave originals deleted, copies in .recycle/, and nothing committed —
   // the working-tree-only deletion this whole feature exists to prevent, reached
   // by crash instead of by sync.
+  //
+  // git add --pathspec-from-file fails ATOMICALLY: one unmatched path and
+  // nothing stages at all. A purged file that was never committed is neither on
+  // disk (it moved) nor tracked, so listing it would sink the whole commit and
+  // leave the vault with files moved and nothing recorded — the exact failure
+  // this module exists to prevent. Reproduced: EXIT=128, zero staged. The
+  // trigger is ordinary — clip a source, purge the topic before the vault
+  // syncs — and this vault has auto-commit disabled, so uncommitted files are
+  // its normal state. Keep only what git can stage: still on disk, or tracked
+  // so its deletion can be staged.
+  const tracked = new Set(git(cwd, ['ls-files', '-z']).split('\0').filter(Boolean));
+  const stageable = paths.filter((p) => tracked.has(p) || existsSync(join(cwd, p)));
+  if (!stageable.length) return { committed: false, reason: 'nothing to commit' };
+  const stdinStageable = { input: stageable.join('\0') };
   try {
-    git(cwd, ['add', ...fromStdin], stdin);
+    git(cwd, ['add', ...fromStdin], stdinStageable);
     const staged = new Set(git(cwd, ['diff', '--cached', '--name-only', '-z']).split('\0').filter(Boolean));
-    if (!paths.some((p) => staged.has(p))) {
+    if (!stageable.some((p) => staged.has(p))) {
       return { committed: false, reason: 'nothing to commit' };
     }
-    git(cwd, ['commit', '-q', '-m', message, ...fromStdin], stdin);
+    git(cwd, ['commit', '-q', '-m', message, ...fromStdin], stdinStageable);
     return { committed: true, sha: git(cwd, ['rev-parse', 'HEAD']) };
   } catch (err) {
     return { committed: false, reason: (err.stderr || err.message || '').toString().trim() };
