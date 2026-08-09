@@ -1,14 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import {
   applyPurge, applyRestore, readManifests, writeManifest, nextFreePurgeId, enrichPages, sha256,
   collectSeeds, main,
 } from '../scripts/purge.mjs';
-import { buildGraph } from '../scripts/lib/graph.mjs';
+import { planPurge, buildManifest } from '../scripts/lib/purge.mjs';
+import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
+import { computeHealth } from '../scripts/health.mjs';
 import { recordDecline, loadDeclines } from '../scripts/lib/decline.mjs';
 
 function tempVault() {
@@ -835,4 +838,219 @@ test('an empty search result with a dead Obsidian refuses to trust it (--apply)'
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
+});
+
+// ---- end to end: realistic fixture vault ----
+//
+// Everything above is tested against synthetic in-memory page arrays or
+// minimal temp vaults built inline. This section runs the real pipeline
+// (buildGraph -> enrichPages -> planPurge -> buildManifest -> writeManifest
+// -> applyPurge, then buildGraph/computeGraphMetrics/computeHealth again)
+// against a fixture vault on disk shaped like a real purge meets: a shared
+// clipping cited by both a topic page and an off-topic page, an
+// exclusively-cited clipping, and an outside page that merely mentions the
+// topic. The fixture is copied to a fresh temp dir per test and never
+// mutated in place.
+
+const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'purge-vault');
+
+function fixtureCopy() {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-purge-e2e-'));
+  cpSync(FIXTURE, dir, { recursive: true });
+  return dir;
+}
+
+const TOPIC_SEEDS = ['wiki/concepts/Topic Concept.md', 'wiki/sources/Topic Source.md'];
+
+test('end to end: purging the topic keeps the shared clipping and its off-topic dependent', () => {
+  const v = fixtureCopy();
+  try {
+    const pages = enrichPages(v, buildGraph(v).pages);
+    const plan = planPurge({
+      pages,
+      seedPaths: TOPIC_SEEDS,
+    });
+    const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
+    const manifest = buildManifest({
+      id: '2026-08-08-topic', topic: 'topic', date: '2026-08-08',
+      purge: plan.purge, collateral: plan.collateral, pages, hashes,
+    });
+    writeManifest(v, manifest);
+    applyPurge(v, manifest);
+
+    assert.equal(existsSync(join(v, 'raw', 'clippings', 'Shared-bbb2222.md')), true, 'shared evidence survives');
+    assert.equal(existsSync(join(v, 'wiki', 'syntheses', 'Offtopic.md')), true, 'off-topic page survives');
+    assert.equal(existsSync(join(v, 'raw', 'clippings', 'Only-aaa1111.md')), false, 'exclusive evidence is purged');
+    assert.ok(manifest.declines.includes('https://example.com/only'));
+    assert.ok(!manifest.declines.includes('https://example.com/shared'));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The purged clipping's exclusion from the vault is not enough on its own --
+// the ingest backlog (unsummarizedSources) is what /wiki-ingest reads to
+// decide what still needs summarizing. A clipping left behind after a purge
+// would be reported there forever, and the next /wiki-ingest run would
+// resurrect the topic it was just purged for. Seeded with only Topic Concept
+// (not Topic Source), so the closure still purges the exclusively-cited
+// clipping without touching the shared one.
+test('end to end: the purged clipping leaves the ingest backlog', () => {
+  const v = fixtureCopy();
+  try {
+    const pages = enrichPages(v, buildGraph(v).pages);
+    const beforeMetrics = computeGraphMetrics(buildGraph(v));
+    assert.ok(beforeMetrics.unsummarizedSources.includes('raw/clippings/Only-aaa1111.md'),
+      'sanity: the clipping starts life in the backlog (nothing under wiki/sources/ has ingested it)');
+
+    const plan = planPurge({ pages, seedPaths: ['wiki/concepts/Topic Concept.md'] });
+    assert.ok(plan.purge.includes('raw/clippings/Only-aaa1111.md'), 'sanity: the clipping is in this closure');
+    const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
+    const manifest = buildManifest({
+      id: '2026-08-08-topic-backlog', topic: 'topic', date: '2026-08-08',
+      purge: plan.purge, collateral: plan.collateral, pages, hashes,
+    });
+    writeManifest(v, manifest);
+    applyPurge(v, manifest);
+
+    const afterMetrics = computeGraphMetrics(buildGraph(v));
+    assert.equal(afterMetrics.unsummarizedSources.includes('raw/clippings/Only-aaa1111.md'), false,
+      'a purged clipping must not linger in the ingest backlog');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The most likely test in this file to reveal a real defect: it measures the
+// vault's actual structural health (orphans, dead-ends, broken links) rather
+// than the purge's own bookkeeping. Purging Topic Concept and Topic Source
+// leaves Outside Page.md — collateral, per plan.collateral — with a body
+// wikilink to a page that no longer exists. Repair (stripping that dangling
+// link, matching spec §9's "collateral needs its references repaired")
+// happens after the purge and before the second health check.
+test('end to end: health score does not drop after purge + reference repair', () => {
+  const v = fixtureCopy();
+  try {
+    const before = computeHealth(computeGraphMetrics(buildGraph(v)));
+
+    const pages = enrichPages(v, buildGraph(v).pages);
+    const plan = planPurge({ pages, seedPaths: TOPIC_SEEDS });
+    assert.deepEqual(plan.collateral, ['wiki/concepts/Outside Page.md']);
+    const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
+    const manifest = buildManifest({
+      id: '2026-08-08-topic-health', topic: 'topic', date: '2026-08-08',
+      purge: plan.purge, collateral: plan.collateral, pages, hashes,
+    });
+    writeManifest(v, manifest);
+    applyPurge(v, manifest);
+
+    // Confirm the purge actually left real damage behind, so the repair step
+    // below is doing real work and this test isn't vacuous.
+    const midMetrics = computeGraphMetrics(buildGraph(v));
+    assert.ok(
+      midMetrics.brokenLinks.some((b) => b.source === 'wiki/concepts/Outside Page.md' && b.target === 'Topic Concept'),
+      'purge left a real dangling link on the collateral page, pre-repair'
+    );
+
+    // Reference repair: strip dangling wikilinks to purged pages from the
+    // collateral pages the plan named. index.md is not touched here — it is
+    // a SYSTEM_FILES entry excluded from computeGraphMetrics as a link
+    // source, so its own stale catalog entries do not affect the score, and
+    // full regeneration is index-gen.mjs's job, not this test's.
+    const purgedTitles = new Set(
+      plan.purge.filter((p) => p.startsWith('wiki/')).map((p) => p.split('/').pop().replace(/\.md$/i, ''))
+    );
+    for (const c of plan.collateral) {
+      const file = join(v, c);
+      let text = readFileSync(file, 'utf8');
+      for (const title of purgedTitles) {
+        const esc = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        text = text.replace(new RegExp(`\\[\\[${esc}(\\|[^\\]]*)?\\]\\]`, 'g'), '');
+      }
+      writeFileSync(file, text);
+    }
+
+    const after = computeHealth(computeGraphMetrics(buildGraph(v)));
+    assert.ok(after.score >= before.score,
+      `expected health not to drop: before ${before.score}, after ${after.score}`);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The bin must be invisible to the whole metrics pipeline, not just to a
+// synthetic single-file check: buildGraph must never see a .recycle/ path,
+// and every path applyPurge actually wrote to must fail both anchored
+// filters the rest of the codebase uses to mean "this is live wiki content."
+test('end to end: the bin is invisible to the whole metrics pipeline', () => {
+  const v = fixtureCopy();
+  try {
+    const pages = enrichPages(v, buildGraph(v).pages);
+    const plan = planPurge({ pages, seedPaths: TOPIC_SEEDS });
+    const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
+    const manifest = buildManifest({
+      id: '2026-08-08-topic-bin', topic: 'topic', date: '2026-08-08',
+      purge: plan.purge, collateral: plan.collateral, pages, hashes,
+    });
+    writeManifest(v, manifest);
+    const { touched } = applyPurge(v, manifest);
+
+    const binPaths = touched.filter((_, i) => i % 2 === 1);
+    assert.ok(binPaths.length > 0, 'sanity: something actually moved');
+    for (const bp of binPaths) {
+      assert.equal(/^wiki\//.test(bp), false, `${bp} must not pass the anchored wiki/ filter`);
+      assert.equal(/^wiki\/(concepts|syntheses)\//.test(bp), false, `${bp} must not pass the anchored wiki/(concepts|syntheses)/ filter`);
+    }
+
+    const after = buildGraph(v).pages;
+    assert.equal(after.some((p) => p.path.includes('.recycle')), false, 'buildGraph must never surface a bin path');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Reconcile is the OTHER reader of the fixture vault's shape: a manifest
+// written for this exact closure must round-trip through readManifests and
+// restore every purged file back to exactly where it started, with the
+// off-topic survivor and shared clipping never having moved at all. This
+// covers the full plan -> apply -> restore lifecycle against a realistic
+// vault rather than the single-file fixtures the applyRestore tests above use.
+test('end to end: restore puts the full closure back and leaves the survivors untouched', () => {
+  const v = fixtureCopy();
+  try {
+    const pages = enrichPages(v, buildGraph(v).pages);
+    const plan = planPurge({ pages, seedPaths: TOPIC_SEEDS });
+    const hashes = Object.fromEntries(plan.purge.map((p) => [p, sha256(readFileSync(join(v, p), 'utf8'))]));
+    const manifest = buildManifest({
+      id: '2026-08-08-topic-restore', topic: 'topic', date: '2026-08-08',
+      purge: plan.purge, collateral: plan.collateral, pages, hashes,
+    });
+    writeManifest(v, manifest);
+    applyPurge(v, manifest);
+
+    const { manifests } = readManifests(v);
+    const found = manifests.find((m) => m.id === '2026-08-08-topic-restore');
+    assert.ok(found, 'the written manifest must be readable back');
+
+    const r = applyRestore(v, found);
+    assert.equal(r.restored, plan.purge.length);
+    assert.deepEqual(r.missing, []);
+    for (const p of plan.purge) {
+      assert.equal(existsSync(join(v, p)), true, `${p} must be back at its original path`);
+    }
+    assert.equal(existsSync(join(v, 'raw', 'clippings', 'Shared-bbb2222.md')), true);
+    assert.equal(existsSync(join(v, 'wiki', 'syntheses', 'Offtopic.md')), true);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('the purge-vault fixture on disk is never mutated by these tests', () => {
+  const status = execFileSync('git', ['status', '--short', '--', 'test/fixtures/purge-vault'],
+    { cwd: dirname(dirname(fileURLToPath(import.meta.url))), encoding: 'utf8' });
+  // Modified/deleted entries ('M', 'D', ' M', etc.) would show here; a freshly
+  // added, never-yet-committed fixture shows as '??' or 'A ' and is fine --
+  // this only guards against IN-PLACE MUTATION of the fixture's own content.
+  const suspicious = status.split('\n').filter((l) => l.trim() && !/^\?\?|^A /.test(l));
+  assert.deepEqual(suspicious, [], `fixture must not be mutated by tests:\n${status}`);
 });
