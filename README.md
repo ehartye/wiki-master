@@ -70,6 +70,7 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
 | `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
 | `/wiki-relink` | Add inferred links, materialize frequently-referenced entities, build MOCs. |
+| `/wiki-purge <topic>` | Remove a topic for good — pages, evidence and source URLs move to a git-tracked `.recycle/` bin and the removal is committed so it reaches every machine. `--reconcile` re-bins anything that comes back; `--restore <id>` undoes it. |
 
 ## Configuration (environment variables)
 
@@ -87,7 +88,14 @@ raw/            immutable sources (never edited)   raw/clippings/  Web Clipper o
 wiki/           sources · entities · concepts · syntheses · authored (LLM-owned)
 moc/            Maps of Content        index.md    catalog        log.md  history
 stale.base      native Bases freshness dashboard   .wiki-master/  embedding cache (git-ignored)
+.recycle/       purged topics, one folder + manifest.json per purge (git-tracked, never auto-emptied)
 ```
+
+`.recycle/` is dot-prefixed on purpose: `graph.mjs` skips dot entries during its
+walk, every other reader filters on an anchored `wiki/` prefix, and Obsidian's own
+indexer ignores dot-folders — so purged content is invisible to every search, metric
+and graph without a single reader needing to know it exists. It is git-tracked, so a
+purge reaches your other machines instead of evaporating on the next sync.
 
 Every wiki page carries `sources: [[...]]` provenance back to `raw/` and
 `ai-generated: true` — the guardrails against hallucination contamination.
