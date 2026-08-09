@@ -79,6 +79,18 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
       while (existsSync(join(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) n += 1;
       to = `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`;
     }
+    // A vault page whose path happens to be exactly "manifest.json" would land
+    // here — the bin's top level, same as the manifest itself. Windows
+    // renameSync overwrites an existing destination file rather than erroring,
+    // so without this the purge's own manifest is silently replaced: its
+    // entries never re-bin on resurrection and its declines never replay,
+    // permanently, with nothing to say so. Contrived, but the consequence is
+    // total, so it is reported like any other unmoveable entry rather than
+    // risked.
+    if (to === `${BIN_DIR}/${manifest.id}/manifest.json`) {
+      failed.push({ from: e.from, reason: 'destination would overwrite the purge manifest' });
+      continue;
+    }
     // A locked file (antivirus, the Windows Search indexer, a sync client
     // holding a read-only handle) fails exactly this rename — confirmed on
     // Windows via a FILE_SHARE_READ-only handle — while leaving the source in
@@ -253,7 +265,19 @@ function report(plan) {
   }
 }
 
-export async function main(argv, { searchImpl = searchMain } = {}) {
+// applyPurge is injectable for exactly one reason: the `if (failed.length)`
+// stop-before-commit guard below has no reachable real-world trigger to test
+// through. writeManifest always runs before applyPurge in this flow, so any
+// destination applyPurge itself refuses to overwrite (e.g. the purge's own
+// manifest.json — see applyPurge's own guard) has already been pre-empted by
+// its ordinary existsSync-collision diversion into resurrected-N/ by the time
+// it would fire. A locked/uncreatable-destination failure is real (see the
+// "a locked or otherwise unmoveable entry..." test in
+// test/purge-apply.test.mjs and its Windows-share-mode note) but not
+// reproducible on demand from outside. This seam tests the WIRING of the
+// guard — no commit, exitCode 1 — independent of what actually caused
+// applyPurge to report a failure.
+export async function main(argv, { searchImpl = searchMain, applyPurge: applyPurgeFn = applyPurge } = {}) {
   const { path: vaultPath } = resolveVault();
   const mode = argv[0] ?? '--plan';
   const arg = argv.slice(1).join(' ').trim();
@@ -342,7 +366,7 @@ export async function main(argv, { searchImpl = searchMain } = {}) {
   });
 
   writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
-  const { moved, touched, failed } = applyPurge(vaultPath, manifest);
+  const { moved, touched, failed } = applyPurgeFn(vaultPath, manifest);
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
   const logPath = writeLogEntry({
     vaultPath, op: 'purge', title: arg,

@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 // The single place wiki-master touches git. Deliberately narrow: stage, commit,
 // push. No force, no history rewriting, no branch switching, no merge conflict
@@ -76,7 +78,24 @@ export function commitPaths(cwd, paths, message) {
   if (!isGitRepo(cwd)) return { committed: false, reason: 'not a git repository' };
   if (!paths.length) return { committed: false, reason: 'nothing to commit' };
 
-  const input = paths.join('\0');
+  // git add --pathspec-from-file fails ATOMICALLY: one unmatched path and nothing
+  // stages at all. A purged file that was never committed is neither on disk (it
+  // moved) nor tracked, so listing it would sink the whole commit and leave the
+  // vault with files moved and nothing recorded — the exact failure this module
+  // exists to prevent. This is not a rare case: with obsidian-git auto-commit
+  // disabled, an untracked clipping or log entry is normal vault state, and
+  // purging that topic before the next sync hits it. Keep only what git can
+  // stage: still on disk, or tracked so its deletion can be staged.
+  let tracked;
+  try {
+    tracked = new Set(git(cwd, ['ls-files', '-z']).split('\0').filter(Boolean));
+  } catch (err) {
+    return { committed: false, reason: stderrOf(err) };
+  }
+  const stageable = paths.filter((p) => tracked.has(p) || existsSync(join(cwd, p)));
+  if (!stageable.length) return { committed: false, reason: 'nothing to commit' };
+
+  const input = stageable.join('\0');
 
   try {
     git(cwd, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { input });
@@ -88,7 +107,7 @@ export function commitPaths(cwd, paths, message) {
   // `git diff` doesn't support --pathspec-from-file, so the scoping has to
   // happen in JS: list everything staged (`-z`, NUL-delimited, which also
   // sidesteps quoting entirely regardless of core.quotePath) and intersect it
-  // with `paths`. This is what makes purging nothing, with unrelated work
+  // with `stageable`. This is what makes purging nothing, with unrelated work
   // already pre-staged, report {committed:false} instead of committing the
   // user's pre-staged work under a "purge:" message.
   let staged;
@@ -98,7 +117,7 @@ export function commitPaths(cwd, paths, message) {
   } catch (err) {
     return { committed: false, reason: stderrOf(err) };
   }
-  if (!paths.some((p) => staged.has(p))) {
+  if (!stageable.some((p) => staged.has(p))) {
     return { committed: false, reason: 'nothing to commit' };
   }
 

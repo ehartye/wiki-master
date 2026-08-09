@@ -524,17 +524,74 @@ test('main --apply refuses to move anything when a survivor would lose all prove
   }
 });
 
-// M3: the `if (failed.length)` stop-before-commit guard. NOT independently
-// tested here — see the report for why a clean, deterministic
-// destination-uncreatable failure could not be constructed against `main`
-// specifically (as opposed to against `applyPurge` directly, which the
-// "a locked or otherwise unmoveable entry..." test above already covers).
-// nextFreePurgeId picks main's bin id internally with no injection seam, and
-// every landmine tried (a pre-existing blocking file/dir under the chosen
-// id, chmod read-only, a pre-existing destination file, a very long path,
-// mocking node:fs's named exports) either got dodged by nextFreePurgeId's own
-// collision-avoidance or was silently absorbed by Windows/Node instead of
-// throwing.
+// M3: the `if (failed.length)` stop-before-commit guard.
+//
+// A real move failure could not be driven through `main --apply` from
+// outside. Two mechanisms were tried and both dead-end structurally, not for
+// lack of a good enough trick:
+//   1. A pre-existing landmine planted under the bin id `main` would choose
+//      is always dodged by nextFreePurgeId's own collision-avoidance (it
+//      treats the occupied folder as "taken" and picks the next one instead).
+//   2. applyPurge's own new guard (below) against overwriting the purge's
+//      manifest.json can be MADE to fire by calling applyPurge directly (see
+//      the direct-level test below) -- but never through `main`, because
+//      writeManifest always runs before applyPurge in that flow, so by the
+//      time applyPurge sees a "manifest.json" entry, `.recycle/<id>/manifest.json`
+//      already exists on disk and the ORDINARY existsSync-collision check
+//      (checked first) has already diverted it into resurrected-N/ --
+//      silently succeeding, never reaching the new guard at all. Confirmed
+//      empirically: calling applyPurge directly on this exact fixture (no
+//      prior writeManifest) reports `failed: [...]`; going through `main`
+//      reports a clean, fully committed purge instead.
+// So this tests the WIRING of the guard via the one injection seam `main`
+// already has a precedent for (`searchImpl`): an injected `applyPurge` that
+// fails on demand, independent of what real-world condition would cause
+// applyPurge to report a failure. That underlying condition is covered by
+// the "a locked or otherwise unmoveable entry..." test in this file and its
+// G3 re-run in the mutation table.
+test('main --apply stops before committing when applyPurge reports a failed move', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    const failingApplyPurge = () => ({
+      moved: 0, touched: [], failed: [{ from: 'wiki/concepts/Foo.md', reason: 'simulated failure' }],
+    });
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: failingApplyPurge });
+
+    assert.equal(r.exitCode, 1);
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    assert.equal(after, before, 'a purge with a failed move must not be committed');
+    assert.ok(r.errs.some((l) => l.includes('could not be moved')));
+    assert.ok(r.errs.some((l) => l.includes('simulated failure')));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Guard B, direct: a vault page reachable at the literal relative path
+// "manifest.json" would land at the bin's top level, same as the purge's own
+// manifest.json -- and Windows renameSync overwrites an existing destination
+// file rather than erroring, so without this the purge's own manifest is
+// silently replaced (its entries never re-bin, its declines never replay,
+// and nothing says so). Exercised directly against applyPurge, matching how
+// the rest of this file tests applyPurge's guards -- see the M3 comment
+// above for why this cannot also be exercised through `main`.
+test('applyPurge refuses a move that would overwrite the purge manifest', () => {
+  const v = tempVault();
+  try {
+    writeFileSync(join(v, 'manifest.json'), '{}\n');
+    const manifest = { id: 'id', entries: [{ from: 'manifest.json' }, { from: 'wiki/concepts/Foo.md' }] };
+    const r = applyPurge(v, manifest);
+    assert.equal(r.moved, 1);
+    assert.equal(existsSync(join(v, 'manifest.json')), true, 'the source must be left in place, not moved');
+    assert.deepEqual(r.failed, [{ from: 'manifest.json', reason: 'destination would overwrite the purge manifest' }]);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
 
 // M4: the `--restore` unknown-id guard. Must report and set exitCode, never
 // crash on a manifest that doesn't exist.

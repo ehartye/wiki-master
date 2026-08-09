@@ -182,3 +182,34 @@ test('commitPaths refuses politely when the directory is not a repo', () => {
     rmSync(plain, { recursive: true, force: true });
   }
 });
+
+// git add --pathspec-from-file fails ATOMICALLY: one path matching nothing
+// (neither tracked nor present on disk) and the WHOLE add is rejected, nothing
+// stages. With obsidian-git auto-commit disabled, an untracked clipping or log
+// entry is normal vault state -- purge a topic before the next sync reaches it
+// and one of the moved files was never committed at its original path. That
+// path is now neither on disk (the move already happened) nor tracked, so
+// listing it alongside its new .recycle/ location must not sink the commit of
+// everything else, including the move itself.
+test('commitPaths still commits when one of the paths was never tracked and no longer exists (purging an uncommitted file)', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'seed.md'), 'x\n');
+    commitPaths(repo, ['seed.md'], 'initial');
+
+    // An untracked clipping, never committed.
+    mkdirSync(join(repo, 'raw', 'clippings'), { recursive: true });
+    writeFileSync(join(repo, 'raw', 'clippings', 'New.md'), 'clip\n');
+    // A purge moves it: gone from its original path, landed in .recycle/.
+    mkdirSync(join(repo, '.recycle', 'id', 'raw', 'clippings'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'raw', 'clippings', 'New.md'), 'clip\n');
+    rmSync(join(repo, 'raw', 'clippings', 'New.md'));
+
+    const r = commitPaths(repo, ['raw/clippings/New.md', '.recycle/id/raw/clippings/New.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /\.recycle\/id\/raw\/clippings\/New\.md/, 'the move must still be committed');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
