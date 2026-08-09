@@ -70,6 +70,10 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    expire after 180 days (TTL), so a changed world gets one re-evaluation.
 
 ## Phase 3 — clip the survivors (the only writes)
+Open the operation before the first clip:
+`TOKEN=$(node ../../scripts/op-begin.mjs --op discover)` — records what was already
+uncommitted, so the commit in Phase 4 holds the clippings and not the user's own work.
+
 For each kept candidate:
 `node ../../scripts/clip.mjs "<url>" --quality=<tier>`
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
@@ -95,6 +99,16 @@ triage, say so and offer `/wiki-triage`. Ask whether to ingest.
   write the log entry by piping a one-line summary to
   `node ../../scripts/log-entry.mjs --op discover --title "<topic> → N clipped, M ingested"`.
 - **On decline:** leave the clippings in `raw/clippings/` for manual review.
+
+Either way, close the operation:
+`node ../../scripts/op-commit.mjs --op discover --title "<topic> → N clipped, M ingested" --since $TOKEN`
+Clippings are evidence other pages will cite; leaving them uncommitted means a later
+ingest cites a file the user's other machines do not have. Close it on decline too —
+the clippings exist either way.
+
+`/wiki-ingest` brackets itself, and the two nest correctly: its `op-begin` sees these
+clippings as already-dirty and leaves them alone, and once it commits, its pages drop
+out of the dirty set so this commit holds only the clippings and the log entry.
 
 ## Guardrails
 - The perspective passes never write the vault; `clip.mjs` is the sole writer to `raw/`.

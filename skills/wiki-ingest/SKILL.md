@@ -14,6 +14,10 @@ their hash)** list is the backlog; process those clippings. If it is `0`, nothin
 is pending — stop and say so. (See wiki-maintainer's "Has this been ingested?" for
 why this beats hand-diffing `tag:clippings` against `wiki/sources/`.)
 
+**Open the operation first:** `TOKEN=$(node ../../scripts/op-begin.mjs --op ingest)`
+This records what was already uncommitted, so the commit at the end contains your
+work and not the user's in-progress writing. Close it in step 6.
+
 For each source:
 1. Read it (`obsidian read path=...`). Discuss the key takeaways with the user.
 2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: [[<raw link>]]`,
@@ -40,3 +44,8 @@ For each source:
    narrative to `node ../../scripts/log-entry.mjs --op ingest --title "<title>"`
    (creates `log/<timestamp>-ingest-<slug>.md`; resolved relative to this skill dir).
 5. Never edit anything under `raw/`.
+6. **Close the operation:**
+   `node ../../scripts/op-commit.mjs --op ingest --title "<what you ingested>" --since $TOKEN`
+   Commits exactly the pages this ingest touched, as one revertable unit, and
+   reports anything it deliberately left alone. It does not push — offer that
+   separately if the user wants the work on their other machines.
