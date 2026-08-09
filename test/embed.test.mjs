@@ -20,6 +20,28 @@ test('embed posts to Ollama and returns the vector', async () => {
   assert.deepEqual(v, [0.1, 0.2]);
 });
 
+// Profiled on the live vault: a query embed took 2,142 ms with the model
+// unloaded, 30 ms warm. Ollama's default keep_alive is 5 minutes; passing a
+// longer one on every request keeps the model resident across the gap
+// between queries/index runs.
+test('embed sends keep_alive, defaulting to 30m', async () => {
+  const fakeFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.equal(body.keep_alive, '30m');
+    return { ok: true, json: async () => ({ embedding: [0.1] }) };
+  };
+  await embed('hello', { fetchImpl: fakeFetch });
+});
+
+test('embed honours an explicit keepAlive override', async () => {
+  const fakeFetch = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    assert.equal(body.keep_alive, '10m');
+    return { ok: true, json: async () => ({ embedding: [0.1] }) };
+  };
+  await embed('hello', { fetchImpl: fakeFetch, keepAlive: '10m' });
+});
+
 test('isAvailable returns false when Ollama is unreachable', async () => {
   const failFetch = async () => { throw new Error('ECONNREFUSED'); };
   assert.equal(await isAvailable({ fetchImpl: failFetch }), false);
