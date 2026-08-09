@@ -1,115 +1,77 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { semanticSearch, mergeRRF, qmdAvailable, search, qmdSearch, keywordSearch } from '../scripts/search.mjs';
-import { hash } from '../scripts/lib/embed-cache.mjs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  semanticSearch, mergeRRF, search, keywordSearch, loadChunkIndex, renderResult,
+} from '../scripts/search.mjs';
+import { encodeVectors } from '../scripts/lib/vector-index.mjs';
+import { assessTiers } from '../scripts/lib/search-health.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
-const VEC = { query: [1, 0], same: [1, 0], orthogonal: [0, 1], opposite: [-1, 0] };
-const embedFn = async (text) => VEC[text];
-
-test('semanticSearch ranks by cosine similarity, descending', async () => {
-  const pages = [
-    { path: 'a.md', body: 'orthogonal' },
-    { path: 'b.md', body: 'same' },
-    { path: 'c.md', body: 'opposite' },
-  ];
-  const results = await semanticSearch('query', pages, { embedFn });
-  assert.deepEqual(results.map((r) => r.path), ['b.md', 'a.md', 'c.md']);
+// semanticSearch is a thin wrapper around lib/vector-index.mjs's queryPages
+// (mean-of-chunks page ranking -- see that module's own comment for why mean
+// beats best-chunk); the ranking math itself is tested there. These tests
+// cover the wrapper's own job: embed the query once, pass through manifest
+// shape, return what queryPages returns.
+test('semanticSearch embeds the query exactly once and delegates ranking to queryPages', async () => {
+  const vectors = { h1: [1, 0], h2: [0, 1] };
+  const manifest = {
+    'a.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h1', startLine: 1, endLine: 1 }] },
+    'b.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h2', startLine: 1, endLine: 1 }] },
+  };
+  let calls = 0;
+  const embedFn = async () => { calls++; return [1, 0]; };
+  const results = await semanticSearch('query', { vectors, manifest, embedFn, topN: 5 });
+  assert.equal(calls, 1, 'the query is embedded exactly once, never per-chunk or per-page');
+  assert.deepEqual(results.map((r) => r.path), ['a.md', 'b.md']);
   assert.equal(results[0].score, 1);
 });
 
 test('semanticSearch respects topN', async () => {
-  const pages = [
-    { path: 'a.md', body: 'orthogonal' },
-    { path: 'b.md', body: 'same' },
-    { path: 'c.md', body: 'opposite' },
-  ];
-  const results = await semanticSearch('query', pages, { embedFn, topN: 1 });
+  const vectors = { h1: [1, 0], h2: [0.9, 0.1] };
+  const manifest = {
+    'a.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h1', startLine: 1, endLine: 1 }] },
+    'b.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h2', startLine: 1, endLine: 1 }] },
+  };
+  const results = await semanticSearch('query', { vectors, manifest, embedFn: async () => [1, 0], topN: 1 });
   assert.equal(results.length, 1);
-  assert.equal(results[0].path, 'b.md');
+  assert.equal(results[0].path, 'a.md');
 });
 
-test('semanticSearch reuses the cache: an already-cached hash is never re-embedded', async () => {
-  let calls = 0;
-  const countingEmbed = async (text) => { calls++; return VEC[text]; };
-  const cache = {};
-  const pages = [{ path: 'a.md', body: 'same' }];
-  await semanticSearch('query', pages, { embedFn: countingEmbed, cache });
-  const callsAfterFirst = calls;
-  await semanticSearch('query', pages, { embedFn: countingEmbed, cache });
-  // Second run re-embeds the query (always fresh) but not the unchanged page body.
-  assert.equal(calls, callsAfterFirst + 1, 'only the query re-embeds; the cached page body does not');
-});
-
-// Found live against the real vault: a long page (~8.6K chars) made Ollama
-// return HTTP 500 ("the input length exceeds the context length") -- an
-// embedding-model context-window limit, not a wiki-master bug, but one
-// oversized page must not take the whole search down with it.
-test('semanticSearch skips a page whose embedding fails and still ranks the rest', async () => {
-  const flaky = async (text) => {
-    if (text === 'query') return [1, 0];
-    if (text === 'too-long') throw new Error('the input length exceeds the context length');
-    return VEC[text];
+// The passage-level capability the chunk index exists to provide: even
+// though ranking is by mean, the startLine that rides along still points at
+// the page's single BEST-matching chunk, not wherever the mean happens to
+// land -- see queryPages' own dedicated regression test for the mean-vs-max
+// property this depends on.
+test('semanticSearch carries the startLine of a page\'s best-matching chunk, not just its first', async () => {
+  const vectors = { h1: [0, 1], h2: [1, 0] }; // h2 is the deep chunk, exact match
+  const manifest = {
+    'a.md': { mtimeMs: 1, size: 1, chunks: [
+      { hash: 'h1', startLine: 1, endLine: 1 },
+      { hash: 'h2', startLine: 87, endLine: 87 },
+    ] },
   };
-  const pages = [
-    { path: 'oversized.md', body: 'too-long' },
-    { path: 'b.md', body: 'same' },
-  ];
-  const results = await semanticSearch('query', pages, { embedFn: flaky });
-  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the failing page is skipped, not fatal');
+  const results = await semanticSearch('query', { vectors, manifest, embedFn: async () => [1, 0], topN: 5 });
+  assert.equal(results.length, 1);
+  assert.equal(results[0].path, 'a.md');
+  assert.equal(results[0].startLine, 87, 'the deeper, better-matching chunk\'s line wins, not the first chunk\'s');
 });
 
-// The 23-pages-invisible problem: an oversized body fails every run because the
-// failure is never cached. Truncate-on-failure retries with the body's opening
-// slice and caches the result under the FULL body hash, so the page becomes
-// semantically searchable and later runs (and drift.mjs, sharing the cache) hit
-// the cached vector instead of re-failing.
-test('semanticSearch retries an oversized failing body truncated, ranks it, and caches under the full-body hash', async () => {
-  const oversized = 'L'.repeat(20);
-  const embedded = [];
-  const sizeLimited = async (text) => {
-    embedded.push(text);
-    if (text.length > 10) throw new Error('the input length exceeds the context length');
-    return [1, 0];
-  };
-  const cache = {};
-  const results = await semanticSearch('query', [{ path: 'big.md', body: oversized }],
-    { embedFn: sizeLimited, cache, truncateAt: 10 });
-  assert.deepEqual(results.map((r) => r.path), ['big.md'], 'the oversized page is ranked, not skipped');
-  assert.ok(embedded.includes(oversized.slice(0, 10)), 'the retry embeds the truncated prefix');
-  assert.ok(cache[hash(oversized)], 'the vector is cached under the FULL body hash (the drift.mjs-shared key)');
+test('semanticSearch on an empty index returns [] rather than throwing', async () => {
+  const results = await semanticSearch('query', { vectors: {}, manifest: {}, embedFn: async () => [1, 0] });
+  assert.deepEqual(results, []);
 });
 
-test('semanticSearch does not retry a short body whose embedding fails (failure cannot be length)', async () => {
-  let bodyAttempts = 0;
-  const failsOnBody = async (text) => {
-    if (text === 'query') return [1, 0];
-    bodyAttempts++;
-    throw new Error('connection refused');
-  };
-  const results = await semanticSearch('query', [{ path: 'short.md', body: 'tiny' }],
-    { embedFn: failsOnBody, truncateAt: 10 });
-  assert.deepEqual(results, [], 'the page is skipped');
-  assert.equal(bodyAttempts, 1, 'no pointless retry with an identical (already short) body');
-});
-
-test('semanticSearch skips the page when the truncated retry also fails, still ranking the rest', async () => {
-  const alwaysFailsBodies = async (text) => {
-    if (text === 'query') return [1, 0];
-    if (text === 'same') return VEC.same;
-    throw new Error('Ollama embeddings HTTP 500');
-  };
-  const results = await semanticSearch('query', [
-    { path: 'doomed.md', body: 'D'.repeat(20) },
-    { path: 'b.md', body: 'same' },
-  ], { embedFn: alwaysFailsBodies, truncateAt: 10 });
-  assert.deepEqual(results.map((r) => r.path), ['b.md'], 'the doubly-failing page is skipped, not fatal');
-});
-
-test('semanticSearch still throws if the QUERY itself cannot be embedded (nothing to rank against)', async () => {
-  const alwaysFails = async () => { throw new Error('boom'); };
-  await assert.rejects(() => semanticSearch('query', [{ path: 'a.md', body: 'x' }], { embedFn: alwaysFails }));
+// A single oversized page can no longer take embedding down with it -- there
+// is nothing left to retry or truncate. Chunks are built under the model's
+// context window by construction (chunk.mjs), so an embed failure here is a
+// real failure (Ollama down, bad query), not a size problem, and propagates.
+test('semanticSearch propagates a failure embedding the query (nothing to rank against)', async () => {
+  const embedFn = async () => { throw new Error('connection refused'); };
+  await assert.rejects(() => semanticSearch('query', { vectors: {}, manifest: {}, embedFn }));
 });
 
 test('mergeRRF combines two ranked lists, deduplicated, by reciprocal rank', () => {
@@ -129,100 +91,143 @@ test('mergeRRF is deterministic given the same input', () => {
   assert.deepEqual(a, b);
 });
 
-test('qmdAvailable reflects whether the probe command succeeds', () => {
-  assert.equal(qmdAvailable(() => {}), true);
-  assert.equal(qmdAvailable(() => { throw new Error('not found'); }), false);
+// ── loadChunkIndex ──────────────────────────────────────────────────────
+// Builds a throwaway .wiki-master-shaped directory (never the real vault) with
+// a valid chunks.json/vectors.bin/vectors.idx.json trio, mirroring what
+// index-embed.mjs writes.
+function tempIndexDir(manifest, vectorMap) {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-search-index-'));
+  writeFileSync(join(dir, 'chunks.json'), JSON.stringify(manifest));
+  const { buffer, idx } = encodeVectors(vectorMap);
+  writeFileSync(join(dir, 'vectors.bin'), buffer);
+  writeFileSync(join(dir, 'vectors.idx.json'), JSON.stringify(idx));
+  return dir;
+}
+
+test('loadChunkIndex loads the manifest and vectors as-is and reports available: true', () => {
+  const manifest = {
+    'wiki/a.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h1', startLine: 3, endLine: 5 }] },
+    'wiki/b.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h2', startLine: 1, endLine: 2 }] },
+  };
+  const dir = tempIndexDir(manifest, { h1: [1, 0], h2: [0, 1] });
+  try {
+    const index = loadChunkIndex(dir);
+    assert.equal(index.available, true);
+    assert.deepEqual(new Set(Object.keys(index.manifest)), new Set(['wiki/a.md', 'wiki/b.md']));
+    assert.ok(index.vectors.h1 && index.vectors.h2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
-test('search: qmd tier wins when qmd is available and succeeds', async () => {
-  const r = await search('q', {
-    keywordSearch: async () => { throw new Error('should not be called'); },
-    qmdProbe: () => true,
-    qmdRun: async () => [{ path: 'qmd-result.md' }],
-    ollamaAvailable: async () => true,
-    semanticRun: async () => { throw new Error('should not be called'); },
-  });
-  assert.equal(r.tier, 'qmd');
-  assert.deepEqual(r.results, [{ path: 'qmd-result.md' }]);
+test('loadChunkIndex reports available: false when the index files are absent', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-search-noindex-'));
+  try {
+    const index = loadChunkIndex(dir);
+    assert.equal(index.available, false);
+    assert.deepEqual(index.manifest, {});
+    assert.deepEqual(index.vectors, {});
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
-test('search: falls back to hybrid when qmd is absent but Ollama is available', async () => {
+// A manifest entry can exist for a file with no chunks yet (e.g. mid-refresh
+// bookkeeping) -- that must not count as coverage, or a caller would report
+// the semantic channel as available when it has nothing to rank.
+test('loadChunkIndex reports available: false when the manifest has files but zero chunks', () => {
+  const manifest = { 'wiki/empty.md': { mtimeMs: 1, size: 1, chunks: [] } };
+  const dir = tempIndexDir(manifest, {});
+  try {
+    const index = loadChunkIndex(dir);
+    assert.equal(index.available, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// The regression this guards: the old whole-page path read and hashed all
+// 1,820 vault files on every single query (211ms of avoidable work, design
+// spec section 3). The chunk index's manifest already knows every path and
+// line, so the query-time load must touch ONLY the three fixed files under
+// .wiki-master/ -- never a wiki/ file directly.
+test('loadChunkIndex reads only the three index files, never a vault wiki/ file', () => {
+  const manifest = {
+    'wiki/a.md': { mtimeMs: 1, size: 1, chunks: [{ hash: 'h1', startLine: 3, endLine: 5 }] },
+  };
+  const dir = tempIndexDir(manifest, { h1: [1, 0] });
+  const seen = [];
+  const readFileImpl = (p, enc) => { seen.push(String(p)); return enc !== undefined ? readFileSync(p, enc) : readFileSync(p); };
+  try {
+    const index = loadChunkIndex(dir, { readFileImpl });
+    assert.equal(index.available, true);
+    assert.ok(seen.length > 0, 'the spy actually observed reads');
+    assert.ok(
+      seen.every((p) => !p.replace(/\\/g, '/').includes('/wiki/')),
+      `expected no reads under wiki/, saw: ${seen.join(', ')}`
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── search() tiering ladder ─────────────────────────────────────────────
+
+test('search: Ollama up and an index present -> hybrid tier, fusing keyword and chunk-semantic results', async () => {
   const r = await search('q', {
     keywordSearch: async () => ['k.md'],
-    qmdProbe: () => false,
-    qmdRun: async () => { throw new Error('should not be called'); },
     ollamaAvailable: async () => true,
-    semanticRun: async () => [{ path: 's.md', score: 0.9 }],
+    indexAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9, startLine: 12 }],
   });
   assert.equal(r.tier, 'hybrid');
   assert.deepEqual(new Set(r.results.map((x) => x.path)), new Set(['k.md', 's.md']));
 });
 
-test('search: falls back to keyword-only when both qmd and Ollama are unavailable', async () => {
+test('search: Ollama down -> lexical tier, keyword results still return', async () => {
   const r = await search('q', {
     keywordSearch: async () => ['k.md'],
-    qmdProbe: () => false,
-    qmdRun: async () => { throw new Error('should not be called'); },
     ollamaAvailable: async () => false,
+    indexAvailable: async () => true,
     semanticRun: async () => { throw new Error('should not be called'); },
   });
-  assert.equal(r.tier, 'keyword');
+  assert.equal(r.tier, 'lexical');
   assert.deepEqual(r.results, [{ path: 'k.md' }]);
 });
 
-// Found live the first time tier 1 actually ran: `qmd search` (no query
-// expansion -- that is the multi-GB model this integration avoids) returned []
-// for a natural-language query the hybrid tier answers well, and the ladder
-// presented "(qmd)" with zero results as the final answer. From an optional
-// accelerator, an empty answer is not an answer.
-test('search: an empty qmd result set falls through to the next tier instead of answering with nothing', async () => {
+test('search: Ollama up but no index -> lexical tier and reports the index is missing', async () => {
   const r = await search('q', {
     keywordSearch: async () => ['k.md'],
-    qmdProbe: () => true,
-    qmdRun: async () => [],
     ollamaAvailable: async () => true,
-    semanticRun: async () => [{ path: 's.md', score: 0.9 }],
-  });
-  assert.equal(r.tier, 'hybrid', 'zero qmd hits must not preempt a tier that can answer');
-  assert.deepEqual(new Set(r.results.map((x) => x.path)), new Set(['k.md', 's.md']));
-});
-
-test('search: a qmd runtime failure (present but broken) falls through to the next tier', async () => {
-  const r = await search('q', {
-    keywordSearch: async () => ['k.md'],
-    qmdProbe: () => true,
-    qmdRun: async () => { throw new Error('qmd index corrupt'); },
-    ollamaAvailable: async () => false,
+    indexAvailable: async () => false,
     semanticRun: async () => { throw new Error('should not be called'); },
   });
-  assert.equal(r.tier, 'keyword', 'a broken qmd degrades gracefully rather than erroring out');
+  assert.equal(r.tier, 'lexical');
+  assert.deepEqual(r.results, [{ path: 'k.md' }]);
+  assert.match(r.note, /index/i);
+  assert.match(r.note, /missing|absent|empty/i);
 });
 
-// Real shape, confirmed live against `qmd search "..." --json` (not guessed from
-// docs): a bare JSON array of {docid, score, file: "qmd://<collection>/<path>",
-// line, title, snippet}. This fixture is the actual output captured during
-// implementation (collection name substituted for "wiki-master").
-const REAL_QMD_OUTPUT = JSON.stringify([
-  {
-    docid: '#461bef',
-    score: 0.44,
-    file: 'qmd://wiki-master/wiki/sources/Provenance.md',
-    line: 2,
-    title: 'Provenance',
-    snippet: '@@ -1,3 @@ (0 before, 0 after)\n# Provenance\n...',
-  },
-]);
-
-test('qmdSearch strips the qmd://<collection>/ URI prefix down to a vault-relative path', () => {
-  const results = qmdSearch('provenance', { execImpl: () => REAL_QMD_OUTPUT });
-  assert.deepEqual(results, [{ path: 'wiki/sources/Provenance.md', score: 0.44 }]);
+test('search: fused hybrid results carry the startLine the semantic channel supplied', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => [],
+    ollamaAvailable: async () => true,
+    indexAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9, startLine: 42 }],
+  });
+  const hit = r.results.find((x) => x.path === 's.md');
+  assert.equal(hit.startLine, 42);
 });
 
-test('qmdSearch invokes `qmd search` (never `query`/`vsearch`) to avoid their multi-GB model downloads', () => {
-  let calledWith = '';
-  qmdSearch('provenance', { execImpl: (cmd) => { calledWith = cmd; return '[]'; } });
-  assert.match(calledWith, /^qmd search /, 'must use the lightweight `search` subcommand');
-  assert.doesNotMatch(calledWith, /qmd (query|vsearch)/);
+test('search: a keyword-only hit (no semantic contribution) carries no startLine', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => true,
+    indexAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9, startLine: 42 }],
+  });
+  const hit = r.results.find((x) => x.path === 'k.md');
+  assert.equal(hit.startLine, undefined);
 });
 
 // Found live during implementation, against the real vault: the `obsidian` CLI's
@@ -241,51 +246,77 @@ test('keywordSearch passes through real hits unchanged', () => {
   assert.deepEqual(results, ['a.md', 'b.md']);
 });
 
-test('qmdSearch drops entries with no usable file field rather than returning a garbage path', () => {
-  const malformed = JSON.stringify([{ docid: '#x', score: 0.1 }]); // no `file` field
-  const results = qmdSearch('q', { execImpl: () => malformed });
-  assert.deepEqual(results, []);
+// Found while wiring the health disclosure: with Ollama reachable but the
+// model not pulled, embed() throws HTTP 404 (confirmed live), and search()'s
+// hybrid branch called semanticRun with no guard -- an unhandled rejection
+// that crashed the whole query instead of degrading. A crash is the opposite
+// of the "never silent, always usable" goal this task exists for: the user
+// gets NO results, not even keyword-only ones. This mirrors the qmd tier's
+// own established philosophy (a tier that fails at runtime falls through,
+// per the old search.mjs comment) applied to the new ladder.
+test('search: a semantic channel that fails at runtime falls back to lexical instead of crashing', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => true,
+    indexAvailable: async () => true,
+    semanticRun: async () => { throw new Error('Ollama embeddings HTTP 404'); },
+  });
+  assert.equal(r.tier, 'lexical');
+  assert.deepEqual(r.results, [{ path: 'k.md' }]);
+  assert.match(r.note, /404|fail/i);
 });
 
-// Found live under the documented setup (`qmd collection add <vault>/wiki`):
-// qmd's file URIs are COLLECTION-relative, so hits come back as
-// "qmd://wiki-master/sources/X.md" -- missing the wiki/ prefix every other
-// tier's vault-relative paths carry. The 0.7.0 fixture above was captured from
-// a vault-rooted collection, which masked this; both roots must normalize to
-// the same vault-relative shape.
-// Found live: qmd slugifies filenames inside its URIs -- "Foale — A
-// Listener-Centred Approach.md" comes back as "Foale-A-Listener-Centred-
-// Approach.md", a path that does not exist on disk. Punctuation runs (spaces,
-// em-dashes, commas) collapse to single hyphens, so naive reversal is
-// ambiguous (real filenames legitimately contain hyphens); the only safe
-// mapping is resolving against the actual vault file list.
-test('qmdSearch resolves slugified qmd filenames back to the real on-disk vault paths', () => {
-  const vaultFiles = [
-    'wiki/sources/Foale — A Listener-Centred Approach.md',
-    'wiki/concepts/Second Brain.md',
-    'wiki/syntheses/bid-master-dq-md.md', // real hyphens: must map to itself
-  ];
-  const hits = JSON.stringify([
-    { docid: '#a', score: 0.9, file: 'qmd://wiki-master/sources/Foale-A-Listener-Centred-Approach.md' },
-    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Second-Brain.md' },
-    { docid: '#c', score: 0.7, file: 'qmd://wiki-master/syntheses/bid-master-dq-md.md' },
-    { docid: '#d', score: 0.6, file: 'qmd://wiki-master/concepts/Not-In-The-Vault.md' },
-  ]);
-  const results = qmdSearch('q', { execImpl: () => hits, vaultFiles });
-  assert.deepEqual(results.map((r) => r.path), [
-    'wiki/sources/Foale — A Listener-Centred Approach.md',
-    'wiki/concepts/Second Brain.md',
-    'wiki/syntheses/bid-master-dq-md.md',
-    'wiki/concepts/Not-In-The-Vault.md', // unresolvable: passed through, not dropped
-  ]);
+// ── renderResult: never-silent disclosure, stdout/stderr split ─────────────
+// Pure formatting -- given a search() result and an assessTiers() verdict,
+// decides what a caller sees on each stream. No I/O, so the "never silent"
+// and "pipeability" guarantees are unit-testable without a live vault.
+
+test('renderResult: a healthy hybrid search prints the one-liner to stderr and only paths to stdout', () => {
+  const result = { tier: 'hybrid', results: [{ path: 'a.md' }, { path: 'b.md', startLine: 12 }] };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.deepEqual(stdout, ['a.md', 'b.md:12'], 'stdout carries only the answer, so piping stays clean');
+  assert.equal(stderr.length, 1);
+  assert.equal(stderr[0], '(hybrid · 100 chunks)');
 });
 
-test('qmdSearch normalizes collection-relative hits to vault-relative wiki/ paths', () => {
-  const collectionRelative = JSON.stringify([
-    { docid: '#a', score: 0.85, file: 'qmd://wiki-master/sources/Some Source.md' },
-    { docid: '#b', score: 0.8, file: 'qmd://wiki-master/concepts/Some Concept.md' },
-  ]);
-  const results = qmdSearch('q', { execImpl: () => collectionRelative });
-  assert.deepEqual(results.map((r) => r.path),
-    ['wiki/sources/Some Source.md', 'wiki/concepts/Some Concept.md']);
+// The user's #1 complaint, directly: a degraded search must never look
+// identical to a healthy one. The one-liner is the minimum a caller reads.
+test('renderResult: a degraded search is never silent -- the one-liner always names the gap', () => {
+  const result = { tier: 'lexical', results: [{ path: 'k.md' }] };
+  const assessed = assessTiers({
+    ollama: { reachable: false, modelPresent: false, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.deepEqual(stdout, ['k.md']);
+  assert.ok(stderr.length > 0, 'a degraded search must say something');
+  assert.ok(stderr.some((l) => /ollama not running/.test(l)), 'the gap must be named, not just "degraded"');
+});
+
+test('renderResult: diagnostics never leak into stdout, even with a note and a full block', () => {
+  const result = { tier: 'lexical', results: [{ path: 'k.md' }], note: 'semantic index missing -- run node scripts/index-embed.mjs' };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: false, coverage: { chunks: 0, embedded: 0, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 0, announceFull: true });
+  assert.deepEqual(stdout, ['k.md'], 'stdout must contain nothing but result paths');
+  assert.ok(stderr.length > 1, 'the full block is multiple lines');
+  assert.ok(stderr.some((l) => /index-embed\.mjs/.test(l)));
+});
+
+test('renderResult: the first-in-window call prints the full block instead of the one-liner', () => {
+  const result = { tier: 'lexical', results: [] };
+  const assessed = assessTiers({
+    ollama: { reachable: false, modelPresent: false, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const full = renderResult(result, assessed, { announceFull: true }).stderr;
+  const oneLine = renderResult(result, assessed, { announceFull: false }).stderr;
+  assert.ok(full.length > oneLine.length, 'the full block carries more than the one-liner');
+  assert.equal(oneLine.length, 1, 'subsequent searches inside the window get exactly one line');
 });

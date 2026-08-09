@@ -74,6 +74,20 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
   may flag claims that rest only on `low`-quality provenance.
 
+## Search degrades silently — read the status line
+Search never errors out; it falls back to a weaker channel and still returns plausible
+results. `scripts/search.mjs` therefore prints a status line to stderr on every query,
+and it is not decoration:
+- `(hybrid · N chunks)` — Obsidian keyword + chunk-level semantic, RRF-fused.
+- `(lexical — <what is off> · run --health)` — keyword only. Report this to the user
+  before presenting an answer built on it.
+
+Semantic retrieval reads a chunk index under `.wiki-master/`, built by
+`scripts/index-embed.mjs` and keyed by chunk-content hash — so it can be **incomplete,
+never wrong**: an edited chunk misses and is re-embedded on the next refresh. It does not
+refresh itself; `--health` reports how many files have changed since the last one. Results
+are `path:line`, pointing at the passage that matched.
+
 ## Every mutating operation commits itself
 An operation that changes the vault owns the commit that records it. Open with
 `node ../../scripts/op-begin.mjs --op <op>` (capture the token it prints), close with

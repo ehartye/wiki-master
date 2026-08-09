@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.11.0 — 2026-08-09
+
+### Semantic search over every character, and it says when it is degraded
+
+Two problems, one of which was invisible.
+
+**Search was silently substandard.** Every tier degrades to a working answer, so a query
+returned plausible results whether it ran the best path or the worst, and neither the user
+nor an agent could tell. Worse than mislabelling: a reachable Ollama with the model not
+pulled threw an unhandled `HTTP 404` and returned *nothing*. Now every query prints a status
+line to stderr — `(hybrid · 5518 chunks)` or `(lexical — ollama not running · run --health)`
+— the first query in a 4-hour window prints the full block with fixes, and
+`--health` / `--setup` report and remediate. `modelPresent()` closes the one case where a
+tier label was actively false.
+
+**Semantic search only saw the first 4,000 characters of each page.** 395 of 1,820 pages
+exceeded that; 979,529 characters — 16.8% of the wiki — were never embedded. There is now a
+chunk-level index: heading-aware chunks with overlap, keyed by chunk-content hash, stored as
+binary Float32.
+
+| | before | after |
+|---|---|---|
+| Coverage | 83.2% of characters | **every character** |
+| Query | 1,500 ms | **104 ms** (14 ms load + 81 ms embed + 9 ms cosine) |
+| Retrieval, mean rank on a 5-query benchmark | 3.0 | **2.6** |
+| Storage | 28 MB JSON | 17 MB binary |
+| Results | page paths | `path:line` — the passage that matched |
+
+**The aggregation was chosen by measurement, and the first design was wrong.** Ranking a page
+by its best chunk scored *worse* than the truncated status quo (5.0 vs 3.0) — a 1,200-char
+window is a weaker topical fingerprint than a whole-document vector. RRF-fusing the two was
+also worse (3.4). Ranking by the **mean of a page's chunk vectors** won (2.6), because it
+reconstructs the whole-document fingerprint over complete coverage. Best chunk still supplies
+the line number: mean picks the page, max picks the passage. n=5 with hand-picked targets is a
+weak benchmark; what makes it actionable is that mean was never worse on any single query.
+
+**qmd was installed, measured and removed.** `qmd search` is BM25-only despite the tier name,
+and it sat *above* the actually-hybrid tier, so any keyword hit preempted semantic search
+entirely — installing it made semantic queries worse. True hybrid is reachable
+(`qmd query $'lex:…\nvec:…' --no-rerank`, 0 MB of extra models) but runs at 3.0 s against
+1.5 s because each invocation reloads its model, and the daemon meant to fix that measurably
+changed nothing. Ollama is already the persistent server qmd lacks. Full evidence in
+`docs/superpowers/specs/2026-08-09-chunk-semantic-index-design.md` §4.
+
+Also: `keep_alive` on embeds (a query embed measured 2,142 ms with the model unloaded, 30 ms
+warm), and the query path no longer re-reads and re-hashes the whole vault — 211 ms of
+avoidable work per search.
+
+Build or refresh the index with `node scripts/index-embed.mjs`. A cold build of 1,821 files
+took 54 s; an incremental refresh of 2 changed files took 0.2 s.
+
 ## 0.10.0 — 2026-08-09
 
 ### Every mutating operation commits its own work
