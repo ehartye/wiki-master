@@ -42,13 +42,30 @@ every other machine.
      a claim with no evidence is a defect (guardrail #2), so purge will not decide
      this silently in either direction.
 
-3. **Show the user the plan and get explicit approval.** Never skip this. Purge
-   moves many files at once and the closure reaches further than expected when a
-   topic is densely linked. Read it back grouped by layer with counts, and name the
-   collateral and blocking pages specifically.
+3. **Check the seeds before the plan, then get explicit approval.** Never skip
+   either half.
 
-4. **Apply.**
-   `node ${CLAUDE_PLUGIN_ROOT}/scripts/purge.mjs --apply "<topic>"`
+   **Read the seed list first.** Search ranks by relevance but has no notion of
+   "relevant enough" — the scores come from RRF fusion and carry no absolute
+   meaning, so the tail of a 25-seed list drifts into adjacent topics, and every
+   off-topic seed drags its exclusive evidence into the bin with it. Measured on a
+   real vault: a "parenting conflict resolution self-help" query seeded an
+   AI-ethics-curriculum concept, and the plan came back at 44 files with 39
+   collateral pages reaching into unrelated clusters.
+
+   Strike anything that does not belong and re-run pinned:
+   `--plan "<topic>" --seeds "wiki/concepts/A.md,wiki/concepts/B.md"`
+   The same five-seed topic then planned 10 files with 3 collateral. Paths are
+   vault-relative and validated — a typo is refused rather than silently narrowing
+   the purge.
+
+   **Then read the plan back** grouped by layer with counts, naming the collateral
+   and blocking pages specifically, and get an explicit yes. Purge moves many files
+   at once and the closure reaches further than expected when a topic is densely
+   linked.
+
+4. **Apply** — with the same `--seeds` you approved, if you pinned any.
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/purge.mjs --apply "<topic>" [--seeds "..."]`
    Writes the manifest, moves the files, records declines, writes the log entry, and
    commits — staging only what the purge touched, never the user's unrelated work.
    Then:
