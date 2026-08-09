@@ -1675,8 +1675,19 @@ export async function main(argv) {
       return;
     }
     const r = applyRestore(vaultPath, manifest);
-    console.log(`restored ${r.restored} file(s)` + (r.skipped.length ? `; skipped ${r.skipped.length} (a file already sits at the original path)` : ''));
-    for (const s of r.skipped) console.log(`  skipped: ${s}`);
+    console.log(`restored ${r.restored} file(s)`);
+    for (const p of r.skipped) console.log(`  skipped (your newer work sits at that path): ${p}`);
+    // A gap the manifest claims but the bin cannot supply, in neither the
+    // primary slot nor any resurrected-N/. Never silent — an unqualified
+    // "restored N" over an unrecoverable gap is the failure this reports.
+    for (const p of r.missing) console.error(`  MISSING from the bin, not restored: ${p}`);
+    if (r.missing.length) process.exitCode = 1;
+    // A restore that is not committed is a working-tree-only change — the exact
+    // state that caused the bug this feature exists to fix.
+    if (r.touched.length && isGitRepo(vaultPath)) {
+      const c = commitPaths(vaultPath, r.touched, `restore: ${manifest.topic ?? manifest.id} (${manifest.id})`);
+      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    }
     return;
   }
 
@@ -1739,7 +1750,7 @@ export async function main(argv) {
   });
 
   writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
-  const { moved, touched } = applyPurge(vaultPath, manifest);
+  const { moved, touched, failed } = applyPurge(vaultPath, manifest);
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
   const logPath = writeLogEntry({
     vaultPath, op: 'purge', title: arg,
