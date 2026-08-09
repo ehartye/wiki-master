@@ -27,3 +27,27 @@ export async function isAvailable({ fetchImpl = fetch } = {}) {
     return false;
   }
 }
+
+export const EMBED_MODEL = MODEL;
+export const OLLAMA_HOST = HOST;
+
+// A reachable server is NOT a usable one. isAvailable() only proves Ollama
+// answers; if the configured model was never pulled, search() still reports the
+// `hybrid` tier, then every embed call 404s, semanticSearch skips each page in
+// turn, and the caller receives keyword-only results wearing a hybrid label.
+// That is the one place this pipeline actively misreports itself, so the model
+// is checked separately rather than inferred from the server being up.
+export async function modelPresent({ fetchImpl = fetch, model = MODEL } = {}) {
+  try {
+    const res = await fetchImpl(`${HOST}/api/tags`);
+    if (!res || !res.ok) return false;
+    const data = await res.json();
+    // Ollama reports a model pulled as "nomic-embed-text" under the name
+    // "nomic-embed-text:latest", so compare on the bare name. A caller that
+    // pins an explicit tag still matches, because both sides are stripped.
+    const bare = (s) => String(s).split(':')[0];
+    return (data.models ?? []).some((m) => bare(m.name ?? m.model ?? '') === bare(model));
+  } catch {
+    return false;
+  }
+}
