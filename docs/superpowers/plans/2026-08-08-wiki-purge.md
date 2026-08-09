@@ -1759,6 +1759,19 @@ export async function main(argv) {
   });
 
   console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
+  // Windows locks a file against rename whenever any process holds a
+  // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
+  // client. Measured on this machine, not theoretical. Report and stop rather
+  // than committing a half-purge: re-running --apply resumes cleanly, whereas
+  // reconciling around it buries the stragglers in resurrected-N/.
+  if (failed.length) {
+    console.error(`\n${failed.length} file(s) could not be moved:`);
+    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
+    console.error('Close whatever holds them open and re-run --apply; it resumes cleanly.');
+    console.error('Not committing a partial purge.');
+    process.exitCode = 1;
+    return;
+  }
   if (manifest.collateral.length) {
     console.log('NEXT: repair references on the collateral pages, then run node scripts/index-gen.mjs');
   }
