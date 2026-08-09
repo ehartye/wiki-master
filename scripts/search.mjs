@@ -1,64 +1,55 @@
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { cosine, embed as ollamaEmbed, isAvailable } from './lib/embed.mjs';
-import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
-import { resolveVault, obsidian, obsidianJson } from './lib/vault.mjs';
-import { isContent } from './lib/graph.mjs';
+import { embed as ollamaEmbed, isAvailable } from './lib/embed.mjs';
+import { decodeVectors, queryPages } from './lib/vector-index.mjs';
+import { resolveVault, obsidianJson } from './lib/vault.mjs';
 
-// Ranks every candidate page's (cached-or-freshly-embedded) vector against one
-// query embedding. `pages` is [{path, body}]; `cache` is the SAME hash-keyed map
-// drift.mjs already populates in .wiki-master/embeddings.json -- an unchanged
-// page is never re-embedded, whether drift.mjs or search.mjs embedded it first.
-// `body` must be hashed the same way drift.mjs hashes it (full file content,
-// frontmatter included -- see drift.mjs's own `body` variable) or the two
-// features' cache entries will never hit each other.
-// nomic-embed-text rejects an input past its context window with HTTP 500
-// rather than truncating (confirmed live: an 8.6K-char page trips it). 4000
-// chars stays safely under that even for token-dense markdown, while keeping
-// the page's most representative slice (title, frontmatter, opening) as its
-// semantic fingerprint.
-const EMBED_TRUNCATE_CHARS = 4000;
+const CHUNKS_FILE = 'chunks.json';
+const VECTORS_BIN = 'vectors.bin';
+const VECTORS_IDX = 'vectors.idx.json';
 
-export async function semanticSearch(query, pages, { embedFn, cache = {}, topN = 10, truncateAt = EMBED_TRUNCATE_CHARS } = {}) {
-  const qVec = await embedFn(query);
-  const scored = [];
-  for (const p of pages) {
-    const h = hash(p.body);
-    if (cache[h]) {
-      scored.push({ path: p.path, score: cosine(qVec, cache[h]) });
-      continue;
-    }
-    // A single oversized/unusual page must not take the whole search down.
-    // Confirmed live: a long page exceeding the embedding model's context
-    // window makes Ollama return HTTP 500 -- an embedding-model limit, not a
-    // wiki-master defect, but one page's failure is not fatal to the rest.
-    // When the body is long enough that length plausibly IS the failure,
-    // retry its opening slice and cache the vector under the FULL body hash
-    // -- the drift.mjs-shared key -- so the page stays semantically visible
-    // and no later run re-fails it. A short failing body gets no retry: an
-    // identical input would just fail identically (e.g. Ollama is down).
-    try {
-      const vec = await embedFn(p.body);
-      cache[h] = vec;
-      scored.push({ path: p.path, score: cosine(qVec, vec) });
-    } catch (err) {
-      if (p.body.length > truncateAt) {
-        try {
-          const vec = await embedFn(p.body.slice(0, truncateAt));
-          cache[h] = vec;
-          scored.push({ path: p.path, score: cosine(qVec, vec) });
-          console.error(`search: embedded ${p.path} truncated to ${truncateAt} chars (full body exceeds the embedding context)`);
-          continue;
-        } catch (retryErr) {
-          err = retryErr;
-        }
-      }
-      console.error(`search: skipping ${p.path} (embedding failed: ${err.message})`);
-    }
+// Loads the chunk-level semantic index built by index-embed.mjs, touching
+// only the three fixed files under .wiki-master/ -- never the vault's wiki/
+// content itself. A query must never walk or hash the vault (that was 211ms
+// of avoidable work on every search -- design spec section 3): the manifest
+// already knows every chunk's path and line, so this is the only I/O the
+// query path needs. `readFileImpl` is injectable so callers can prove that
+// (see test/search.test.mjs).
+//
+// A missing or empty index is a first-class, non-fatal state (design spec
+// section 5.5 / 5.3): building one takes minutes, so a query must never
+// trigger a build. `available: false` tells search() to skip the semantic
+// channel and fall back to the lexical tier rather than block or error.
+// Availability is judged on total CHUNK count, not file count -- a manifest
+// entry with an empty chunks array must not count as coverage.
+export function loadChunkIndex(dir, { readFileImpl = readFileSync, existsImpl = existsSync } = {}) {
+  const manifestFile = join(dir, CHUNKS_FILE);
+  const binFile = join(dir, VECTORS_BIN);
+  const idxFile = join(dir, VECTORS_IDX);
+  if (!existsImpl(manifestFile) || !existsImpl(binFile) || !existsImpl(idxFile)) {
+    return { manifest: {}, vectors: {}, available: false };
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, topN);
+  const manifest = JSON.parse(readFileImpl(manifestFile, 'utf8'));
+  const idx = JSON.parse(readFileImpl(idxFile, 'utf8'));
+  const vectors = decodeVectors(readFileImpl(binFile), idx);
+  const totalChunks = Object.values(manifest).reduce((n, e) => n + (e.chunks?.length ?? 0), 0);
+  return { manifest, vectors, available: totalChunks > 0 && Object.keys(vectors).length > 0 };
+}
+
+// Embeds the query exactly once (Ollama's keepAlive default now keeps the
+// model resident between calls -- see lib/embed.mjs -- so there is no longer
+// a reason to cache it), then ranks pages via queryPages: a page's score is
+// the mean of its chunk vectors (measured to retrieve better than ranking by
+// best chunk alone -- see queryPages' own comment for the numbers and their
+// caveat), and it carries its single best chunk's startLine as the passage
+// to jump to. Chunks, unlike whole pages, never exceed the embedding
+// model's context window, so there is no truncate-and-retry path here --
+// that was only ever a workaround for whole-page embedding, and removing it
+// is the point of the chunk index.
+export async function semanticSearch(query, { vectors, manifest, embedFn, topN = 10 } = {}) {
+  const qVec = await embedFn(query);
+  return queryPages(qVec, vectors, manifest, { topN });
 }
 
 // Reciprocal Rank Fusion (Cormack et al. 2009): merges N ranked path lists into
@@ -78,90 +69,39 @@ export function mergeRRF(lists) {
     .map(([path, score]) => ({ path, score }));
 }
 
-// Mirrors init.mjs's defuddleAvailable() exactly: try the command, ignore
-// stdio, catch -> false. qmd is never a package.json dependency -- only ever
-// detected on PATH, the same relationship this codebase already has with
-// Ollama and Defuddle (present -> used; absent -> the next tier down).
-export function qmdAvailable(execImpl) {
-  try { execImpl('qmd --version'); return true; } catch { return false; }
-}
-
 // The tiering ladder, isolated from real I/O behind injected deps so it is
-// unit-testable without a live qmd/Ollama/Obsidian. `keywordSearch` always
+// unit-testable without a live Ollama/Obsidian/index. `keywordSearch` always
 // runs when needed (obsidian search always works or the vault is broken
-// anyway); `qmdRun`/`semanticRun` are each optional and independently probed.
-// A qmd that is PRESENT but fails at runtime (corrupt index, model load
-// error) falls through rather than surfacing a hard error from what is by
-// design an optional accelerator, not a load-bearing dependency.
+// anyway); the semantic channel needs BOTH a reachable Ollama AND a built
+// index -- either missing on its own degrades to `lexical`, never a partial
+// or misleading `hybrid` (design spec section 5.4/5.5). A built-but-empty
+// index (see loadChunkIndex) counts as absent, not present.
 export async function search(query, deps) {
-  const { keywordSearch, qmdProbe, qmdRun, ollamaAvailable, semanticRun } = deps;
-  if (qmdProbe()) {
-    try {
-      // `qmd search` has no query expansion (deliberately -- see qmdSearch),
-      // so a natural-language query can legitimately hit nothing. From an
-      // optional accelerator an empty answer is not an answer: fall through
-      // to a tier that may still produce one.
-      const results = await qmdRun(query);
-      if (results.length > 0) return { tier: 'qmd', results };
-    } catch { /* fall through to the next tier */ }
-  }
+  const { keywordSearch, ollamaAvailable, indexAvailable, semanticRun } = deps;
   const keywordHits = await keywordSearch(query);
-  if (await ollamaAvailable()) {
+  const ollamaUp = await ollamaAvailable();
+  const hasIndex = await indexAvailable();
+
+  if (ollamaUp && hasIndex) {
     const semanticHits = await semanticRun(query);
-    return { tier: 'hybrid', results: mergeRRF([keywordHits, semanticHits.map((h) => h.path)]) };
+    // mergeRRF only knows path lists; carry each path's best startLine
+    // through separately so a fused hit still tells an agent which line to
+    // jump to when the semantic channel is the one that supplied it.
+    const lineByPath = new Map(
+      semanticHits.filter((h) => h.startLine != null).map((h) => [h.path, h.startLine])
+    );
+    const results = mergeRRF([keywordHits, semanticHits.map((h) => h.path)])
+      .map((r) => (lineByPath.has(r.path) ? { ...r, startLine: lineByPath.get(r.path) } : r));
+    return { tier: 'hybrid', results };
   }
-  return { tier: 'keyword', results: keywordHits.map((path) => ({ path })) };
-}
 
-// The one-time setup this tier requires (documented, not automated -- auto-
-// provisioning a qmd collection behind a user's back was rejected: they may
-// already use qmd with their own collection naming scheme, and this stays an
-// optional accelerator, not something with silent side effects):
-//   qmd collection add <vault>/wiki --name wiki-master && qmd embed
-const QMD_COLLECTION = 'wiki-master';
-
-// Shells out to `qmd search` specifically -- never `query` or `vsearch`.
-// Confirmed live during implementation: `search` (hybrid BM25+vector, no LLM
-// step) needs only the ~330MB embedding model `qmd embed` already fetched;
-// `vsearch` and `query` BOTH additionally pull a 1.28GB query-expansion model
-// (and `query` a further reranking model) on first use -- a surprise
-// multi-gigabyte download this integration deliberately avoids triggering.
-// qmd is invoked purely as an external CLI, never an in-process import, so
-// its own Node >=22 engine requirement is never wiki-master's constraint.
-//
-// Real output shape below is confirmed against a live `qmd search --json`
-// run, not assumed from documentation: a bare JSON array of
-// {docid, score, file: "qmd://<collection>/<path>", line, title, snippet}.
-// qmd slugifies filenames inside its URIs: punctuation runs (spaces, em-
-// dashes, commas) collapse to single hyphens, confirmed live ("Foale — A
-// Listener-Centred Approach.md" -> "Foale-A-Listener-Centred-Approach.md").
-// Reversal is ambiguous (real names legitimately contain hyphens), so hits
-// are resolved against the actual vault file list by comparing canonical
-// forms: everything but alphanumerics and path separators collapses to "-".
-const canon = (p) => p.toLowerCase().replace(/[^a-z0-9/]+/g, '-');
-
-export function qmdSearch(query, { execImpl = execSync, limit = 10, vaultFiles = null } = {}) {
-  const out = execImpl(
-    `qmd search ${JSON.stringify(query)} -c ${QMD_COLLECTION} --json -n ${limit}`,
-    { encoding: 'utf8' }
-  );
-  const hits = JSON.parse(out);
-  const prefix = `qmd://${QMD_COLLECTION}/`;
-  const byCanon = new Map((vaultFiles ?? []).map((f) => [canon(f), f]));
-  return hits
-    .map((h) => {
-      if (typeof h.file !== 'string' || !h.file.startsWith(prefix)) return { path: null };
-      // qmd file URIs are COLLECTION-relative: under the documented setup
-      // (collection rooted at <vault>/wiki) a hit is "sources/X.md", missing
-      // the wiki/ prefix every other tier's vault-relative paths carry.
-      // Normalize either root to the vault-relative shape consumers read.
-      const rel = h.file.slice(prefix.length);
-      const path = rel.startsWith('wiki/') ? rel : `wiki/${rel}`;
-      // An unresolvable hit passes through as-is rather than being dropped:
-      // a wrong-but-close path a human can still recognize beats silence.
-      return { path: byCanon.get(canon(path)) ?? path, score: h.score };
-    })
-    .filter((h) => h.path);
+  const results = keywordHits.map((path) => ({ path }));
+  if (ollamaUp && !hasIndex) {
+    // The one case where the caller's next action differs from "Ollama is
+    // down": there is a fix (`node scripts/index-embed.mjs`), not a wait.
+    return { tier: 'lexical', results, note: 'semantic index missing or empty -- run `node scripts/index-embed.mjs` to build it' };
+  }
+  return { tier: 'lexical', results };
 }
 
 // The `obsidian` CLI's `search` command prints the plain-text sentence "No
@@ -180,42 +120,22 @@ export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJs
 
 export async function main(query, { limit = 10 } = {}) {
   const { path: vaultPath } = resolveVault();
-  const cacheDir = join(vaultPath, '.wiki-master');
-  const cache = loadCache(cacheDir);
-  const cachedEmbed = async (text) => {
-    const k = hash(text);
-    if (cache[k]) return cache[k];
-    const v = await ollamaEmbed(text);
-    cache[k] = v;
-    return v;
-  };
+  const indexDir = join(vaultPath, '.wiki-master');
+  const index = loadChunkIndex(indexDir);
 
-  const wikiFiles = () => obsidian(['files', 'ext=md']).split(/\r?\n/).filter(Boolean)
-    .filter((rel) => rel.startsWith('wiki/'));
-
-  const semanticRun = async (q) => {
-    const pages = wikiFiles()
-      .filter((rel) => isContent(rel))
-      .map((rel) => ({ path: rel, body: readFileSync(join(vaultPath, rel), 'utf8') }));
-    // Honesty, not silence: a cold cache means embedding every uncached page
-    // before the first real answer -- up to low-hundreds of sequential Ollama
-    // calls on a vault this size (spec S4's "known, honest cost"). Report it
-    // rather than let the caller wonder why the first call is slow.
-    const uncached = pages.filter((p) => !cache[hash(p.body)]).length;
-    if (uncached > 5) console.error(`warming semantic cache: ${uncached}/${pages.length} pages`);
-    return semanticSearch(q, pages, { embedFn: cachedEmbed, cache, topN: limit });
-  };
-
-  const r = await search(query, {
-    keywordSearch: async (q) => keywordSearch(q, { limit }),
-    qmdProbe: () => qmdAvailable((cmd) => execSync(cmd, { stdio: 'ignore' })),
-    qmdRun: async (q) => qmdSearch(q, { limit, vaultFiles: wikiFiles() }),
-    ollamaAvailable: () => isAvailable(),
-    semanticRun,
+  const semanticRun = async (q) => semanticSearch(q, {
+    vectors: index.vectors,
+    manifest: index.manifest,
+    embedFn: ollamaEmbed,
+    topN: limit,
   });
 
-  saveCache(cacheDir, cache);
-  return r;
+  return search(query, {
+    keywordSearch: async (q) => keywordSearch(q, { limit }),
+    ollamaAvailable: () => isAvailable(),
+    indexAvailable: () => index.available,
+    semanticRun,
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -226,6 +146,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   main(query).then((r) => {
     console.log(`(${r.tier})`);
-    for (const hit of r.results) console.log(`  ${hit.path}`);
+    if (r.note) console.error(r.note);
+    for (const hit of r.results) {
+      console.log(hit.startLine != null ? `  ${hit.path}:${hit.startLine}` : `  ${hit.path}`);
+    }
   });
 }
