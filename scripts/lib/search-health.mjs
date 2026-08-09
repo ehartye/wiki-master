@@ -1,101 +1,99 @@
-// Which search tier will actually answer, and what each missing tier costs.
+// Which search tier will actually answer, and what each missing channel
+// costs. This exists because the failure mode of wiki-master's search is
+// *silence*: every tier degrades to a working answer, so a query returns
+// plausible results whether it ran the strongest tier or the weakest. The
+// user cannot tell, and neither can an agent. Kept free of I/O so the ladder
+// can be tested against every combination without a live Ollama, index, or
+// Obsidian.
 //
-// This exists because the failure mode of wiki-master's search is *silence*:
-// every tier degrades to a working answer, so a query returns plausible results
-// whether it ran the strongest tier or the weakest. The user cannot tell, and
-// neither can an agent. Kept free of I/O so the ladder can be tested against
-// every combination without a live qmd, Ollama, or Obsidian.
-
-// Mirrors search.mjs's `search()` exactly. Any change there changes this.
-//   qmd (if installed AND its collection exists) -> hybrid (keyword + semantic,
-//   if Ollama reachable AND the model is pulled) -> keyword
-export function assessTiers({ qmd = {}, ollama = {} } = {}) {
+// qmd was measured, rejected and uninstalled (design spec section 4) -- it
+// was BM25-only despite the tier name, sat above the actually-hybrid tier in
+// the ladder, and retrieved worse than the truncated page-level path it was
+// meant to replace. The remaining channels are Obsidian keyword and the
+// Ollama-backed chunk-semantic index.
+//
+// Mirrors scripts/search.mjs's `search()` ladder: Ollama reachable AND the
+// chunk index built -> hybrid (keyword + chunk-semantic, RRF-fused);
+// anything else -> lexical (Obsidian keyword alone). Any change to that
+// ladder changes this. The one deliberate divergence: `search()`'s own
+// `ollamaAvailable` dep only proves the SERVER answers (isAvailable()), so a
+// reachable-but-modelless Ollama would let it compute `hybrid` while every
+// embed 404s underneath. assessTiers checks modelPresent() separately and
+// reports the HONEST tier (lexical) for that state, flagging it
+// `misreports: true` -- the one case where trusting reachability alone would
+// print a label that is actively false, not merely weak.
+export function assessTiers({ ollama = {}, index = {} } = {}) {
   const gaps = [];
 
-  // --- semantic -----------------------------------------------------------
-  let semantic = false;
+  let ollamaOk = false;
   if (!ollama.reachable) {
     gaps.push({
-      tier: 'ollama',
+      channel: 'ollama',
       state: 'not running',
       buys: 'semantic ranking fused with keyword results',
       fix: 'ollama serve',
     });
   } else if (!ollama.modelPresent) {
-    // The only case where the tier LABEL is false rather than merely weak.
-    // isAvailable() checks that the server answers, not that the model exists,
-    // so search() reports `hybrid`, every embed call 404s, semanticSearch skips
-    // each page in turn, and the caller gets keyword results labelled hybrid.
     gaps.push({
-      tier: 'ollama',
+      channel: 'ollama',
       state: `model "${ollama.model}" not pulled`,
-      buys: 'semantic ranking — search currently CLAIMS hybrid but semantic contributes nothing',
+      buys: 'semantic ranking -- isAvailable() alone cannot see this, so without this check a query could be labelled hybrid while semantic contributes nothing',
       fix: `ollama pull ${ollama.model}`,
       misreports: true,
     });
   } else {
-    semantic = true;
+    ollamaOk = true;
   }
 
-  // --- qmd ----------------------------------------------------------------
-  let qmdUsable = false;
-  if (!qmd.installed) {
-    gaps.push({
-      tier: 'qmd',
-      state: 'not installed',
-      buys: 'the strongest tier — hybrid BM25 + vector over the whole wiki',
-      fix: 'npm i -g @tobilu/qmd   (needs Node >=22)',
-    });
-  } else if (!qmd.collectionExists) {
-    // qmdProbe() only runs `qmd --version`, so an installed-but-unconfigured qmd
-    // is tried first, returns nothing, and falls through — costing a subprocess
-    // on every query while contributing nothing.
-    gaps.push({
-      tier: 'qmd',
-      state: 'installed, but no wiki-master collection',
-      buys: 'the strongest tier — currently probed on every query and always empty',
-      fix: 'node search.mjs --setup',
-    });
-  } else {
-    qmdUsable = true;
-    // Unlike the Ollama cache — which is content-hash keyed and therefore can
-    // only ever be slow, never wrong — a qmd collection is a real index. It
-    // goes stale silently and will serve outdated hits or miss new pages.
-    if (qmd.staleCount > 0) {
+  // Index gaps are only meaningful once Ollama itself is healthy -- building
+  // or refreshing the index requires Ollama (index-embed.mjs's own preflight
+  // check), so surfacing "index is stale" while Ollama is down would point
+  // at a fix that cannot succeed yet. Fix Ollama first.
+  let indexOk = false;
+  if (ollamaOk) {
+    if (!index.available) {
       gaps.push({
-        tier: 'qmd',
-        state: `${qmd.staleCount} file(s) changed since the last embed`,
-        buys: 'accurate top-tier results — stale entries serve outdated text and new pages are invisible',
-        fix: 'qmd embed',
-        misreports: true,
+        channel: 'index',
+        state: 'missing or empty',
+        buys: 'semantic ranking fused with keyword results',
+        fix: 'node scripts/index-embed.mjs',
       });
+    } else {
+      indexOk = true;
+      const filesChanged = index.filesChanged ?? 0;
+      if (filesChanged > 0) {
+        // Not misreports: keyed by chunk-content hash (design spec section
+        // 5.2), the index can only ever be INCOMPLETE, never wrong. An
+        // edited chunk simply misses the cache and gets re-embedded next
+        // refresh -- unlike a real index (e.g. the rejected qmd collection),
+        // which goes stale silently and serves outdated hits.
+        gaps.push({
+          channel: 'index',
+          state: `${filesChanged} file(s) changed since last refresh`,
+          buys: 'coverage of the vault as it is right now',
+          fix: 'node scripts/index-embed.mjs',
+        });
+      }
+      const missing = index.coverage?.missing ?? 0;
+      if (missing > 0) {
+        gaps.push({
+          channel: 'index',
+          state: `${missing} chunk(s) not yet embedded`,
+          buys: 'complete semantic coverage of the pages already indexed',
+          fix: 'node scripts/index-embed.mjs',
+        });
+      }
     }
   }
 
-  const tier = qmdUsable ? 'qmd' : semantic ? 'hybrid' : 'keyword';
-  return { tier, gaps, semantic, qmdUsable };
+  const tier = ollamaOk && indexOk ? 'hybrid' : 'lexical';
+  return { tier, gaps };
 }
 
-// Coverage of the Ollama embedding cache. Takes precomputed hashes so it stays
-// pure. `orphaned` are vectors whose page no longer has that content — an edit
-// or deletion — which the cache never evicts, so it grows without bound.
-export function embeddingCoverage(pageHashes, cacheKeys) {
-  const cached = new Set(cacheKeys);
-  const live = new Set(pageHashes);
-  const missing = pageHashes.filter((h) => !cached.has(h));
-  let orphaned = 0;
-  for (const k of cached) if (!live.has(k)) orphaned += 1;
-  return {
-    total: pageHashes.length,
-    cached: pageHashes.length - missing.length,
-    uncached: missing.length,
-    orphaned,
-  };
-}
-
-// The full capability block is worth reading once; on every subsequent query it
-// becomes noise, and noise is how a warning stops being read. A one-line
-// reminder still fires each time (see search.mjs) — this only gates the block.
+// The full capability block is worth reading once; on every subsequent query
+// it becomes noise, and noise is how a warning stops being read. The one-line
+// statusLine still fires every query (see search.mjs) -- this only gates the
+// full block.
 export const NOTICE_WINDOW_HOURS = 4;
 
 export function shouldAnnounceFull(lastNoticeIso, now, windowHours = NOTICE_WINDOW_HOURS) {
@@ -105,12 +103,53 @@ export function shouldAnnounceFull(lastNoticeIso, now, windowHours = NOTICE_WIND
   return now - then >= windowHours * 3600_000;
 }
 
-// One line, always printed, naming the tier and — when degraded — what is off.
-// Never silent: a caller that reads only this line still learns the answer was
-// not the best available.
-export function statusLine({ tier, gaps }) {
-  if (!gaps.length) return `(${tier} — all tiers available)`;
-  const off = gaps.map((g) => g.tier);
-  const unique = [...new Set(off)];
-  return `(${tier} — ${unique.join(' and ')} degraded · run search.mjs --health)`;
+// One line, always printed, naming the tier and -- when degraded -- every
+// active gap. Never silent: a caller that reads only this line still learns
+// the answer was not the best available, and why.
+export function statusLine({ tier, gaps }, { chunks } = {}) {
+  if (!gaps.length) {
+    return chunks != null ? `(${tier} · ${chunks} chunks)` : `(${tier})`;
+  }
+  const reasons = gaps.map((g) => `${g.channel} ${g.state}`).join(' · ');
+  return `(${tier} — ${reasons} · run --health)`;
+}
+
+// The block printed once per notice window (see shouldAnnounceFull): every
+// gap, what it costs, and the exact command to fix it -- read once, not
+// re-read every query.
+export function fullReport({ tier, gaps }, { chunks } = {}) {
+  if (!gaps.length) {
+    const suffix = chunks != null ? ` (${chunks} chunks indexed)` : '';
+    return `wiki-master search health: ${tier} -- all channels available${suffix}.`;
+  }
+  const lines = [`wiki-master search health: ${tier} (degraded)`];
+  for (const g of gaps) {
+    lines.push(`  ${g.channel}: ${g.state}`);
+    lines.push(`    costs: ${g.buys}`);
+    lines.push(`    fix:   ${g.fix}`);
+  }
+  lines.push('Run `node scripts/search.mjs --health` any time for the full report, or `--setup` for a remediation plan.');
+  return lines.join('\n');
+}
+
+// A remediation PLAN, not an executor: exact commands, in the order the
+// gaps were detected (which is dependency order -- see assessTiers' own
+// comment on why index gaps wait for Ollama), with a repeated fix listed
+// once. Printing without running is deliberate: auto-provisioning behind the
+// user's back was rejected earlier in this project's history (see the
+// now-removed qmd tier's QMD_COLLECTION comment) -- confirmation belongs in
+// the conversation with the user, not inside a script that could run
+// unattended.
+export function setupPlan({ gaps }) {
+  if (!gaps.length) return 'wiki-master search: all channels healthy -- nothing to set up.';
+  const seen = new Set();
+  const steps = [];
+  for (const g of gaps) {
+    if (seen.has(g.fix)) continue;
+    seen.add(g.fix);
+    steps.push(g.fix);
+  }
+  const lines = ['wiki-master search setup -- run in order:'];
+  steps.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));
+  return lines.join('\n');
 }

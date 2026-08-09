@@ -1,9 +1,13 @@
-import { readFileSync, existsSync } from 'node:fs';
+import {
+  readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { embed as ollamaEmbed, isAvailable } from './lib/embed.mjs';
-import { decodeVectors, queryPages } from './lib/vector-index.mjs';
+import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
+import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
 import { resolveVault, obsidianJson } from './lib/vault.mjs';
+import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
+import { statusReport } from './index-embed.mjs';
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';
@@ -81,21 +85,32 @@ export async function search(query, deps) {
   const keywordHits = await keywordSearch(query);
   const ollamaUp = await ollamaAvailable();
   const hasIndex = await indexAvailable();
+  const results = keywordHits.map((path) => ({ path }));
 
   if (ollamaUp && hasIndex) {
-    const semanticHits = await semanticRun(query);
-    // mergeRRF only knows path lists; carry each path's best startLine
-    // through separately so a fused hit still tells an agent which line to
-    // jump to when the semantic channel is the one that supplied it.
-    const lineByPath = new Map(
-      semanticHits.filter((h) => h.startLine != null).map((h) => [h.path, h.startLine])
-    );
-    const results = mergeRRF([keywordHits, semanticHits.map((h) => h.path)])
-      .map((r) => (lineByPath.has(r.path) ? { ...r, startLine: lineByPath.get(r.path) } : r));
-    return { tier: 'hybrid', results };
+    try {
+      const semanticHits = await semanticRun(query);
+      // mergeRRF only knows path lists; carry each path's best startLine
+      // through separately so a fused hit still tells an agent which line to
+      // jump to when the semantic channel is the one that supplied it.
+      const lineByPath = new Map(
+        semanticHits.filter((h) => h.startLine != null).map((h) => [h.path, h.startLine])
+      );
+      const fused = mergeRRF([keywordHits, semanticHits.map((h) => h.path)])
+        .map((r) => (lineByPath.has(r.path) ? { ...r, startLine: lineByPath.get(r.path) } : r));
+      return { tier: 'hybrid', results: fused };
+    } catch (err) {
+      // isAvailable() proves only that the server answers -- a reachable
+      // Ollama with the model never pulled 404s on every embed call
+      // (confirmed live: `Ollama embeddings HTTP 404`). Rather than crash
+      // the whole query on what search-health.mjs calls the one state where
+      // the tier label would otherwise be actively false, fall back to
+      // lexical, same as the qmd tier's own established philosophy (an
+      // optional accelerator that fails at runtime falls through).
+      return { tier: 'lexical', results, note: `semantic channel failed (${err.message}) -- run \`node scripts/search.mjs --health\`` };
+    }
   }
 
-  const results = keywordHits.map((path) => ({ path }));
   if (ollamaUp && !hasIndex) {
     // The one case where the caller's next action differs from "Ollama is
     // down": there is a fix (`node scripts/index-embed.mjs`), not a wait.
@@ -118,37 +133,181 @@ export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJs
   }
 }
 
-export async function main(query, { limit = 10 } = {}) {
-  const { path: vaultPath } = resolveVault();
+// Shared setup for a query: resolves the vault, loads the chunk index once,
+// and checks Ollama once. Used by both `main()` (the library entrypoint --
+// scripts/purge.mjs calls this via collectSeeds, so its `{ tier, results }`
+// contract must not change) and the CLI's `runQuery` below, which needs the
+// same facts (ollamaUp, the loaded index) to build the health disclosure
+// without loading the ~17MB vector store a second time.
+async function loadSearchContext(vaultPath, limit) {
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadChunkIndex(indexDir);
-
+  const ollamaUp = await isAvailable();
   const semanticRun = async (q) => semanticSearch(q, {
     vectors: index.vectors,
     manifest: index.manifest,
     embedFn: ollamaEmbed,
     topN: limit,
   });
+  return { indexDir, index, ollamaUp, semanticRun };
+}
+
+export async function main(query, { limit = 10 } = {}) {
+  const { path: vaultPath } = resolveVault();
+  const { index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, limit);
 
   return search(query, {
     keywordSearch: async (q) => keywordSearch(q, { limit }),
-    ollamaAvailable: () => isAvailable(),
+    ollamaAvailable: async () => ollamaUp,
     indexAvailable: () => index.available,
     semanticRun,
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const query = process.argv.slice(2).join(' ');
-  if (!query) {
-    console.error('usage: node scripts/search.mjs "<question>"');
-    process.exit(1);
+// Pure formatting: given a search() result and an assessTiers() verdict,
+// decides what a caller sees on each stream. stdout carries ONLY the answer
+// (paths, optionally :line) so piping stays clean (`search.mjs "q" | ...`);
+// every diagnostic -- the tier line, the full block, search()'s own note --
+// goes to stderr. This is the never-silent guarantee itself: a degraded
+// search always emits at least the one-liner naming what is off, whether or
+// not the caller is watching stderr.
+export function renderResult({ results, note }, assessed, { chunks, announceFull = false } = {}) {
+  const stderr = announceFull
+    ? fullReport(assessed, { chunks }).split('\n')
+    : [statusLine(assessed, { chunks })];
+  if (note) stderr.push(note);
+
+  const stdout = results.map((hit) => (hit.startLine != null ? `${hit.path}:${hit.startLine}` : hit.path));
+  return { stdout, stderr };
+}
+
+const NOTICE_FILE = 'search-notice.json';
+
+function readNoticeIso(dir) {
+  try {
+    return JSON.parse(readFileSync(join(dir, NOTICE_FILE), 'utf8')).lastNoticeIso ?? null;
+  } catch {
+    return null;
   }
-  main(query).then((r) => {
-    console.log(`(${r.tier})`);
-    if (r.note) console.error(r.note);
-    for (const hit of r.results) {
-      console.log(hit.startLine != null ? `  ${hit.path}:${hit.startLine}` : `  ${hit.path}`);
-    }
+}
+
+function writeNoticeIso(dir, iso) {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, NOTICE_FILE), JSON.stringify({ lastNoticeIso: iso }));
+}
+
+// Builds the same { ollama, index } shape assessTiers() expects. `filesChanged`
+// defaults to 0 (skip the vault walk) unless the caller already paid for a
+// statusReport -- see the design spec's own warning against re-walking/
+// re-hashing the vault on every query (section 3).
+async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0 }) {
+  const modelOk = ollamaUp ? await modelPresent() : false;
+  return assessTiers({
+    ollama: { reachable: ollamaUp, modelPresent: modelOk, model: EMBED_MODEL },
+    index: { available: index.available, coverage: cov, filesChanged },
   });
+}
+
+async function runQuery(query) {
+  const { path: vaultPath } = resolveVault();
+  const { indexDir, index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, 10);
+
+  const result = await search(query, {
+    keywordSearch: async (q) => keywordSearch(q, { limit: 10 }),
+    ollamaAvailable: async () => ollamaUp,
+    indexAvailable: () => index.available,
+    semanticRun,
+  });
+
+  const cov = coverage(index.manifest, Object.keys(index.vectors));
+  const announceFull = shouldAnnounceFull(readNoticeIso(indexDir), Date.now());
+
+  // Only the (rare) first-in-window full block pays the cost of walking the
+  // vault for staleness -- every other query skips it, per the design spec's
+  // section 3 finding that this walk-and-hash was 211ms of avoidable work.
+  let filesChanged = 0;
+  if (announceFull) {
+    try {
+      filesChanged = statusReport({ vaultPath, dir: indexDir }).filesChanged;
+    } catch { /* a missing/unreadable vault must not block results */ }
+  }
+
+  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: cov.chunks, announceFull });
+
+  for (const line of stderr) console.error(line);
+  for (const line of stdout) console.log(line);
+
+  if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
+}
+
+async function runHealthCommand() {
+  const { path: vaultPath } = resolveVault();
+  const indexDir = join(vaultPath, '.wiki-master');
+  const index = loadChunkIndex(indexDir);
+  const ollamaUp = await isAvailable();
+  const cov = coverage(index.manifest, Object.keys(index.vectors));
+
+  let files = Object.keys(index.manifest).length;
+  let filesChanged = 0;
+  let filesRemoved = 0;
+  try {
+    const r = statusReport({ vaultPath, dir: indexDir });
+    files = r.files; filesChanged = r.filesChanged; filesRemoved = r.filesRemoved;
+  } catch { /* vault unreadable -- report what the index itself knows */ }
+
+  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
+  const modelOk = ollamaUp ? await modelPresent() : false;
+
+  const sizeBytes = ['chunks.json', 'vectors.bin', 'vectors.idx.json']
+    .reduce((sum, f) => { try { return sum + statSync(join(indexDir, f)).size; } catch { return sum; } }, 0);
+
+  console.log('wiki-master search health');
+  console.log(`  tier: ${assessed.tier}`);
+  console.log(`  ollama: host=${OLLAMA_HOST} model=${EMBED_MODEL} reachable=${ollamaUp} model-pulled=${modelOk}`);
+  console.log(
+    `  index: ${files} file(s), ${cov.chunks} chunk(s) (${cov.embedded} embedded, ${cov.missing} missing), ` +
+    `${filesChanged} changed / ${filesRemoved} removed since last refresh, ${(sizeBytes / (1024 * 1024)).toFixed(1)} MB on disk`
+  );
+  if (assessed.gaps.length) {
+    console.log('  gaps:');
+    for (const g of assessed.gaps) {
+      console.log(`    - ${g.channel}: ${g.state}${g.misreports ? ' [misreports]' : ''}`);
+      console.log(`        costs: ${g.buys}`);
+      console.log(`        fix:   ${g.fix}`);
+    }
+  } else {
+    console.log('  all channels healthy.');
+  }
+}
+
+async function runSetupCommand() {
+  const { path: vaultPath } = resolveVault();
+  const indexDir = join(vaultPath, '.wiki-master');
+  const index = loadChunkIndex(indexDir);
+  const ollamaUp = await isAvailable();
+  const cov = coverage(index.manifest, Object.keys(index.vectors));
+
+  let filesChanged = 0;
+  try { filesChanged = statusReport({ vaultPath, dir: indexDir }).filesChanged; } catch { /* best effort */ }
+
+  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
+  console.log(setupPlan(assessed));
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--health')) {
+    await runHealthCommand();
+  } else if (argv.includes('--setup')) {
+    await runSetupCommand();
+  } else {
+    const query = argv.join(' ');
+    if (!query) {
+      console.error('usage: node scripts/search.mjs "<question>" | --health | --setup');
+      process.exit(1);
+    } else {
+      await runQuery(query);
+    }
+  }
 }

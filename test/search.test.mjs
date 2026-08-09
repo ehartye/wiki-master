@@ -4,9 +4,10 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  semanticSearch, mergeRRF, search, keywordSearch, loadChunkIndex,
+  semanticSearch, mergeRRF, search, keywordSearch, loadChunkIndex, renderResult,
 } from '../scripts/search.mjs';
 import { encodeVectors } from '../scripts/lib/vector-index.mjs';
+import { assessTiers } from '../scripts/lib/search-health.mjs';
 
 // A trivial 2D embedding space so cosine similarity is hand-verifiable: vectors
 // pointing the same direction as the query score 1; orthogonal score 0.
@@ -243,4 +244,79 @@ test('keywordSearch treats the obsidian CLI\'s "No matches found." text as zero 
 test('keywordSearch passes through real hits unchanged', () => {
   const results = keywordSearch('provenance', { obsidianJsonImpl: () => ['a.md', 'b.md'] });
   assert.deepEqual(results, ['a.md', 'b.md']);
+});
+
+// Found while wiring the health disclosure: with Ollama reachable but the
+// model not pulled, embed() throws HTTP 404 (confirmed live), and search()'s
+// hybrid branch called semanticRun with no guard -- an unhandled rejection
+// that crashed the whole query instead of degrading. A crash is the opposite
+// of the "never silent, always usable" goal this task exists for: the user
+// gets NO results, not even keyword-only ones. This mirrors the qmd tier's
+// own established philosophy (a tier that fails at runtime falls through,
+// per the old search.mjs comment) applied to the new ladder.
+test('search: a semantic channel that fails at runtime falls back to lexical instead of crashing', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => true,
+    indexAvailable: async () => true,
+    semanticRun: async () => { throw new Error('Ollama embeddings HTTP 404'); },
+  });
+  assert.equal(r.tier, 'lexical');
+  assert.deepEqual(r.results, [{ path: 'k.md' }]);
+  assert.match(r.note, /404|fail/i);
+});
+
+// ── renderResult: never-silent disclosure, stdout/stderr split ─────────────
+// Pure formatting -- given a search() result and an assessTiers() verdict,
+// decides what a caller sees on each stream. No I/O, so the "never silent"
+// and "pipeability" guarantees are unit-testable without a live vault.
+
+test('renderResult: a healthy hybrid search prints the one-liner to stderr and only paths to stdout', () => {
+  const result = { tier: 'hybrid', results: [{ path: 'a.md' }, { path: 'b.md', startLine: 12 }] };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.deepEqual(stdout, ['a.md', 'b.md:12'], 'stdout carries only the answer, so piping stays clean');
+  assert.equal(stderr.length, 1);
+  assert.equal(stderr[0], '(hybrid · 100 chunks)');
+});
+
+// The user's #1 complaint, directly: a degraded search must never look
+// identical to a healthy one. The one-liner is the minimum a caller reads.
+test('renderResult: a degraded search is never silent -- the one-liner always names the gap', () => {
+  const result = { tier: 'lexical', results: [{ path: 'k.md' }] };
+  const assessed = assessTiers({
+    ollama: { reachable: false, modelPresent: false, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.deepEqual(stdout, ['k.md']);
+  assert.ok(stderr.length > 0, 'a degraded search must say something');
+  assert.ok(stderr.some((l) => /ollama not running/.test(l)), 'the gap must be named, not just "degraded"');
+});
+
+test('renderResult: diagnostics never leak into stdout, even with a note and a full block', () => {
+  const result = { tier: 'lexical', results: [{ path: 'k.md' }], note: 'semantic index missing -- run node scripts/index-embed.mjs' };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: false, coverage: { chunks: 0, embedded: 0, missing: 0 }, filesChanged: 0 },
+  });
+  const { stdout, stderr } = renderResult(result, assessed, { chunks: 0, announceFull: true });
+  assert.deepEqual(stdout, ['k.md'], 'stdout must contain nothing but result paths');
+  assert.ok(stderr.length > 1, 'the full block is multiple lines');
+  assert.ok(stderr.some((l) => /index-embed\.mjs/.test(l)));
+});
+
+test('renderResult: the first-in-window call prints the full block instead of the one-liner', () => {
+  const result = { tier: 'lexical', results: [] };
+  const assessed = assessTiers({
+    ollama: { reachable: false, modelPresent: false, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const full = renderResult(result, assessed, { announceFull: true }).stderr;
+  const oneLine = renderResult(result, assessed, { announceFull: false }).stderr;
+  assert.ok(full.length > oneLine.length, 'the full block carries more than the one-liner');
+  assert.equal(oneLine.length, 1, 'subsequent searches inside the window get exactly one line');
 });
