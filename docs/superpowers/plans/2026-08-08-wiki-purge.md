@@ -1339,23 +1339,23 @@ test('readManifests returns every manifest in the bin', () => {
   const v = tempVault();
   try {
     applyPurge(v, { id: 'a', entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }] });
-    assert.deepEqual(readManifests(v).map((m) => m.id), ['a']);
+    assert.deepEqual(readManifests(v).manifests.map((m) => m.id), ['a']);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
 });
 
 // Two topics that slugify identically on the same day must not share a folder.
-test('claimPurgeId suffixes rather than reusing an occupied bin folder', () => {
+test('nextFreePurgeId suffixes rather than reusing an occupied bin folder', () => {
   const v = tempVault();
   try {
-    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety');
+    assert.equal(nextFreePurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety');
     writeManifest(v, { id: '2026-08-08-ai-safety', topic: 'AI safety', entries: [] });
-    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-2');
+    assert.equal(nextFreePurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-2');
     writeManifest(v, { id: '2026-08-08-ai-safety-2', topic: 'AI-safety', entries: [] });
-    assert.equal(claimPurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-3');
+    assert.equal(nextFreePurgeId(v, '2026-08-08-ai-safety'), '2026-08-08-ai-safety-3');
     // Both manifests survive — neither overwrote the other.
-    assert.deepEqual(readManifests(v).map((m) => m.topic).sort(), ['AI safety', 'AI-safety']);
+    assert.deepEqual(readManifests(v).manifests.map((m) => m.topic).sort(), ['AI safety', 'AI-safety']);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -1369,7 +1369,7 @@ test('a suffixed id still yields the right date via slice(0, 10)', () => {
 test('readManifests on a vault with no bin returns an empty list', () => {
   const v = tempVault();
   try {
-    assert.deepEqual(readManifests(v), []);
+    assert.deepEqual(readManifests(v), { manifests: [], unreadable: [] });
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -1527,7 +1527,7 @@ export function writeManifest(vaultPath, manifest) {
 // Never reuse an occupied id, even for the same topic — a second purge of one
 // topic is still a second purge with its own entries. id.slice(0, 10) still
 // yields the date with a suffix attached, so the manifest's `date` is unaffected.
-export function claimPurgeId(vaultPath, id) {
+export function nextFreePurgeId(vaultPath, id) {
   let candidate = id;
   let n = 2;
   while (existsSync(join(vaultPath, BIN_DIR, candidate))) candidate = `${id}-${n++}`;
@@ -1667,7 +1667,8 @@ export async function main(argv) {
   const arg = argv.slice(1).join(' ').trim();
 
   if (mode === '--restore') {
-    const manifest = readManifests(vaultPath).find((m) => m.id === arg);
+    const { manifests } = readManifests(vaultPath);
+    const manifest = manifests.find((m) => m.id === arg);
     if (!manifest) {
       console.error(`purge: no manifest with id "${arg}"`);
       process.exitCode = 1;
@@ -1680,14 +1681,20 @@ export async function main(argv) {
   }
 
   if (mode === '--reconcile') {
-    const manifests = readManifests(vaultPath);
+    const { manifests, unreadable } = readManifests(vaultPath);
+    for (const u of unreadable) console.error(`purge: UNREADABLE manifest ${u} — its files will never re-bin and its declines will never replay`);
     const pages = buildGraph(vaultPath).pages;
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
     for (const r of plan.rebin) {
-      // asResurrection regardless of match reason: a hash-matched re-clip has a
-      // new filename and would otherwise not collide, landing at the bin's top
-      // level as though the original purge had put it there.
-      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] }, { asResurrection: true });
+      // Only a HASH match needs forcing: a re-clip has a new filename, so it
+      // never collides and would otherwise land at the bin's top level as though
+      // the original purge had put it there. A PATH match must NOT be forced —
+      // a genuine resurrection already has its slot occupied, so existsSync
+      // diverts it correctly on its own, and the only time a path match sees a
+      // FREE slot is recovery after a purge crashed partway. Forcing that case
+      // buries the file in resurrected-N/ where applyRestore cannot find it.
+      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
+                 { asResurrection: r.reason === 'source-hash' });
       console.log(`re-binned ${r.from} (matched by ${r.reason})`);
     }
     for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
@@ -1722,7 +1729,7 @@ export async function main(argv) {
     return;
   }
 
-  const id = claimPurgeId(vaultPath, purgeId(arg));
+  const id = nextFreePurgeId(vaultPath, purgeId(arg));
   const hashes = Object.fromEntries(
     plan.purge.map((p) => [p, sha256(readFileSync(join(vaultPath, p), 'utf8'))])
   );
