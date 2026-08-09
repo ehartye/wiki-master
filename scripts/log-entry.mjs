@@ -37,7 +37,13 @@ export function writeLogEntry({ vaultPath, op, title, body = '', now = new Date(
     `---\ndate: ${day}\nop: ${op}\ntitle: ${JSON.stringify(oneLineTitle)}\n---\n` +
     `## [${day}] ${op} | ${oneLineTitle}\n\n${body.trim()}\n`;
   writeFileSync(join(logDir, file), content);
-  return join('log', file);
+  // Forward-slash, not join('log', file): on Windows join() would return
+  // 'log\\file.md', and while git normalizes that fine on its own, this
+  // return value also has to match the forward-slash `staged` set inside
+  // commitPaths's own intersection check (git diff --cached always reports
+  // forward slashes) -- a caller that stages this path via commitPaths would
+  // otherwise never see it counted as staged.
+  return `log/${file}`;
 }
 
 export function main() {

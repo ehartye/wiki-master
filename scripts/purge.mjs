@@ -5,9 +5,9 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { BIN_DIR, binPathFor, planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveVault, assertRunning } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
-import { loadDeclines, recordDecline } from './lib/decline.mjs';
+import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
 import { commitPaths, isGitRepo, uncommittedElsewhere } from './lib/git.mjs';
 import { main as searchMain } from './search.mjs';
@@ -263,21 +263,26 @@ function report(plan) {
     for (const b of plan.blocking) console.log(`    ${b}`);
     console.log('  A claim with no evidence is a defect (guardrail #2). Include them or keep their sources.');
   }
+  // The full path list above stays — it is what a human decides from. But a
+  // 300-file purge gate ends in a wall of paths with nothing to read at a
+  // glance, so a summary line closes it out.
+  const wiki = plan.purge.filter((p) => layer(p) === 'wiki').length;
+  const raw = plan.purge.length - wiki;
+  console.log(`\nPURGE: ${wiki} wiki, ${raw} raw, ${plan.collateral.length} collateral, ${plan.blocking.length} blocking`);
 }
 
-// applyPurge is injectable for exactly one reason: the `if (failed.length)`
-// stop-before-commit guard below has no reachable real-world trigger to test
-// through. writeManifest always runs before applyPurge in this flow, so any
-// destination applyPurge itself refuses to overwrite (e.g. the purge's own
-// manifest.json — see applyPurge's own guard) has already been pre-empted by
-// its ordinary existsSync-collision diversion into resurrected-N/ by the time
-// it would fire. A locked/uncreatable-destination failure is real (see the
-// "a locked or otherwise unmoveable entry..." test in
-// test/purge-apply.test.mjs and its Windows-share-mode note) but not
-// reproducible on demand from outside. This seam tests the WIRING of the
-// guard — no commit, exitCode 1 — independent of what actually caused
-// applyPurge to report a failure.
-export async function main(argv, { searchImpl = searchMain, applyPurge: applyPurgeFn = applyPurge } = {}) {
+// applyPurge and assertRunning are injectable for the same reason searchImpl
+// is: each guards a real-world condition — a failed move, a dead Obsidian
+// CLI — that cannot be reproduced on demand from outside main(). See the
+// `if (failed.length)` guard and the empty-seedPaths branch below for what
+// each one tests. Splitting main into one function per mode was considered
+// and rejected for this task: real refactor, but it would churn this DI
+// seam for a benefit this task does not need.
+export async function main(argv, {
+  searchImpl = searchMain,
+  applyPurge: applyPurgeFn = applyPurge,
+  assertRunning: assertRunningFn = assertRunning,
+} = {}) {
   const { path: vaultPath } = resolveVault();
   const mode = argv[0] ?? '--plan';
   const arg = argv.slice(1).join(' ').trim();
@@ -298,6 +303,16 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
     // "restored N" over an unrecoverable gap is the failure this reports.
     for (const p of r.missing) console.error(`  MISSING from the bin, not restored: ${p}`);
     if (r.missing.length) process.exitCode = 1;
+    // The inverse of the decline this purge itself recorded on the way out —
+    // without this, a restored source's URL stays declined for up to 180
+    // days and /wiki-discover silently keeps skipping it. Scoped to exactly
+    // this purge's own reason tag (see removeDecline's own comment): a
+    // decline the user made independently, on the same URL, must survive.
+    let clearedDeclines = 0;
+    for (const url of manifest.declines ?? []) {
+      clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
+    }
+    if (clearedDeclines) console.log(`cleared ${clearedDeclines} decline(s) this purge recorded`);
     // A restore that is not committed is a working-tree-only change — the exact
     // state that caused the bug this feature exists to fix.
     if (r.touched.length && isGitRepo(vaultPath)) {
@@ -312,20 +327,38 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
     for (const u of unreadable) console.error(`purge: UNREADABLE manifest ${u} — its files will never re-bin and its declines will never replay`);
     const pages = buildGraph(vaultPath).pages;
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
+    // reconcile IS the recovery path a stalled --apply is told to run, so its
+    // moves must land in a commit like any other — collect what every
+    // applyPurge call actually touched, the same way --apply does.
+    const touched = [];
+    const ids = new Set();
     for (const r of plan.rebin) {
       // Only a HASH match needs forcing: a re-clip has a new filename, so it
       // never collides and would otherwise land at the bin's top level as though
       // the original purge had put it there. A PATH match must NOT be forced —
       // a genuine resurrection already has its slot occupied, so existsSync
       // diverts it correctly on its own, and the only time a path match sees a
-      // FREE slot is recovery after a purge crashed partway. Forcing that case
-      // buries the file in resurrected-N/ where applyRestore cannot find it.
-      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
-                 { asResurrection: r.reason === 'source-hash' });
+      // FREE slot is recovery after a purge crashed partway.
+      const res = applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
+                              { asResurrection: r.reason === 'source-hash' });
+      touched.push(...res.touched);
+      ids.add(r.id);
       console.log(`re-binned ${r.from} (matched by ${r.reason})`);
     }
     for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
     console.log(`reconcile: ${plan.rebin.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`);
+    if (touched.length && isGitRepo(vaultPath)) {
+      // The crash reconcile recovers from is "writeManifest ran but the
+      // process died before ever committing" — so manifest.json is exactly
+      // as uncommitted as the files it describes. Stage it alongside the
+      // moves for every id touched, or a "successful" reconcile still leaves
+      // it stray on disk, untracked. Harmless to include when it was already
+      // committed by a prior, unrelated purge: git stages no-op unchanged.
+      const manifestPaths = [...ids].map((id) => `${BIN_DIR}/${id}/manifest.json`);
+      const paths = [...new Set([...touched, ...manifestPaths])];
+      const c = commitPaths(vaultPath, paths, `purge: reconcile re-binned ${plan.rebin.length} file(s)`);
+      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    }
     return;
   }
 
@@ -338,7 +371,19 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
   const pages = enrichPages(vaultPath, buildGraph(vaultPath).pages);
   const seedPaths = await collectSeeds(arg, { searchImpl });
   if (!seedPaths.length) {
-    console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
+    // An empty result is indistinguishable from a dead Obsidian CLI unless
+    // something checks: keywordSearch (search.mjs) swallows every backend
+    // failure into [], while the semantic tier throws unhandled instead —
+    // the same broken CLI produces opposite symptoms depending on whether
+    // Ollama happens to be present too. Probe only now, lazily, the moment
+    // an empty result is about to drive the decision "nothing to plan."
+    try {
+      assertRunningFn();
+      console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
+    } catch (err) {
+      console.error(`purge: cannot trust this empty result — ${err.message}`);
+      process.exitCode = 1;
+    }
     return;
   }
   console.log(`seeds (${seedPaths.length}):`);
@@ -355,6 +400,18 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
     process.exitCode = 1;
     return;
   }
+  // A stale search hit for a page already gone (e.g. re-running --apply
+  // against a topic already purged) filters out in planPurge's own
+  // known.has(p) check, so an empty purge set with nonempty seedPaths is a
+  // real, reachable outcome — not hypothetical. Stop here, before
+  // nextFreePurgeId: a manifest with zero entries is not a purge, and
+  // writing one anyway commits a no-op under a "purge:" message while
+  // whatever ACTUALLY needed attention (a real half-finished purge, if
+  // that's why this ran) stays uncommitted and unmentioned.
+  if (!plan.purge.length) {
+    console.log('\npurge: the closure is empty — nothing to move. Not writing a manifest.');
+    return;
+  }
 
   const id = nextFreePurgeId(vaultPath, purgeId(arg));
   const hashes = Object.fromEntries(
@@ -367,6 +424,29 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
 
   writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
   const { moved, touched, failed } = applyPurgeFn(vaultPath, manifest);
+
+  console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
+  // Windows locks a file against rename whenever any process holds a
+  // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
+  // client. Measured, not theoretical. Report and stop here, before either
+  // declines or the log entry below are written: both describe a move that,
+  // for a failed entry, never actually happened.
+  if (failed.length) {
+    console.error(`\n${failed.length} file(s) could not be moved:`);
+    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
+    console.error('Close whatever holds them open, then run --reconcile to finish this purge');
+    console.error(`in place — it re-bins the stragglers into .recycle/${id}/ and commits.`);
+    console.error('Do NOT re-run --apply: it starts a SECOND purge under a new id and');
+    console.error('fragments this one across two manifests, so neither restores correctly.');
+    process.exitCode = 1;
+    return;
+  }
+
+  // Declines and the log entry are consequences of files having actually
+  // moved, so they are recorded only once applyPurge reports zero failures.
+  // The manifest (written above, before any of this) already carries the
+  // declines for --reconcile to replay if a later crash strands things
+  // anyway — nothing below is load-bearing for recovery.
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
   const logPath = writeLogEntry({
     vaultPath, op: 'purge', title: arg,
@@ -374,33 +454,29 @@ export async function main(argv, { searchImpl = searchMain, applyPurge: applyPur
           (manifest.collateral.length ? `Collateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
   });
 
-  console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
-  // Windows locks a file against rename whenever any process holds a
-  // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
-  // client. Measured, not theoretical. Report and stop rather than committing a
-  // half-purge: re-running --apply resumes cleanly, whereas reconciling around
-  // it buries the stragglers in resurrected-N/.
-  if (failed.length) {
-    console.error(`\n${failed.length} file(s) could not be moved:`);
-    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
-    console.error('Close whatever holds them open and re-run --apply; it resumes cleanly.');
-    console.error('Not committing a partial purge.');
-    process.exitCode = 1;
-    return;
-  }
   if (manifest.collateral.length) {
     console.log('NEXT: repair references on the collateral pages, then run node scripts/index-gen.mjs');
   }
   if (isGitRepo(vaultPath)) {
-    // Exactly what this purge touched, and nothing else. index.md is included
-    // because the catalog is regenerated after a purge; the log entry because it
-    // is the audit record of it. `.wiki-master/declined.json` is deliberately
-    // absent — it is gitignored and does not sync, which is precisely why the
+    // Exactly what this purge touched, and nothing else. index.md is listed
+    // even though index-gen.mjs (the skill's job, not this script's) only
+    // regenerates it AFTER this commit — it is byte-identical to what's
+    // already committed at the moment this runs, so including it now is a
+    // no-op that saves a second commit once it later changes, not evidence
+    // this script keeps it in sync itself. The log entry is the audit record
+    // of this purge. `.wiki-master/declined.json` is deliberately absent —
+    // it is gitignored and does not sync, which is precisely why the
     // manifest carries declines for reconcile to replay.
     const paths = [...new Set([...touched, `${BIN_DIR}/${id}/manifest.json`, 'index.md', logPath])];
     const c = commitPaths(vaultPath, paths, `purge: ${arg} (${id})`);
     console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
-    const others = uncommittedElsewhere(vaultPath);
+    // .wiki-master/ is where this very purge just wrote declined.json (and
+    // where the search embedding cache lives) — gitignored on a vault that
+    // has a .gitignore entry for it, but not every vault does. Filtered
+    // explicitly rather than trusted to .gitignore, or a vault without one
+    // has purge report its own just-written declined.json back to the user
+    // as "your work."
+    const others = uncommittedElsewhere(vaultPath).filter((o) => !o.startsWith('.wiki-master/'));
     if (others.length) {
       console.log(`\n${others.length} other file(s) in the vault have uncommitted changes. Purge did NOT`);
       console.log('commit them — they are your work, not part of this purge:');

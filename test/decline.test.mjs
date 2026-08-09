@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  loadDeclines, recordDecline, isDeclined, DECLINE_TTL_DAYS,
+  loadDeclines, recordDecline, isDeclined, removeDecline, DECLINE_TTL_DAYS,
 } from '../scripts/lib/decline.mjs';
 
 function tempVault() {
@@ -56,6 +56,32 @@ test('recording the same URL twice updates rather than duplicates', () => {
   const d = loadDeclines(v);
   assert.equal(d.length, 1);
   assert.equal(d[0].reason, 'second reason');
+});
+
+// removeDecline is purge --restore's undo of the decline purge --apply
+// records on the way out. It must be an exact reason match, not just a URL
+// match, or restoring one purge would silently clear a decline the user (or
+// a different purge) recorded independently against the same URL.
+test('removeDecline removes only an entry matching both url and reason', () => {
+  const v = tempVault();
+  recordDecline(v, 'https://example.com/x', 'purged:2026-08-08-topic');
+  const removed = removeDecline(v, 'https://example.com/x', 'purged:2026-08-08-topic');
+  assert.equal(removed, 1);
+  assert.deepEqual(loadDeclines(v), []);
+});
+
+test('removeDecline leaves a same-url entry recorded under a different reason alone', () => {
+  const v = tempVault();
+  recordDecline(v, 'https://example.com/x', 'declined by the user');
+  const removed = removeDecline(v, 'https://example.com/x', 'purged:2026-08-08-topic');
+  assert.equal(removed, 0);
+  assert.equal(loadDeclines(v).length, 1);
+  assert.equal(loadDeclines(v)[0].reason, 'declined by the user');
+});
+
+test('removeDecline on a vault with no store yet is a harmless no-op', () => {
+  const v = tempVault();
+  assert.equal(removeDecline(v, 'https://example.com/x', 'purged:id'), 0);
 });
 
 // Small helper so the backdating test can rewrite the store.

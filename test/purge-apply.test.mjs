@@ -9,6 +9,7 @@ import {
   collectSeeds, main,
 } from '../scripts/purge.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
+import { recordDecline, loadDeclines } from '../scripts/lib/decline.mjs';
 
 function tempVault() {
   const dir = mkdtempSync(join(tmpdir(), 'wm-vault-'));
@@ -660,6 +661,177 @@ test('an unrelated pre-staged file is not swept into the purge commit', async ()
     const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
     assert.match(status, /Draft\.md/, 'and it must remain exactly as dirty as it was, neither committed nor lost');
     assert.equal(r.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// ---- review round 2: C1, C2, I1, I2, I3 ----
+
+// C1: re-running --apply against a topic already purged is a real, reachable
+// case (a stale search hit for a page that's gone). planPurge's own
+// known.has(p) filter makes plan.purge empty even though seedPaths is not --
+// main must recognize that and write NOTHING, rather than a second manifest
+// with zero entries, a "purged 0 file(s)" log entry, and a commit containing
+// no purge at all.
+test('re-running --apply after the topic is already purged writes no second manifest and commits nothing', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const first = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    assert.ok(first.logs.some((l) => l.startsWith('committed ')));
+    const { manifests: before } = readManifests(v);
+    assert.equal(before.length, 1);
+    const headAfterFirst = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+
+    // The same stale search hit again -- Foo.md no longer exists in the vault.
+    const second = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+
+    assert.ok(second.logs.some((l) => l.includes('the closure is empty')));
+    const { manifests: after } = readManifests(v);
+    assert.equal(after.length, 1, 'no second manifest must be written');
+    const headAfterSecond = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    assert.equal(headAfterSecond, headAfterFirst, 'no new commit for an empty closure');
+    assert.equal(second.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// C2: --reconcile is the recovery path a stalled --apply is told to run in
+// place of a second --apply. It must actually commit what it re-bins, or
+// running it leaves the exact working-tree-only state this whole feature
+// exists to prevent -- just reached via the "fix" instead of the crash.
+test('reconcile commits what it re-bins, leaving a clean working tree', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const manifest = {
+      id: '2026-01-02-crash', topic: 'crash', declines: [],
+      entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }],
+    };
+    writeManifest(v, manifest); // simulates a crash right after the manifest was written
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+
+    const r = await runMain(v, ['--reconcile']);
+
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    assert.notEqual(after, before, 'reconcile must produce a commit');
+    assert.ok(r.logs.some((l) => l.startsWith('committed ')));
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
+    assert.equal(status.trim(), '', 'the tree must be clean -- nothing left uncommitted by reconcile');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// I1: an aborted apply (a move failed, nothing committed) must not still
+// record a decline or write a log entry -- both describe a move that, for a
+// failed entry, never actually happened. A decline recorded anyway silently
+// makes /wiki-discover skip a source the user still has, for up to 180 days.
+test('an aborted apply leaves declined.json and log/ untouched', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const failingApplyPurge = () => ({
+      moved: 0, touched: [], failed: [{ from: 'wiki/concepts/Foo.md', reason: 'simulated failure' }],
+    });
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: failingApplyPurge });
+
+    assert.equal(r.exitCode, 1);
+    assert.equal(existsSync(join(v, '.wiki-master', 'declined.json')), false);
+    assert.equal(existsSync(join(v, 'log')), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// I2: --restore is advertised as the inverse of purge. A file coming back
+// while its URL stays declined for up to 180 days is not a true inverse --
+// /wiki-discover would keep silently skipping a source the user has back.
+test('--restore clears the decline this purge itself recorded', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { manifests } = readManifests(v);
+    const manifest = manifests[0];
+    assert.deepEqual(manifest.declines, ['https://example.com/a']);
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), 'the purge must have declined it');
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.ok(r.logs.some((l) => l.includes('cleared 1 decline')));
+    assert.equal(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// I2: scoped to exactly this purge's own reason tag -- a decline on the SAME
+// url, recorded independently (by the user, or by a different purge run)
+// after this purge, must survive a restore that only undoes THIS purge.
+test('--restore does not clear a same-url decline recorded for a different reason', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { manifests } = readManifests(v);
+    const manifest = manifests[0];
+    // The user independently re-declines the same url for their own reason,
+    // after the purge -- this must NOT be cleared just because the url matches.
+    recordDecline(v, 'https://example.com/a', 'declined by the user, unrelated to the purge');
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.logs.some((l) => l.includes('cleared')), false);
+    const entry = loadDeclines(v).find((d) => d.url === 'https://example.com/a');
+    assert.ok(entry, 'the independently-recorded decline must survive');
+    assert.equal(entry.reason, 'declined by the user, unrelated to the purge');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// I3: an empty search result is indistinguishable from a dead Obsidian CLI
+// unless something checks. The lazy canary (assertRunning) is probed only
+// once an empty result is about to drive the "nothing to plan" decision --
+// covering both what it decides when Obsidian is healthy and when it isn't,
+// in both --plan and --apply (the check runs before the two modes diverge).
+const emptySearch = async () => ({ tier: 'test', results: [] });
+
+test('an empty search result with a healthy Obsidian reports nothing to plan (--plan)', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--plan', 'Nonexistent Topic'],
+      { searchImpl: emptySearch, assertRunning: () => {} });
+    assert.ok(r.logs.some((l) => l.includes('nothing to plan')));
+    assert.equal(r.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('an empty search result with a dead Obsidian refuses to trust it (--apply)', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--apply', 'Nonexistent Topic'], {
+      searchImpl: emptySearch,
+      assertRunning: () => { throw new Error('Obsidian CLI unavailable.'); },
+    });
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('cannot trust this empty result')));
+    assert.equal(existsSync(join(v, '.recycle')), false);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }

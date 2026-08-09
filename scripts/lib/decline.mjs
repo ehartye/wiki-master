@@ -48,3 +48,25 @@ export function recordDecline(vaultPath, url, reason) {
   writeFileSync(f, JSON.stringify(entries, null, 2));
   return entries;
 }
+
+// The inverse of recordDecline, for --restore: a file coming back is not a
+// true undo of the purge that removed it if the decline it recorded on the
+// way out survives for another 180 days — /wiki-discover would keep silently
+// skipping a source the user now has back. Scoped to an EXACT reason match,
+// not just the URL: a decline the user made independently (or that some
+// other, later purge recorded against the same URL) must never be silently
+// cleared just because a restore happens to touch that URL. Returns the
+// count actually removed (0 or 1 — url is unique per entry), so the caller
+// can report what changed rather than assert success unconditionally.
+export function removeDecline(vaultPath, url, reason) {
+  const f = storePath(vaultPath);
+  if (!existsSync(f)) return 0;
+  let entries;
+  try { entries = JSON.parse(readFileSync(f, 'utf8')); } catch { return 0; }
+  const n = normalizeUrl(url).toLowerCase();
+  const before = entries.length;
+  entries = entries.filter((e) => !(normalizeUrl(e.url).toLowerCase() === n && e.reason === reason));
+  if (entries.length === before) return 0;
+  writeFileSync(f, JSON.stringify(entries, null, 2));
+  return before - entries.length;
+}
