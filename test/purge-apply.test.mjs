@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import {
   applyPurge, applyRestore, readManifests, writeManifest, nextFreePurgeId, enrichPages, sha256,
+  collectSeeds, main,
 } from '../scripts/purge.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 
@@ -16,6 +18,13 @@ function tempVault() {
     '---\ntype: concept\nsources: ["[[raw/clippings/Src-abc1234.md]]"]\n---\n# Foo\n\nbody\n');
   writeFileSync(join(dir, 'raw', 'clippings', 'Src-abc1234.md'),
     '---\ntitle: "Src"\nsource: https://example.com/a\nsource-hash: abc1234deadbeef\n---\ntext\n');
+  // Every real vault has an index.md (the vault-schema.md contract) -- main's
+  // --apply commit always stages it, and git fails a whole
+  // --pathspec-from-file add/commit outright (exit 128) if any listed path
+  // matches nothing at all. Present here so the `main` CLI tests below reach
+  // a realistic vault, not one only the lower-level applyPurge/applyRestore
+  // tests above were shaped for.
+  writeFileSync(join(dir, 'index.md'), '# Index\n');
   return dir;
 }
 
@@ -398,4 +407,203 @@ test('sha256 is stable and content-derived', () => {
   assert.equal(sha256('abc'), sha256('abc'));
   assert.notEqual(sha256('abc'), sha256('abd'));
   assert.match(sha256('abc'), /^[0-9a-f]{64}$/);
+});
+
+// ---- collectSeeds ----
+
+test('collectSeeds takes wiki pages by rank and drops raw hits', async () => {
+  const fakeSearch = async () => ({
+    tier: 'test',
+    results: [
+      { path: 'wiki/concepts/Topic.md', score: 0.0163 },
+      { path: 'raw/clippings/Src-abc1234.md', score: 0.0161 },
+      { path: 'wiki/concepts/Second.md', score: 0.0158 },
+    ],
+  });
+  assert.deepEqual(await collectSeeds('topic', { searchImpl: fakeSearch }),
+    ['wiki/concepts/Topic.md', 'wiki/concepts/Second.md']);
+});
+
+// RRF scores sit near 1/(60+rank). A threshold that looks reasonable for a
+// cosine similarity discards everything and purge reports "nothing to plan",
+// which reads like an empty topic rather than a broken filter.
+test('collectSeeds does not threshold on score', async () => {
+  const fakeSearch = async () => ({ tier: 'test', results: [{ path: 'wiki/concepts/A.md', score: 0.0164 }] });
+  assert.deepEqual(await collectSeeds('topic', { searchImpl: fakeSearch }), ['wiki/concepts/A.md']);
+});
+
+test('collectSeeds caps the seed count', async () => {
+  const results = Array.from({ length: 50 }, (_, i) => ({ path: `wiki/concepts/P${i}.md`, score: 1 / (61 + i) }));
+  const seeds = await collectSeeds('topic', { searchImpl: async () => ({ tier: 't', results }), maxSeeds: 3 });
+  assert.equal(seeds.length, 3);
+  assert.equal(seeds[0], 'wiki/concepts/P0.md');
+});
+
+// ---- main (CLI) ----
+
+function gitInit(dir) {
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+}
+
+function commitAll(dir, message) {
+  execFileSync('git', ['add', '-A'], { cwd: dir });
+  execFileSync('git', ['commit', '-q', '-m', message], { cwd: dir });
+}
+
+// Runs main() against a real vault, pointing WIKI_MASTER_VAULT at it (saved and
+// restored), capturing console output and process.exitCode instead of letting
+// either leak into the rest of the suite.
+async function runMain(vaultPath, argv, opts = {}) {
+  const prevVault = process.env.WIKI_MASTER_VAULT;
+  process.env.WIKI_MASTER_VAULT = vaultPath;
+  const logs = [];
+  const errs = [];
+  const origLog = console.log;
+  const origErr = console.error;
+  console.log = (...a) => { logs.push(a.join(' ')); };
+  console.error = (...a) => { errs.push(a.join(' ')); };
+  process.exitCode = undefined;
+  let exitCode;
+  try {
+    await main(argv, opts);
+  } finally {
+    exitCode = process.exitCode;
+    process.exitCode = undefined;
+    console.log = origLog;
+    console.error = origErr;
+    if (prevVault === undefined) delete process.env.WIKI_MASTER_VAULT;
+    else process.env.WIKI_MASTER_VAULT = prevVault;
+  }
+  return { logs, errs, exitCode };
+}
+
+const fooSearch = async () => ({ tier: 'test', results: [{ path: 'wiki/concepts/Foo.md', score: 0.0163 }] });
+
+// M1: the `if (mode !== '--apply')` guard. A plan run must never touch disk —
+// no move, no .recycle/, regardless of what the plan would do.
+test('main --plan moves nothing to disk', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--plan', 'Foo'], { searchImpl: fooSearch });
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true);
+    assert.equal(existsSync(join(v, 'raw', 'clippings', 'Src-abc1234.md')), true);
+    assert.equal(existsSync(join(v, '.recycle')), false);
+    assert.equal(r.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// M2: the `if (plan.blocking.length)` refusal. Bar.md's only citation (Foo) is
+// entirely inside the purge set, so purging Foo would leave Bar's claim with
+// no evidence — guardrail #2. --apply must refuse outright: nothing moves,
+// no manifest, no .recycle/, and exitCode communicates the refusal.
+test('main --apply refuses to move anything when a survivor would lose all provenance', async () => {
+  const v = mkdtempSync(join(tmpdir(), 'wm-cli-vault-'));
+  try {
+    mkdirSync(join(v, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), '---\ntype: concept\n---\n# Foo\n\nbody\n');
+    writeFileSync(join(v, 'wiki', 'concepts', 'Bar.md'),
+      '---\ntype: concept\nsources: ["[[Foo]]"]\n---\n# Bar\n\nbody\n');
+    writeFileSync(join(v, 'index.md'), '# Index\n');
+    gitInit(v);
+    commitAll(v, 'initial');
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+
+    assert.equal(r.exitCode, 1);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Bar.md')), true);
+    assert.equal(existsSync(join(v, '.recycle')), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// M3: the `if (failed.length)` stop-before-commit guard. NOT independently
+// tested here — see the report for why a clean, deterministic
+// destination-uncreatable failure could not be constructed against `main`
+// specifically (as opposed to against `applyPurge` directly, which the
+// "a locked or otherwise unmoveable entry..." test above already covers).
+// nextFreePurgeId picks main's bin id internally with no injection seam, and
+// every landmine tried (a pre-existing blocking file/dir under the chosen
+// id, chmod read-only, a pre-existing destination file, a very long path,
+// mocking node:fs's named exports) either got dodged by nextFreePurgeId's own
+// collision-avoidance or was silently absorbed by Windows/Node instead of
+// throwing.
+
+// M4: the `--restore` unknown-id guard. Must report and set exitCode, never
+// crash on a manifest that doesn't exist.
+test('main --restore with an unknown manifest id reports and does not crash', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--restore', 'nonexistent-id']);
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('no manifest with id')));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// M5: `asResurrection: r.reason === 'source-hash'`, exercised through
+// `--reconcile`. Simulates a purge that crashed after writeManifest but
+// before the move: the manifest exists, but Foo.md is still live at its
+// original path. Reconcile must match it by PATH and re-bin it into its
+// proper primary slot -- forcing it into resurrected-N/ (the bug this guard
+// fixes) would strand it somewhere applyRestore never looks first.
+test('reconcile puts a path-matched crash-recovery file in its proper slot, not resurrected-N', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const manifest = {
+      id: '2026-01-01-crash', topic: 'crash', declines: [],
+      entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }],
+    };
+    writeManifest(v, manifest); // written, as if the crash happened right after this
+    const r = await runMain(v, ['--reconcile']);
+    assert.equal(existsSync(join(v, '.recycle', '2026-01-01-crash', 'wiki', 'concepts', 'Foo.md')), true);
+    assert.equal(
+      existsSync(join(v, '.recycle', '2026-01-01-crash', 'resurrected-1', 'wiki', 'concepts', 'Foo.md')), false);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false);
+    assert.equal(r.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// M6: the commit staging set. `main` must stage and commit exactly what the
+// purge touched -- an unrelated, already-dirty file in the vault (someone's
+// own in-progress edit) must not ride along in the purge's commit.
+test('an unrelated pre-staged file is not swept into the purge commit', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    writeFileSync(join(v, 'wiki', 'concepts', 'Draft.md'), 'work in progress\n');
+    execFileSync('git', ['add', 'wiki/concepts/Draft.md'], { cwd: v });
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+
+    // A genuinely new commit, not a stale match against the initial commit
+    // (which also added Foo.md) -- the real hazard this test exists to catch.
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    assert.notEqual(after, before, 'the purge must have produced a new commit');
+    assert.ok(r.logs.some((l) => l.startsWith('committed ')), 'main must report the commit');
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: v, encoding: 'utf8' });
+    assert.equal(/Draft\.md/.test(files), false, 'the unrelated draft must not ride along in the purge commit');
+    assert.match(files, /\.recycle\/.*Foo\.md/, 'the purge move itself must be in this commit');
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
+    assert.match(status, /Draft\.md/, 'and it must remain exactly as dirty as it was, neither committed nor lost');
+    assert.equal(r.exitCode, undefined);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
 });

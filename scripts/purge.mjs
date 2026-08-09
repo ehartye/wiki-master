@@ -3,7 +3,14 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { BIN_DIR, binPathFor } from './lib/purge.mjs';
+import { pathToFileURL } from 'node:url';
+import { BIN_DIR, binPathFor, planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
+import { resolveVault } from './lib/vault.mjs';
+import { buildGraph } from './lib/graph.mjs';
+import { loadDeclines, recordDecline } from './lib/decline.mjs';
+import { writeLogEntry } from './log-entry.mjs';
+import { commitPaths, isGitRepo, uncommittedElsewhere } from './lib/git.mjs';
+import { main as searchMain } from './search.mjs';
 
 export function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
@@ -203,4 +210,185 @@ export function nextFreePurgeId(vaultPath, id) {
   let n = 2;
   while (existsSync(join(vaultPath, BIN_DIR, candidate))) candidate = `${id}-${n++}`;
   return candidate;
+}
+
+// ---- CLI ----
+
+const MAX_SEEDS = 25;
+
+// Seeds are wiki pages only, taken by RANK. A clipping joins through the closure
+// — "every page citing it is already inside" — never through its own keyword
+// score, or one shared source ranking well would drag out evidence another topic
+// still needs.
+//
+// No score threshold, deliberately: search.mjs fuses its channels with RRF
+// (mergeRRF, k=60), so a rank-1 hit scores ~1/61. Those numbers order results
+// and mean nothing in absolute terms; thresholding them drops everything.
+export async function collectSeeds(topic, { searchImpl = searchMain, maxSeeds = MAX_SEEDS, limit = 40 } = {}) {
+  const { results = [] } = (await searchImpl(topic, { limit })) ?? {};
+  return results
+    .filter((h) => h.path.startsWith('wiki/'))
+    .slice(0, maxSeeds)
+    .map((h) => h.path);
+}
+
+function report(plan) {
+  const layer = (p) => (p.startsWith('raw/') ? 'raw' : 'wiki');
+  console.log(`\nPURGE PLAN — ${plan.purge.length} files\n`);
+  for (const group of ['wiki', 'raw']) {
+    const rows = plan.purge.filter((p) => layer(p) === group);
+    if (!rows.length) continue;
+    console.log(`  ${group}/ (${rows.length})`);
+    for (const r of rows) console.log(`    ${r}`);
+  }
+  if (plan.collateral.length) {
+    console.log(`\n  COLLATERAL — survive, but reference purged content (${plan.collateral.length}):`);
+    for (const c of plan.collateral) console.log(`    ${c}`);
+    console.log('  These need their references repaired after the move.');
+  }
+  if (plan.blocking.length) {
+    console.log(`\n  BLOCKING — every source these cite is inside the purge set (${plan.blocking.length}):`);
+    for (const b of plan.blocking) console.log(`    ${b}`);
+    console.log('  A claim with no evidence is a defect (guardrail #2). Include them or keep their sources.');
+  }
+}
+
+export async function main(argv, { searchImpl = searchMain } = {}) {
+  const { path: vaultPath } = resolveVault();
+  const mode = argv[0] ?? '--plan';
+  const arg = argv.slice(1).join(' ').trim();
+
+  if (mode === '--restore') {
+    const { manifests } = readManifests(vaultPath);
+    const manifest = manifests.find((m) => m.id === arg);
+    if (!manifest) {
+      console.error(`purge: no manifest with id "${arg}"`);
+      process.exitCode = 1;
+      return;
+    }
+    const r = applyRestore(vaultPath, manifest);
+    console.log(`restored ${r.restored} file(s)`);
+    for (const p of r.skipped) console.log(`  skipped (your newer work sits at that path): ${p}`);
+    // A gap the manifest claims but the bin cannot supply, in neither the
+    // primary slot nor any resurrected-N/. Never silent — an unqualified
+    // "restored N" over an unrecoverable gap is the failure this reports.
+    for (const p of r.missing) console.error(`  MISSING from the bin, not restored: ${p}`);
+    if (r.missing.length) process.exitCode = 1;
+    // A restore that is not committed is a working-tree-only change — the exact
+    // state that caused the bug this feature exists to fix.
+    if (r.touched.length && isGitRepo(vaultPath)) {
+      const c = commitPaths(vaultPath, r.touched, `restore: ${manifest.topic ?? manifest.id} (${manifest.id})`);
+      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    }
+    return;
+  }
+
+  if (mode === '--reconcile') {
+    const { manifests, unreadable } = readManifests(vaultPath);
+    for (const u of unreadable) console.error(`purge: UNREADABLE manifest ${u} — its files will never re-bin and its declines will never replay`);
+    const pages = buildGraph(vaultPath).pages;
+    const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
+    for (const r of plan.rebin) {
+      // Only a HASH match needs forcing: a re-clip has a new filename, so it
+      // never collides and would otherwise land at the bin's top level as though
+      // the original purge had put it there. A PATH match must NOT be forced —
+      // a genuine resurrection already has its slot occupied, so existsSync
+      // diverts it correctly on its own, and the only time a path match sees a
+      // FREE slot is recovery after a purge crashed partway. Forcing that case
+      // buries the file in resurrected-N/ where applyRestore cannot find it.
+      applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
+                 { asResurrection: r.reason === 'source-hash' });
+      console.log(`re-binned ${r.from} (matched by ${r.reason})`);
+    }
+    for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
+    console.log(`reconcile: ${plan.rebin.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`);
+    return;
+  }
+
+  if (!arg) {
+    console.error('purge: a topic is required — node scripts/purge.mjs --plan "<topic>"');
+    process.exitCode = 1;
+    return;
+  }
+
+  const pages = enrichPages(vaultPath, buildGraph(vaultPath).pages);
+  const seedPaths = await collectSeeds(arg, { searchImpl });
+  if (!seedPaths.length) {
+    console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
+    return;
+  }
+  console.log(`seeds (${seedPaths.length}):`);
+  for (const s of seedPaths) console.log(`  ${s}`);
+  const plan = planPurge({ pages, seedPaths });
+  report(plan);
+
+  if (mode !== '--apply') {
+    console.log('\n(plan only — re-run with --apply to move these files)');
+    return;
+  }
+  if (plan.blocking.length) {
+    console.error('\npurge: refusing to apply while pages would be left with no provenance.');
+    process.exitCode = 1;
+    return;
+  }
+
+  const id = nextFreePurgeId(vaultPath, purgeId(arg));
+  const hashes = Object.fromEntries(
+    plan.purge.map((p) => [p, sha256(readFileSync(join(vaultPath, p), 'utf8'))])
+  );
+  const manifest = buildManifest({
+    id, topic: arg, date: id.slice(0, 10),
+    purge: plan.purge, collateral: plan.collateral, pages, hashes,
+  });
+
+  writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
+  const { moved, touched, failed } = applyPurge(vaultPath, manifest);
+  for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
+  const logPath = writeLogEntry({
+    vaultPath, op: 'purge', title: arg,
+    body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n\n` +
+          (manifest.collateral.length ? `Collateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
+  });
+
+  console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
+  // Windows locks a file against rename whenever any process holds a
+  // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
+  // client. Measured, not theoretical. Report and stop rather than committing a
+  // half-purge: re-running --apply resumes cleanly, whereas reconciling around
+  // it buries the stragglers in resurrected-N/.
+  if (failed.length) {
+    console.error(`\n${failed.length} file(s) could not be moved:`);
+    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
+    console.error('Close whatever holds them open and re-run --apply; it resumes cleanly.');
+    console.error('Not committing a partial purge.');
+    process.exitCode = 1;
+    return;
+  }
+  if (manifest.collateral.length) {
+    console.log('NEXT: repair references on the collateral pages, then run node scripts/index-gen.mjs');
+  }
+  if (isGitRepo(vaultPath)) {
+    // Exactly what this purge touched, and nothing else. index.md is included
+    // because the catalog is regenerated after a purge; the log entry because it
+    // is the audit record of it. `.wiki-master/declined.json` is deliberately
+    // absent — it is gitignored and does not sync, which is precisely why the
+    // manifest carries declines for reconcile to replay.
+    const paths = [...new Set([...touched, `${BIN_DIR}/${id}/manifest.json`, 'index.md', logPath])];
+    const c = commitPaths(vaultPath, paths, `purge: ${arg} (${id})`);
+    console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    const others = uncommittedElsewhere(vaultPath);
+    if (others.length) {
+      console.log(`\n${others.length} other file(s) in the vault have uncommitted changes. Purge did NOT`);
+      console.log('commit them — they are your work, not part of this purge:');
+      for (const o of others.slice(0, 10)) console.log(`  ${o}`);
+      if (others.length > 10) console.log(`  … and ${others.length - 10} more`);
+    }
+    console.log('\nRun `git push` from the vault (or ask the skill to) to make this purge visible to your other machines.');
+  } else {
+    console.log('WARNING: this vault is not a git repository — the purge is local to this machine only.');
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main(process.argv.slice(2));
 }
