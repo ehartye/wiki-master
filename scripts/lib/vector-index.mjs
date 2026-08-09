@@ -121,7 +121,11 @@ export function queryChunks(queryVec, vectors, chunkMeta, { topN = 10 } = {}) {
     }
   }
   return [...best.values()]
-    .sort((a, b) => b.score - a.score || a.path.localeCompare(b.path))
+    // Relational comparator, never localeCompare: collation depends on the
+    // machine's ICU locale, so two machines would order identical-scoring hits
+    // differently. Same rule sortedByPath follows in lib/purge.mjs, for the
+    // same reason and after the same bug.
+    .sort((a, b) => b.score - a.score || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
     .slice(0, topN);
 }
 

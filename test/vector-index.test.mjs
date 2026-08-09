@@ -129,3 +129,21 @@ test('coverage reports files, chunks, embedded and missing counts', () => {
   const result = coverage(manifest, haveHashes);
   assert.deepEqual(result, { files: 2, chunks: 3, embedded: 2, missing: 1 });
 });
+
+// Collation via localeCompare depends on the machine's ICU locale, so two
+// machines would order identical-scoring hits differently. lib/purge.mjs
+// settled on relational comparators after exactly this bug.
+test('tied scores break by byte order, not locale collation', () => {
+  const v = [1, 0, 0];
+  const vectors = { a: v, b: v, c: v };
+  const meta = [
+    { hash: 'a', path: 'wiki/concepts/Zebra.md', startLine: 1 },
+    { hash: 'b', path: 'wiki/concepts/apple.md', startLine: 1 },
+    { hash: 'c', path: 'wiki/concepts/Apple.md', startLine: 1 },
+  ];
+  const r = queryChunks(v, vectors, meta, { topN: 3 });
+  // Byte order puts uppercase before lowercase; a locale-aware collator
+  // typically groups Apple/apple together ahead of Zebra.
+  assert.deepEqual(r.map((h) => h.path),
+    ['wiki/concepts/Apple.md', 'wiki/concepts/Zebra.md', 'wiki/concepts/apple.md']);
+});
