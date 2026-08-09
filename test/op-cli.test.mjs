@@ -224,3 +224,26 @@ test('the token file is deleted after a successful commit', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// The token is joined into a path and unlinkSync runs on it, so a `../` token
+// would read and DELETE outside .wiki-master/ops/. op-begin only emits hex, but
+// op-commit is invoked from skill markdown where an agent assembles the command
+// line — the shape is checked rather than assumed.
+test('a malformed token is refused before it reaches the filesystem', async () => {
+  const dir = tempRepo();
+  try {
+    const victim = join(dir, 'important.md');
+    writeFileSync(victim, 'do not delete me\n');
+    execFileSync('git', ['add', 'important.md'], { cwd: dir });
+    execFileSync('git', ['commit', '-q', '-m', 'seed'], { cwd: dir });
+
+    for (const bad of ['../../important', 'not-hex', '', 'abc/../../x']) {
+      const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 't', '--since', bad]);
+      assert.equal(r.exitCode, 1, `token ${JSON.stringify(bad)} must be refused`);
+      assert.match(r.errs.join(' '), /malformed operation token|usage:/);
+    }
+    assert.equal(existsSync(victim), true, 'no traversal token may delete a file');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

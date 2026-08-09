@@ -36,6 +36,14 @@ function unpushedCount(cwd) {
 // do, or ran against a vault that isn't a git repo, still finished; it should
 // not leave scratch state behind for the next run to trip over.
 export function commitOp(vaultPath, { op, title, token }) {
+  // The token is joined straight into a path, and `unlinkSync` runs on it at the
+  // end — so a token carrying `../` would both read and DELETE a file outside
+  // .wiki-master/ops/. op-begin only ever emits hex, but this is invoked from
+  // skill markdown where an agent assembles the command line, so the shape is
+  // checked rather than assumed.
+  if (!/^[0-9a-f]{8,64}$/.test(String(token))) {
+    return { ok: false, reason: `malformed operation token "${token}" — expected the hex string op-begin printed` };
+  }
   const tokenPath = join(vaultPath, '.wiki-master', 'ops', `${token}.json`);
   let record;
   try {
