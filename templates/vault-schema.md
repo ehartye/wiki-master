@@ -13,6 +13,10 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   content-hash named.
 - `wiki/sources|entities|concepts|syntheses|authored` — LLM-owned pages.
 - `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
+- `.recycle/` — purged topics, one folder per purge with a `manifest.json` recording what
+  moved (by path and by `source-hash`) and which source URLs were declined. Git-tracked, so a
+  removal reaches every machine; dot-prefixed, so no search, metric or graph walk ever sees it.
+  Never emptied automatically — a purge is reversible, and that is what makes it safe to run.
 
 ## Frontmatter contract
 - Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, source-hash`.

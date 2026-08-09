@@ -1,0 +1,215 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { isGitRepo, commitPaths, uncommittedElsewhere } from '../scripts/lib/git.mjs';
+
+function tempRepo() {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-git-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+  return dir;
+}
+
+test('isGitRepo is true inside a repo and false outside one', () => {
+  const repo = tempRepo();
+  const plain = mkdtempSync(join(tmpdir(), 'wm-plain-'));
+  try {
+    assert.equal(isGitRepo(repo), true);
+    assert.equal(isGitRepo(plain), false);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+// The bug this feature exists to fix: a working-tree change that never becomes a
+// commit is not a change anything else can see. A purge stages a MOVE — a
+// deletion at the original path and an addition under .recycle/ — and the bin's
+// leading dot must not hide it from staging.
+test('commitPaths stages a move, including into a dot-prefixed folder', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    commitPaths(repo, ['a.md'], 'initial');
+    mkdirSync(join(repo, '.recycle', 'id', 'wiki'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'wiki', 'a.md'), 'hello\n');
+    rmSync(join(repo, 'a.md'));
+    const r = commitPaths(repo, ['a.md', '.recycle/id/wiki/a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /a\.md/);
+    assert.match(files, /\.recycle\/id\/wiki\/a\.md/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// The reason this is commitPaths and not commitAll. A vault with auto-commit
+// disabled carries the user's in-progress work; a purge must not label it as
+// part of the purge.
+test('commitPaths leaves unrelated working-tree changes alone', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    writeFileSync(join(repo, 'unrelated.md'), 'draft\n');
+    commitPaths(repo, ['a.md', 'unrelated.md'], 'initial');
+    writeFileSync(join(repo, 'unrelated.md'), 'draft, still being written\n');
+    writeFileSync(join(repo, 'a.md'), 'purged\n');
+    const r = commitPaths(repo, ['a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /a\.md/);
+    assert.equal(/unrelated\.md/.test(files), false, 'the user\'s draft must not ride along');
+    assert.deepEqual(uncommittedElsewhere(repo), ['unrelated.md']);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// Modeled on a real filename in the live vault. NTFS forbids " < > : \ | ? * in
+// filenames, so no vault on Windows can contain a straight double quote — an
+// earlier draft of this test used one and could not create its own fixture.
+// Em-dash, ampersand and apostrophe are what actually occur, and a topic purge
+// can move hundreds of such files; NUL-delimited stdin sidesteps both the
+// quoting and the argv-length questions.
+test('commitPaths handles filenames with spaces, em-dashes, ampersands and apostrophes', () => {
+  const repo = tempRepo();
+  try {
+    const odd = "Weeks & Ruppanner — Typology of US Parents' Mental Loads.md";
+    writeFileSync(join(repo, odd), 'x\n');
+    const r = commitPaths(repo, [odd], 'add odd name');
+    assert.equal(r.committed, true);
+    assert.deepEqual(uncommittedElsewhere(repo), []);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// core.quotePath=false stops the octal escaping; the outer quote pair survives
+// it, so uncommittedElsewhere must strip that too or a non-ASCII path comes back
+// wrapped and never matches anything the caller compares it against.
+test('uncommittedElsewhere does not mangle a non-ASCII filename', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'seed.md'), 'x\n');
+    commitPaths(repo, ['seed.md'], 'initial');
+    const odd = 'Gottman — R is for Repair.md';
+    writeFileSync(join(repo, odd), 'x\n');
+    assert.deepEqual(uncommittedElsewhere(repo), [odd]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// The critical bug the reviewer's follow-up caught: a bare `git commit -m`
+// commits the WHOLE INDEX, not just what was just staged. If the purge's own
+// paths resolve to no actual change (nothing to purge) while the user has
+// separately pre-staged their own work, a naive implementation reports success
+// and commits the user's pre-staged work under a "purge:" message — the same
+// mislabelling failure this module exists to prevent, triggered from the
+// pre-staged side rather than the unstaged side.
+test('commitPaths does not commit pre-staged work when the purge itself is a no-op', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    commitPaths(repo, ['a.md'], 'initial');
+    writeFileSync(join(repo, 'my-draft.md'), 'draft\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo }); // user pre-stages their own work
+    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    const r = commitPaths(repo, ['a.md'], 'purge: topic'); // a.md unchanged: purge moved nothing
+    assert.deepEqual(r, { committed: false, reason: 'nothing to commit' });
+    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    assert.equal(after, before, 'no commit should have been made');
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' });
+    assert.match(status, /^A {2}my-draft\.md$/m, 'the pre-staged file must remain staged, not committed');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// Same hazard as the no-op case, but on the path where the commit actually
+// runs. The scoped `diff --cached` guard returns early when the purge moved
+// nothing, so that test never exercises the commit's own pathspec — mutating
+// the commit back to unscoped leaves the whole file green without this one.
+test('a real purge commit excludes the user\'s pre-staged work', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one\n');
+    commitPaths(repo, ['a.md', 'my-draft.md'], 'initial');
+
+    writeFileSync(join(repo, 'my-draft.md'), 'chapter one, revised\n');
+    execFileSync('git', ['add', 'my-draft.md'], { cwd: repo }); // user pre-stages their own work
+    mkdirSync(join(repo, '.recycle', 'id'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'a.md'), 'hello\n');
+    rmSync(join(repo, 'a.md'));                                  // purge moves a.md
+
+    const r = commitPaths(repo, ['a.md', '.recycle/id/a.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /\.recycle\/id\/a\.md/, 'the purge itself must be committed');
+    assert.equal(/my-draft\.md/.test(files), false, 'pre-staged work must not ride along');
+    assert.match(
+      execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }),
+      /^M {2}my-draft\.md$/m,
+      'and it must remain staged afterwards, neither committed nor lost');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('commitPaths reports committed:false when the named paths are unchanged', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'a.md'), 'hello\n');
+    commitPaths(repo, ['a.md'], 'initial');
+    assert.deepEqual(commitPaths(repo, ['a.md'], 'again'), { committed: false, reason: 'nothing to commit' });
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('commitPaths refuses politely when the directory is not a repo', () => {
+  const plain = mkdtempSync(join(tmpdir(), 'wm-plain-'));
+  try {
+    assert.deepEqual(commitPaths(plain, ['a.md'], 'x'), { committed: false, reason: 'not a git repository' });
+    assert.deepEqual(uncommittedElsewhere(plain), []);
+  } finally {
+    rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+// git add --pathspec-from-file fails ATOMICALLY: one path matching nothing
+// (neither tracked nor present on disk) and the WHOLE add is rejected, nothing
+// stages. With obsidian-git auto-commit disabled, an untracked clipping or log
+// entry is normal vault state -- purge a topic before the next sync reaches it
+// and one of the moved files was never committed at its original path. That
+// path is now neither on disk (the move already happened) nor tracked, so
+// listing it alongside its new .recycle/ location must not sink the commit of
+// everything else, including the move itself.
+test('commitPaths still commits when one of the paths was never tracked and no longer exists (purging an uncommitted file)', () => {
+  const repo = tempRepo();
+  try {
+    writeFileSync(join(repo, 'seed.md'), 'x\n');
+    commitPaths(repo, ['seed.md'], 'initial');
+
+    // An untracked clipping, never committed.
+    mkdirSync(join(repo, 'raw', 'clippings'), { recursive: true });
+    writeFileSync(join(repo, 'raw', 'clippings', 'New.md'), 'clip\n');
+    // A purge moves it: gone from its original path, landed in .recycle/.
+    mkdirSync(join(repo, '.recycle', 'id', 'raw', 'clippings'), { recursive: true });
+    writeFileSync(join(repo, '.recycle', 'id', 'raw', 'clippings', 'New.md'), 'clip\n');
+    rmSync(join(repo, 'raw', 'clippings', 'New.md'));
+
+    const r = commitPaths(repo, ['raw/clippings/New.md', '.recycle/id/raw/clippings/New.md'], 'purge: topic');
+    assert.equal(r.committed, true);
+    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.match(files, /\.recycle\/id\/raw\/clippings\/New\.md/, 'the move must still be committed');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});

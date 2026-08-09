@@ -19,7 +19,9 @@ test('writeLogEntry writes a uniquely-named file with frontmatter + heading', ()
   const vault = mkdtempSync(join(tmpdir(), 'wm-log-'));
   const now = new Date(2026, 6, 19, 22, 43, 1);
   const rel = writeLogEntry({ vaultPath: vault, op: 'ingest', title: 'Hello: World', body: 'the body', now });
-  assert.equal(rel, join('log', '2026-07-19-224301-ingest-hello-world.md'));
+  // Forward-slash, always -- must match commitPaths's forward-slash `staged`
+  // set on every platform, not join()'s backslash on Windows.
+  assert.equal(rel, 'log/2026-07-19-224301-ingest-hello-world.md');
   const txt = readFileSync(join(vault, rel), 'utf8');
   assert.match(txt, /^---\ndate: 2026-07-19\nop: ingest\ntitle: "Hello: World"\n---\n/);
   assert.match(txt, /## \[2026-07-19\] ingest \| Hello: World\n\nthe body\n$/);
@@ -31,7 +33,7 @@ test('writeLogEntry never overwrites: a collision gets a numeric suffix', () => 
   const a = writeLogEntry({ vaultPath: vault, op: 'ingest', title: 'Dup', body: 'A', now });
   const b = writeLogEntry({ vaultPath: vault, op: 'ingest', title: 'Dup', body: 'B', now });
   assert.notEqual(a, b);
-  assert.equal(b, join('log', '2026-07-19-224301-ingest-dup-2.md'));
+  assert.equal(b, 'log/2026-07-19-224301-ingest-dup-2.md');
   assert.ok(readFileSync(join(vault, a), 'utf8').includes('A'));
   assert.ok(readFileSync(join(vault, b), 'utf8').includes('B'));
 });

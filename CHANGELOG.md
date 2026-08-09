@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.9.0 — 2026-08-08
+
+### `/wiki-purge` — removing a topic in a way that survives sync
+
+Deleting pages in the vault did not remove them. Investigating the reported case
+against the vault's own history settled why, and it was not the reported cause: **no
+commit had ever deleted those pages** — checked with `--full-history`, which defeats
+the merge simplification that hides one side of a merge. Nothing was "synced back in,"
+because the removal had never become a fact anyone could sync. It existed in one
+working tree and the next pull undid it.
+
+So the bin is not the fix. `/wiki-purge` owns the whole transaction through commit,
+and is re-runnable so anything that does return converges.
+
+**Three layers, because removing one is not removing a topic.** Taking the `wiki/`
+pages alone leaves clippings the ingest backlog reports as un-summarized forever, and
+the next `/wiki-ingest` rebuilds the topic from them. Taking the clippings without
+recording their URLs lets `/wiki-discover` re-clip them. Purge moves pages and
+evidence and records a decline per source URL.
+
+- **The closure never admits a page anything outside the topic references.** Those
+  become *collateral* (references to repair) or *blocking* (every source they cite is
+  inside the set — `--apply` refuses until you decide). The asymmetry is deliberate:
+  over-matching destroys work and is discovered late; under-matching leaves one page
+  to delete by hand and is discovered immediately.
+- **`--reconcile` re-bins anything that came back**, matching by path and by
+  `source-hash` so a re-clip under a new filename is caught too. Idempotent, and it
+  commits what it moves.
+- **`--restore <id>`** puts a purge back, never overwriting newer work, and clears the
+  declines that purge recorded so the sources become discoverable again.
+- **The bin is excluded structurally, with no changes to any reader.** `graph.mjs`
+  skips dot-prefixed entries during its walk; `search.mjs`, `drift.mjs` and
+  `stale.base` all filter on an anchored `wiki/` prefix that a `.recycle/` path fails;
+  and Obsidian's own indexer ignores dot-folders — probed live rather than assumed.
+- **Commits stage only what the purge touched.** A vault with obsidian-git
+  auto-commit disabled carries the user's in-progress writing, and `git add -A` would
+  label it as part of the purge and make the purge impossible to revert cleanly.
+
+Also in this release: `removeDecline` in `scripts/lib/decline.mjs`, a narrow
+`scripts/lib/git.mjs` (stage, commit, push — no force, no history rewriting), and
+`log-entry.mjs` now returns a forward-slash path on every platform.
+
 ## 0.8.4 — 2026-08-03
 
 ### `sources:`/`source-hashes:` ordering — one more bare-YAML defect, found the same way

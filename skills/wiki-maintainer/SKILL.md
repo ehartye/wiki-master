@@ -51,6 +51,13 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   the filesystem root.
 - `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses,authored}`:
   pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log/`: one file per operation (view via `log.base`).
+- **`.recycle/`** holds purged content — pages, clippings, and a `manifest.json` per
+  purge. **Never read it, never cite it, never count it.** A page in the bin is not
+  evidence, not a source, and not backlog. The exclusion is structural rather than a
+  convention you must remember: `graph.mjs`'s walk skips leading-dot entries, every
+  other reader filters on an anchored `wiki/` prefix, and Obsidian's indexer ignores
+  dot-folders (measured, not assumed). `/wiki-purge` owns it; nothing else writes
+  there, and nothing ever empties it.
 - Wiki page frontmatter (set via `property:set`, typed):
   `type` (source|entity|concept|synthesis|authored), `created`, `updated`, `reviewed`,
   `status` (stub|draft|maintained), `sources: [[...]]`, `ai-generated: true`.
