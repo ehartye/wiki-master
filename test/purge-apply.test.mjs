@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import {
   applyPurge, applyRestore, readManifests, writeManifest, nextFreePurgeId, enrichPages, sha256,
-  collectSeeds, main,
+  collectSeeds, parseSeeds, main,
 } from '../scripts/purge.mjs';
 import { planPurge, buildManifest } from '../scripts/lib/purge.mjs';
 import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
@@ -1053,4 +1053,72 @@ test('the purge-vault fixture on disk is never mutated by these tests', () => {
   // this only guards against IN-PLACE MUTATION of the fixture's own content.
   const suspicious = status.split('\n').filter((l) => l.trim() && !/^\?\?|^A /.test(l));
   assert.deepEqual(suspicious, [], `fixture must not be mutated by tests:\n${status}`);
+});
+
+// --- --seeds: pinning the seed set ---------------------------------------
+// A dry run against the live vault seeded 25 pages by rank and the tail was
+// noise -- an AI-ethics-curriculum concept ranked into a "parenting conflict
+// resolution" purge and dragged its exclusive evidence along. RRF scores carry
+// no absolute meaning, so there is no threshold to tune; the fix is to let the
+// human strike a seed and pin the rest.
+
+test('parseSeeds splits a comma list out of the topic words', () => {
+  const r = parseSeeds(['parenting', 'conflict', '--seeds', 'wiki/concepts/A.md,wiki/concepts/B.md']);
+  assert.deepEqual(r.words, ['parenting', 'conflict']);
+  assert.deepEqual(r.seeds, ['wiki/concepts/A.md', 'wiki/concepts/B.md']);
+});
+
+test('parseSeeds returns null when the flag is absent, [] when it is empty', () => {
+  assert.equal(parseSeeds(['topic']).seeds, null);
+  assert.deepEqual(parseSeeds(['topic', '--seeds']).seeds, []);
+});
+
+test('parseSeeds tolerates spaces around the commas', () => {
+  assert.deepEqual(parseSeeds(['t', '--seeds', 'a.md, b.md ,c.md']).seeds, ['a.md', 'b.md', 'c.md']);
+});
+
+test('main --seeds pins the set and never calls search', async () => {
+  const v = tempVault();
+  try {
+    let searched = false;
+    const r = await runMain(v, ['--plan', 'anything', '--seeds', 'wiki/concepts/Foo.md'], {
+      searchImpl: async () => { searched = true; return { tier: 't', results: [] }; },
+    });
+    assert.equal(searched, false, 'search must not run when seeds are pinned');
+    assert.ok(r.logs.join('\n').includes('pinned via --seeds'));
+    assert.ok(r.logs.join('\n').includes('wiki/concepts/Foo.md'));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A typo'd path would silently narrow the purge, and a purge narrower than the
+// user believes they approved is the quiet direction of this failure.
+test('main --seeds refuses a path that is not in the vault and moves nothing', async () => {
+  const v = tempVault();
+  try {
+    const r = await runMain(v, ['--apply', 'topic', '--seeds', 'wiki/concepts/Typo.md'], {
+      searchImpl: async () => ({ tier: 't', results: [] }),
+    });
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.join('\n').includes('not in the vault'));
+    assert.equal(existsSync(join(v, '.recycle')), false, 'nothing may be binned');
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('main --seeds with no paths is refused rather than falling back to search', async () => {
+  const v = tempVault();
+  try {
+    let searched = false;
+    const r = await runMain(v, ['--plan', 'topic', '--seeds'], {
+      searchImpl: async () => { searched = true; return { tier: 't', results: [] }; },
+    });
+    assert.equal(r.exitCode, 1);
+    assert.equal(searched, false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
 });

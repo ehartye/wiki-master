@@ -278,6 +278,29 @@ function report(plan) {
 // each one tests. Splitting main into one function per mode was considered
 // and rejected for this task: real refactor, but it would churn this DI
 // seam for a benefit this task does not need.
+// Splits `--seeds a.md,b.md` (or a repeated flag) out of the remaining argv,
+// leaving the topic words. Returns { words, seeds } with seeds null when the flag
+// is absent, so "no flag" stays distinguishable from "flag with nothing after it"
+// — the second is a mistake worth refusing rather than silently searching.
+export function parseSeeds(args) {
+  const words = [];
+  const seeds = [];
+  let sawFlag = false;
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--seeds') {
+      sawFlag = true;
+      const v = args[i + 1];
+      if (v && !v.startsWith('--')) {
+        seeds.push(...v.split(',').map((s) => s.trim()).filter(Boolean));
+        i += 1;
+      }
+      continue;
+    }
+    words.push(args[i]);
+  }
+  return { words, seeds: sawFlag ? seeds : null };
+}
+
 export async function main(argv, {
   searchImpl = searchMain,
   applyPurge: applyPurgeFn = applyPurge,
@@ -285,7 +308,16 @@ export async function main(argv, {
 } = {}) {
   const { path: vaultPath } = resolveVault();
   const mode = argv[0] ?? '--plan';
-  const arg = argv.slice(1).join(' ').trim();
+  // `--seeds a.md,b.md` pins the seed set instead of searching for it. Measured
+  // need, not speculation: a real dry run against the live vault seeded 25 pages
+  // by rank and the tail was noise — an AI-ethics-curriculum concept ranked into
+  // a "parenting conflict resolution" purge, and dragged its exclusive evidence
+  // along with it. RRF scores carry no absolute meaning, so there is no threshold
+  // to tune; the fix is to let the human strike a seed. The topic string is still
+  // required — it names the purge id, the manifest and the log entry.
+  const rest = parseSeeds(argv.slice(1));
+  const arg = rest.words.join(' ').trim();
+  const pinnedSeeds = rest.seeds;
 
   if (mode === '--restore') {
     const { manifests } = readManifests(vaultPath);
@@ -369,7 +401,30 @@ export async function main(argv, {
   }
 
   const pages = enrichPages(vaultPath, buildGraph(vaultPath).pages);
-  const seedPaths = await collectSeeds(arg, { searchImpl });
+  let seedPaths;
+  if (pinnedSeeds) {
+    if (!pinnedSeeds.length) {
+      console.error('purge: --seeds was given with no paths.');
+      process.exitCode = 1;
+      return;
+    }
+    // Validated against the vault before anything else runs. A typo'd path would
+    // otherwise silently narrow the purge, and a purge narrower than the user
+    // believes they approved is the quiet direction of this failure.
+    const known = new Set(pages.map((p) => p.path));
+    const unknown = pinnedSeeds.filter((p) => !known.has(p));
+    if (unknown.length) {
+      console.error('purge: these --seeds paths are not in the vault:');
+      for (const u of unknown) console.error(`  ${u}`);
+      console.error('Paths are vault-relative and case-sensitive, e.g. wiki/concepts/Foo.md');
+      process.exitCode = 1;
+      return;
+    }
+    seedPaths = pinnedSeeds;
+    console.log(`seeds (${seedPaths.length}, pinned via --seeds):`);
+    for (const s of seedPaths) console.log(`  ${s}`);
+  } else {
+  seedPaths = await collectSeeds(arg, { searchImpl });
   if (!seedPaths.length) {
     // An empty result is indistinguishable from a dead Obsidian CLI unless
     // something checks: keywordSearch (search.mjs) swallows every backend
@@ -388,6 +443,9 @@ export async function main(argv, {
   }
   console.log(`seeds (${seedPaths.length}):`);
   for (const s of seedPaths) console.log(`  ${s}`);
+  console.log('  (strike any that do not belong, then re-run with');
+  console.log('   --seeds "<comma-separated paths>" to pin the set)');
+  }
   const plan = planPurge({ pages, seedPaths });
   report(plan);
 
