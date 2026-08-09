@@ -1891,7 +1891,17 @@ closes all three, and `--reconcile` closes them again on every machine.
    and commits. Then:
    - repair references on every COLLATERAL page (the log entry lists them);
    - regenerate the catalog: `node ${CLAUDE_PLUGIN_ROOT}/scripts/index-gen.mjs`;
-   - commit the repairs: `git -C <vault> add -A && git -C <vault> commit -m "purge: repair references"`.
+   - commit the repairs, **naming the files** — never `git add -A`, which sweeps
+     the user's unrelated in-progress work into a commit labelled as this purge:
+     `git -C <vault> add -- index.md <each collateral page>` then
+     `git -C <vault> commit -m "purge: repair references"`.
+
+   **If it reports files it could not move** (a Windows file lock — antivirus, the
+   Search indexer, a sync client), it stops before committing. Close whatever holds
+   them open, then run `--reconcile`, which finishes this purge in place and commits
+   it. **Do not re-run `--apply`**: the seed pages are already gone, so its plan
+   comes back empty, and it starts a second purge under a new id that fragments this
+   one across two manifests so neither restores correctly.
 
 5. **Ask before pushing.** A push publishes the removal to every machine. Ask
    plainly — "push this purge to origin?" — and run `git -C <vault> push` only on
@@ -1903,8 +1913,14 @@ closes all three, and `--reconcile` closes them again on every machine.
 ## Restoring
 
 `node ${CLAUDE_PLUGIN_ROOT}/scripts/purge.mjs --restore <purge-id>` puts everything
-back. It never overwrites a file that already exists at the original path — that is
-newer work, and it is reported as skipped instead.
+back and commits. It never overwrites a file that already exists at the original
+path — that is newer work, and it is reported as skipped instead. It also clears the
+declines this purge recorded, so `/wiki-discover` can find those sources again;
+declines you made for your own reasons are left alone.
+
+Anything the manifest claims but the bin cannot supply is reported as **MISSING**
+with a non-zero exit. Never read a bare "restored N file(s)" as success without
+checking that line.
 
 ## Rules
 
