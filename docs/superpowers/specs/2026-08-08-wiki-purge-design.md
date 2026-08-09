@@ -261,9 +261,24 @@ question (does a purged page still surface when you search by hand?), not a pipe
 Because the bin is invisible to `buildGraph`, purged clippings leave `unsummarizedSources` rather
 than sitting in the backlog forever inviting the next ingest to rebuild the topic. That closes §2.1.
 
-Reference repair (step 4) is mandatory, not optional: a surviving page whose `sources:` points at a
-purged clipping becomes a `provenanceGap`, and the health score would correctly degrade. Purge must
-leave the vault at or above the score it started with, and that is a test.
+Reference repair (step 4) is mandatory for content integrity: a surviving page left citing a purged
+clipping is a claim whose trail dead-ends, which guardrail #3 calls a defect however well it reads.
+
+**But the health score does not enforce it, and the original claim here that it does was wrong.**
+Measured against the end-to-end fixture during implementation: an unrepaired purge moved the score
+**up**, 92 → 94. Two effects combine — purging an orphaned page removes an orphan penalty, and the
+dangling links left behind land in `classifyBrokenLinks`'s `deferred` bucket, which is unscored. A
+broken link escapes `deferred` only if a similarly-named page still exists (impossible: the target was
+just purged) or the citing page is over 90 days stale. So on any collateral page touched recently — most
+of a live vault — a skipped repair is invisible to the score.
+
+The verification step therefore compares the **broken-link count**, not the score. That is what
+`/wiki-purge`'s skill instructs, and it measures the thing directly.
+
+Whether `classifyBrokenLinks` should treat a broken link on an undated or recently-updated page as a
+defect candidate rather than defaulting it to `deferred` is a scoring-policy question affecting every
+vault operation, not just purge. Recorded here as a follow-up; deliberately not changed as part of
+this feature.
 
 ## 10. Testing
 

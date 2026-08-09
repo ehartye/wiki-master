@@ -64,8 +64,20 @@ every other machine.
    yes. If the vault is not a git repo, say plainly that the purge is local to this
    machine and will not reach the others.
 
-6. **Verify.** `node ${CLAUDE_PLUGIN_ROOT}/scripts/health.mjs` — the score must not
-   drop. A fall means references were left dangling; repair them before finishing.
+6. **Verify — on the broken-link count, not the score.**
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/health.mjs`, and compare the **broken links**
+   line against a run from before the purge. It must not have grown.
+
+   Do **not** verify with the score. Measured on the end-to-end fixture: an
+   unrepaired purge moved the score *up*, 92 → 94. Purging an orphaned page removes
+   an orphan penalty, and the dangling links left behind are classified `deferred`
+   by `classifyBrokenLinks` — which is unscored. A link only escapes `deferred` if a
+   similarly-named page still exists (impossible, the target was just purged) or the
+   citing page is more than 90 days stale. So on any collateral page touched in the
+   last three months, a skipped repair is invisible to the score.
+
+   `obsidian unresolved verbose format=json` also lists them, attributed to the
+   pages that carry them.
 
 ## When a purge stops partway
 
