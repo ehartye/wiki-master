@@ -130,16 +130,47 @@ precisely what a qmd-style index cannot promise.
 
 Refresh reads only files whose `mtimeMs` or `size` differs from the manifest.
 
-### 5.3 Query
+### 5.3 Query — mean for ranking, max for location
 
 1. Embed the query once, with `keep_alive` set so the model stays resident.
 2. Cosine against every chunk vector.
-3. Aggregate to pages: a page scores as its **best chunk**, and carries that chunk's line
-   number.
+3. Aggregate to pages: a page scores as the **L2-normalized mean of its chunk vectors**, and
+   carries the line number of its **best-scoring chunk**. Mean decides *which page*; max
+   decides *where in it*. The same vectors serve both, so nothing extra is stored.
 4. Fuse with Obsidian keyword results through the existing `mergeRRF`.
 
-Returns `{ path, score, line }` — the line number is the passage-level capability, obtained
-without qmd.
+Returns `{ path, score, line }`.
+
+**This aggregation was chosen by measurement, and it is not what an earlier draft of this
+spec said.** Benchmarked against the real index (5,515 chunks over 1,821 files), five queries
+with known-correct target pages, mean rank (lower is better):
+
+| strategy | mean rank |
+|---|---|
+| page-level vector, truncated at 4,000 chars *(the status quo)* | 3.0 |
+| best chunk *(the original design)* | 5.0 |
+| best chunk + mean | 4.0 |
+| RRF fusion of page-level and best-chunk rankings | 3.4 |
+| **mean of chunk vectors** | **2.6** |
+
+Two things this overturned:
+
+- **Ranking a page by its best chunk is worse than the status quo.** A 1,200-character window
+  is a weaker topical fingerprint than a whole-document vector. The truncation figure in §2
+  measures *characters*, not retrieval damage — only 21.7% of pages are truncated at all, and
+  for those the retained head is title, frontmatter and topical opening, which is close to an
+  ideal summary.
+- **Fusing the two rankings is worse than the better one alone** (3.4 vs 3.0). RRF helps when
+  channels are independently good; here it dragged the stronger ranking toward the weaker.
+
+Mean-of-chunks wins because it is a whole-document vector computed over **complete coverage** —
+it keeps the topical-fingerprint strength that made page-level work while removing the
+truncation that limited it.
+
+**Honest limits:** n = 5, and the target pages were chosen by the author. This is a weak
+benchmark. What makes it actionable is that mean-of-chunks was never worse on any individual
+query, and that it is the theoretically sounder construction. A larger fixture would be worth
+building before treating 2.6 as a settled number.
 
 ### 5.4 Tier vocabulary
 
@@ -192,7 +223,8 @@ confirmed to fail, restored.
 | 5 | An edited page re-chunks only that page; others keep their vectors | Incremental refresh |
 | 6 | A changed chunk misses the cache and is re-embedded | Staleness is impossible |
 | 7 | An unchanged vault refreshes with zero embed calls | No redundant work |
-| 8 | Page score is its best chunk's score, and the line number is that chunk's | Aggregation |
+| 8 | Page ranks by its mean chunk vector; the line number is its BEST chunk's | Aggregation |
+| 8b | A page matching moderately throughout outranks one with a single strong chunk | The property that makes mean beat max |
 | 9 | Query time stays under 300 ms on a 4,500-chunk index with a warm model | "Quick" |
 | 10 | Search with the index absent degrades to `lexical` and says so | Never silent |
 
