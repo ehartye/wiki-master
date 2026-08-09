@@ -280,6 +280,23 @@ defect candidate rather than defaulting it to `deferred` is a scoring-policy que
 vault operation, not just purge. Recorded here as a follow-up; deliberately not changed as part of
 this feature.
 
+## 9.1 Known limit: Windows MAX_PATH
+
+The bin adds roughly 50 characters to every path — `.recycle/<date>-<slug up to 60>/`
+replaces nothing, and a resurrection adds `resurrected-<n>/` on top. The clipper caps
+filenames at 120 characters, and the live vault has many at that cap.
+
+Measured while setting up the end-to-end run: cloning this vault into a deep temp
+directory failed on ~50 files with `Filename too long`, and that path was only ~130
+characters of prefix. For the vault at `C:\Users\ehart\.wiki-master-vault\` the worst
+realistic case is around 250 characters — under the 260 limit, but not by much, and a
+vault at a deeper root or a long topic slug would exceed it.
+
+The failure degrades safely rather than corrupting anything: `renameSync` throws,
+`applyPurge`'s per-entry try/catch records it in `failed`, and the CLI reports the
+files and refuses to commit a partial purge. A shorter topic string is the workaround,
+and enabling Windows long-path support removes the ceiling entirely.
+
 ## 10. Testing
 
 TDD, against a new fixture vault (`test/fixtures/purge-vault/`) holding a small topic cluster, one
