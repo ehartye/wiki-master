@@ -8,7 +8,10 @@ description: Periodic deep maintenance pass — structural health, contradiction
 Load the `wiki-maintainer` skill and follow its **Lint** workflow.
 
 1. Run `/wiki-health` first: `node ../../scripts/health.mjs`. If the
-   wiki is empty or clean, stop early — do not burn tokens.
+   wiki is empty or clean, stop early — do not burn tokens. Only once you know
+   there is work to do, open the operation:
+   `TOKEN=$(node ../../scripts/op-begin.mjs --op lint)` — records what was already
+   uncommitted, so step 6 commits your fixes and not the user's in-progress work.
 2. Run drift: `node ../../scripts/drift.mjs`.
 3. Run the content lint: `node ../../scripts/lint.mjs` (warn-only,
    never scored). It flags (a) quotes that cannot be verified against the page's
@@ -22,3 +25,7 @@ Load the `wiki-maintainer` skill and follow its **Lint** workflow.
 5. Apply only safe, unambiguous fixes; present the rest as a proposed change list
    for the user to approve. Stamp `reviewed` on pages you touch. Write the log entry:
    `node ../../scripts/log-entry.mjs --op lint --title "<summary>"` (details on stdin).
+6. Close the operation:
+   `node ../../scripts/op-commit.mjs --op lint --title "<summary>" --since $TOKEN`
+   A lint that applied fixes and did not commit them leaves the vault changed with
+   no record — the failure `/wiki-purge` was built to end. It does not push.

@@ -74,6 +74,23 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
   may flag claims that rest only on `low`-quality provenance.
 
+## Every mutating operation commits itself
+An operation that changes the vault owns the commit that records it. Open with
+`node ../../scripts/op-begin.mjs --op <op>` (capture the token it prints), close with
+`node ../../scripts/op-commit.mjs --op <op> --title "<title>" --since $TOKEN`. It
+commits exactly what the operation touched — computed as the dirty set now minus the
+dirty set when it opened — so the user's in-progress writing is never swept into a
+commit labelled as your work, and the operation is revertable as one unit.
+
+This is not a convenience. A change sitting in a working tree is not a change any
+other machine can see, and a pull with uncommitted changes present is exactly the
+state that silently undoes them. obsidian-git's timer is a safety net for hand edits
+made in Obsidian itself; it is not the mechanism, because it cannot know where an
+operation begins or ends. Never `git add -A` in a vault.
+
+`op-commit` never pushes — that is outward-facing and belongs to an explicit
+confirmation. It reports how many commits are unpushed so the gap stays visible.
+
 ## The log
 Every operation writes ONE new file under `log/`, via the shared script:
 `node ../../scripts/log-entry.mjs --op <op> --title "<title>"` with the entry

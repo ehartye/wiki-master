@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.10.0 — 2026-08-09
+
+### Every mutating operation commits its own work
+
+0.9.0's `/wiki-purge` was built because a deletion never became a commit and the next
+sync undid it. That fixed the problem for purge and nothing else. Measured afterwards:
+**16 scripts write to the vault and one committed; 7 skills instruct an agent to write
+and one committed.** `/wiki-ingest` alone touches 10–15 pages per run.
+
+Until now the only thing making that durable was obsidian-git's timer — which cannot
+know where an operation begins or ends, so it produces `vault backup: <timestamp>`
+commits that mix unrelated work and cannot be reverted as a unit. Observed directly
+while re-enabling it: one auto-commit swept a settings change together with eight
+in-progress files, then pulled and merged another machine's work. Purging is rare and
+ingesting is constant, so this was the larger exposure.
+
+`ingest`, `relink`, `lint` and `discover` now bracket themselves:
+
+```
+TOKEN=$(node scripts/op-begin.mjs --op ingest)
+…
+node scripts/op-commit.mjs --op ingest --title "…" --since $TOKEN
+```
+
+- **Snapshot-diff, not enumeration.** `op-begin` records what was already dirty;
+  `op-commit` commits (dirty-now − dirty-then). Making each skill list its own writes
+  would put the burden of exhaustiveness on every skill, and one missed path is an
+  uncommitted change — the original bug. This cannot commit what the operation did not
+  touch.
+- **The user's work is never swept in**, including anything they had already *staged* —
+  `git commit` with no pathspec commits the whole index, which bit once during 0.9.0.
+- **It never pushes.** Outward-facing, so it belongs to an explicit confirmation. It
+  reports the unpushed commit count instead, so the gap stays visible.
+- **`query` brackets only the file-the-answer-back branch**; a read-only query opens
+  nothing. `discover` and `ingest` nest correctly, and `discover` commits on decline
+  too — the clippings exist either way, and a later ingest would otherwise cite a file
+  the other machines do not have.
+
+Found while building it, and not anticipated by the design: `git status --porcelain`
+collapses an entirely-untracked directory to one `?? wiki/` line. That stages fine but
+never matches `git diff --cached --name-only`, which lists individual files — so a new
+file in a fresh subdirectory reported "nothing to commit" while sitting staged and
+uncommitted. `--untracked-files=all` fixes it.
+
+obsidian-git's timer stays on as a safety net for hand edits made in Obsidian itself,
+which no skill brackets. The goal was to make it redundant for agent operations, not to
+remove it.
+
 ## 0.9.0 — 2026-08-08
 
 ### `/wiki-purge` — removing a topic in a way that survives sync

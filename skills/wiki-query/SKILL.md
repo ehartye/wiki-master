@@ -20,3 +20,9 @@ Question: $ARGUMENTS
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
    (`node ../../scripts/index-gen.mjs`) and write the log entry:
    `node ../../scripts/log-entry.mjs --op query --title "<question>"` (answer summary on stdin).
+
+   **Only if the user accepts**, bracket that write so it becomes a commit rather than
+   a working-tree change. Open before creating the page —
+   `TOKEN=$(node ../../scripts/op-begin.mjs --op query)` — and close after the log entry:
+   `node ../../scripts/op-commit.mjs --op query --title "<question>" --since $TOKEN`.
+   A query the user does not file back is read-only; never open an operation for it.
