@@ -11,10 +11,25 @@ Load the `wiki-maintainer` skill and follow its **Query** workflow.
 Question: $ARGUMENTS
 
 1. Search the wiki: `node ../../scripts/search.mjs "..."` (resolved relative to this
-   skill's own directory). Prints which tier answered (`qmd`/`hybrid`/`keyword`) on
-   the first line, then ranked paths — mention the tier if it's `keyword` (Ollama/qmd
-   unavailable, results are keyword-only, same as `obsidian search` alone). Read the
-   most relevant pages returned.
+   skill's own directory). Results are `path:line` — the line is the passage that
+   matched, so read from there rather than the top of the page.
+
+   **A status line always prints to stderr. Read it, and tell the user when it is not
+   `hybrid`.** Search never fails loudly; it degrades to a working but weaker answer,
+   which is why the disclosure exists:
+   - `(hybrid · N chunks)` — keyword and chunk-level semantic, RRF-fused. Full strength.
+   - `(lexical — <what is off> · run --health)` — Obsidian keyword only. The results are
+     still real, but semantic ranking contributed nothing. **Say so in your answer** —
+     a user reading a confident synthesis has no way to know the retrieval was degraded.
+
+   To diagnose or fix: `node ../../scripts/search.mjs --health` for the full report,
+   `--setup` for the exact remediation commands. The usual causes are Ollama not
+   running, the embedding model not pulled, or the index not built
+   (`node ../../scripts/index-embed.mjs`).
+
+   **The index does not refresh itself.** It is chunk-content-hash keyed, so it can be
+   incomplete but never wrong — a stale index misses recent edits rather than serving
+   outdated text. `--health` reports how many files have changed since the last refresh.
 2. Synthesize an answer that **cites** the pages/sources it rests on.
 3. If the answer is substantive and not already captured, offer to file it as a new
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog

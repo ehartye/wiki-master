@@ -11,7 +11,9 @@ densely interlinked markdown wiki over your curated sources.
 - A small Node helper layer does zero-LLM structural checks.
 - One Ollama-backed script does semantic-drift detection.
 
-No MCP server, no daemon, no vector database.
+No MCP server, no daemon, no vector database. Semantic search is a chunk-level index
+built from your own Ollama instance: ~5,500 chunks over ~1,800 pages, brute-force cosine
+in single-digit milliseconds. A vector database solves a problem this scale does not have.
 
 ## Requirements
 
@@ -65,7 +67,7 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 |---|---|
 | `/wiki-init` | Scaffold the vault (folders, index/log, schema, Bases dashboard, templates). |
 | `/wiki-ingest [source]` | Read a source → summary page + cross-references + index/log. Blank = process new clippings. |
-| `/wiki-query <question>` | Answer from the wiki with citations; optionally file the answer back. |
+| `/wiki-query <question>` | Answer from the wiki with citations; optionally file the answer back. Chunk-level semantic + keyword, RRF-fused, with the line of the matching passage. |
 | `/wiki-health` | Fast zero-LLM structural report + 0–100 score. |
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
 | `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
@@ -87,7 +89,7 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 raw/            immutable sources (never edited)   raw/clippings/  Web Clipper output
 wiki/           sources · entities · concepts · syntheses · authored (LLM-owned)
 moc/            Maps of Content        index.md    catalog        log.md  history
-stale.base      native Bases freshness dashboard   .wiki-master/  embedding cache (git-ignored)
+stale.base      native Bases freshness dashboard   .wiki-master/  search index + caches (git-ignored)
 .recycle/       purged topics, one folder + manifest.json per purge (git-tracked, never auto-emptied)
 ```
 
