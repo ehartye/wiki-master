@@ -33,7 +33,7 @@ function tokenFiles(dir) {
 // it (saved and restored), capturing console output and process.exitCode
 // instead of letting either leak into the rest of the suite. Mirrors
 // test/purge-apply.test.mjs's runMain.
-async function run(fn, vaultPath, argv) {
+async function run(fn, vaultPath, argv, deps) {
   const prevVault = process.env.WIKI_MASTER_VAULT;
   process.env.WIKI_MASTER_VAULT = vaultPath;
   const logs = [];
@@ -45,7 +45,7 @@ async function run(fn, vaultPath, argv) {
   process.exitCode = undefined;
   let exitCode;
   try {
-    await fn(argv);
+    await fn(argv, deps);
   } finally {
     exitCode = process.exitCode;
     process.exitCode = undefined;
@@ -243,6 +243,107 @@ test('a malformed token is refused before it reaches the filesystem', async () =
       assert.match(r.errs.join(' '), /malformed operation token|usage:/);
     }
     assert.equal(existsSync(victim), true, 'no traversal token may delete a file');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- keeping the semantic index current -------------------------------------
+//
+// op-commit is the one place every mutating operation passes through, so it
+// is where the index gets refreshed. The whole feature is advisory: it runs
+// AFTER the commit has landed and must never be able to affect it. These
+// tests are about that guarantee, not about embedding — planAutoRefresh's own
+// decision table lives in test/auto-refresh.test.mjs.
+
+// Deps that make the index look built and Ollama look healthy, so the refresh
+// path is actually entered without a live Ollama anywhere near the suite.
+function refreshDeps({ refreshImpl }) {
+  return {
+    readManifestImpl: () => ({ 'wiki/a.md': { chunks: [] } }),
+    isAvailableImpl: async () => true,
+    modelPresentImpl: async () => true,
+    refreshImpl,
+  };
+}
+
+test('a refresh that throws leaves the commit intact and the exit code clean', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'a.md'), 'new page\n');
+    const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 'one page', '--since', token],
+      refreshDeps({ refreshImpl: async () => { throw new Error('ollama died mid-embed'); } }));
+
+    // The guarantee: the operation's own work is committed and reported as
+    // success. A stale index is a smaller problem than an operation that
+    // claims failure over work that actually landed.
+    assert.equal(r.exitCode, undefined, 'a failed index refresh must not fail the commit');
+    assert.deepEqual(committedFiles(dir), ['wiki/a.md']);
+    assert.ok(r.logs.some((l) => /committed/.test(l)), 'the commit is still reported');
+    // ...but it is never silent. A silently stale index is exactly the
+    // failure mode 0.11.0 exists to prevent.
+    assert.match(r.logs.concat(r.errs).join('\n'), /ollama died mid-embed/,
+      'the refresh failure must still be surfaced');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a vault with no index is told how to build one, and no build is attempted', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'a.md'), 'new page\n');
+    let attempted = false;
+    const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 'one page', '--since', token], {
+      readManifestImpl: () => ({}),
+      refreshImpl: async () => { attempted = true; return {}; },
+    });
+    assert.equal(r.exitCode, undefined);
+    assert.equal(attempted, false, 'a cold build must never start as a side effect of a commit');
+    assert.match(r.logs.concat(r.errs).join('\n'), /index-embed\.mjs/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a successful refresh reports what it did', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'a.md'), 'new page\n');
+    const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 'one page', '--since', token],
+      refreshDeps({
+        refreshImpl: async () => ({
+          filesChanged: 2, chunksEmbedded: 7, chunksPruned: 1, chunksTotal: 5518, elapsedMs: 210,
+        }),
+      }));
+    assert.equal(r.exitCode, undefined);
+    const out = r.logs.concat(r.errs).join('\n');
+    assert.match(out, /2 file/);
+    assert.match(out, /7 chunk/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A vault that isn't a git repo still has an index that goes stale. The
+// refresh is keyed to the operation having run, not to a commit having
+// landed — commitOp returns early for a non-repo vault, so this is the case
+// most likely to get skipped by accident.
+test('a non-git vault still refreshes its index', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-op-plain-idx-'));
+  try {
+    const token = await begin(dir, 'ingest');
+    let attempted = false;
+    const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 'x', '--since', token],
+      refreshDeps({ refreshImpl: async () => { attempted = true; return { filesChanged: 0, chunksEmbedded: 0, chunksPruned: 0, chunksTotal: 3, elapsedMs: 12 }; } }));
+    assert.equal(r.exitCode, undefined);
+    assert.equal(attempted, true, 'an index outside a git repo goes stale like any other');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

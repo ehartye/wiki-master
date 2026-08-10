@@ -27,9 +27,12 @@ Question: $ARGUMENTS
    running, the embedding model not pulled, or the index not built
    (`node ../../scripts/index-embed.mjs`).
 
-   **The index does not refresh itself.** It is chunk-content-hash keyed, so it can be
-   incomplete but never wrong — a stale index misses recent edits rather than serving
-   outdated text. `--health` reports how many files have changed since the last refresh.
+   **`op-commit` refreshes the index after every bracketed operation**, so anything
+   written through an operation is already searchable. What it cannot see is an edit made
+   outside one — a hand edit in Obsidian, a `git pull` from another machine. The index is
+   chunk-content-hash keyed, so it can be incomplete but never wrong: a stale index misses
+   recent edits rather than serving outdated text. `--health` reports how many files have
+   changed since the last refresh.
 2. Synthesize an answer that **cites** the pages/sources it rests on.
 3. If the answer is substantive and not already captured, offer to file it as a new
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
