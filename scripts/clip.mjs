@@ -8,6 +8,7 @@ import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { recordIssue } from './lib/triage.mjs';
+import { normalizeTopic } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -87,7 +88,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, extraction }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, extraction, topic }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -96,6 +97,13 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   lines.push(`created: ${created}`);
   lines.push('tags: [clippings]');
   lines.push(`quality: ${quality}`);
+  // The research topic this clipping was gathered for. Frontmatter is the
+  // DURABLE carrier for topic (lib/topic.mjs): .wiki-master/ is gitignored, so
+  // anything recorded there is local to one clone, while this travels with the
+  // file to every machine. Omitted when a clip was not part of a research run —
+  // an absent topic and an empty one must not be two different states.
+  const t = normalizeTopic(topic);
+  if (t) lines.push(`topic: ${yaml(t)}`);
   // How the text was obtained: 'ocr' when clip-pdf recognized rasterized pages
   // (Tesseract) instead of reading the PDF text layer. Omitted for the default.
   if (extraction && extraction !== 'text') lines.push(`extraction: ${extraction}`);
@@ -196,10 +204,15 @@ function defuddleReachable() {
 
 export function main(argv) {
   const url = argv[0];
-  if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low] [--decline="reason"]'); process.exit(2); }
+  if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low] [--topic="..."] [--decline="reason"]'); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
+  // One flag feeds both topic carriers: frontmatter on the clip path below,
+  // and the triage log on every path that queues an issue instead. A caller
+  // never has to know which population a URL is about to land in.
+  const topicArg = argv.find((a) => a.startsWith('--topic='));
+  const topic = topicArg ? normalizeTopic(topicArg.slice('--topic='.length)) : null;
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
@@ -239,7 +252,7 @@ export function main(argv) {
     // 180-day TTL would bury a recoverable source. It IS queued for triage, so the
     // link survives the terminal scrollback and reaches a human.
     const reason = 'fetch failed (likely 403/paywall/transient)';
-    recordIssue(vaultPath, { url, kind: 'failed', reason });
+    recordIssue(vaultPath, { url, kind: 'failed', reason, topic });
     console.log(`clip failed (likely blocked/paywalled — clip manually; queued for triage): ${url}`);
     return { status: 'failed', reason };
   }
@@ -257,6 +270,7 @@ export function main(argv) {
         url,
         kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin',
         reason: verdict.reason,
+        topic,
       });
       const label = verdict.kind === 'wrong_node' ? 'possible extraction mismatch' : 'thin content';
       console.log(`${label} (clip manually; decline + triage recorded): ${url}`);
@@ -269,7 +283,7 @@ export function main(argv) {
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({
     title: data.title, source: url, author: data.author,
-    published: data.published, created, quality, hash,
+    published: data.published, created, quality, hash, topic,
   });
   let slug = slugify(data.title);
   let file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);

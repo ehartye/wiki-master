@@ -184,3 +184,83 @@ test('a truncated hub-stub list never lets bulk actions overclaim', () => {
 test('a vault with no hub-stubs still renders the all-clear', () => {
   assert.match(renderScreen({ ...empty, hubStubs: [], hubStubTotal: 0 }), /Nothing needs you/);
 });
+
+// --- research-topic grouping (2026-08-10 design spec) ------------------------
+// Topic is a FILTER ACROSS the kind groups, not a replacement for them: kind
+// decides which actions a row offers, so that structure stays. These tests pin
+// the markup the client filter depends on.
+
+const withTopics = {
+  ...empty,
+  clipFailures: [
+    { url: 'https://a.test/1', kind: 'failed', reason: '403', occurrences: 1, topic: 'BPD Research' },
+    { url: 'https://a.test/2', kind: 'failed', reason: '403', occurrences: 1, topic: 'BPD Research' },
+    { url: 'https://a.test/3', kind: 'failed', reason: '403', occurrences: 1, topic: 'Audio DSP' },
+    { url: 'https://a.test/4', kind: 'failed', reason: '403', occurrences: 1, topic: null },
+  ],
+  topics: [
+    { topic: 'BPD Research', key: 'bpd research', count: 2 },
+    { topic: 'Audio DSP', key: 'audio dsp', count: 1 },
+    { topic: 'Unattributed', key: '', count: 1 },
+  ],
+};
+
+test('a topic bar renders one chip per topic, each naming its count', () => {
+  const html = renderScreen(withTopics);
+  assert.match(html, /data-topic-filter="bpd research"/);
+  assert.match(html, /data-topic-filter="audio dsp"/);
+  assert.match(html, /BPD Research/);
+  assert.match(html, /data-topic-filter="\*"/, 'an All chip that clears the filter');
+});
+
+test('every issue row carries its topic key so the client can filter without re-deriving it', () => {
+  const html = renderScreen(withTopics);
+  assert.match(html, /data-topic-key="bpd research"/);
+  assert.match(html, /data-topic-key="audio dsp"/);
+  assert.match(html, /data-topic-key=""/, 'an unattributed row still carries the attribute');
+});
+
+test('a row with a topic shows it, and an unattributed row shows no chip rather than a blank one', () => {
+  const html = renderScreen({
+    ...empty,
+    clipFailures: [{ url: 'https://a.test/1', kind: 'failed', reason: '403', occurrences: 1, topic: null }],
+    topics: [{ topic: 'Unattributed', key: '', count: 1 }],
+  });
+  assert.doesNotMatch(html, /class="topic"/, 'no empty chip on an unattributed row');
+});
+
+// A bar offering only "All" and "Unattributed" is two controls that do the same
+// thing. Every vault predating this feature is in exactly that state, so it is
+// the common case, not an edge one.
+test('a queue with no attributed items at all renders no topic bar', () => {
+  const html = renderScreen({
+    ...empty,
+    clipFailures: [{ url: 'https://a.test/1', kind: 'failed', reason: '403', occurrences: 1, topic: null }],
+    topics: [{ topic: 'Unattributed', key: '', count: 1 }],
+  });
+  assert.doesNotMatch(html, /data-topic-filter=/);
+});
+
+test('a hostile topic cannot break out of the chip or the row attribute', () => {
+  const hostile = '"><script>alert(1)</script>';
+  const html = renderScreen({
+    ...empty,
+    clipFailures: [{ url: 'https://a.test/1', kind: 'failed', reason: 'x', occurrences: 1, topic: hostile }],
+    topics: [
+      { topic: hostile, key: hostile.toLowerCase(), count: 1 },
+      { topic: 'Real Topic', key: 'real topic', count: 1 },
+    ],
+  });
+  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
+  assert.match(html, /&lt;script&gt;/);
+});
+
+// The invariant the filter must not break: group() already refuses to let
+// "apply to all N" mean more than the rows rendered. Filtering is a second way
+// to show fewer rows than exist, so the client recomputes these — which it can
+// only do if the markup says what the unfiltered count was.
+test('bulk buttons carry the data the client needs to recount under a filter', () => {
+  const html = renderScreen(withTopics);
+  assert.match(html, /data-bulk-count="4"/, 'unfiltered count is 4 rows');
+  assert.match(html, /data-bulk-label="/, 'and the label is recomputable, not baked into the text alone');
+});

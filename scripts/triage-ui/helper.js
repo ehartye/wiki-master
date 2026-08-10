@@ -22,11 +22,78 @@
     try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* ignore */ }
   };
 
+  // ===== Topic filter =====
+  // Topic filters ACROSS the kind groups rather than replacing them: kind
+  // decides which actions a row offers, so those groups stay. '*' means no
+  // filter; '' is the unattributed bucket, which is a real selection and not
+  // the same as "all".
+  var activeTopic = '*';
+
+  function applyFilter() {
+    var rows = document.querySelectorAll('.issue');
+    for (var i = 0; i < rows.length; i++) {
+      var key = rows[i].getAttribute('data-topic-key') || '';
+      var show = activeTopic === '*' || key === activeTopic;
+      rows[i].classList.toggle('is-hidden', !show);
+    }
+    // A group whose every row is filtered out is noise — and worse, its bulk
+    // bar would offer actions over nothing.
+    var groups = document.querySelectorAll('.group');
+    for (var g = 0; g < groups.length; g++) {
+      groups[g].classList.toggle('is-hidden', visibleRows(groups[g]).length === 0);
+    }
+    refreshCounts();
+  }
+
+  // The invariant this whole function exists to protect: a bulk button must
+  // never claim more rows than it will actually act on. group() already
+  // guarantees that for a truncated list; a filter is a SECOND way to show
+  // fewer rows than exist, so the counts are recomputed from what is on
+  // screen rather than trusted from render time.
+  function refreshCounts() {
+    var groups = document.querySelectorAll('.group');
+    for (var g = 0; g < groups.length; g++) {
+      var n = visibleRows(groups[g]).length;
+      var header = groups[g].querySelector('h3 .count');
+      if (header) header.textContent = n;
+      var btns = groups[g].querySelectorAll('.bulk-act');
+      for (var b = 0; b < btns.length; b++) {
+        var btn = btns[b];
+        if (btn === armed) continue; // mid-confirm; disarm() will restore it
+        btn.dataset.bulkCount = n;
+        btn.textContent = btn.dataset.bulkLabel + ' all ' + n;
+        btn.disabled = n === 0;
+      }
+    }
+  }
+
+  // The one definition of "a row this action would touch", shared by the
+  // labels and by the code that acts. Two definitions here is how a button
+  // comes to lie about its own count.
+  function visibleRows(scope) {
+    return [].slice.call(scope.querySelectorAll('.issue')).filter(function (r) {
+      return !r.classList.contains('done') && !r.classList.contains('is-hidden');
+    });
+  }
+
+  function selectTopic(key) {
+    activeTopic = key;
+    var chips = document.querySelectorAll('.topic-chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('is-on', chips[i].getAttribute('data-topic-filter') === key);
+    }
+    disarm();
+    applyFilter();
+    setStatus(key === '*' ? 'showing all topics' : 'filtered to ' + (key || 'unattributed'));
+  }
+
   // ===== Disposition =====
   // Delegated: buttons carry data-url / data-kind / data-act, so untrusted URLs
   // never reach an inline handler.
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest) return;
+    var chip = ev.target.closest('.topic-chip');
+    if (chip) return selectTopic(chip.getAttribute('data-topic-filter'));
     var bulk = ev.target.closest('.bulk-act');
     if (bulk) return armOrRunBulk(bulk);
     var btn = ev.target.closest('.act');
@@ -66,9 +133,10 @@
   function runBulk(btn) {
     var group = document.querySelector('[data-group="' + btn.dataset.bulkGroup + '"]');
     if (!group) return;
-    var rows = [].slice.call(group.querySelectorAll('.issue')).filter(function (r) {
-      return !r.classList.contains('done');
-    });
+    // visibleRows, not every row in the group: under a topic filter the hidden
+    // rows belong to a different research run, and sweeping them up is exactly
+    // the mistake the recomputed label promises not to make.
+    var rows = visibleRows(group);
     var items = [];
     rows.forEach(function (r) {
       var a = r.querySelector('.act[data-url]');
@@ -80,6 +148,7 @@
     }
 
     rows.forEach(function (r) { r.classList.add('done'); });
+    refreshCounts();
     setStatus('recording ' + items.length + '…');
 
     fetch('/disposition', {
@@ -96,6 +165,7 @@
       })
       .catch(function (err) {
         rows.forEach(function (r) { r.classList.remove('done'); });
+        refreshCounts();
         setStatus('FAILED to record bulk (' + err.message + ') — nothing saved', true);
       });
   }
@@ -111,6 +181,7 @@
     if (prior) prior.classList.remove('chosen');
     btn.classList.add('chosen');
     if (row) row.classList.add('done');
+    refreshCounts();
 
     fetch('/disposition', {
       method: 'POST',
@@ -125,6 +196,7 @@
         btn.classList.remove('chosen');
         if (prior) prior.classList.add('chosen');
         if (row) row.classList.remove('done');
+        refreshCounts();
         setStatus('FAILED to record (' + err.message + ') — not saved', true);
       });
   }

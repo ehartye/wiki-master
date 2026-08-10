@@ -75,10 +75,18 @@ Open the operation before the first clip:
 uncommitted, so the commit in Phase 4 holds the clippings and not the user's own work.
 
 For each kept candidate:
-`node ../../scripts/clip.mjs "<url>" --quality=<tier>`
+`node ../../scripts/clip.mjs "<url>" --quality=<tier> --topic="<topic>"`
+
+**Pass `--topic` on every clip in the run, and use the same string for all of
+them** — it is what lets `/wiki-triage` group this run's leftovers together
+later. Use the topic as the user gave it ($ARGUMENTS); do not re-word it per
+source, or one run becomes several groups. The flag feeds both places a topic
+can land: the clipping's frontmatter when the clip succeeds, and the triage log
+when it fails, so you never have to know which happened.
+
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
-`source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
+`topic`, `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
 records the decline automatically; report it for manual clipping, don't retry
 blindly. A `failed` result (403/transient) is NOT auto-declined — it may recover,
 and a 180-day TTL would bury a source you still want.

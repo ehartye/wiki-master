@@ -159,6 +159,31 @@
     }
     .stat.is-zero { opacity: 0.45; }
 
+    /* ===== TOPIC FILTER ===== */
+    /* Topic filters across the kind groups rather than replacing them, so this
+       sits between the summary and the groups and never nests inside one. */
+    .topic-bar {
+      display: flex; gap: 0.35rem; flex-wrap: wrap;
+      margin: -1.25rem 0 1.85rem; padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .topic-chip {
+      font-family: var(--font-body); font-size: 11px; cursor: pointer;
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border-soft); padding: 0.3rem 0.6rem;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .topic-chip:hover { border-color: var(--accent); color: var(--accent); }
+    .topic-chip .count { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+    .topic-chip.is-on {
+      border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+    }
+    .topic-chip.is-on .count { color: inherit; }
+
+    /* Filtered-out rows and emptied groups leave no gap behind them. */
+    .is-hidden { display: none !important; }
+
     /* ===== GROUPS ===== */
     .group { margin-bottom: 2.25rem; }
     .group > h3 {
@@ -223,6 +248,16 @@
       font-family: var(--font-prose);
     }
     .body .seen { color: var(--text-tertiary); font-size: 11px; margin-top: 0.25rem; }
+    /* The research topic this row came from. Deliberately quieter than the kind
+       badge: kind decides what you can do, topic decides what you are working on. */
+    .body .topic {
+      display: inline-block; margin-top: 0.3rem;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--text-tertiary); border: 1px dashed var(--border-soft);
+      padding: 0.1rem 0.4rem; word-break: break-word;
+    }
+    .bulk-act:disabled { opacity: 0.3; cursor: not-allowed; }
+    .bulk-act:disabled:hover { opacity: 0.3; }
 
     /* ===== ACTIONS ===== */
     .actions { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }

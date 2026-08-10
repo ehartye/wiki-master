@@ -48,6 +48,7 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   const fm = buildFrontmatter({
     title: 'T', source: 'https://x.com/a', author: 'A',
     published: '2026-01-01', created: '2026-01-02', quality: 'high', hash: 'h',
+    topic: 'Some Research Topic',
   });
   const written = [...fm.matchAll(/^([\w-]+):/gm)].map((m) => m[1]);
 
@@ -129,4 +130,34 @@ test('wiki-page contract declares every field the health graph reads', () => {
   // stub detection silently dies again (issue #3's failure mode).
   assert.ok(contractLine.includes('status'),
     'wiki-page contract must declare status (graph.mjs stub detection reads it)');
+});
+
+// A literal NUL byte in a source file makes git treat the whole file as
+// BINARY: no line diffs, no blame, no three-way merge, and a pull request that
+// reports "0 insertions, 0 deletions" for a file that was substantially
+// rewritten. That is a silent review failure, not a cosmetic one -- it hides
+// changes from the person reviewing them.
+//
+// Not hypothetical. scripts/lib/triage.mjs carried one from 0.5.0 (361f267)
+// until 0.13.0: an agent-written `key()` used a raw NUL as the url/kind
+// separator, which works perfectly at runtime and cost the file eight months
+// of reviewable history. The fix was to write the same character as its escape
+// sequence -- identical string, text file.
+//
+// Derived, not copied: this walks the tree rather than listing known files, so
+// a new file reintroducing the byte fails here rather than in a future review.
+test('no source file contains a literal NUL byte, which would make git treat it as binary', () => {
+  const SKIP = new Set(['.git', 'node_modules', '.playwright-mcp']);
+  const offenders = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (SKIP.has(e.name)) continue;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (!/\.(mjs|cjs|js|json|md|html|css)$/.test(e.name)) continue;
+      if (readFileSync(p).includes(0)) offenders.push(p.slice(ROOT.length + 1));
+    }
+  })(ROOT);
+  assert.deepEqual(offenders, [],
+    `write it as a unicode escape instead -- same string at runtime, and the file stays diffable:\n${offenders.join('\n')}`);
 });
