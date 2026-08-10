@@ -10,19 +10,38 @@ description: Remove a topic from the wiki for good — move its pages, its evide
 
 # Purging a topic
 
-Deleting files does not remove a topic. Three things bring it back:
+Deleting files does not remove a topic. Four things bring it back. Purge closes the
+first three in one transaction, and `--reconcile` closes them again on every other
+machine. **It cannot close the fourth** — recognizing that one is on you.
 
 1. **An uncommitted deletion.** A removal that never becomes a commit is not a
-   removal anything else can see; the next sync undoes it. This is the failure that
-   motivated the command — verified against the vault's own history, where no commit
-   had ever deleted the pages someone believed they had removed.
+   removal anything else can see; the next sync undoes it. Purge owns its whole
+   transaction through commit, so this one is closed by construction.
 2. **A `raw/` clipping left behind.** The ingest backlog reports it as
    un-summarized forever, and the next `/wiki-ingest` faithfully rebuilds the topic
    from evidence nobody removed.
 3. **A source URL nobody declined.** `/wiki-discover` re-finds and re-clips it.
+4. **A removal committed onto a history this clone cannot reach.** This is the
+   failure that actually motivated the command, and purge cannot detect it. A
+   force-push or filter-branch rewrite gives origin a new lineage; a clone that
+   never pulls it keeps the old one — every removed file still present — and
+   auto-sync goes on committing to it. Measured on this vault: origin was
+   force-updated with 261 rewritten commits, the two lineages shared **no merge
+   base at all** (git reported "unrelated histories," not a conflict), and the
+   clone still held all 72 removed files.
 
-Purge closes all three in one transaction, and `--reconcile` closes them again on
-every other machine.
+**On the fourth, check before you purge.** From inside an orphaned clone a purge
+succeeds, commits, and is invisible to every other machine — and the clone will look
+to you like the topic keeps coming back:
+
+```
+git -C <vault> fetch
+git -C <vault> merge-base HEAD origin/main   # no output + non-zero exit = orphaned
+```
+
+If there is no merge base, **stop and say so.** Nothing purge does will reach the
+other machines until the lineages are reconciled, and that is a decision about which
+history is canonical — not one to make inside a purge.
 
 ## Steps
 

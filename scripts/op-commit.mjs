@@ -5,6 +5,9 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isGitRepo, commitPaths } from './lib/git.mjs';
 import { dirtySet, deltaPaths } from './lib/op.mjs';
+import { planAutoRefresh } from './lib/auto-refresh.mjs';
+import { refreshIndex, readManifestFile } from './index-embed.mjs';
+import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL } from './lib/embed.mjs';
 
 // See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
 function statusPorcelain(cwd) {
@@ -85,7 +88,53 @@ export function commitOp(vaultPath, { op, title, token }) {
   return outcome;
 }
 
-export function main(argv) {
+// Brings the semantic index back in line with the vault after an operation
+// has changed it. This lives in op-commit rather than in each skill's
+// markdown because op-commit is already the single choke point every mutating
+// operation passes through -- one call here covers ingest, relink, purge and
+// a filed query, instead of four places that can each be forgotten.
+//
+// Three properties hold it together:
+//   - It runs AFTER the commit, so a refresh failure cannot reach it.
+//   - Nothing it writes can pollute a commit: the index lives under the
+//     vault's `.wiki-master/`, which every wiki-master vault gitignores
+//     (scripts/init.mjs writes that line).
+//   - It never throws and never sets an exit code, but it is never silent
+//     either -- a silently stale index is precisely the failure mode the
+//     0.11.0 search-health work exists to prevent.
+export async function refreshAfterOp(vaultPath, {
+  readManifestImpl = readManifestFile,
+  isAvailableImpl = isAvailable,
+  modelPresentImpl = modelPresent,
+  refreshImpl = refreshIndex,
+} = {}) {
+  const dir = join(vaultPath, '.wiki-master');
+  try {
+    const indexPresent = Object.keys(readManifestImpl(dir)).length > 0;
+    // Ollama is probed only when there is an index worth refreshing. These
+    // are network round-trips and planAutoRefresh short-circuits on a
+    // missing index before it ever consults them, so a vault that has never
+    // built one pays nothing on every commit.
+    const reachable = indexPresent ? await isAvailableImpl() : false;
+    const present = reachable ? await modelPresentImpl() : false;
+    const plan = planAutoRefresh({
+      ollama: { reachable, modelPresent: present, model: EMBED_MODEL },
+      indexPresent,
+    });
+    if (!plan.run) return { refreshed: false, notice: plan.notice };
+
+    const r = await refreshImpl({ vaultPath, dir, embedFn: (text) => ollamaEmbed(text) });
+    return {
+      refreshed: true,
+      notice: `semantic index: ${r.filesChanged} file(s) changed, ${r.chunksEmbedded} chunk(s) embedded, `
+        + `${r.chunksTotal} total (${(r.elapsedMs / 1000).toFixed(1)}s)`,
+    };
+  } catch (err) {
+    return { refreshed: false, notice: `semantic index not refreshed — ${err.message}` };
+  }
+}
+
+export async function main(argv, refreshDeps) {
   const get = (flag) => {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
@@ -106,11 +155,12 @@ export function main(argv) {
     process.exitCode = 1;
     return;
   }
+  // A chain rather than early returns: a vault that is not a git repo still
+  // has an index that goes stale, so every branch has to reach the refresh
+  // at the end of this function.
   if (r.reason === 'not a git repository') {
     console.log('op-commit: this vault is not a git repository — nothing to commit.');
-    return;
-  }
-  if (r.committed) {
+  } else if (r.committed) {
     console.log(`committed ${r.sha.slice(0, 7)}: ${r.paths.length} file(s)`);
     for (const p of r.paths) console.log(`  ${p}`);
   } else {
@@ -123,6 +173,9 @@ export function main(argv) {
   if (typeof r.unpushed === 'number' && r.unpushed > 0) {
     console.log(`${r.unpushed} commit(s) unpushed. Run \`git push\` from the vault to sync.`);
   }
+
+  const { notice } = await refreshAfterOp(vaultPath, refreshDeps);
+  if (notice) console.log(notice);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -84,9 +84,11 @@ and it is not decoration:
 
 Semantic retrieval reads a chunk index under `.wiki-master/`, built by
 `scripts/index-embed.mjs` and keyed by chunk-content hash — so it can be **incomplete,
-never wrong**: an edited chunk misses and is re-embedded on the next refresh. It does not
-refresh itself; `--health` reports how many files have changed since the last one. Results
-are `path:line`, pointing at the passage that matched.
+never wrong**: an edited chunk misses and is re-embedded on the next refresh. `op-commit`
+refreshes it after every bracketed operation, so an operation that follows the contract
+below leaves the index current; `--health` reports how many files have changed since the
+last refresh, which is what a hand edit outside an operation will show up as. Results are
+`path:line`, pointing at the passage that matched.
 
 ## Every mutating operation commits itself
 An operation that changes the vault owns the commit that records it. Open with

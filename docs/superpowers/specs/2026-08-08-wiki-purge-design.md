@@ -20,6 +20,35 @@ tried to delete things but other comps with the files still there kept syncing t
 
 ## 2. Root cause of the reported failure — measured, not assumed
 
+> ### ⚠️ Correction, 2026-08-10 — the conclusion below was wrong
+>
+> This section originally concluded that **"the removal never became a commit."** That is not what
+> happened, and the reasoning that produced it had a hole.
+>
+> The removal *did* become a commit. It became one through a **history rewrite**: the remote was
+> force-updated with **261 rewritten commits**. This clone never received it. The two lineages shared
+> no merge base at all — git reported *"unrelated histories,"* not a conflict — while obsidian-git's
+> auto-backup went on committing to the original lineage, which still held all **72** removed files
+> plus a 241-file `.git-rewrite/` filter-branch scratch directory the auto-backup had committed into
+> the vault. Recorded in the vault at `log/2026-08-08-145517-lint-bpd-purge-applied-to-local-clone-divergent-histories-reconci.md`.
+>
+> **The hole in the method.** The `git log --full-history` below was run against this clone, and was
+> correct *about this clone*. But a rewritten history does not contain the commits it replaced, and a
+> clone that never received the rewrite cannot see the lineage that does. So the query proved only
+> "this lineage never deleted these files" and was read as "no lineage ever did." `--full-history`
+> defends against history *simplification*; nothing here defended against history *replacement*.
+> Comparing against `origin/main` — or noticing the absent merge base — would have caught it.
+>
+> **What survives.** The user's report ("other machines kept syncing the files in") was accurate, and
+> the design consequences below are unchanged: a removal that does not reach the other machines' lineage
+> is not a removal, and the recycle bin alone does not fix that. What changes is *why* it failed to
+> reach them, and therefore what purge can promise — see §2.2.
+>
+> The original text is kept below rather than rewritten. It is the record of what was believed, the
+> evidence that supported it, and the measurement that overturned it.
+
+---
+
 The reported mechanism ("other machines synced the files back in") **is not what happened.** No
 commit anywhere in the vault's history has ever deleted the pages in question.
 
@@ -67,6 +96,32 @@ adjacent topic.
 
 Removing a topic is therefore a **three-layer** operation: `wiki/` pages, `raw/` evidence, and URL
 declines. This vector would have surfaced regardless of what git did.
+
+### 2.2 The vector purge does not close — added 2026-08-10
+
+A fourth way a topic comes back, and the one that actually happened: **the removal was committed onto
+a history the other clones cannot reach.** A force-push or filter-branch rewrite gives origin a new
+lineage; a clone that never pulls it keeps the old one, with every removed file still present, and
+auto-sync happily goes on committing to it. Nothing about the removal is missing — it is just on a
+branch this machine shares no ancestor with.
+
+**Purge cannot detect this, and does not claim to.** It owns its own transaction through commit,
+which closes the *uncommitted-removal* case completely. It has no view of what origin's history looks
+like, so it cannot tell a clone that its lineage has been orphaned. From inside the orphaned clone,
+a purge succeeds, commits, and is still invisible to everyone else.
+
+What the design does offer against it:
+
+- **`--reconcile` is per-machine by construction.** Run on the orphaned clone, it re-bins whatever is
+  still there. That is the recovery path, and it is why reconcile is step 1 of the skill rather than a
+  repair tool of last resort.
+- **Purge never pushes.** Pushing is an explicit, confirmed step, so a purge on a divergent clone
+  cannot silently make the divergence worse.
+
+The general lesson is not about deletion. Any wiki-master operation on an orphaned clone is invisible
+to the other machines, and none of them can see it. That is a sync-topology problem, and it wants a
+divergence check — compare `HEAD` against `origin/<branch>` and refuse, or at least warn, when they
+share no merge base. Named here as a real gap; not fixed by this feature.
 
 ## 3. Prior art already in this repo
 
