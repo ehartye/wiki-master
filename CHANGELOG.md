@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.12.0 — 2026-08-10
+
+### The index keeps itself current, and the purge skill stops teaching a wrong cause
+
+**`op-commit` now refreshes the semantic index.** The index only moved when someone ran
+`index-embed` by hand, so it drifted behind the vault between manual runs and search answered
+from a stale picture. `op-commit` is already the single choke point every mutating operation
+passes through, so one call there covers ingest, relink, purge and a filed query — instead of
+a refresh line in four skill files, which is four places to forget.
+
+It cannot hurt an operation. It runs *after* the commit lands, so a failure cannot reach it;
+no outcome sets an exit code; and nothing it writes can pollute a commit, because the index
+lives under the vault's gitignored `.wiki-master/`. A **missing** index is reported, never
+built — an incremental refresh is a fraction of a second, but a cold build is minutes (54s
+over 1,821 files), and starting one as a side effect of an ordinary commit would stall an
+operation the user believed had finished.
+
+Advisory is not the same as silent. Every skipped or failed refresh prints why, with the
+command that fixes it — a silently stale index is the exact failure the 0.11.0 search-health
+work exists to prevent.
+
+**The purge skill's root cause was wrong, and it has been corrected.** `/wiki-purge` shipped
+claiming the removal that motivated it "never became a commit," verified against the vault's
+own history. The removal *did* become a commit — through a **history rewrite**. Origin was
+force-updated with 261 rewritten commits; this clone never received it, the two lineages
+shared **no merge base at all** (git reported "unrelated histories," not a conflict), and
+obsidian-git's auto-backup went on committing to the original lineage, which still held all
+72 removed files.
+
+The method had a hole worth naming: `git log --full-history` was run against the orphaned
+clone and was correct *about that clone*. `--full-history` defends against history
+*simplification*; nothing defended against history *replacement*. The query proved "this
+lineage never deleted these files" and it was read as "no lineage ever did."
+
+So the skill now names **four** resurrection vectors instead of three, and says plainly that
+purge closes the first three and **cannot close the fourth**, with a `git merge-base` check to
+run before purging and instructions to stop if there is none. From inside an orphaned clone a
+purge succeeds, commits, and is invisible to every other machine — which looks exactly like
+the topic coming back. The spec keeps the original §2 with a correction at its head, so the
+record shows what was believed, the evidence for it, and the measurement that overturned it.
+
+The feature itself is unchanged and still correct; only the causal story it told was wrong.
+
 ## 0.11.0 — 2026-08-09
 
 ### Semantic search over every character, and it says when it is degraded
