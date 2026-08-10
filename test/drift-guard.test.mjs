@@ -48,6 +48,7 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   const fm = buildFrontmatter({
     title: 'T', source: 'https://x.com/a', author: 'A',
     published: '2026-01-01', created: '2026-01-02', quality: 'high', hash: 'h',
+    topic: 'Some Research Topic',
   });
   const written = [...fm.matchAll(/^([\w-]+):/gm)].map((m) => m[1]);
 

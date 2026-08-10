@@ -19,7 +19,10 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   Never emptied automatically — a purge is reversible, and that is what makes it safe to run.
 
 ## Frontmatter contract
-- Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, source-hash`.
+- Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, topic, source-hash`.
+  `topic` records the research topic the clipping was gathered for (the argument given to
+  `/wiki-discover`); it is omitted for clips made outside a research run, and it is what the
+  triage queue groups by.
 - Wiki pages: `type, created, updated, reviewed, status, sources:[[...]], ai-generated`.
   Source pages also carry `source-hashes:[<sha256>,…]` — the `source-hash` of each
   clipping they summarize; this is the content key the ingest-backlog metric joins on.

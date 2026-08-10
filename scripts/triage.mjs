@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey } from './lib/triage.mjs';
+import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -16,10 +17,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // A clipping is healthy at these grades; anything else is a real quality problem.
 const HEALTHY_FIDELITY = new Set(['high', 'ok', 'clean']);
 
-export function fidelityFlagged(vaultPath) {
+// One pass over raw/clippings/, yielding both things the queue needs from
+// frontmatter: the fidelity flags, and the research topic each clipping was
+// gathered for. They are read together because the directory is large (1,800+
+// files on the reference vault) and scanning it twice to answer two questions
+// about the same 1,200 bytes is waste the queue pays on every render.
+export function scanClippings(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return [];
-  const out = [];
+  if (!existsSync(dir)) return { flagged: [], topics: [] };
+  const flagged = [];
+  const topics = [];
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('.md')) continue;
     let head;
@@ -30,22 +37,37 @@ export function fidelityFlagged(vaultPath) {
     }
     const fm = head.startsWith('---') ? head.slice(3, head.indexOf('\n---', 3)) : '';
     if (!fm) continue;
+
+    const srcLine = /^source:\s*(.+)$/m.exec(fm);
+    const url = srcLine ? srcLine[1].trim().replace(/^["']|["']$/g, '') : null;
+    const topic = /^topic:\s*(.+)$/m.exec(fm)?.[1].trim().replace(/^["']|["']$/g, '');
+    if (topic) {
+      // Keyed by BOTH identities because triage rows arrive as both: an issue
+      // carries a URL, while a backlog row is the clipping's own vault path.
+      topics.push({ path: `raw/clippings/${f}`, url, topic });
+    }
     // Read `fidelity` specifically. `extraction:` records HOW the text was read
     // (e.g. ocr) — a method, not a defect — so it must never become a triage
     // item; matching either key also let an earlier `extraction:` line win the
     // regex and mask a real fidelity grade below it.
     const fid = /^fidelity:\s*"?([\w-]+)"?/m.exec(fm)?.[1];
     if (!fid || HEALTHY_FIDELITY.has(fid)) continue;
-    const src = /^source:\s*(.+)$/m.exec(fm);
-    out.push({
-      url: src ? src[1].trim().replace(/^["']|["']$/g, '') : `file://${f}`,
+    flagged.push({
+      url: url ?? `file://${f}`,
       kind: 'fidelity',
       reason: `fidelity: ${fid}`,
       title: f.replace(/\.md$/, ''),
+      topic: topic ?? null,
       occurrences: 1,
     });
   }
-  return out;
+  return { flagged, topics };
+}
+
+// Kept as its own export: it is the unit under test in triage-fidelity.test.mjs
+// and the narrower contract is the one worth pinning.
+export function fidelityFlagged(vaultPath) {
+  return scanClippings(vaultPath).flagged;
 }
 
 export function collectTriage(
@@ -54,7 +76,8 @@ export function collectTriage(
 ) {
   const log = loadIssueLog(vaultPath);
   const issues = openIssues(log);
-  const fidelity = fidelityFlagged(vaultPath);
+  const { flagged: fidelity, topics } = scanClippings(vaultPath);
+  const topicIndex = buildTopicIndex(topics);
 
   // De-dupe against the log, and honour dispositions. Two hazards:
   //  - the same item reaches here by two routes with differently-escaped paths
@@ -90,16 +113,34 @@ export function collectTriage(
     hubStubs = [];
   }
 
-  return {
-    clipFailures: issues.filter((i) => i.kind !== 'fidelity' && i.kind !== 'attention'),
-    attention: issues.filter((i) => i.kind === 'attention'),
-    fidelity: [...issues.filter((i) => i.kind === 'fidelity'), ...fidelityOnly],
-    expiring,
-    backlog: unsummarized.slice(0, backlogLimit),
+  // Every row is attributed once, here, against one index — so the topic a
+  // chip displays and the topic a row filters by can never diverge. Rows
+  // reaching the screen as bare strings (backlog paths, hub-stub paths) are
+  // lifted to objects first so they can carry one.
+  const attr = (items) => attributeItems(items, topicIndex);
+  const paths = (list) => attr(list.map((p) => ({ url: p })));
+
+  const data = {
+    clipFailures: attr(issues.filter((i) => i.kind !== 'fidelity' && i.kind !== 'attention')),
+    attention: attr(issues.filter((i) => i.kind === 'attention')),
+    fidelity: attr([...issues.filter((i) => i.kind === 'fidelity'), ...fidelityOnly]),
+    expiring: attr(expiring),
+    backlog: paths(unsummarized.slice(0, backlogLimit)),
     backlogTotal: unsummarized.length,
-    hubStubs: hubStubs.slice(0, hubStubLimit),
+    // Hub-stubs are wiki pages, not clippings — they have no research origin
+    // and land in Unattributed by construction. That is correct, not a gap.
+    hubStubs: paths(hubStubs.slice(0, hubStubLimit)),
     hubStubTotal: hubStubs.length,
   };
+
+  // Counted over the rows actually rendered, not the untruncated totals: a
+  // topic chip claiming 40 items that filters down to 25 is the same
+  // silent-truncation lie the bulk buttons are careful to avoid.
+  data.topics = groupByTopic([
+    ...data.clipFailures, ...data.attention, ...data.fidelity,
+    ...data.expiring, ...data.backlog, ...data.hubStubs,
+  ]);
+  return data;
 }
 
 // ========== Rendering ==========
@@ -142,15 +183,44 @@ function issueRow(item, acts) {
     item.occurrences > 1
       ? `<div class="seen">seen ${item.occurrences}× · first ${esc((item.firstSeen || '').slice(0, 10))}</div>`
       : '';
-  return `<div class="issue">
+  // The key goes on every row, including unattributed ones (as ""), so the
+  // client filters on an attribute that is always present rather than
+  // distinguishing "no topic" from "attribute missing" at read time.
+  const tKey = topicKey(item.topic) ?? '';
+  const chip = item.topic ? `<span class="topic">${esc(item.topic)}</span>` : '';
+  return `<div class="issue" data-topic-key="${esc(tKey)}">
   <span class="badge ${esc(item.kind)}">${esc(item.kind)}</span>
   <div class="body">
     ${item.title ? `<div class="title">${esc(item.title)}</div>` : ''}
     ${link}
     ${item.reason ? `<div class="reason">${esc(item.reason)}</div>` : ''}
+    ${chip}
     ${seen}
   </div>
   ${actions(item.url, item.kind, acts)}
+</div>`;
+}
+
+// Rows that reach the screen as bare paths (backlog, hub-stubs) may arrive as
+// strings from a hand-built fixture or as attributed objects from
+// collectTriage. Both are lifted to the same shape here so the renderer has
+// one contract to reason about.
+const pathRow = (p) => (typeof p === 'string' ? { url: p, topic: null } : p);
+
+// The topic bar. Rendered only when at least one item is actually attributed:
+// a bar offering "All" and "Unattributed" is two controls that do the same
+// thing, and every vault predating topic recording is in exactly that state.
+function topicBar(topics = []) {
+  const real = topics.filter((t) => t.key);
+  if (!real.length) return '';
+  const total = topics.reduce((n, t) => n + t.count, 0);
+  const chip = (key, label, count, extra = '') =>
+    `<button class="topic-chip${extra}" data-topic-filter="${esc(key)}">${esc(label)}<span class="count">${count}</span></button>`;
+  const unattributed = topics.find((t) => !t.key);
+  return `<div class="topic-bar" role="group" aria-label="Filter by research topic">
+  ${chip('*', 'All', total, ' is-on')}
+  ${real.map((t) => chip(t.key, t.topic, t.count)).join('\n  ')}
+  ${unattributed ? chip('', UNATTRIBUTED, unattributed.count) : ''}
 </div>`;
 }
 
@@ -270,6 +340,7 @@ ${summary}
             url: e.url,
             kind: 'expiring',
             reason: `${e.reason} — declined ${e.date}, ${e.daysRemaining}d remaining`,
+            topic: e.topic ?? null,
           },
           EXPIRY_ACTS
         )
@@ -280,7 +351,7 @@ ${summary}
       `Ingest backlog${data.backlogTotal > data.backlog.length ? ` (showing ${data.backlog.length} of ${data.backlogTotal})` : ''}`,
       'in raw/, but no wiki/sources page summarizes them',
       data.backlog.map((p) =>
-        issueRow({ url: p, kind: 'backlog', reason: null, title: null }, BACKLOG_ACTS)
+        issueRow({ ...pathRow(p), kind: 'backlog', reason: null, title: null }, BACKLOG_ACTS)
       ),
       BACKLOG_ACTS
     ),
@@ -288,7 +359,7 @@ ${summary}
       `Hub-stubs${(data.hubStubTotal ?? 0) > (data.hubStubs?.length ?? 0) ? ` (showing ${data.hubStubs.length} of ${data.hubStubTotal})` : ''}`,
       '5+ pages link here, but the page is empty — needs sources, not padding',
       (data.hubStubs ?? []).map((p) =>
-        issueRow({ url: p, kind: 'hub-stub', reason: null, title: null }, HUB_STUB_ACTS)
+        issueRow({ ...pathRow(p), kind: 'hub-stub', reason: null, title: null }, HUB_STUB_ACTS)
       ),
       HUB_STUB_ACTS
     ),
@@ -299,6 +370,7 @@ ${summary}
     data.backlogTotal ? ` · ${data.backlogTotal} in ingest backlog` : ''
   }${data.hubStubTotal ? ` · ${data.hubStubTotal} hub-stub${data.hubStubTotal === 1 ? '' : 's'}` : ''}. Dispositions are recorded immediately.</p>
 ${summary}
+${topicBar(data.topics)}
 ${groups.join('\n')}`;
 }
 

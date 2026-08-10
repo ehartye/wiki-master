@@ -110,3 +110,37 @@ test('declinesNearingExpiry surfaces only declines inside the warning window', (
 test('declinesNearingExpiry tolerates a missing or unreadable store', () => {
   assert.deepEqual(declinesNearingExpiry(vault()), []);
 });
+
+// --- research-topic attribution ---------------------------------------------
+// The triage log is the carrier for issues that never became a file: a clip
+// that 403s has no frontmatter to speak for it. See lib/topic.mjs and the
+// 2026-08-10 design spec.
+
+test('an issue records the research topic it came from', () => {
+  const v = vault();
+  recordIssue(v, { url: 'https://a.test/1', kind: 'failed', reason: '403', topic: 'BPD Research' });
+  const [open] = openIssues(loadIssueLog(v));
+  assert.equal(open.topic, 'BPD Research');
+});
+
+test('an issue recorded outside a research run has no topic rather than an empty one', () => {
+  const v = vault();
+  recordIssue(v, { url: 'https://a.test/1', kind: 'failed', reason: '403' });
+  recordIssue(v, { url: 'https://a.test/2', kind: 'failed', reason: '403', topic: '   ' });
+  const open = openIssues(loadIssueLog(v));
+  assert.equal(open.length, 2);
+  for (const o of open) assert.equal(o.topic, null);
+});
+
+// A recurrence reopens an issue (see the header), but a recurrence observed
+// outside a research run carries no topic. Letting that null win would move the
+// row into Unattributed precisely BECAUSE it recurred -- losing the attribution
+// at the moment the item became more important, not less.
+test('a topicless recurrence does not erase the topic the first sighting recorded', () => {
+  const v = vault();
+  recordIssue(v, { url: 'https://a.test/1', kind: 'failed', reason: '403', topic: 'Audio DSP' });
+  recordIssue(v, { url: 'https://a.test/1', kind: 'failed', reason: '403 again' });
+  const [open] = openIssues(loadIssueLog(v));
+  assert.equal(open.occurrences, 2);
+  assert.equal(open.topic, 'Audio DSP');
+});

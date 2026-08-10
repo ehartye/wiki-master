@@ -31,6 +31,21 @@ turn**. They disposition in the browser; you read the results next turn.
 The server reuses one session directory per vault (`.wiki-master/triage-ui/`), so re-running
 refreshes the open page rather than starting a second server. It idles out after 30 minutes.
 
+### Grouping by research topic
+Rows are grouped by **kind** (kind decides which actions a row offers) and filtered by
+**research topic** — the argument the user gave `/wiki-discover`. A topic bar above the
+groups scopes the whole queue to one run, because that is how these decisions are actually
+made: "deal with what the BPD sweep left behind", not "deal with all fidelity flags".
+
+Topic comes from `topic:` in a clipping's frontmatter, or from the triage log for issues
+that never became a file. **It is only ever recorded going forward** — clippings made
+before this existed, and any clip made outside a research run, group under
+**Unattributed**. Say so if the user asks why a group is large; do not present
+Unattributed as a defect to fix.
+
+When you summarize the queue for the user, lead with the topic breakdown when there is
+more than one — it is the shape they will act on.
+
 ## Read dispositions back
 Dispositions append to `<vault>/.wiki-master/triage.jsonl` as
 `{"t":"disposition","url":…,"kind":…,"disposition":…}`. Fold the log to get current state:
@@ -60,8 +75,13 @@ When a run surfaces a link only the user can settle, queue it rather than buryin
 
 ```js
 import { recordIssue } from '../../scripts/lib/triage.mjs';
-recordIssue(vaultPath, { url, kind: 'attention', reason: 'why this needs a human' });
+recordIssue(vaultPath, { url, kind: 'attention', reason: 'why this needs a human', topic });
 ```
+
+Pass `topic` whenever the item came out of a research run — it is what puts the row in
+that run's group instead of Unattributed. Omit it when there is no run behind the item;
+an invented topic is worse than none, because it files the row under a heading the user
+has already worked through.
 
 Kinds: `failed` · `thin` · `wrong-node` · `blocked` · `fidelity` · `attention`.
 

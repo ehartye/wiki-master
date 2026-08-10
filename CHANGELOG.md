@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.13.0 — 2026-08-10
+
+### Triage groups by the research run that produced it
+
+Triage grouped by **kind** — clip failures, fidelity flags, backlog, hub-stubs. Kind decides
+which actions a row offers, so that structure is load-bearing. But it is the wrong axis for
+*deciding*: nobody sits down to disposition "all fidelity flags", they sit down to deal with
+the research run that produced them. Twelve failed clips from a BPD sweep and three from an
+audio-DSP sweep were two unrelated decisions wearing one label.
+
+**Nothing recorded a research topic before this.** It existed only in `/wiki-discover`'s
+argument and in log-entry prose. Deriving it from log dates was considered and rejected —
+several runs happen per day and `created:` is a date, so the join would mis-attribute silently
+rather than fail. A wrong topic is worse than none: it files an item under a heading the user
+has already worked through.
+
+**Two carriers, one resolver.** `clip.mjs --topic="<topic>"` writes `topic:` into the
+clipping's frontmatter — the durable carrier, because `.wiki-master/` is gitignored and
+frontmatter is the only one that reaches other machines. For items that never became a file (a
+clip that 403s), `recordIssue` carries a `topic` field in the append-only triage log. One flag
+feeds both, so no caller has to know which population a URL is about to land in. Resolution is
+own-event, then clipping-by-URL, then clipping-by-path (backlog rows *are* clipping paths),
+then Unattributed.
+
+**In the UI, topic is a filter across the kind groups, not a replacement for them.** Making it
+the outer grouping would multiply every group header and its bulk buttons by the number of
+topics and scatter each kind across the page. A topic bar scopes the whole queue to one run
+instead; rows carry a topic chip.
+
+The subtle part is the **bulk-count invariant**. `group()` already refuses to let "apply to all
+N" mean more than the rows rendered; a filter is a second way to show fewer rows than exist, so
+selecting a topic recomputes every bulk button's count and label from the visible rows, and the
+bulk handler acts only on those. Verified in a real browser: with a topic selected, "retry all
+2" wrote exactly the 2 matching dispositions and left the other two rows in the same DOM group
+untouched. A group emptied by the filter hides itself and disables its bulk actions.
+
+**No back-fill.** Every clipping predating this has no topic and there is no sound way to infer
+one; they group under Unattributed, which the skill tells the agent to explain rather than
+present as a defect. No taxonomy, hierarchy, or aliasing — a topic is free text the user
+already typed.
+
 ## 0.12.0 — 2026-08-10
 
 ### The index keeps itself current, and the purge skill stops teaching a wrong cause
