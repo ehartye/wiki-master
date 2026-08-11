@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: Answer a question against the wiki with citations, and optionally file the answer back so knowledge compounds.
+description: Answer a question against the wiki with citations, and optionally file the answer back so knowledge compounds. Use whenever the user asks to search the wiki, look something up, or find what the wiki knows about a topic.
 argument-hint: <your question>
 ---
 

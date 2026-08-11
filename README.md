@@ -67,7 +67,7 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 |---|---|
 | `/wiki-init` | Scaffold the vault (folders, index/log, schema, Bases dashboard, templates). |
 | `/wiki-ingest [source]` | Read a source → summary page + cross-references + index/log. Blank = process new clippings. |
-| `/wiki-query <question>` | Answer from the wiki with citations; optionally file the answer back. Chunk-level semantic + keyword, RRF-fused, with the line of the matching passage. |
+| `/wiki-query <question>` | Search the wiki / answer from it with citations; optionally file the answer back. Chunk-level semantic + keyword, RRF-fused, with the line of the matching passage. |
 | `/wiki-health` | Fast zero-LLM structural report + 0–100 score. |
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
 | `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
