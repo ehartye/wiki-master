@@ -3,6 +3,14 @@ import { join } from 'node:path';
 
 export const STUB_WORD_FLOOR = 10;
 export const HUB_MIN_BACKLINKS = 5;
+// Monolith-detection floors (spec docs/superpowers/specs/2026-08-11-authored-project-docs-design.md
+// §5.4) — calibrated directly against the real vault, not guessed: together these flag exactly
+// the one genuine offender found live (9,529 words / 5 update-callouts) while sparing a second
+// large-but-healthy file (5,268 words / 0 callouts) and a normal file with one isolated,
+// legitimate update note (998 words / 1 callout). Required together on purpose — either alone
+// false-positives on one of those two real, healthy files.
+export const MONOLITH_WORD_FLOOR = 3000;
+export const MONOLITH_CALLOUT_FLOOR = 3;
 
 // Structural/system files are not wiki content: they may link to everything
 // (index.md) or nothing (templates) by design. The predicate is applied at
@@ -109,6 +117,21 @@ export function buildGraph(vaultPath) {
         const type = fm.match(/^type:\s*"?([\w-]+)"?/m)?.[1];
         const created = fm.match(/^created:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
         const updated = fm.match(/^updated:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
+        // Project-documentation metadata for wiki/authored/ pages — see
+        // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
+        // `project:` may carry one `/` for a sub-project tier (`sparta/migrator`);
+        // `kind:` and `decision-status:` are single-word controlled vocabularies.
+        // All three are optional and left undefined (never defaulted) when absent.
+        const project = fm.match(/^project:\s*"?([\w][\w\-/]*)"?/m)?.[1];
+        const kind = fm.match(/^kind:\s*"?([\w-]+)"?/m)?.[1];
+        const decisionStatus = fm.match(/^decision-status:\s*"?([\w-]+)"?/m)?.[1];
+        // Monolith-detection signal (spec §5.4): counts bold callouts that read as a
+        // dated status update ("**Update (2026-08-11):**", "**Milestone (...):**",
+        // "**... status updated (...):**") — the shape a living, continuously-appended
+        // document accumulates instead of pruning. See computeGraphMetrics's
+        // monolithCandidates for the calibrated combined threshold.
+        const updateCalloutCount =
+          (body.match(/\*\*[^*\n]{0,80}(?:Update|Milestone|status updated)[^*\n]{0,80}\(\d{4}-\d{2}-\d{2}/gi) || []).length;
         // Ingest-state key: the clipping carries `source-hash`; a summary page
         // carries `source-hashes` listing the clippings it covers. See
         // docs/superpowers/specs/2026-07-21-hash-ingest-state-design.md.
@@ -122,6 +145,10 @@ export function buildGraph(vaultPath) {
           type,
           created,
           updated,
+          project,
+          kind,
+          decisionStatus,
+          updateCalloutCount,
           sourceHash,
           sourceHashes,
           words: (body.match(/\S+/g) || []).length,
@@ -341,6 +368,16 @@ export function computeGraphMetrics({ pages }, opts = {}) {
   const hubStubs = content
     .filter((p) => inbound.get(p.path) >= HUB_MIN_BACKLINKS && isStub(p))
     .map((p) => p.path);
+  // Reported, never scored — same treatment as hubStubs, for the same reason:
+  // this is a content signal ("this living document has stopped pruning
+  // itself") that needs human/agent judgment to act on safely, not a broken
+  // edge with one correct mechanical fix. Scoped to wiki/authored/ only —
+  // that is where the symptom was found and where the spec's Layer 4 targets
+  // it; an identically-shaped synthesis page is out of scope for this pass.
+  const monolithCandidates = content
+    .filter((p) => p.path.startsWith('wiki/authored/'))
+    .filter((p) => (p.words ?? 0) > MONOLITH_WORD_FLOOR && (p.updateCalloutCount ?? 0) >= MONOLITH_CALLOUT_FLOOR)
+    .map((p) => p.path);
   // Two DIFFERENT binary facts about a raw source. Collapsing them into one
   // number is what made "has this been ingested?" feel unanswerable:
   //
@@ -445,5 +482,5 @@ export function computeGraphMetrics({ pages }, opts = {}) {
 
   const brokenClass = classifyBrokenLinks(brokenLinks, pages, opts);
 
-  return { orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass };
+  return { orphans, deadEnds, brokenLinks, hubStubs, monolithCandidates, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass };
 }

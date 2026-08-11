@@ -68,7 +68,28 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   disclosure for "rests on no external artifact," extended here as the default
   for the whole category) and is otherwise a wiki page like any other — living,
   revisable, never needing a `raw/` counterpart. Use `_templates/authored-note.md`
-  to start one.
+  to start one (`_templates/authored-decision.md` for an ADR — see below).
+
+  **When this page belongs to a multi-doc project** (its own overview, guide,
+  reference, etc. — not a one-off note), set two more fields so it groups with
+  its siblings instead of sitting alone in a flat catalog: `project:` (a slug,
+  `sparta-suite/migrator` for a sub-project, one `/` deep at most) and `kind:`
+  — one of `overview | architecture | reference | guide | diagram | decision |
+  roadmap | note`. Both are optional; a standalone note can omit them. `kind:
+  decision` additionally carries `decision-status: proposed | accepted |
+  superseded | deprecated` (Nygard's ADR vocabulary) — keep it in sync with
+  whatever the page's own `## Status` section says in prose.
+
+  **If you are about to append yet another dated update to a long-running
+  roadmap or ADR, stop and check its size first.** `node scripts/health.mjs`
+  reports `monolith candidates` — a `wiki/authored/` page over ~3,000 words
+  carrying several stacked "Update (date): ..." callouts on what reads as the
+  same tracked item. If the page you're about to touch is already on that
+  list, prefer trusting `git log`/`git blame` as the changelog over adding one
+  more callout, and consider moving a genuinely large "shipped" backlog into
+  the project's MOC as its own appendix. This is a direct instruction, not a
+  hope: append-one-more-update is the lowest-friction move available in the
+  moment, and nothing else will reliably stop it.
 - Links are `[[wikilinks]]`. `![[embeds]]` are transclusion only — not relationship edges.
 - Clippings from `/wiki-discover` carry `quality: high|medium|low` (AI credibility
   rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
@@ -186,12 +207,18 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
 - **Authoring** (`wiki/authored/`, no dedicated skill): write these directly —
-  there is no source to ingest from. Use `_templates/authored-note.md`, set
-  `type: authored` and `sources: []`, and record `ai-generated` honestly (`true`
-  if you drafted it, `false` if the human did). Treat it as a living page like
-  any other: revise it in place as it evolves, stamp `reviewed`/`updated`, and
-  never invent a `raw/` counterpart to satisfy the provenance guardrail — the
-  disclosure *is* satisfying it.
+  there is no source to ingest from. Use `_templates/authored-note.md`
+  (`_templates/authored-decision.md` for an ADR), set `type: authored` and
+  `sources: []`, and record `ai-generated` honestly (`true` if you drafted it,
+  `false` if the human did). Set `project:`/`kind:` when the page belongs to a
+  multi-project doc set — see the vault-contract bullet above for the
+  vocabulary. Treat it as a living page like any other: revise it in place as
+  it evolves, stamp `reviewed`/`updated`, and never invent a `raw/` counterpart
+  to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run
+  `node ../../scripts/moc-authored-gen.mjs --apply` after adding a page to a
+  project with two or more — it regenerates that project's `moc/<project>.md`
+  hub from `project:`/`kind:`, the same fenced-region contract `index.md`
+  itself uses, so the hub can never silently fall out of sync with the files.
 
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
@@ -243,6 +270,14 @@ scripts tolerate it and never flagged it as a defect. Repair from the plugin roo
 `node scripts/repair-sources-order.mjs` (dry-run) then `--apply`. Pure string
 surgery — it recognizes and reorders only that exact shape and is a no-op on
 anything else — idempotent and safe to re-run.
+
+**Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
+whose authored pages predate this convention has none of it set. Repair from the
+plugin root: `node scripts/backfill-authored-metadata.mjs` (dry-run) then `--apply`
+— deterministic, filename- and content-shape-driven classification (never a guess:
+a field it cannot resolve confidently is left unset rather than labeled wrong), and
+idempotent, so it is safe to re-run as new authored pages arrive without metadata
+of their own yet.
 
 **Never move files to record ingestion state.** `raw/` immutability is the
 load-bearing invariant. The hash key lives *in* the markdown — each page's

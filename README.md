@@ -103,7 +103,9 @@ Every wiki page carries `sources: [[...]]` provenance back to `raw/` and
 `ai-generated: true` — the guardrails against hallucination contamination.
 `wiki/authored/` is the disclosed exception: original content with no `raw/`
 counterpart (advisory documentation, policy, house style) declares it via
-`sources: []` instead.
+`sources: []` instead. Pages belonging to a multi-doc project can carry
+`project`/`kind` so they group under a generated `moc/<project>.md` hub instead
+of one flat, ungrouped catalog.
 
 ## Development
 

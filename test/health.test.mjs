@@ -79,6 +79,21 @@ test('computeHealth reports hub-stubs but never penalizes them', () => {
   assert.ok(stubby.report.includes('hub-stubs:    50'), 'still reported — it is a worklist, not a grade');
 });
 
+// monolithCandidates (spec 2026-08-11-authored-project-docs-design.md §5.4) gets the identical
+// treatment to hubStubs, for the identical reason: a content signal needing human/agent judgment
+// to split safely, not a broken edge with one correct mechanical fix.
+test('computeHealth reports monolithCandidates but never penalizes them', () => {
+  const clean = computeHealth({ orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [], monolithCandidates: [] });
+  const monolithic = computeHealth({
+    orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [],
+    monolithCandidates: ['wiki/authored/sparta-migrator-roadmap.md'],
+  });
+  assert.equal(monolithic.score, 100, 'a structurally sound vault stays at 100 regardless of monolith candidates');
+  assert.equal(monolithic.score, clean.score);
+  assert.ok(monolithic.report.includes('monolith candidates: 1'), 'still reported — informational, not a grade');
+  assert.ok(monolithic.report.includes('wiki/authored/sparta-migrator-roadmap.md'));
+});
+
 test('computeHealth returns 100 for a clean vault', () => {
   const r = computeHealth({ orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [] });
   assert.equal(r.score, 100);

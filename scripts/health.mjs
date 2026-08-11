@@ -8,7 +8,7 @@ import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 // source-side exclusion, so its answer cannot be corrected after the fact.
 export { isContent };
 
-export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0, provenanceGaps = [], unreachableProvenance = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
+export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, monolithCandidates = [], unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0, provenanceGaps = [], unreachableProvenance = [], declaredNoProvenance = [], declaredStubs = [], brokenClass = null }) {
   // Broken links are triaged (see classifyBrokenLinks): defects (typo/rename —
   // real bugs) and stale (abandoned low-demand forward-links) are penalized;
   // deferred forward-links are healthy by design and cost nothing. Callers
@@ -71,6 +71,11 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     `  dead-ends:    ${deadEnds.length}\n` +
     `  hub-stubs:    ${hubStubs.length}` +
     (hubStubs.length ? `\n    ${hubStubs.join('\n    ')}` : '') +
+    // Informational, like hub-stubs above — a wiki/authored/ page that has
+    // stopped pruning itself (spec 2026-08-11-authored-project-docs-design.md
+    // §5.4). Splitting one safely needs the judgment the score can't supply.
+    `\n  monolith candidates: ${monolithCandidates.length}` +
+    (monolithCandidates.length ? ` (large, repeatedly-updated wiki/authored/ pages — consider splitting)\n    ${monolithCandidates.join('\n    ')}` : '') +
     `\n  declared stubs (not scored): ${declaredStubs.length}` +
     (declaredStubs.length ? `\n    ${declaredStubs.join('\n    ')}` : '') +
     `\n  provenance gaps: ${provenanceGaps.length}` +
@@ -92,7 +97,7 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, unpars
     `\n  clippings missing source-hash (repair): ${missingHash.length}` +
     (missingHash.length ? `\n    ${missingHash.join('\n    ')}` : '') +
     `\n  source pages awaiting hash backfill: ${backfillPending}`;
-  return { score, orphans, deadEnds, brokenLinks, hubStubs, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
+  return { score, orphans, deadEnds, brokenLinks, hubStubs, monolithCandidates, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
 // The ingest backlog is the first question /wiki-ingest asks, and in the full
