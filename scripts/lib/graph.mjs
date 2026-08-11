@@ -125,6 +125,10 @@ export function buildGraph(vaultPath) {
         const project = fm.match(/^project:\s*"?([\w][\w\-/]*)"?/m)?.[1];
         const kind = fm.match(/^kind:\s*"?([\w-]+)"?/m)?.[1];
         const decisionStatus = fm.match(/^decision-status:\s*"?([\w-]+)"?/m)?.[1];
+        // A backlog item (kind: backlog-item) carries its own status, edited in place instead
+        // of appended as a dated update — see docs/superpowers/specs/
+        // 2026-08-11-authored-project-structure-v2-design.md §3.
+        const backlogStatus = fm.match(/^backlog-status:\s*"?([\w-]+)"?/m)?.[1];
         // Monolith-detection signal (spec §5.4): counts bold callouts that read as a
         // dated status update ("**Update (2026-08-11):**", "**Milestone (...):**",
         // "**... status updated (...):**") — the shape a living, continuously-appended
@@ -148,6 +152,7 @@ export function buildGraph(vaultPath) {
           project,
           kind,
           decisionStatus,
+          backlogStatus,
           updateCalloutCount,
           sourceHash,
           sourceHashes,

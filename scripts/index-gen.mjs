@@ -30,7 +30,10 @@ function link(p) {
 }
 
 export function renderCatalog({ pages }) {
-  const content = pages.filter((p) => isContent(p.path));
+  // kind: backlog-item pages are already indexed by their own project's generated
+  // roadmap.md (backlog-gen.mjs) -- excluded here for the same reason
+  // moc-authored-gen.mjs excludes them from its per-project catalog.
+  const content = pages.filter((p) => isContent(p.path) && p.kind !== 'backlog-item');
   const byType = new Map(SECTIONS.map(([t]) => [t, []]));
   const other = [];
   for (const p of content) {

@@ -73,3 +73,24 @@ export function groupByKind(pages = []) {
   if (other.length) out.push({ kind: OTHER, pages: other });
   return out;
 }
+
+// A generated roadmap.md indexes backlog/*.md items by backlog-status, "what's live" before
+// "what's done" — a reader wants in-progress/planned/blocked work first, not to scroll past a
+// long shipped-item history to find it. See
+// docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md §3.
+export const BACKLOG_STATUS_ORDER = ['in-progress', 'planned', 'blocked', 'shipped', 'dropped'];
+
+// Unlike groupByKind, an item with no/unrecognized backlogStatus is simply excluded — never
+// bucketed under an "Other" catch-all. A backlog item without a real status is a data-entry gap
+// worth fixing at the source, not something a generated view should paper over with a vague
+// bucket.
+export function groupByBacklogStatus(items = []) {
+  const byStatus = new Map();
+  for (const it of items) {
+    const status = BACKLOG_STATUS_ORDER.includes(it?.backlogStatus) ? it.backlogStatus : null;
+    if (!status) continue;
+    if (!byStatus.has(status)) byStatus.set(status, []);
+    byStatus.get(status).push(it);
+  }
+  return BACKLOG_STATUS_ORDER.filter((s) => byStatus.has(s)).map((status) => ({ status, pages: byStatus.get(status) }));
+}

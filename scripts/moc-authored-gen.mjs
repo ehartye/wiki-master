@@ -54,8 +54,13 @@ function link(p) {
 }
 
 export function renderProjectCatalog({ pages }) {
+  // backlog-item pages are already indexed by the project's own generated roadmap.md
+  // (backlog-gen.mjs, grouped by backlog-status). Listing each one again here would
+  // recreate the exact per-item sprawl the folder/backlog split exists to remove --
+  // the MOC only ever needs to point at the roadmap page itself (kind: roadmap, above).
+  const filtered = pages.filter((p) => p?.kind !== 'backlog-item');
   const lines = [];
-  for (const { kind, pages: group } of groupByKind(pages)) {
+  for (const { kind, pages: group } of groupByKind(filtered)) {
     lines.push(KIND_HEADING[kind] ?? `## ${kind}`);
     const sorted = [...group].sort((a, b) => a.path.localeCompare(b.path));
     lines.push(...sorted.map(link), '');

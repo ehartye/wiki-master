@@ -54,6 +54,22 @@ test('renderProjectCatalog puts pages with no/unrecognized kind in a trailing Ot
   assert.ok(catalog.includes('[[demo-misc]]'));
 });
 
+test('renderProjectCatalog excludes kind: backlog-item pages entirely — the project\'s own '
+  + 'roadmap.md is already the generated index over them (backlog-gen.mjs); listing every item '
+  + 'a second time in the MOC recreates the exact per-item sprawl v2 exists to remove', () => {
+  const catalog = renderProjectCatalog({
+    pages: [
+      page('wiki/authored/demo/roadmap.md', 'demo', 'roadmap'),
+      page('wiki/authored/demo/backlog/item-one.md', 'demo', 'backlog-item'),
+      page('wiki/authored/demo/backlog/item-two.md', 'demo', 'backlog-item'),
+    ],
+  });
+  assert.ok(catalog.includes('[[roadmap]]'), 'the roadmap index page itself is still listed');
+  assert.ok(!catalog.includes('[[item-one]]') && !catalog.includes('[[item-two]]'),
+    'individual backlog items are not enumerated in the MOC');
+  assert.ok(!catalog.includes('## Other'), 'backlog items do not spill into Other either');
+});
+
 function tempVault() {
   const v = mkdtempSync(join(tmpdir(), 'wm-moc-'));
   mkdirSync(join(v, 'wiki', 'authored'), { recursive: true });

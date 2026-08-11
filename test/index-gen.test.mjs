@@ -38,6 +38,20 @@ test('renderCatalog groups an authored page under its own section', () => {
   assert.ok(catalog.includes('[[policy]]'), 'lists the authored page');
 });
 
+// kind: backlog-item pages are already indexed by their own project's generated
+// roadmap.md (backlog-gen.mjs). Listing every item a second time in the
+// whole-vault index would recreate, at the top level, the exact per-item sprawl
+// the folder/backlog split exists to remove -- growing unbounded as any
+// project's backlog grows. Mirrors moc-authored-gen.mjs's identical exclusion.
+test('renderCatalog excludes kind: backlog-item pages from the Authored section', () => {
+  const catalog = renderCatalog({ pages: [
+    { path: 'wiki/authored/demo/roadmap.md', type: 'authored', kind: 'roadmap', status: 'maintained' },
+    { path: 'wiki/authored/demo/backlog/item-one.md', type: 'authored', kind: 'backlog-item', status: 'maintained' },
+  ] });
+  assert.ok(catalog.includes('[[roadmap]]'), 'the roadmap index page itself is still listed');
+  assert.ok(!catalog.includes('[[item-one]]'), 'individual backlog items are not listed');
+});
+
 test('renderCatalog groups wiki pages by type and flags stubs', () => {
   const catalog = renderCatalog(buildGraph(FIXTURE));
   assert.ok(catalog.includes('## Concepts'), 'has Concepts section');
