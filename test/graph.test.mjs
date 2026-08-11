@@ -534,3 +534,29 @@ test('monolithCandidates is scoped to wiki/authored/ — an identically-shaped s
   ] });
   assert.deepEqual(m.monolithCandidates, []);
 });
+
+// ─── backlog-status: (spec 2026-08-11-authored-project-structure-v2-design.md §3) ───
+// A backlog item is its own small file, kind: backlog-item, carrying a status field edited in
+// place instead of an appended dated update — the actual fix for "one huge monolithic file",
+// completing v1's detect-only monolithCandidates signal.
+
+test('buildGraph parses backlog-status: alongside kind: backlog-item', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'wiki', 'authored', 'demo', 'backlog'), { recursive: true });
+  writeFileSync(
+    join(dir, 'wiki', 'authored', 'demo', 'backlog', 'item-a.md'),
+    '---\ntype: authored\nsources: []\nproject: demo\nkind: backlog-item\nbacklog-status: in-progress\n---\nbody\n'
+  );
+  const g = buildGraph(dir);
+  const p = g.pages.find((p) => p.path === 'wiki/authored/demo/backlog/item-a.md');
+  assert.equal(p.kind, 'backlog-item');
+  assert.equal(p.backlogStatus, 'in-progress');
+});
+
+test('buildGraph leaves backlogStatus undefined when absent — no invented default', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'wiki', 'authored'), { recursive: true });
+  writeFileSync(join(dir, 'wiki', 'authored', 'plain2.md'), '---\ntype: authored\nsources: []\n---\nbody\n');
+  const g = buildGraph(dir);
+  assert.equal(g.pages.find((p) => p.path === 'wiki/authored/plain2.md').backlogStatus, undefined);
+});

@@ -11,7 +11,12 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   frontmatter. The line is semantic (never alter the evidence), not byte-level (freeze the file).
   `raw/clippings/` — Web Clipper / clip.mjs output. `raw/attachments/` — downloaded assets,
   content-hash named.
-- `wiki/sources|entities|concepts|syntheses|authored` — LLM-owned pages.
+- `wiki/sources|entities|concepts|syntheses|authored` — LLM-owned pages. Under
+  `wiki/authored/`, a page belonging to a multi-doc project lives at
+  `wiki/authored/<project>/[<subproject>/]<file>.md` — see the Frontmatter contract
+  below for the `project`/`kind` fields that drive this, and
+  `skills/wiki-maintainer/SKILL.md` for the canonical per-kind placement table
+  ("write a user guide" always resolves to `<project>/guides/user.md`, etc.).
 - `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
 - `.recycle/` — purged topics, one folder per purge with a `manifest.json` recording what
   moved (by path and by `source-hash`) and which source URLs were declined. Git-tracked, so a
@@ -28,9 +33,12 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   clipping they summarize; this is the content key the ingest-backlog metric joins on.
   `wiki/authored/` pages additionally carry optional `project` (a slug, one `/` deep
   at most for a sub-project) and `kind` (`overview|architecture|reference|guide|
-  diagram|decision|roadmap|note`) — grouping metadata a per-project MOC generator
-  reads; a `kind: decision` page also carries `decision-status`
-  (`proposed|accepted|superseded|deprecated`).
+  diagram|decision|roadmap|note|backlog-item`) — grouping metadata a per-project MOC
+  generator reads; a `kind: decision` page also carries `decision-status`
+  (`proposed|accepted|superseded|deprecated`), and a `kind: backlog-item` page
+  carries `backlog-status` (`planned|in-progress|shipped|blocked|dropped`) — one
+  small file per tracked item, edited in place as status changes rather than
+  accumulating appended "Update (date): ..." paragraphs.
 
 ## Rules
 - Raw is the source of truth. Every wiki page cites its `raw/` provenance —

@@ -67,29 +67,69 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   special case of the pipeline: it declares `sources: []` (the vault's existing
   disclosure for "rests on no external artifact," extended here as the default
   for the whole category) and is otherwise a wiki page like any other — living,
-  revisable, never needing a `raw/` counterpart. Use `_templates/authored-note.md`
-  to start one (`_templates/authored-decision.md` for an ADR — see below).
+  revisable, never needing a `raw/` counterpart.
 
-  **When this page belongs to a multi-doc project** (its own overview, guide,
-  reference, etc. — not a one-off note), set two more fields so it groups with
-  its siblings instead of sitting alone in a flat catalog: `project:` (a slug,
-  `sparta-suite/migrator` for a sub-project, one `/` deep at most) and `kind:`
-  — one of `overview | architecture | reference | guide | diagram | decision |
-  roadmap | note`. Both are optional; a standalone note can omit them. `kind:
-  decision` additionally carries `decision-status: proposed | accepted |
+  **When this page belongs to a multi-doc project**, it lives at
+  `wiki/authored/<project>/[<subproject>/]<file>.md` — a real folder, not just a
+  frontmatter tag, so the file actually stops being a sibling of 30+ unrelated
+  pages. Every doc-kind has one canonical location, so the same request always
+  resolves the same way, for every project, without re-deriving convention from
+  whatever a prior session happened to name things:
+
+  | You hear | It lives at |
+  |---|---|
+  | "update the product documentation" / "the overview" | `<project>/overview.md` |
+  | "document the architecture" | `<project>/architecture.md` |
+  | "add/update the roadmap" | `<project>/roadmap.md` — **mostly generated**, see below |
+  | "write a user guide" | `<project>/guides/user.md` |
+  | "write a developer guide" | `<project>/guides/developer.md` |
+  | "write an administrator guide" | `<project>/guides/administrator.md` |
+  | "get me a diagram [for X]" | `<project>/diagrams/<x-slug>.md` |
+  | "write up a reference doc on X" | `<project>/reference/<x-slug>.md` |
+  | "record a decision about X" (ADR) | `<project>/decisions/<x-slug>-adr.md` |
+  | "make a note about X" | `<project>/notes/<x-slug>.md` |
+  | "add an item to the backlog" | `<project>/backlog/<item-slug>.md` — see below |
+
+  Set `project:` (a slug, one `/` deep at most for a sub-project, e.g.
+  `sparta-suite/migrator`) and `kind:` — one of `overview | architecture |
+  reference | guide | diagram | decision | roadmap | note | backlog-item` —
+  matching the folder you placed it in; both are optional and can be omitted
+  for a genuinely standalone, project-less note. Use `_templates/authored-note.md`
+  to start a page (`_templates/authored-decision.md` for an ADR,
+  `_templates/authored-backlog-item.md` for a backlog item — see below).
+  `kind: decision` additionally carries `decision-status: proposed | accepted |
   superseded | deprecated` (Nygard's ADR vocabulary) — keep it in sync with
-  whatever the page's own `## Status` section says in prose.
+  whatever the page's own `## Status` section says in prose. **Existing files
+  are not renamed to fit this table** — only new ones follow it going forward;
+  a bare canonical leaf name (`overview.md`) repeated across every project would
+  be a guaranteed cross-project wikilink collision (this vault has already been
+  bitten by exactly that bare-name-collision class twice — see `graph.mjs`'s own
+  changelog history), so existing filenames stay as they are, just moved into
+  their project's folder.
 
-  **If you are about to append yet another dated update to a long-running
-  roadmap or ADR, stop and check its size first.** `node scripts/health.mjs`
-  reports `monolith candidates` — a `wiki/authored/` page over ~3,000 words
-  carrying several stacked "Update (date): ..." callouts on what reads as the
-  same tracked item. If the page you're about to touch is already on that
-  list, prefer trusting `git log`/`git blame` as the changelog over adding one
-  more callout, and consider moving a genuinely large "shipped" backlog into
-  the project's MOC as its own appendix. This is a direct instruction, not a
-  hope: append-one-more-update is the lowest-friction move available in the
-  moment, and nothing else will reliably stop it.
+  **The backlog is a folder of small items, never one growing document.** A
+  tracked item is its own file, `<project>/backlog/<item-slug>.md`
+  (`kind: backlog-item`, `backlog-status: planned | in-progress | shipped |
+  blocked | dropped`). "Add an item" = create exactly one new small file.
+  "Update an item" = edit exactly that one file's `backlog-status:` and body —
+  **never append a new dated "Update (date): ..." paragraph on top of the old
+  ones; edit the item's own text in place.** `git log`/`git blame` is the
+  changelog now, not a stack of callouts inside the body. `<project>/roadmap.md`
+  itself becomes a thin, mostly-generated index over `backlog/*.md` (run
+  `node ../../scripts/backlog-gen.mjs --apply` after adding/updating an item) —
+  the same fenced-region contract `index.md` already uses: hand-written framing
+  prose stays outside the fence, the itemized, always-current list lives inside
+  it. This is a direct instruction, not a hope: appending one more update is
+  always the lowest-friction move available in the moment for whatever task
+  brought you to the file, and nothing else reliably stops it — a monolithic
+  roadmap this vault actually had (`sparta-migrator-roadmap.md`, 1,261 lines
+  before this pattern existed) is the concrete proof this format is meant to
+  prevent recurring.
+
+  `node scripts/health.mjs`'s `monolith candidates` line (a `wiki/authored/`
+  page over ~3,000 words with several stacked dated-update callouts) is a
+  secondary safety net for anything that still grows despite the format above —
+  report it, don't silently keep appending.
 - Links are `[[wikilinks]]`. `![[embeds]]` are transclusion only — not relationship edges.
 - Clippings from `/wiki-discover` carry `quality: high|medium|low` (AI credibility
   rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
@@ -207,11 +247,12 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
 - **Authoring** (`wiki/authored/`, no dedicated skill): write these directly —
-  there is no source to ingest from. Use `_templates/authored-note.md`
-  (`_templates/authored-decision.md` for an ADR), set `type: authored` and
-  `sources: []`, and record `ai-generated` honestly (`true` if you drafted it,
-  `false` if the human did). Set `project:`/`kind:` when the page belongs to a
-  multi-project doc set — see the vault-contract bullet above for the
+  there is no source to ingest from. Place the file per the canonical table
+  above; use `_templates/authored-note.md` (`_templates/authored-decision.md`
+  for an ADR, `_templates/authored-backlog-item.md` for a backlog item), set
+  `type: authored` and `sources: []`, and record `ai-generated` honestly
+  (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
+  matching the folder — see the vault-contract bullet above for the
   vocabulary. Treat it as a living page like any other: revise it in place as
   it evolves, stamp `reviewed`/`updated`, and never invent a `raw/` counterpart
   to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run
@@ -219,6 +260,11 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   project with two or more — it regenerates that project's `moc/<project>.md`
   hub from `project:`/`kind:`, the same fenced-region contract `index.md`
   itself uses, so the hub can never silently fall out of sync with the files.
+  For a backlog item specifically, also run
+  `node ../../scripts/backlog-gen.mjs --apply` — it regenerates
+  `<project>/roadmap.md`'s itemized list from `backlog/*.md`, the same fence
+  contract, so the roadmap view can never drift from what the items actually
+  say.
 
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some

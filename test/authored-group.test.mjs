@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeProject, projectKey, KIND_ORDER, OTHER, groupByProject, groupByKind,
+  BACKLOG_STATUS_ORDER, groupByBacklogStatus,
 } from '../scripts/lib/authored-group.mjs';
 
 // A project is free text an authoring agent puts in frontmatter (spec
@@ -113,4 +114,40 @@ test('groupByKind is deterministic regardless of input order', () => {
   const a = groupByKind(pages).map((x) => x.kind);
   const b = groupByKind([...pages].reverse()).map((x) => x.kind);
   assert.deepEqual(a, b);
+});
+
+// --- groupByBacklogStatus (spec 2026-08-11-authored-project-structure-v2-design.md §3) --------
+// A generated roadmap.md indexes backlog/*.md items by status, "what's live" before "what's
+// done" -- the reader wants in-progress/planned/blocked work first, not to scroll past a long
+// shipped-item history to find it.
+
+const item = (path, backlogStatus) => ({ path, backlogStatus });
+
+test('BACKLOG_STATUS_ORDER puts live work before done/dropped work', () => {
+  assert.deepEqual(BACKLOG_STATUS_ORDER, ['in-progress', 'planned', 'blocked', 'shipped', 'dropped']);
+});
+
+test('groupByBacklogStatus orders items by BACKLOG_STATUS_ORDER, not alphabetically or by count', () => {
+  const items = [
+    item('a.md', 'shipped'), item('b.md', 'planned'), item('c.md', 'in-progress'), item('d.md', 'blocked'),
+  ];
+  const g = groupByBacklogStatus(items);
+  assert.deepEqual(g.map((x) => x.status), ['in-progress', 'planned', 'blocked', 'shipped']);
+});
+
+test('groupByBacklogStatus omits a status with zero items rather than showing an empty group', () => {
+  const items = [item('a.md', 'shipped'), item('b.md', 'shipped')];
+  const g = groupByBacklogStatus(items);
+  assert.deepEqual(g.map((x) => x.status), ['shipped']);
+});
+
+test('an item with no/unrecognized backlogStatus is excluded — the caller decides what that means', () => {
+  const items = [item('a.md', 'planned'), item('b.md', undefined), item('c.md', 'made-up')];
+  const g = groupByBacklogStatus(items);
+  assert.equal(g.length, 1);
+  assert.equal(g[0].pages.length, 1);
+});
+
+test('an empty item list produces no backlog-status groups', () => {
+  assert.deepEqual(groupByBacklogStatus([]), []);
 });
