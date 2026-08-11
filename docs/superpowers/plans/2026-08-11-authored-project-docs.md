@@ -181,27 +181,60 @@ convention exactly.
 All vault writes via the `obsidian` CLI per this environment's hard guardrail — never direct
 file-tool writes to `~/.wiki-master-vault`.
 
-- [ ] Run `node scripts/backfill-authored-metadata.mjs` (dry-run) against the real vault; review
-      the plan output against spec §8's predictions before applying.
-- [ ] `--apply`; spot-check several pages via `obsidian property:read` to confirm.
-- [ ] Run `node scripts/moc-authored-gen.mjs` (dry-run): expect `sparta-suite/migrator` (8 pages,
-      currently zero MOC) to generate a fresh file, and both `processing-agent`/`sparta` to append
-      a new fence to their existing hand-written files (mirroring `regenerateIndex`'s own
-      append-if-missing precedent — see Task 3's corrected design note).
-- [ ] `--apply` for all three projects. Read the two migrated files afterward and confirm every
-      existing hand-written line (per-bullet descriptions, "Cross-cutting topics", "Related vault
-      entities") is byte-identical to before, with the new fence appended cleanly at the end.
-- [ ] As an optional, separate polish pass (not required for this to be correct — redundancy
-      between the hand-written sections and the generated fence is tolerated, exactly as `index.md`
-      tolerates it elsewhere): consider trimming the hand-written bullet-lists in the two migrated
-      MOCs that are now fully redundant with the generated fence, keeping only the prose a
-      generator cannot produce (per-bullet descriptions, cross-cutting topics, related entities).
-- [ ] `node scripts/health.mjs` — confirm `monolithCandidates` reports `sparta-migrator-roadmap.md`
-      and nothing else; confirm no new broken links, no provenance regressions (still 0/0 per the
-      last full-vault review).
-- [ ] `node scripts/index-gen.mjs` — regenerate `index.md` once, at the end, per its own contract.
-- [ ] One log entry: `node scripts/log-entry.mjs --op relink --title "..."` summarizing the
-      backfill + MOC migration/generation.
+- [x] Run `node scripts/backfill-authored-metadata.mjs` (dry-run) against the real vault; review
+      the plan output against spec §8's predictions before applying. **The real file count had
+      grown to 36 by the time this ran** (34 assumed while drafting the spec) — every rule still
+      resolved cleanly with zero surprises; see Task 5's note.
+- [x] `--apply`; spot-check several pages via `obsidian property:read` to confirm. Confirmed
+      clean on 4 varied cases (an ADR with `decision-status`, a bare-overview file, a two-tier-
+      project file, the one project-less `note`) via `obsidian properties`.
+- [x] Run `node scripts/moc-authored-gen.mjs` (dry-run): 4 projects qualified —
+      `processing-agent`, `processing-agent/translation`, `sparta-suite`, `sparta-suite/migrator`.
+      The two-tier `project:` values each get their OWN generated MOC file, never folded into
+      their parent's — a direct, foreseen consequence of Task 3's per-project-slug rule, not a
+      bug: `processing-agent`'s existing hand-written "Per-skill deep dives" ad hoc sub-heading
+      (the very symptom spec §2 named) is superseded by a proper, separate, generated
+      `moc/processing-agent-translation.md` instead of another hand-nested heading.
+- [x] `--apply` for all four. `moc/processing-agent.md` and `moc/sparta-suite.md` each got a new
+      fence appended; every existing hand-written line (Core documentation/Diagrams/Guides by
+      audience/Cross-cutting topics/Related vault entities/Governance/Platform/Applications)
+      confirmed byte-identical, fence appended cleanly at the end. Two brand-new files were
+      created for the two sub-projects that had zero MOC before this
+      (`moc/sparta-suite-migrator.md`, `moc/processing-agent-translation.md`).
+- [x] Polish pass, done rather than left optional: the two brand-new MOC files had only the bare
+      generated fence and no orienting prose (unlike the two pre-existing hand-written ones) — gave
+      each a short hand-written intro paragraph (via `obsidian create ... overwrite`, matching the
+      voice of the existing two MOCs), verified idempotent by re-running the generator afterward
+      and confirming the intros survived unchanged.
+- [x] `node scripts/health.mjs` — confirm `monolithCandidates` reports `sparta-migrator-roadmap.md`
+      and nothing else (**confirmed** — exactly one, matching calibration). **Real, unrelated
+      finding, investigated and NOT fixed (out of scope for this pass):** overall score is 25/100,
+      not the 100/100 last seen — traced to a completely separate cluster of hard-wrapped
+      wikilinks (word-wrap breaking a `[[link]]` across two lines) across `wiki/concepts/`,
+      `wiki/sources/`, and `wiki/syntheses/` pages tied to unrelated CPQ-margin-guardrails/
+      sparta-scope content, plus new orphans among unrelated recently-ingested versioned-dataset-
+      management entities — all landed by other concurrent session(s) on this shared vault in the
+      days since this task's own last health check, not by anything in this task. Confirmed by
+      direct evidence, not assumed: zero of the 13 orphans and the overwhelming majority of the 25
+      broken-link defects are in files this task ever touched; the two `wiki/authored/` files that
+      do show a defect (`sparta-migrator-sf-cli-removal-adr.md`, `sparta-scope.md`) have theirs in
+      pre-existing body prose, and `insertAuthoredMetadata`/the backfill script provably never
+      write to a page's body (verified by reading the exact lines). `provenanceGaps` and
+      `unreachableProvenance` — the metrics an earlier pass in this same session's history fixed —
+      remain at 0, unaffected.
+
+  **Also caught mid-verification and worth naming plainly**: the FIRST health check after applying
+  used the *installed plugin's* stale `scripts/health.mjs` (still 0.13.0, no `monolithCandidates`
+  at all — printed `undefined`) rather than this dev repo's own copy, because the installed
+  plugin location had not yet been resynced from this branch. Re-ran against the correct dev-repo
+  scripts once noticed; every verification claim above is from that corrected run.
+- [x] `node scripts/index-gen.mjs` — regenerate `index.md` once, at the end, per its own contract
+      (881 pages cataloged; the whole-vault `## Authored` section stays flat/alphabetical by
+      design — that catalog's job is completeness across every page type, not per-project
+      grouping, which is what the new per-project MOCs are for. The new `## Maps of Content`
+      section correctly lists all 4 project MOCs alongside the pre-existing 3).
+- [x] One log entry: `node scripts/log-entry.mjs --op relink --title "..."` summarizing the
+      backfill + MOC migration/generation, including the unrelated health finding above.
 
 ## Task 9 — Ship
 
