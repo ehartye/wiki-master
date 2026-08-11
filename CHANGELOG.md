@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.14.0 — 2026-08-11
+
+### A project-documentation pattern for `wiki/authored/`
+
+`wiki/authored/` (added 2026-07-22) had grown to 36 files across two organically-formed
+projects — visible only as a string baked into each filename, invisible to every piece of
+tooling that reads frontmatter. `index.md`'s generated `## Authored` catalog was one flat,
+alphabetical list; the two hand-maintained MOCs built to compensate were already straining
+(one had improvised an ad hoc sub-heading for a nested feature; the other's 8-file sub-project
+had no hub at all); and one file — a continuously-appended roadmap mixing forward plan,
+changelog, and stacked emoji-tagged status updates — had grown to 9,500+ words with no way to
+answer "what's the current state of item X" short of reading every update about it in order.
+
+Four additive layers, grounded in this repo's own recent, shape-identical fix (triage's
+topic-grouping, 0.13.0) plus two established documentation patterns (Diátaxis; Nygard's
+Architecture Decision Records):
+
+- **`project:` and `kind:` frontmatter** — free-text project slug (one `/` deep for a
+  sub-project) and a small, escapable kind vocabulary (`overview | architecture | reference |
+  guide | diagram | decision | roadmap | note`), normalized the same way `topic:` already is.
+  `kind: decision` additionally carries `decision-status:` (Nygard's own proposed/accepted/
+  superseded/deprecated), turning "is this decision still live" into queryable data instead of
+  prose under a `## Status` heading.
+- **A generated per-project MOC** (`scripts/moc-authored-gen.mjs`) — the exact fenced-region
+  contract `index.md` already uses: hand-prose is never touched, the fenced section is a pure,
+  kind-grouped, deterministic function of the pages. Where a MOC already exists with no fence,
+  one is appended (mirrors `index-gen.mjs`'s own precedent) rather than a second, more complex
+  "flag for manual migration" convention invented for an identical problem.
+- **A monolith-detection signal** (`monolithCandidates` in `computeGraphMetrics`, reported by
+  `health.mjs` — same "reported, never scored" treatment as `hubStubs`) — calibrated directly
+  against the real vault: word count over 3,000 **and** 3+ dated "Update (...)"-style callouts,
+  together, flag exactly the one genuine offender while sparing a second long-but-healthy file
+  and a normal file with one isolated, legitimate update note. A deliberate design choice, not
+  house-style prose: the authors of these pages are coding agents without cross-session memory
+  of a file's history, and appending one more update is always the lowest-friction move
+  available in the moment — a signal is the only thing with a chance of interrupting that.
+- **`scripts/backfill-authored-metadata.mjs`** — deterministic, filename- and content-shape-driven
+  classification for the pre-existing files (dry-run/`--apply`, idempotent, matching every other
+  repair script this repo ships). Every bare `<project-name>.md` with no doc-kind suffix resolves
+  structurally (`# <slug>` immediately followed by `## Summary` — confirmed against the real
+  files, not assumed) rather than being left for manual review.
+
+New `templates/_templates/authored-decision.md` (the Nygard ADR shape both real vault ADRs had
+already converged on unprompted). `skills/wiki-maintainer/SKILL.md` and `templates/vault-schema.md`
+document the new fields and the monolith-splitting guidance, stated as a direct instruction to an
+authoring agent rather than a hope. Design: `docs/superpowers/specs/2026-08-11-authored-project-
+docs-design.md`; plan: `docs/superpowers/plans/2026-08-11-authored-project-docs.md`.
+
 ## 0.13.0 — 2026-08-10
 
 ### Triage groups by the research run that produced it

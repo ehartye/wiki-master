@@ -114,10 +114,18 @@ Folder nesting stays available later, never required.
 
 Free-text, normalized exactly like `topic:` (trim, collapse whitespace, case-insensitive key,
 first-seen casing for display) — reusing `normalizeTopic`'s proven shape rather than inventing new
-rules. Supports an optional `/`-separated tier for a sub-project (`sparta/migrator`,
+rules. Supports an optional `/`-separated tier for a sub-project (`sparta-suite/migrator`,
 `processing-agent/translation`) — written, never enforced past one level; nothing in this vault
 needs a third tier today and inventing headroom for one is exactly the ahead-of-need complexity
 §3's own cited precedent explicitly refuses.
+
+**Naming note, settled before backfill rather than after**: the top-level SPARTA project value is
+`sparta-suite`, not the shorter `sparta` an unexamined prefix-strip would suggest — chosen to match
+the MOC that already exists (`moc/sparta-suite.md`, "MOC — SPARTA Suite") rather than introduce a
+second, inconsistent name for the same thing. §7's per-project MOC generator derives a project's
+MOC filename directly from its `project:` value (`/` → `-`); had the value been the bare `sparta`,
+the generator would target a new `moc/sparta.md` and silently miss the hub that already exists.
+Checked directly against the real filename rather than assumed.
 
 Every existing file's `project:` is mechanically, deterministically inferable from its current
 filename prefix (see §8) — unlike `topic:`'s backfill, which its own spec correctly declined
@@ -231,10 +239,11 @@ script convention (`backfill-source-hashes.mjs`, `repair-provenance-links.mjs`,
 `repair-sources-order.mjs`). Verified against all 34 real files before writing this, not assumed:
 
 - `project:` — inferred from filename prefix for 33 of 34 files (`sparta-migrator-*` and the bare
-  `sparta-migrator.md` → `sparta/migrator`; `processing-agent-translation-*` →
-  `processing-agent/translation`; `sparta-*` otherwise → `sparta`; `processing-agent-*` otherwise
-  → `processing-agent`; `HCLS-LABS-SS-migrator-package.md` → `sparta/migrator` per its own body
-  text naming it a sibling repo of `sparta-migrator`). Left unset on exactly one file:
+  `sparta-migrator.md` → `sparta-suite/migrator`; `processing-agent-translation-*` →
+  `processing-agent/translation`; `sparta-*` otherwise → `sparta-suite` (see §5.1's naming note —
+  matches the existing `moc/sparta-suite.md`, not a shorter unexamined guess); `processing-agent-*`
+  otherwise → `processing-agent`; `HCLS-LABS-SS-migrator-package.md` → `sparta-suite/migrator` per
+  its own body text naming it a sibling repo of `sparta-migrator`). Left unset on exactly one file:
   `sf-cli-local-auth-mechanics.md` — cross-cutting research, not one project's document, by its
   own content.
 - `kind:` — inferred from an unambiguous filename suffix where one exists (`-architecture-
@@ -253,7 +262,7 @@ script convention (`backfill-source-hashes.mjs`, `repair-provenance-links.mjs`,
   `-overview`. All eight backfill to `kind: overview`.
 
   The one file this rule doesn't reach cleanly is `HCLS-LABS-SS-migrator-package.md` — it matches
-  the same opening shape, but `sparta/migrator` already has its overview (`sparta-migrator.md`
+  the same opening shape, but `sparta-suite/migrator` already has its overview (`sparta-migrator.md`
   itself), and its content (a supporting artifact of that project, not a front door to it) reads
   as `reference` rather than a second overview. Backfills to `kind: reference`.
 

@@ -460,3 +460,77 @@ test('backfillPending counts source pages that cite raw but have not yet recorde
   const m = computeGraphMetrics({ pages });
   assert.equal(m.backfillPending, 1, 'only the page still lacking source-hashes is pending');
 });
+
+// ─── wiki/authored/ project-documentation metadata (specs/2026-08-11-authored-project-docs-design.md) ───
+// 34 files, two organically-formed projects, zero frontmatter signal for either — the only
+// grouping cue was a string baked into each filename. project:/kind:/decision-status: give
+// tooling (a future MOC generator, health checks) something real to read.
+
+test('buildGraph parses project:, kind:, and decision-status: from authored-page frontmatter', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'wiki', 'authored'), { recursive: true });
+  writeFileSync(
+    join(dir, 'wiki', 'authored', 'demo-thing-adr.md'),
+    '---\ntype: authored\nsources: []\nproject: demo/thing\nkind: decision\ndecision-status: accepted\n---\nbody\n'
+  );
+  const g = buildGraph(dir);
+  const p = g.pages.find((p) => p.path === 'wiki/authored/demo-thing-adr.md');
+  assert.equal(p.project, 'demo/thing', 'project: parsed');
+  assert.equal(p.kind, 'decision', 'kind: parsed');
+  assert.equal(p.decisionStatus, 'accepted', 'decision-status: parsed');
+});
+
+test('buildGraph leaves project/kind/decisionStatus undefined when absent — no invented default', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'wiki', 'authored'), { recursive: true });
+  writeFileSync(
+    join(dir, 'wiki', 'authored', 'plain.md'),
+    '---\ntype: authored\nsources: []\n---\nbody\n'
+  );
+  const g = buildGraph(dir);
+  const p = g.pages.find((p) => p.path === 'wiki/authored/plain.md');
+  assert.equal(p.project, undefined);
+  assert.equal(p.kind, undefined);
+  assert.equal(p.decisionStatus, undefined);
+});
+
+// ─── monolithCandidates (spec §5.4) — reported, never scored, same treatment as hubStubs ───
+// Calibrated directly against the real vault (not guessed): word count > 3000 AND >= 3
+// dated-update-callout matches together flag exactly the one genuine offender found live
+// (sparta-migrator-roadmap.md, 9,529 words / 5 matches) while correctly sparing a second
+// large-but-healthy file (5,268 words / 0 matches) and a normal file with one isolated,
+// legitimate update note (998 words / 1 match). Both signals are required together on
+// purpose — word count alone false-positives on the healthy long file; the callout pattern
+// alone doesn't distinguish "one clarifying note" from "a stack that never stops growing".
+
+const updateCallout = (n) =>
+  Array.from({ length: n }, (_, i) => `**Update (2026-08-${String(i + 1).padStart(2, '0')}):** did a thing.`).join('\n\n');
+
+test('buildGraph counts dated update-callouts in a page body', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-graph-'));
+  mkdirSync(join(dir, 'wiki', 'authored'), { recursive: true });
+  writeFileSync(join(dir, 'wiki', 'authored', 'roadmap.md'), `---\ntype: authored\nsources: []\n---\n${updateCallout(3)}\n`);
+  const g = buildGraph(dir);
+  assert.equal(g.pages.find((p) => p.path === 'wiki/authored/roadmap.md').updateCalloutCount, 3);
+});
+
+test('monolithCandidates requires BOTH a word-count floor and a repeated-callout floor', () => {
+  const big = (words, callouts) => ({
+    path: `wiki/authored/x-${words}-${callouts}.md`, name: `x-${words}-${callouts}`, words, updateCalloutCount: callouts, outTargets: [], fmTargets: [],
+  });
+  const m = computeGraphMetrics({ pages: [
+    big(9529, 5),  // both high — the real, known offender
+    big(5268, 0),  // long but healthy — no repeated updates
+    big(998, 1),   // one isolated, legitimate update note
+    big(3500, 2),  // over the word floor but under the callout floor
+    big(500, 5),   // over the callout floor but under the word floor
+  ] });
+  assert.deepEqual(m.monolithCandidates, ['wiki/authored/x-9529-5.md']);
+});
+
+test('monolithCandidates is scoped to wiki/authored/ — an identically-shaped synthesis page is out of scope for this pass', () => {
+  const m = computeGraphMetrics({ pages: [
+    { path: 'wiki/syntheses/huge.md', name: 'huge', words: 9999, updateCalloutCount: 9, outTargets: [], fmTargets: [] },
+  ] });
+  assert.deepEqual(m.monolithCandidates, []);
+});

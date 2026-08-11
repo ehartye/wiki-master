@@ -26,6 +26,11 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
 - Wiki pages: `type, created, updated, reviewed, status, sources:[[...]], ai-generated`.
   Source pages also carry `source-hashes:[<sha256>,…]` — the `source-hash` of each
   clipping they summarize; this is the content key the ingest-backlog metric joins on.
+  `wiki/authored/` pages additionally carry optional `project` (a slug, one `/` deep
+  at most for a sub-project) and `kind` (`overview|architecture|reference|guide|
+  diagram|decision|roadmap|note`) — grouping metadata a per-project MOC generator
+  reads; a `kind: decision` page also carries `decision-status`
+  (`proposed|accepted|superseded|deprecated`).
 
 ## Rules
 - Raw is the source of truth. Every wiki page cites its `raw/` provenance —
