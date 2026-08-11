@@ -107,6 +107,17 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   changelog history), so existing filenames stay as they are, just moved into
   their project's folder.
 
+  Because `overview.md` / `architecture.md` / `roadmap.md` are deliberately
+  reused bare names across projects (each project gets its own), a bare
+  `[[roadmap]]` link is ambiguous the moment a **second** project acquires one —
+  it resolves to whichever one Obsidian's name index happens to pick, silently,
+  with no error. **Any reference to one of these files from *outside* its own
+  project must use the piped form naming the full path** —
+  `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]` — the same
+  convention this vault already uses for other ambiguous bare titles (e.g.
+  citing `21 CFR Part 11`'s source page). A link from *within* the same
+  project's own pages can stay bare.
+
   **The backlog is a folder of small items, never one growing document.** A
   tracked item is its own file, `<project>/backlog/<item-slug>.md`
   (`kind: backlog-item`, `backlog-status: planned | in-progress | shipped |
@@ -246,10 +257,11 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
 - **Relink** (`/wiki-relink`): add inferred `[[links]]`; materialize entities
   referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
-- **Authoring** (`wiki/authored/`, no dedicated skill): write these directly —
-  there is no source to ingest from. Place the file per the canonical table
-  above; use `_templates/authored-note.md` (`_templates/authored-decision.md`
-  for an ADR, `_templates/authored-backlog-item.md` for a backlog item), set
+- **Authoring** (`wiki/authored/`; dedicated skill `/wiki-author`): write these
+  directly — there is no source to ingest from. Place the file per the
+  canonical table above; use `_templates/authored-note.md`
+  (`_templates/authored-decision.md` for an ADR,
+  `_templates/authored-backlog-item.md` for a backlog item), set
   `type: authored` and `sources: []`, and record `ai-generated` honestly
   (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
   matching the folder — see the vault-contract bullet above for the

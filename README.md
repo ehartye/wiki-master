@@ -72,6 +72,7 @@ Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
 | `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
 | `/wiki-relink` | Add inferred links, materialize frequently-referenced entities, build MOCs. |
+| `/wiki-author [what]` | Author original `wiki/authored/` content (docs, guides, ADRs, backlog items) — canonical per-kind placement, no re-deriving convention per project. |
 | `/wiki-purge <topic> [--seeds a.md,b.md]` | Remove a topic for good — pages, evidence and source URLs move to a git-tracked `.recycle/` bin and the removal is committed so it reaches every machine. `--reconcile` re-bins anything that comes back; `--restore <id>` undoes it. |
 
 ## Configuration (environment variables)
