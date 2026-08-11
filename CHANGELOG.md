@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.15.0 — 2026-08-11
+
+### Real folders and a real backlog split for `wiki/authored/`
+
+0.14.0 added `project:`/`kind:` frontmatter and a generated MOC on top of `wiki/authored/`'s
+existing flat file layout — metadata and an index, with the files themselves untouched. Direct
+follow-up made clear that didn't fix what was actually asked for: `ls wiki/authored/` still
+showed 36 flat siblings with no folder structure at all, and the monolith-detection signal added
+in 0.14.0 only *reported* the one 9,500-word, continuously-appended roadmap file — it never split
+it. This release changes the actual file layout and the actual per-item granularity, the two
+things metadata alone cannot fix.
+
+- **Real physical folders**, keyed by each page's existing `project:` value —
+  `wiki/authored/<project>/[<subproject>/]`, with `decisions/`, `guides/`, `diagrams/`,
+  `reference/`, `notes/`, and `backlog/` subfolders per a new canonical placement table (verb →
+  location → `kind:`, e.g. "write a user guide" → `<project>/guides/user.md`). Verified empirically
+  before committing to the design: every existing script that reads `wiki/authored/`
+  (`buildGraph`, `checkStyle`, `checkQuotes`, `renderCatalog`, `moc-authored-gen.mjs`) already
+  tolerates arbitrary nesting depth via `path.startsWith('wiki/authored/')` — zero code changes
+  needed to support folders. Existing filenames are not renamed, only relocated — a bare
+  canonical leaf name (`overview.md`) repeated across every project would be a guaranteed
+  cross-project wikilink collision (this vault has been bitten by exactly that class of bug
+  twice before).
+- **A backlog-item format**: one small file per tracked item (`<project>/backlog/<slug>.md`,
+  `kind: backlog-item`, `backlog-status: planned | in-progress | shipped | blocked | dropped`),
+  edited in place — never appended to. `scripts/backlog-gen.mjs` generates a thin
+  `<project>/roadmap.md` index over them, grouped by status ("what's live" before "what's done"),
+  the same fenced-region contract `index.md` and the per-project MOC already use.
+- **`scripts/lib/roadmap-split.mjs`** — a pure, mechanical extractor that splits a monolithic
+  roadmap into individual items verbatim (never a rewrite). Applied to the real vault: the
+  1,261-line, ~9,500-word `sparta-migrator-roadmap.md` became 32 individual backlog-item files
+  plus a ~200-word `roadmap.md` (renamed to the canonical bare name), verified 100% byte-exact
+  against the source before trusting it. `health.mjs`'s `monolithCandidates` is now empty.
+- **`skills/wiki-author/SKILL.md`** — a new dedicated skill wrapping the placement table,
+  template selection, and post-write regeneration steps, matching every other wiki-master action's
+  own dedicated skill (`/wiki-ingest`, `/wiki-query`, `/wiki-lint`, `/wiki-relink`,
+  `/wiki-discover`, `/wiki-purge`, `/wiki-triage`) instead of a paragraph inside the
+  general-purpose `wiki-maintainer` skill.
+- A **piped-link convention** for cross-project references to a bare `overview.md`/
+  `architecture.md`/`roadmap.md` — these names are deliberately reused across projects, so a bare
+  `[[roadmap]]` link becomes ambiguous the moment a second project has one. Documented in both
+  skill docs; two real, previously-unresolved bare `[[roadmap]]` references in the vault
+  (comparing to sparta-migrator's roadmap structure) converted to the explicit piped form.
+- Fixed a bug found while validating the above against the real vault: both
+  `moc-authored-gen.mjs`'s per-project catalog and `index-gen.mjs`'s whole-vault catalog were
+  listing every `kind: backlog-item` page individually — recreating, one layer up, the exact
+  per-item sprawl this release removes. Both generators now exclude `kind: backlog-item`; the
+  project's own `roadmap.md` is the index for those.
+
+Design: `docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md`; plan:
+`docs/superpowers/plans/2026-08-11-authored-project-structure-v2.md`.
+
 ## 0.14.0 — 2026-08-11
 
 ### A project-documentation pattern for `wiki/authored/`
