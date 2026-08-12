@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.16.0 — 2026-08-12
+
+### Hard-wrapped wikilinks: detection, repair, and visibility at commit time
+
+`/wiki-health` surfaced 30 broken links whose actual cause was one thing, not thirty:
+hand- or LLM-authored prose gets word-wrapped at some column width, and a `[[Target]]`
+straddling the wrap point survives as one link with an embedded newline in its
+target — which Obsidian, and this vault's own `resolveLinkTarget`, can never resolve.
+The only thing catching these before was a generic edit-distance "did you mean"
+fallback, which happens to work when the wrapped form's normalized whitespace matches
+an existing page closely enough — but a wrapped link to a not-yet-written page had
+nothing to flag it: it silently fell through to `deferred` (scored as healthy).
+
+- **`scripts/lib/dewrap-links.mjs`** — detection is a structural fact, not a
+  heuristic: a `[[...]]` span containing a raw newline is unambiguously invalid,
+  since no legitimate wikilink spans a line break. Repair is a lossless whitespace
+  collapse — the mechanical reversal of the wrap, never a guess at content. The one
+  genuinely ambiguous shape — a hyphen glued to the word right before the break
+  (`[[Diagno-\nstics]]`) — is indistinguishable by character shape alone from a title
+  that legitimately ends a line in a trailing hyphen (`[[Wizards-\n  Definition and
+  Design Recommendations]]`, a real title in this vault; both match the identical raw
+  pattern). A first, syntax-only "risk" flag design was wrong — caught by writing
+  both real, vault-derived cases as tests before trusting it, not by inspection.
+  The fix checks both candidate readings (hyphen kept vs. removed) against the real
+  page index and only applies the one that resolves, mirroring
+  `repair-provenance-links.mjs`'s own "never guess" discipline.
+- **`classifyBrokenLinks`** now always defects a hard-wrapped link, regardless of
+  whether a suggestion resolves — closing the gap where one with no near-match page
+  could previously hide in `deferred`. `health.mjs`'s report gives an unresolved one
+  its own actionable message (pointing at the repair script) instead of the silence
+  a plain unexplained target used to get.
+- **`scripts/repair-wrapped-links.mjs`** — dry-run/`--apply`, matching every other
+  repair script's convention; only ever touches `wiki/` content, never `raw/`.
+- **`op-commit.mjs` reports a hard-wrapped wikilink introduced by the files an
+  operation just committed** — visibility at the moment of commit, not just whenever
+  someone later happens to run `/wiki-health`. Never blocks the commit itself:
+  `op-commit` has no existing "fail the commit" contract to extend safely.
+  `/wiki-relink`'s workflow now runs the repair script as its first step, since a
+  hard-wrapped link is a mechanical fix, not a judgment call about what to link.
+
+Full suite: 648/648 passing.
+
 ## 0.15.0 — 2026-08-11
 
 ### Real folders and a real backlog split for `wiki/authored/`

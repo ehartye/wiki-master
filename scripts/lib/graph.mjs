@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 
 export const STUB_WORD_FLOOR = 10;
 export const HUB_MIN_BACKLINKS = 5;
@@ -185,7 +186,7 @@ export function buildGraph(vaultPath) {
   return { pages };
 }
 
-function normalizeName(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+export function normalizeName(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
 // Bounded Levenshtein: returns >2 early when lengths differ by >2 (typos are near).
 function editDistance(a, b) {
@@ -226,6 +227,18 @@ export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays 
 
   const defects = [], stale = [], deferred = [];
   for (const b of brokenLinks) {
+    // A hard-wrapped wikilink ([[Title\ncontinued]]) can never be a legitimate
+    // forward-reference -- Obsidian wikilinks cannot span a line break -- so this is
+    // always a defect, never deferred/stale, regardless of whether a suggestion
+    // resolves. Checking BOTH of resolveDewrap's candidates against the real page
+    // index (not generic edit distance against one guess) is what correctly
+    // disambiguates a hyphen-adjacent wrap; see dewrap-links.mjs.
+    if (isWrappedTarget(b.target)) {
+      const { chosen } = resolveDewrap(b.target, { resolves: (name) => existing.has(normalizeName(name)) });
+      const suggest = chosen ? existing.get(normalizeName(chosen)) : undefined;
+      defects.push(suggest ? { ...b, wrapped: true, suggest } : { ...b, wrapped: true });
+      continue;
+    }
     const nt = normalizeName(b.target);
     let suggest = existing.get(nt) && existing.get(nt) !== b.target ? existing.get(nt) : null;
     if (!suggest) {

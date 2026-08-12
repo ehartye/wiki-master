@@ -1,4 +1,4 @@
-import { readFileSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, unlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -8,6 +8,8 @@ import { dirtySet, deltaPaths } from './lib/op.mjs';
 import { planAutoRefresh } from './lib/auto-refresh.mjs';
 import { refreshIndex, readManifestFile } from './index-embed.mjs';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL } from './lib/embed.mjs';
+import { isContent } from './lib/graph.mjs';
+import { findWrappedLinks } from './lib/dewrap-links.mjs';
 
 // See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
 function statusPorcelain(cwd) {
@@ -31,6 +33,26 @@ function unpushedCount(cwd) {
   } catch {
     return null;
   }
+}
+
+// A hard-wrapped wikilink ([[Title\ncontinued]]) freshly introduced by the files THIS
+// operation just committed, scanned from their current on-disk content -- scoped to
+// exactly the paths that changed, not a full-vault rescan. This is visibility at the
+// moment of commit, not a gate: op-commit has no existing "fail the commit" contract
+// to extend safely, so nothing here blocks anything -- a found wrap is reported for
+// scripts/repair-wrapped-links.mjs to fix afterward, the same reporting-not-blocking
+// convention health.mjs already uses for defects it cannot repair automatically
+// inline. See scripts/lib/dewrap-links.mjs.
+function scanForWrappedLinks(vaultPath, paths) {
+  const found = [];
+  for (const p of paths) {
+    if (!p.endsWith('.md') || !isContent(p)) continue;
+    const abs = join(vaultPath, p);
+    if (!existsSync(abs)) continue; // deleted as part of this operation — nothing to scan
+    const text = readFileSync(abs, 'utf8');
+    for (const w of findWrappedLinks(text)) found.push({ page: p, target: w.raw });
+  }
+  return found;
 }
 
 // Reads the token op-begin wrote, computes what THIS operation touched (dirty
@@ -84,6 +106,7 @@ export function commitOp(vaultPath, { op, title, token }) {
       unpushed: result.committed ? unpushedCount(vaultPath) : null,
     };
   }
+  outcome.wrappedLinks = scanForWrappedLinks(vaultPath, outcome.paths);
   unlinkSync(tokenPath);
   return outcome;
 }
@@ -172,6 +195,10 @@ export async function main(argv, refreshDeps) {
   }
   if (typeof r.unpushed === 'number' && r.unpushed > 0) {
     console.log(`${r.unpushed} commit(s) unpushed. Run \`git push\` from the vault to sync.`);
+  }
+  if (r.wrappedLinks.length) {
+    console.log(`⚠ ${r.wrappedLinks.length} hard-wrapped wikilink(s) in the files just committed — run \`node scripts/repair-wrapped-links.mjs --apply\`:`);
+    for (const w of r.wrappedLinks) console.log(`  ${w.page}`);
   }
 
   const { notice } = await refreshAfterOp(vaultPath, refreshDeps);

@@ -90,6 +90,46 @@ test('classifyBrokenLinks splits defect / stale / deferred', () => {
   assert.deepEqual(c.deferred.map((d) => d.target), ['New Concept']);
 });
 
+// A hard-wrapped wikilink ([[Title\ncontinued]]) is never a legitimate forward
+// reference — Obsidian wikilinks cannot span a line break — so it must always land
+// in defects, never deferred/stale, REGARDLESS of whether a suggestion can be
+// verified. Before this, the only thing that caught these was the generic
+// edit-distance "did you mean" fallback below, which happens to work when the
+// normalized forms match exactly but has no principled reason to always fire — a
+// wrapped link to a not-yet-written page would have silently fallen through to
+// deferred (scored as healthy) with nothing to flag it. See dewrap-links.mjs.
+test('classifyBrokenLinks always defects a hard-wrapped link, even with no matching page at all', () => {
+  const pages = [{ path: 'wiki/sources/old.md', name: 'old', updated: '2020-01-01' }]; // old + unreferenced elsewhere → would be stale/deferred
+  const broken = [{ source: 'wiki/sources/old.md', target: 'Nothing Like\nThis Exists' }];
+  const c = classifyBrokenLinks(broken, pages, { now: new Date('2026-07-18'), staleDays: 90, demandThreshold: 3 });
+  assert.equal(c.defects.length, 1);
+  assert.equal(c.defects[0].wrapped, true);
+  assert.equal(c.defects[0].suggest, undefined, 'nothing resolves — no suggestion invented');
+  assert.equal(c.stale.length, 0);
+  assert.equal(c.deferred.length, 0);
+});
+
+test('classifyBrokenLinks suggests the dewrapped form of an ordinary hard-wrapped link that matches a real page', () => {
+  const pages = [{ path: 'wiki/concepts/Salesforce Metadata API Permission Diagnostics.md', name: 'salesforce metadata api permission diagnostics', title: 'Salesforce Metadata API Permission Diagnostics' }];
+  const broken = [{ source: 'wiki/sources/x.md', target: 'Salesforce Metadata API Permission\n   Diagnostics' }];
+  const c = classifyBrokenLinks(broken, pages, {});
+  assert.equal(c.defects.length, 1);
+  assert.equal(c.defects[0].wrapped, true);
+  assert.equal(c.defects[0].suggest, 'Salesforce Metadata API Permission Diagnostics');
+});
+
+// The exact real-vault ambiguity dewrap-links.mjs's own tests document: "Diagno-\nstics"
+// and "Wizards-\n  Definition..." share the identical raw shape, so only checking BOTH
+// candidates against the real page index (not edit distance against one guess) picks
+// the right one.
+test('classifyBrokenLinks resolves a hyphen-adjacent hard-wrap against the real page index, not edit-distance guessing', () => {
+  const pages = [{ path: 'wiki/concepts/Wizards- Definition and Design Recommendations.md', name: 'wizards- definition and design recommendations', title: 'Wizards- Definition and Design Recommendations' }];
+  const broken = [{ source: 'wiki/sources/x.md', target: 'Wizards-\n  Definition and Design Recommendations' }];
+  const c = classifyBrokenLinks(broken, pages, {});
+  assert.equal(c.defects.length, 1);
+  assert.equal(c.defects[0].suggest, 'Wizards- Definition and Design Recommendations');
+});
+
 test('classifyBrokenLinks: corroborated (>=demand) old links stay deferred, not stale', () => {
   const pages = [{ path: 'wiki/sources/old.md', name: 'old', updated: '2026-01-01' }];
   const broken = Array(3).fill(0).map(() => ({ source: 'wiki/sources/old.md', target: 'Wanted' }));

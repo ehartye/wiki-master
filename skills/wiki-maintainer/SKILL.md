@@ -319,6 +319,28 @@ was correct. Repair from the plugin root: `node scripts/repair-provenance-links.
 what drifted), and reports anything it cannot pin to exactly one clipping instead of
 guessing. Always cite a clipping by its **path**, `[[raw/clippings/<file>.md]]`.
 
+**Repairing hard-wrapped wikilinks (`health.mjs` defects marked "hard-wrapped
+wikilink").** Hand- or LLM-authored prose that gets word-wrapped at some column width
+can break a `[[Target]]` straddling the wrap point into `[[Target\ncontinued]]` —
+Obsidian wikilinks cannot span a line break, so this can never resolve and is always a
+defect, never a healthy deferred forward-link (`classifyBrokenLinks` never lets a
+wrapped target hide there, whether or not a suggestion resolves). **Prevention that
+actually holds**: write vault content as unwrapped logical lines — never hard-wrap a
+paragraph, and never let one contain a `[[wikilink]]` split across a line break — the
+same discipline `clip-docx`'s `--wrap=none` already enforces mechanically on the docx
+path. A written reminder alone is not the safeguard: `/wiki-relink`'s own `op-commit`
+step reports any wrapped link introduced by the files it just committed, and
+`node scripts/health.mjs` always scores one as a defect, so either catches a recurrence
+even if the writing habit doesn't. Repair existing ones from the plugin root:
+`node scripts/repair-wrapped-links.mjs` (dry-run) then `--apply`. The fix is a lossless
+whitespace-collapse (undoing the wrap, never guessing content); the one shape it cannot
+safely resolve alone — a hyphen glued to the word right before the break, e.g.
+`[[Diagno-\nstics]]`, indistinguishable by character shape from a title that
+legitimately ends a line in a trailing hyphen (`[[Wizards-\n  Definition...]]`, a real
+title) — is checked against the real page index (not edit-distance guessing) and only
+fixed when exactly one reading resolves; left untouched and reported otherwise. See
+`scripts/lib/dewrap-links.mjs`.
+
 **Repairing invalid `sources:`/`source-hashes:` ordering.** A now-fixed bug in
 `insertSourceHashes` could insert `source-hashes:` between a block-list `sources:`
 key and its own `- [[...]]` item instead of after it — invalid YAML that a real

@@ -61,7 +61,7 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, monoli
     `Wiki health: ${score}/100 (scanned from filesystem)\n` +
     `  broken links: ${brokenLinks.length} (defect ${defects.length} · stale ${stale.length} · deferred ${deferred.length})` +
     (defects.length ? `\n  defects (fix — typo/rename):` : '') +
-    list(defects, (b) => `${b.target}  <- ${b.source}${b.suggest ? `   (did you mean [[${b.suggest}]]?)` : ''}`) +
+    list(defects, (b) => `${b.target}  <- ${b.source}${b.suggest ? `   (did you mean [[${b.suggest}]]?)` : b.wrapped ? '   (hard-wrapped wikilink — run scripts/repair-wrapped-links.mjs)' : ''}`) +
     (stale.length ? `\n  stale (prune or promote):` : '') +
     list(stale, (b) => `${b.target}  <- ${b.source}   (${b.ageDays}d, refs ${b.refs})`) +
     (deferred.length ? `\n  deferred (healthy forward-links):` : '') +
