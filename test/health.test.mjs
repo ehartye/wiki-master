@@ -65,6 +65,27 @@ test('computeHealth returns a bounded 0-100 score', () => {
   assert.equal(r.score, 25); // caps: 30+25+20 = 75 (hubStubs contributes nothing)
 });
 
+// A hard-wrapped wikilink with no resolvable suggestion (classifyBrokenLinks marks
+// it `wrapped: true`, no `suggest`) must not render as a bare, unexplained target —
+// that is indistinguishable from a plain typo with no near-match at all. It gets
+// its own actionable message pointing at the repair script, not silence.
+test('report gives a wrapped-but-unresolved defect its own actionable message, distinct from a plain unexplained typo', () => {
+  const r = computeHealth({
+    orphans: [], deadEnds: [], brokenLinks: [{ source: 'a.md', target: 'Nothing Like\nThis Exists' }], hubStubs: [],
+    brokenClass: { defects: [{ source: 'a.md', target: 'Nothing Like\nThis Exists', wrapped: true }], stale: [], deferred: [] },
+  });
+  assert.match(r.report, /Nothing Like\nThis Exists {2}<- a\.md {3}\(hard-wrapped wikilink — run scripts\/repair-wrapped-links\.mjs\)/);
+});
+
+test('report still shows the verified suggestion for a wrapped defect that DID resolve, same format as an ordinary typo', () => {
+  const r = computeHealth({
+    orphans: [], deadEnds: [], brokenLinks: [{ source: 'a.md', target: 'Real Page\nTitle' }], hubStubs: [],
+    brokenClass: { defects: [{ source: 'a.md', target: 'Real Page\nTitle', wrapped: true, suggest: 'Real Page Title' }], stale: [], deferred: [] },
+  });
+  assert.match(r.report, /\(did you mean \[\[Real Page Title\]\]\?\)/);
+  assert.ok(!r.report.includes('repair-wrapped-links.mjs'), 'a resolved suggestion does not also print the generic wrapped-link pointer');
+});
+
 // The regression guard for the change: hub-stubs are surfaced, never scored.
 // Scoring them was the only penalty whose cheapest fix — deleting inbound links
 // or padding the page with unsourced prose — makes the wiki worse.

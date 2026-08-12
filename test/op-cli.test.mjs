@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { main as beginMain } from '../scripts/op-begin.mjs';
-import { main as commitMain } from '../scripts/op-commit.mjs';
+import { main as commitMain, commitOp } from '../scripts/op-commit.mjs';
 
 // Mirrors test/git.test.mjs's tempRepo, plus the .gitignore every real
 // wiki-master vault carries (scripts/init.mjs writes one): without it, the
@@ -149,6 +149,88 @@ test('an op that changed nothing creates no commit', async () => {
     assert.equal(r.exitCode, undefined);
     const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
     assert.equal(after, before, 'no commit should have been made');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A hard-wrapped wikilink freshly introduced by the files this operation commits is
+// reported at commit time, not just whenever someone later happens to run
+// /wiki-health -- but never blocks the commit itself: op-commit has no existing
+// "fail the commit" contract to extend safely, so this is visibility, matching
+// health.mjs's own reporting-not-blocking convention.
+test('commitOp reports a hard-wrapped wikilink among the files it just committed, but still commits', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'concepts', 'citer.md'),
+      '---\ntype: concept\nsources: []\n---\n# Citer\n\nSee [[Some\nThing]] for details.\n');
+    const r = commitOp(dir, { op: 'ingest', title: 'one page', token });
+    assert.equal(r.committed, true, 'the commit itself is never blocked');
+    assert.deepEqual(r.wrappedLinks, [{ page: 'wiki/concepts/citer.md', target: 'Some\nThing' }]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('commitOp reports no wrapped-link warnings for an ordinary commit', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'concepts', 'citer.md'),
+      '---\ntype: concept\nsources: []\n---\n# Citer\n\nSee [[Some Thing]] for details.\n');
+    const r = commitOp(dir, { op: 'ingest', title: 'one page', token });
+    assert.deepEqual(r.wrappedLinks, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a raw/ clipping that happens to contain a wrapped-looking span is never flagged — not scored content', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'raw', 'clippings'), { recursive: true });
+    writeFileSync(join(dir, 'raw', 'clippings', 'weird.md'), 'Clipped text mentioning [[Some\nThing]] verbatim.\n');
+    const r = commitOp(dir, { op: 'ingest', title: 'one clip', token });
+    assert.deepEqual(r.wrappedLinks, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a deleted file in the operation\'s diff does not crash the wrapped-link scan', async () => {
+  const dir = tempRepo();
+  mkdirSync(join(dir, 'wiki'), { recursive: true });
+  writeFileSync(join(dir, 'wiki', 'gone.md'), 'bye\n');
+  execFileSync('git', ['add', 'wiki/gone.md'], { cwd: dir });
+  execFileSync('git', ['commit', '-q', '-m', 'add gone.md'], { cwd: dir });
+  try {
+    const token = await begin(dir, 'purge');
+    rmSync(join(dir, 'wiki', 'gone.md'));
+    const r = commitOp(dir, { op: 'purge', title: 'removed a page', token });
+    assert.equal(r.committed, true);
+    assert.deepEqual(r.wrappedLinks, []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// End-to-end: the same warning is visible on the console a user/agent actually sees
+// after running the real CLI, not just in commitOp's structured return value.
+test('commitMain prints the wrapped-link warning after a successful commit', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'ingest');
+    mkdirSync(join(dir, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(dir, 'wiki', 'concepts', 'citer.md'),
+      '---\ntype: concept\nsources: []\n---\n# Citer\n\nSee [[Some\nThing]] for details.\n');
+    const r = await run(commitMain, dir, ['--op', 'ingest', '--title', 'one page', '--since', token]);
+    assert.equal(r.exitCode, undefined);
+    assert.ok(r.logs.some((l) => l.includes('hard-wrapped wikilink') && l.includes('repair-wrapped-links.mjs')));
+    assert.ok(r.logs.some((l) => l.includes('wiki/concepts/citer.md')));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
