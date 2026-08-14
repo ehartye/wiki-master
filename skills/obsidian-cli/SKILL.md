@@ -48,9 +48,11 @@ An empty canary means the backend is dead. A session whose commands all return
 hits never probes at all.
 
 Two failure modes people assume and neither holds: **the app not running cannot
-produce a silent empty** — per the official docs, "If Obsidian is not running,
-the first command you run launches Obsidian" — and index-rebuild has never been
-observed to. Do not cite either as a reason to distrust a result.
+produce a silent empty** — measured on Windows, a dead app exits 1 with "The CLI
+is unable to find Obsidian. Please make sure Obsidian is running and try again."
+(the docs claim the first command launches Obsidian; it does not — start it
+yourself) — and index-rebuild has never been observed to. Do not cite either as
+a reason to distrust a result.
 
 ## Syntax and the live contract
 - **Parameters take `=`; flags are bare.** `create name="My Note" content="Hello"`
