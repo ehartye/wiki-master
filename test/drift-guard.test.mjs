@@ -62,17 +62,21 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
-test('version is identical across all five manifests (Claude + Copilot)', () => {
-  // The version is one fact copied into five files — the exact drift seam this
+test('version is identical across all six manifests (Claude + Copilot + lockfile)', () => {
+  // The version is one fact copied into six files — the exact drift seam this
   // suite exists to guard. wiki-master ships to two hosts (Claude Code reads
   // .claude-plugin/; Copilot CLI reads a root plugin.json + .github/plugin/),
   // and a manifest set that disagrees about what version this is must fail loud.
+  // package-lock.json is the sleepiest of the six: npm rewrites it only when
+  // someone runs `npm install`, so a bump that edits the other five by hand
+  // leaves the lockfile silently pinned to the previous version.
   const versions = [
     'package.json',
     '.claude-plugin/plugin.json',
     '.claude-plugin/marketplace.json',
     'plugin.json',
     '.github/plugin/marketplace.json',
+    'package-lock.json',
   ].map((f) => {
     const j = JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
     return { f, v: j.version ?? j.plugins?.[0]?.version };
