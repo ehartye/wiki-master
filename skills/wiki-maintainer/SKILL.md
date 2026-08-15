@@ -278,6 +278,38 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   contract, so the roadmap view can never drift from what the items actually
   say.
 
+## Keeping project documentation honest
+
+The table above settles *where* a document goes. These settle whether it is still
+worth reading a month later — each one is a failure that actually happens, not a
+style preference.
+
+- **`architecture.md` is as-built, not as-planned.** The moment it describes
+  something that does not exist, a reader cannot tell which half is true. Anything
+  intended rather than shipped belongs in `roadmap.md` or a backlog item.
+- **`roadmap.md` records state, not history.** It is the page most likely to be
+  silently stale, and the failure is specific: it keeps listing as "next" three
+  things that shipped a fortnight ago. **Update it in the same operation as the
+  work** — a roadmap updated later is a roadmap updated never.
+- **An ADR states context, decision, consequences — good AND bad — and status.**
+  *A consequences section that lists only benefits is a sales pitch, not a record.*
+  The reason to revisit a decision is always in the half that gets left out, so an
+  ADR without costs has thrown away the only part that will matter.
+- **Label a retrospective ADR as reconstructed.** Most projects start by writing up
+  decisions already taken; that is legitimate and lossy. Reasoning recovered from
+  code and commit history is not the reasoning that was used, and saying so is the
+  difference between a record and a plausible story.
+- **Record the failures.** Stalls, refuted hypotheses, and measurements that
+  contradicted a confident diagnosis are the highest-value content in a project
+  set, because they are precisely what nobody remembers and everybody repeats. If a
+  fix was wrong twice before it was right, all three attempts belong on the page.
+- **Distinguish "not built" from "built and broken".** From outside they look
+  identical and only one of them is a bug. A reader who cannot tell will either
+  re-implement something that exists or file a bug against something that does not.
+- **The wiki owns intent; the repo owns behaviour.** When they disagree, the code
+  wins on what happens and the wiki wins on what was meant — and the disagreement
+  itself is worth writing down, because it is usually where the next defect is.
+
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
 `wiki/sources/` page's `source-hashes`**. Hash equality is the contract — immune to
