@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.17.0 — 2026-08-15
+
+### Project documentation: honest, not just well-placed
+
+0.14.0 and 0.15.0 settled **where** each project document goes — the canonical table,
+the project folder, the collision rule. They said nothing about whether the document is
+still worth reading a month later, and a document filed perfectly in the right folder
+can still be a liability.
+
+Seven items added to `wiki-maintainer`, each one a failure that actually happens rather
+than a style preference. Several are drawn from a vault where all four projects had
+drifted the same way.
+
+- **`architecture.md` is as-built, not as-planned.** The moment it describes something
+  that does not exist, a reader cannot tell which half is true — and the page stops being
+  usable as a reference at all, not just in the part that is wrong.
+- **`roadmap.md` records state, not history**, with a specific named failure: it keeps
+  listing as "next" three things that shipped a fortnight ago. Update it in the *same
+  operation* as the work — a roadmap updated later is a roadmap updated never.
+- **An ADR's consequences section must carry the bad ones.** A section listing only
+  benefits is a sales pitch, not a record; the reason to revisit a decision is always in
+  the half that gets left out.
+- **Label a retrospective ADR as reconstructed.** Reasoning recovered from code and commit
+  history is not the reasoning that was used, and saying so is the difference between a
+  record and a plausible story.
+- **Record the failures** — stalls, refuted hypotheses, measurements that contradicted a
+  confident diagnosis. They are precisely what nobody remembers and everybody repeats.
+- **Distinguish "not built" from "built and broken".** From outside they look identical
+  and only one of them is a bug.
+- **The wiki owns intent; the repo owns behaviour** — and the disagreement between them is
+  usually where the next defect is.
+
+Deliberately adds no placement guidance: that is already covered, and a second competing
+table would be worse than none.
+
+**Process note.** This content first landed as `4c78cc4`, pushed straight to `main` past
+the "changes must be made through a pull request" rule (which warns rather than blocks,
+since `enforce_admins` is off) and carrying no version bump — so the six-manifest guard
+never ran on it and the marketplace had no signal to serve it. Reverted in #64 and
+re-landed here through the normal path. The bypass is worth recording rather than
+quietly fixing: a release that skips the version bump is invisible to every consumer,
+which is the same class of defect as the drift the manifest guard exists to catch.
+
 ## 0.16.0 — 2026-08-12
 
 ### Hard-wrapped wikilinks: detection, repair, and visibility at commit time
