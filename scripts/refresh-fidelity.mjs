@@ -13,6 +13,25 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { assessFidelity } from './clip-pdf.mjs';
 
+// A fidelity flag is only clearable if it can be RE-DERIVED from the stored
+// text. Table-derived flags cannot: `extraction: table-aware` means the rows
+// were reconstructed from horizontal position, and `table-flattened` means they
+// were lost outright -- and in both cases the stored characters read as perfectly
+// clean prose, so assessFidelity returns healthy and this script would helpfully
+// delete the only record that the rows are not to be trusted (#66).
+//
+// Derived from the note's own `extraction:`, not a list of filenames, so a future
+// extraction mode that carries the same property inherits the protection by
+// naming itself here rather than by being remembered.
+const EXTRACTION_DERIVED = new Set(['table-aware', 'table-flattened']);
+
+export function fidelityIsExtractionDerived(frontmatter) {
+  const line = String(frontmatter).split('\n').map((l) => l.trim())
+    .find((l) => l.startsWith('extraction:'));
+  if (!line) return false;
+  return EXTRACTION_DERIVED.has(line.slice('extraction:'.length).trim().split('"').join(''));
+}
+
 // Remove the `fidelity:` line from a note's frontmatter. No-op if absent.
 export function clearFidelityLine(fileText) {
   const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
@@ -35,6 +54,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const dir = join(vault, 'raw', 'clippings');
   const cleared = [];
   const kept = [];
+  const preserved = [];
 
   const walk = (d) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
@@ -44,6 +64,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       const text = readFileSync(p, 'utf8');
       const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (!fm || !/^fidelity:/m.test(fm[1])) continue;
+      // Not ours to re-judge: the basis is the extraction, not the characters.
+      if (fidelityIsExtractionDerived(fm[1])) {
+        preserved.push(p.slice(vault.length + 1).replace(/\\/g, '/'));
+        continue;
+      }
       const a = assessFidelity(splitBody(text));
       const rel = p.slice(vault.length + 1).replace(/\\/g, '/');
       if (a.degraded) { kept.push({ clipping: rel, repl: a.replacement, cid: a.cid, mm: a.mangledMath, lr: +a.letterRatio.toFixed(2) }); continue; }
@@ -53,7 +78,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   };
   if (existsSync(dir)) walk(dir);
 
-  console.log(JSON.stringify({ type: 'refresh-fidelity', applied: apply, cleared: cleared.length, stillDegraded: kept.length }));
+  console.log(JSON.stringify({ type: 'refresh-fidelity', applied: apply, cleared: cleared.length, stillDegraded: kept.length, preserved: preserved.length }));
   if (kept.length) console.log(JSON.stringify({ stillDegraded: kept }, null, 2));
   if (!apply) console.error('dry run — re-run with --apply to clear stale flags');
 }

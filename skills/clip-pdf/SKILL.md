@@ -28,7 +28,9 @@ attachment.
 
 ## How it works
 
-`clip-pdf.mjs` extracts text with **poppler's `pdftotext`** (invoked via Node's
+`clip-pdf.mjs` extracts text with **`pdftotext`** — either the **Xpdf** or the
+**poppler** build, probed at runtime, with Xpdf preferred because only it provides
+the `-table` mode that reads a tabular PDF without destroying its rows (invoked via Node's
 `execFileSync`, which resolves the Windows `.exe` correctly — do **not** shell out
 to `pdftotext` from a Bash tool per the PATHEXT hazard), then writes
 `raw/clippings/<slug>.md` with the standard clipping frontmatter (`source`,
@@ -41,10 +43,32 @@ Extraction is tuned for academic PDFs:
   Node then decodes those bytes as UTF-8 and turns every accent/bullet/© into `�`
   ("Béthune" → "B�thune"). Forcing UTF-8 fixes that at the source — no OCR needed
   for accented text.
-- **Reading-order, not `-layout`.** `-layout` preserves physical layout, which on a
-  **two-column** paper interleaves the columns line-by-line (no verbatim span is
-  then traceable). Default mode reads each column top-to-bottom and de-hyphenates
-  line breaks, so prose comes out quotable.
+- **Reading mode chosen per document, not globally.** `pdftotext` has two
+  incompatible-by-design modes and the right one depends on the layout:
+  - *Reading-order* (default) follows the text stream column-by-column. Correct for a
+    **two-column paper** — each column reads top-to-bottom and hyphenated breaks are
+    joined, so prose comes out quotable.
+  - *Aligned* (`-table`) preserves horizontal position, so a row's cells stay on one
+    output line. Correct for a **table**; it interleaves a two-column paper.
+
+  Applied globally, either one is wrong for half of all documents. Reading-order mode
+  on a **table** emits it column-block-wise — the whole key column, then the whole
+  value column — so every row's key is detached from its value and the pairing is
+  unrecoverable from the output. So the clipper samples the first pages both ways and
+  routes on the result: if short standalone lines get *re-attached* as the leading
+  token of a longer line in aligned mode, the document is tabular.
+- **A tabular clipping never claims plain `high` fidelity.** Recovered rows are stamped
+  `extraction: table-aware` + **`fidelity: tabular`** — the pairings were *reconstructed
+  from horizontal position*, not read off a structured source, so confirm a pairing
+  before quoting it as verbatim.
+- **`-table` is an Xpdf feature; poppler does not have it.** When the installed
+  `pdftotext` cannot align a document that was detected as tabular, the clipper
+  **warns on stderr and stamps `extraction: table-flattened` + `fidelity: degraded`**
+  rather than writing a clean-looking clipping whose rows are silently mispaired.
+  Install the [Xpdf command-line tools](https://www.xpdfreader.com/download.html) and
+  re-clip to recover the rows. `-layout` is deliberately **not** used as a fallback:
+  measured on a real standards PDF it stacks consecutive keys into a column while
+  their values drift, which reads as fixed and is not.
 - **OCR fallback (Tesseract).** For a **scanned/image PDF** (no text layer) the
   clipper automatically rasterizes pages with `pdftoppm` and recognizes them with
   **Tesseract** — previously these were just declined. Pass **`--ocr`** to force
@@ -60,12 +84,24 @@ Extraction is tuned for academic PDFs:
 - **Fidelity flag.** Math/symbol fonts (especially in older PDFs) extract lossily —
   `−`→`?`, `‖`→`jj`, superscripts flatten. This **cannot** be fixed without OCR, so
   it is *flagged*: when mangling is detected, the frontmatter gets
-  **`fidelity: degraded`**. Clean captures omit the field.
+  **`fidelity: degraded`**. Clean captures omit the field. The full set of values a
+  clipping can carry is: *(absent)* = high, **`tabular`** = rows reconstructed from
+  layout, **`degraded`** = do not trust verbatim spans. A degraded *assessment*
+  always outranks a tabular one — wrong characters are the worse defect.
+- **Re-assessment cannot clear a table flag.** `refresh-fidelity.mjs` re-derives
+  fidelity from the stored text and drops flags that no longer hold, but a
+  table-derived flag has no basis in the characters (a flattened table reads as
+  clean prose), so clippings carrying `extraction: table-aware` or `table-flattened`
+  are preserved rather than cleared.
 
 ## Steps
 
-1. **Preflight** (once): confirm poppler is installed — `pdftotext -v`. If missing,
-   tell the user to install poppler and stop; do not fabricate content.
+1. **Preflight** (once): confirm `pdftotext` is installed — run `pdftotext -h` and
+   look for a version banner. Use `-h`, **not** `-v`: Xpdf's `pdftotext -v` exits
+   **99**, so an exit-code check reports "not installed" on exactly the builds whose
+   `-table` mode you most want. If it is genuinely missing, tell the user to install
+   the [Xpdf tools](https://www.xpdfreader.com/download.html) (preferred) or poppler,
+   and stop; do not fabricate content.
 2. **Clip** (this is the only writer to `raw/`):
    `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier>`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
@@ -81,6 +117,13 @@ Extraction is tuned for academic PDFs:
    equations/symbols verbatim** — paraphrase them with attribution and verify every
    quoted span against the original PDF (guardrail #5). Note the fidelity ceiling
    on the resulting source page so a reader knows.
+   - **`fidelity: tabular`** means the row pairings were reconstructed from layout.
+     Cell *contents* are verbatim; which cell pairs with which is the reconstruction.
+     Verify any code-to-text pairing against the PDF before a wiki page asserts it,
+     and do not derive counts from it without checking.
+   - **`extraction: table-flattened`** means the rows were **lost** and could not be
+     recovered on this machine. Do not assert any pairing from such a clipping;
+     install the Xpdf tools and re-clip instead.
 
 ## Guardrails
 

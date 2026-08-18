@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { titleFromPdf, pdfClipContent, stripRunningHeadersFooters, assessFidelity } from '../scripts/clip-pdf.mjs';
+import { titleFromPdf, pdfClipContent, stripRunningHeadersFooters, assessFidelity, shouldTryOcr } from '../scripts/clip-pdf.mjs';
 
 test('titleFromPdf humanizes the filename, drops extension', () => {
   assert.equal(titleFromPdf('/a/b/Abdellatif_MultiState_DOT_Cost_Estimation_ML.pdf'),
@@ -126,4 +126,50 @@ test('pdfClipContent stores extracted text as the markdown note, with provenance
   assert.match(body, /quality: high/);
   assert.match(body, /source-hash: [0-9a-f]{64}/);
   assert.ok(body.trimEnd().endsWith('Section 1.'));
+});
+
+test('pdfClipContent stamps fidelity: tabular when rows were reconstructed from layout', () => {
+  // A table read in aligned mode has its pairings RECOVERED, but they were
+  // reconstructed from horizontal position rather than read off a structured
+  // source -- so it is not a bare `high`. Ingest must confirm a pairing before
+  // quoting it as verbatim (issue #66).
+  const rows = '5.35  Describe the steps that Tennessee took to become a state.  G, H, P, T';
+  const c = pdfClipContent({ title: 'T', source: 's', text: rows, extraction: 'table-aware', fidelityFloor: 'tabular' });
+  assert.equal(c.fidelity, 'tabular');
+  assert.match(c.body, /fidelity: tabular/);
+  assert.match(c.body, /extraction: table-aware/);
+});
+
+test('pdfClipContent lets a degraded assessment override the tabular floor', () => {
+  // Mangled glyphs are the stronger warning: a table whose CHARACTERS are wrong
+  // is worse than one whose rows merely need confirming. Precedence must not
+  // depend on which code path ran last.
+  const mangled = 'x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1 g2 ? 1';
+  const c = pdfClipContent({ title: 'T', source: 's', text: mangled, fidelityFloor: 'tabular' });
+  assert.equal(c.fidelity, 'degraded');
+});
+
+test('pdfClipContent honours a degraded floor even when the text assesses clean', () => {
+  // THE BUG. A flattened table is clean-looking prose -- assessFidelity cannot
+  // see the loss, so the floor is the only thing standing between it and a
+  // `fidelity: high` stamp on mispaired rows.
+  const clean = 'Clean flowing prose that assesses perfectly well on every check we run.';
+  const c = pdfClipContent({ title: 'T', source: 's', text: clean, fidelityFloor: 'degraded' });
+  assert.equal(c.fidelity, 'degraded');
+  assert.match(c.body, /fidelity: degraded/);
+});
+
+test('a floored fidelity does not drag the clipping into a pointless OCR run', () => {
+  // shouldTryOcr escalates on `degraded` because a broken FONT is OCR's job.
+  // A flattened TABLE is not: the glyphs are perfect and OCR cannot restore the
+  // row pairing, so escalating would spend hours rasterizing a 250-page PDF to
+  // arrive at the same answer. Gate on the ASSESSED fidelity, not the floored one.
+  const clean = 'Clean flowing prose that assesses perfectly well on every check we run. '.repeat(30);
+  const c = pdfClipContent({ title: 'T', source: 's', text: clean, fidelityFloor: 'degraded' });
+  assert.equal(c.fidelity, 'degraded');
+  assert.equal(c.assessed, 'high');
+  assert.equal(shouldTryOcr(c), false, 'must not OCR a table we simply could not align');
+  // A genuinely broken font still escalates, exactly as before.
+  const mangled = pdfClipContent({ title: 'T', source: 's', text: 'x2 ? 1 y2 ? 1 a2 ? 1 b2 ? 1 c2 ? 1 d2 ? 1 e2 ? 1 f2 ? 1 g2 ? 1' });
+  assert.equal(shouldTryOcr(mangled), true);
 });
