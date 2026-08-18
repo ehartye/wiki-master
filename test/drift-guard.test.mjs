@@ -115,6 +115,33 @@ test('skill argument-hint frontmatter is a string, not a YAML collection', () =>
   assert.deepEqual(bad, [], `argument-hint must be quoted when it starts with [ or {:\n${bad.join('\n')}`);
 });
 
+// A SKILL.md with no frontmatter block at all is not a "no argument-hint" edge
+// case, it is invisible: the skill loader has no name/description to register it
+// under, so it never appears in /skills and can break loading for every OTHER
+// skill in the same scan. This exact bug shipped once (wiki-author/SKILL.md was
+// added with pure body text, no `---` header at all) and went undetected because
+// the check above silently `continue`s past any file with no frontmatter instead
+// of failing on it -- this test closes that gap by asserting every skill has one,
+// with a name matching its own directory (the loader's registration key) and a
+// non-empty description (every existing skill's actual convention, confirmed
+// against skills/wiki-query, skills/wiki-discover, etc. above).
+test('every skills/<name>/SKILL.md has a frontmatter block with name: <name> and a description', () => {
+  const missing = [];
+  const skillsDir = join(ROOT, 'skills');
+  for (const dirName of readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)) {
+    const f = join(skillsDir, dirName, 'SKILL.md');
+    if (!existsSync(f)) continue; // covered separately by the former-commands test
+    const text = readFileSync(f, 'utf8');
+    const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+    if (!fm) { missing.push(`${dirName}/SKILL.md -> no frontmatter block at all`); continue; }
+    const name = fm.match(/^name:[ \t]*(.+)$/m)?.[1]?.trim();
+    const description = fm.match(/^description:[ \t]*(.+)$/m)?.[1]?.trim();
+    if (name !== dirName) missing.push(`${dirName}/SKILL.md -> name: ${JSON.stringify(name)} (expected ${JSON.stringify(dirName)})`);
+    if (!description) missing.push(`${dirName}/SKILL.md -> missing or empty description`);
+  }
+  assert.deepEqual(missing, [], `skill frontmatter drift:\n${missing.join('\n')}`);
+});
+
 test('commands/ is retired — every former op exists as a skill', () => {
   // 0.3.0 migrated commands→skills (Copilot has no commands tier; skills are
   // the portable entry-point both hosts load as /wiki-*). No commands/ dir may

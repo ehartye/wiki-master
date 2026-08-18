@@ -1,3 +1,9 @@
+---
+name: wiki-author
+description: Author original wiki/authored/ content (docs, guides, ADRs, backlog items) with canonical per-kind placement — no re-deriving the convention per project. Use when the user asks to write/update project documentation, a guide, an architecture doc, a decision record, or a backlog item.
+argument-hint: "[what to author, e.g. \"a user guide for sparta-scope\"]"
+---
+
 Load the `wiki-maintainer` skill and follow its **Authoring** workflow — this
 skill exists to make that workflow the thing you reach for by name, the same
 way `/wiki-ingest` is what you reach for to ingest a source, rather than
