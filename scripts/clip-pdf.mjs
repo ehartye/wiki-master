@@ -9,6 +9,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -122,32 +123,71 @@ export function assessFidelity(text) {
 // We store the extracted TEXT as the canonical markdown representation; the
 // binary PDF is never the source-of-truth note, so the vault stays greppable,
 // diffable, and answerable, and `[[note]]` provenance resolves to real markdown.
-export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction } = {}) {
+// `fidelityFloor` carries what the EXTRACTION knows and the text cannot show.
+// assessFidelity reads characters, and a column-flattened table has perfect
+// characters -- clean prose by every check we run -- while its rows are mispaired
+// beyond recovery. Only the code that chose the extraction mode knows that, so it
+// passes a floor down and the stamp can never come out better than the truth.
+// Precedence lives here, not at the call site: a degraded ASSESSMENT (mangled
+// glyphs) always outranks a floor, because wrong characters are the worse defect.
+export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction, fidelityFloor } = {}) {
   const cleaned = stripRunningHeadersFooters(text || '');
   const md = cleaned.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-  const fidelity = assessFidelity(md).degraded ? 'degraded' : 'high';
+  const assessed = assessFidelity(md).degraded ? 'degraded' : 'high';
+  const fidelity = assessed === 'degraded' ? 'degraded' : (fidelityFloor || 'high');
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity, extraction });
-  return { md, wordCount: wordCount(md), fidelity, extraction, hash, body: `${fm}\n\n${md}\n` };
+  return { md, wordCount: wordCount(md), fidelity, assessed, extraction, hash, body: `${fm}\n\n${md}\n` };
 }
 
-// Extract text via poppler's pdftotext. execFileSync (not a shell) resolves the
-// Windows .exe correctly; '-' writes to stdout. We deliberately do NOT pass
-// -layout: it preserves physical layout, which on a two-column paper interleaves
-// the columns line-by-line (unreadable, no traceable verbatim span). Default
-// reading-order mode reads each column top-to-bottom and de-hyphenates line
-// breaks, and still emits form-feeds between pages for header/footer stripping.
-export function pdfToText(pdfPath) {
+// Extract text via pdftotext (Xpdf or poppler). execFileSync (not a shell)
+// resolves the Windows .exe correctly; '-' writes to stdout.
+//
+// `args` carries the reading mode, chosen per document by planExtraction rather
+// than fixed here. Default (no args) is reading-order: it reads each column
+// top-to-bottom and de-hyphenates line breaks, which is what makes a two-column
+// paper quotable -- and what silently destroys a table, since it emits one
+// column-block at a time. Both modes still emit form-feeds between pages, so
+// header/footer stripping applies either way.
+export function pdfToText(pdfPath, args = []) {
   // -enc UTF-8 is mandatory: pdftotext defaults to Latin-1 on some poppler builds,
   // and Node then decodes those bytes as UTF-8, turning every accent/bullet/© into
   // U+FFFD ("Béthune" → "B�thune"). Forcing UTF-8 output makes the decode correct.
-  return execFileSync('pdftotext', ['-q', '-enc', 'UTF-8', pdfPath, '-'], {
+  return execFileSync('pdftotext', ['-q', '-enc', 'UTF-8', ...args, pdfPath, '-'], {
     encoding: 'utf8', maxBuffer: 128 * 1024 * 1024,
   });
 }
 
-function pdftotextReachable() {
-  try { execFileSync('pdftotext', ['-v'], { stdio: 'ignore' }); return true; } catch { return false; }
+// Decide how to read THIS document, and what the resulting clipping may claim.
+// Split from main() so the poppler case -- no `-table`, therefore no faithful
+// reading available -- can be exercised on a machine that does have `-table`.
+export function planExtraction(pdfPath, { caps = pdftotextCapabilities(), detect = detectTabular } = {}) {
+  const tab = detect(pdfPath, { canTable: caps.table });
+  const mode = chooseExtraction({ tabular: Boolean(tab && tab.tabular), canTable: caps.table });
+  return { tab, mode, caps };
+}
+
+// Is this PDF laid out as a TABLE? Read a sample of it both ways and ask whether
+// aligned mode RE-ATTACHES anything (see tabularity). Sampling, not the whole
+// document: two extra full passes over a 250-page PDF just to decide how to read
+// it is pure waste, and the first pages track the whole-document score closely
+// (measured 0.508 vs 0.481 on the reported source PDF).
+//
+// Without `-table` we compare against `-layout` instead. That is a DETECTOR only
+// -- `-layout` mispairs rows and is never used to produce a clipping (see
+// chooseExtraction) -- but it answers "do these short lines re-attach to
+// something?", and that answer is what decides whether the user gets warned.
+//
+// Returns null when the probe cannot run at all, which is NOT the same as
+// "prose": the caller must not read a failed probe as a clean bill of health.
+export function detectTabular(pdfPath, { canTable = pdftotextCapabilities().table } = {}) {
+  const pages = ['-f', '1', '-l', String(SAMPLE_PAGES)];
+  try {
+    return tabularity(
+      pdfToText(pdfPath, pages),
+      pdfToText(pdfPath, [canTable ? '-table' : '-layout', ...pages]),
+    );
+  } catch { return null; }
 }
 
 export function ocrReachable() {
@@ -184,8 +224,13 @@ export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng' } = {}) {
 // yields plenty of words — just corrupted ones — so gating only on "thin" let
 // equation-heavy PDFs through as `degraded` with OCR never attempted (a
 // 34k-word thesis whose every equation decoded to U+FFFD).
+// Gate on the ASSESSED fidelity, never the floored one. OCR's job is a broken
+// FONT, which it can genuinely repair. A table we merely could not align has
+// perfect glyphs, so rasterizing 250 pages would burn hours to reach the same
+// answer -- and preferBetterExtraction, which compares glyph-level problem
+// rates, cannot see row damage and would keep the flattened text regardless.
 export function shouldTryOcr(clip, { thinFloor = THIN_WORD_FLOOR } = {}) {
-  return clip.wordCount < thinFloor || clip.fidelity === 'degraded';
+  return clip.wordCount < thinFloor || (clip.assessed ?? clip.fidelity) === 'degraded';
 }
 
 // Problems per word — replacement chars, glyph-dump (cid:NN) tokens, and mangled
@@ -259,23 +304,32 @@ export function main(argv) {
     console.log('OCR: rasterizing + recognizing pages (this is slow)…');
     clip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
   } else {
+    // Choose the reading mode for THIS document before reading it in full.
+    // Reading-order mode flattens a table column-block-wise and the damage is
+    // invisible downstream, so the choice cannot be a global default (#66).
+    const { tab, mode } = planExtraction(pdfPath);
+    if (mode.warning) console.error(`WARNING: ${mode.warning}`);
+    else if (mode.extraction === 'table-aware') {
+      console.log(`tabular layout detected (${tab.promoted}/${tab.keys} key cells re-attach) — reading with -table`);
+    }
+
     let text;
-    try { text = pdfToText(pdfPath); }
+    try { text = pdfToText(pdfPath, mode.args); }
     catch {
-      if (!pdftotextReachable()) {
-        console.error('pdftotext (poppler) not found. Install poppler: https://poppler.freedesktop.org/');
+      if (!pdftotextPresent()) {
+        console.error('pdftotext not found. Install the Xpdf command-line tools (https://www.xpdfreader.com/download.html) or poppler (https://poppler.freedesktop.org/). Xpdf is preferred: only it provides the -table mode that reads tabular PDFs without destroying row pairings.');
         process.exit(1);
       }
       text = ''; // per-URL extraction failure — fall through to the OCR fallback below
     }
-    clip = pdfClipContent({ title, source, text, quality });
+    clip = pdfClipContent({ title, source, text, quality, extraction: mode.extraction, fidelityFloor: mode.fidelityFloor });
     // Auto-fallback on quantity OR quality: a thin layer means a scanned/image
     // PDF; an abundant-but-degraded layer means a broken/symbol font (equations
     // decoding to U+FFFD). Both are exactly OCR's job. Keep whichever pass reads
     // better so escalation can never make the clipping worse.
     if (shouldTryOcr(clip) && ocrReachable()) {
       console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
-      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
+      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', fidelityFloor: mode.fidelityFloor });
       clip = preferBetterExtraction(clip, oclip);
     }
   }
@@ -307,7 +361,8 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
-  console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${clip.extraction === 'ocr' ? 'OCR' : 'text'})`);
+  const how = clip.extraction === 'ocr' ? 'OCR' : clip.extraction === 'table-aware' ? 'text, table-aware' : 'text';
+  console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${how}${clip.fidelity !== 'high' ? `, fidelity=${clip.fidelity}` : ''})`);
   return { status: 'clipped', slug, file };
 }
 

@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.18.0 — 2026-08-18
+
+### Tabular PDFs no longer claim a fidelity they do not have
+
+`clip-pdf` read every PDF in `pdftotext`'s reading-order mode. That is the right
+choice for a two-column paper and exactly the wrong one for a **table**: reading-order
+emits a table column-block-wise — the whole key column, then the whole value column —
+so every row's key is detached from its value, and the pairing cannot be recovered from
+the output.
+
+The characters all survive, so nothing downstream had any signal. `assessFidelity`
+tests for mangled math, `U+FFFD`, `(cid:NN)` and low alphabetic density; a flattened
+table trips none of them and the clipping was stamped **`fidelity: high`**. Under
+guardrail #5 (clippings win) that is the worst possible failure: a page can state every
+cell correctly while pairing the wrong key to the wrong value — a fidelity failure that
+looks exactly like a fact. Reported as #66, after a human had to hand-write a warning
+onto a wiki page telling readers not to trust its code-to-text pairings.
+
+- **The reading mode is now chosen per document.** The clipper samples the first pages
+  both ways and asks whether aligned mode *re-attaches* anything: a short standalone
+  line that becomes the leading token of a longer line is a key cell rejoining its
+  value. Measured, not guessed — the promotion ratio runs 0.45–0.51 on real standards
+  PDFs and 0.24–0.26 on two-column academic papers, and the threshold sits at 0.35.
+  Prose keeps today's behaviour exactly.
+- **Recovered rows are stamped `extraction: table-aware` + `fidelity: tabular`**, never
+  a bare `high`. The pairings were *reconstructed from horizontal position*, not read
+  off a structured source, so ingest must confirm one before quoting it as verbatim.
+  Verified against an independent `pdfplumber` cell-geometry extraction of the reported
+  source document: every spot-checked standard matched.
+- **`-table` is an Xpdf feature; poppler has no equivalent.** Where it is unavailable
+  the clipper **warns and stamps `extraction: table-flattened` + `fidelity: degraded`**
+  rather than writing a clean-looking clipping with mispaired rows. `-layout` is
+  deliberately *not* used as a fallback: measured on the real source PDF it stacks
+  consecutive keys into a column while their values drift, so `5.36` visually pairs
+  with the tail of `5.35` — confidently wrong, which is strictly worse than visibly
+  broken.
+- **`refresh-fidelity` can no longer erase a table flag.** It re-derives fidelity from
+  the stored text and clears flags that no longer hold — but a table flag has no basis
+  in the characters, so the next maintenance run would have deleted the only record
+  that the rows are untrustworthy. Flags on `table-aware` / `table-flattened` clippings
+  are preserved and reported separately.
+- **Fixed: `pdftotext` presence was mis-probed on every Xpdf install.** The check ran
+  `pdftotext -v`, which exits **99** on Xpdf — so the "not found" path fired on exactly
+  the builds that carry the `-table` mode. Presence is now decided by what the probe
+  *said*, not by its exit code, and the skill's preflight step was corrected too.
+
+Existing clippings are unaffected until re-clipped; `fidelity: tabular` and
+`table-flattened` both surface in `/wiki-triage` as needing a human decision.
+
 ## 0.17.0 — 2026-08-15
 
 ### Project documentation: honest, not just well-placed
