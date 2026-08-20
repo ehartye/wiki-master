@@ -136,7 +136,47 @@ export function tabularity(defaultText, alignedText) {
 // it stacks consecutive keys into a column while their values drift, so 5.36
 // visually pairs with the tail of 5.35's text. That reads as fixed and is not --
 // the same confidently-wrong failure this whole module exists to prevent.
-export function chooseExtraction({ tabular, canTable }) {
+export function chooseExtraction({ tabular, canTable, override = 'auto' }) {
+  // A human override asserts the detector got THIS document wrong. Honor it, and
+  // record on the clipping that the mode was human-chosen -- but do not
+  // manufacture a fidelity claim from a detection the operator just overruled.
+  //
+  // Measured need: the CCSS Progressions volume is a body+margin two-column
+  // layout scoring 0.30-0.37 across its length, i.e. straddling the threshold.
+  // Read with -table it interleaves the margin standards notes into the body
+  // column line-by-line and leaves hyphenated breaks unjoined, so no span of it
+  // is quotable. This also corrects the assumption above that a false positive is
+  // "obviously wrong to any reader" -- it is not. It reads as ordinary prose and
+  // is stamped fidelity: tabular, which a reader takes as a minor caveat rather
+  // than as "every sentence has a margin note spliced into it".
+  if (override === 'reading-order') {
+    if (!tabular) return { args: [] };   // agrees with the detector: nothing to record
+    return {
+      args: [],
+      extraction: 'reading-order-forced',
+      overrode: true,
+      warning:
+        'the tabular detector flagged this document, but --mode=reading-order was given, '
+        + 'so it was read in reading-order mode anyway. Stamped '
+        + 'extraction: reading-order-forced so the clipping records that a human chose '
+        + 'the mode. If this document really is a table, its row pairings are LOST.',
+    };
+  }
+  if (override === 'table') {
+    if (!canTable) {
+      return {
+        args: [],
+        error:
+          '--mode=table was given, but this pdftotext has no -table mode, so aligned '
+          + 'reading is not available at all. Install the Xpdf command-line tools: '
+          + 'https://www.xpdfreader.com/download.html',
+      };
+    }
+    // The tabular floor is a property of the MODE, not of the detection: aligned
+    // output is reconstructed from horizontal position however we got here.
+    return { args: ['-table'], extraction: 'table-aware', fidelityFloor: 'tabular', overrode: !tabular };
+  }
+
   if (!tabular) return { args: [] };
   if (canTable) return { args: ['-table'], extraction: 'table-aware', fidelityFloor: 'tabular' };
   return {
@@ -149,5 +189,84 @@ export function chooseExtraction({ tabular, canTable }) {
       + 'fidelity: degraded -- do not trust row pairings in this clipping. Install the '
       + 'Xpdf command-line tools (which provide -table) and re-clip: '
       + 'https://www.xpdfreader.com/download.html',
+  };
+}
+
+export const READING_MODES = ['auto', 'reading-order', 'table'];
+
+// The reading mode, from argv. 'auto' (the default) keeps the detector in charge.
+//
+// An unknown value THROWS rather than falling back to auto. Falling back is the
+// same class of failure the rest of this module exists to prevent: the operator
+// believes they overrode the detector, the clipping was produced the other way,
+// and nothing on the page says so.
+export function parseMode(argv = []) {
+  const arg = (argv || []).find((a) => String(a).startsWith('--mode='));
+  if (!arg) return 'auto';
+  const mode = arg.slice('--mode='.length);
+  if (!READING_MODES.includes(mode)) {
+    throw new Error(`unknown reading mode: ${mode} (expected ${READING_MODES.join(' | ')})`);
+  }
+  return mode;
+}
+
+// Dependency reporting.
+//
+// A missing tool used to be invisible: ocrReachable() returned false and the run
+// carried on, so a scanned PDF was declined with a reason that blamed the PDF
+// ("thin text (scanned/encrypted; OCR unavailable or also failed)") for what was
+// actually an uninstalled Tesseract -- and that decline carried a 180-day TTL.
+// State the CONSEQUENCE, not the package name: "missing tesseract" means nothing
+// to a reader; "scanned PDFs cannot be read at all" is the fact they act on.
+export function dependencyReport({ pdftotext, table, pdftoppm, tesseract } = {}) {
+  const missing = [];
+  const lines = [];
+
+  if (!pdftotext) {
+    missing.push('pdftotext');
+    lines.push(
+      'FATAL: pdftotext is not installed -- no PDF can be clipped at all.',
+      '       Install the Xpdf command-line tools (preferred, provides -table):',
+      '         https://www.xpdfreader.com/download.html',
+      '       or poppler: https://poppler.freedesktop.org/',
+    );
+  } else if (!table) {
+    lines.push(
+      'DEGRADED: this pdftotext has no -table mode (poppler build).',
+      "          Tabular PDFs lose every row pairing -- each row's key is detached",
+      '          from its value -- and the clipping is stamped fidelity: degraded.',
+      '          Install the Xpdf tools to recover them:',
+      '            https://www.xpdfreader.com/download.html',
+    );
+  }
+
+  if (!pdftoppm) {
+    missing.push('pdftoppm');
+    lines.push(
+      'DEGRADED: pdftoppm (poppler) is not installed -- OCR cannot rasterize pages.',
+      '          Scanned/image PDFs cannot be read at all, and a broken symbol font',
+      '          cannot be recovered. Install poppler:',
+      '            winget install oschwartz10612.Poppler',
+    );
+  }
+  if (!tesseract) {
+    missing.push('tesseract');
+    lines.push(
+      'DEGRADED: tesseract is not installed -- the OCR fallback is unavailable.',
+      '          Scanned/image PDFs cannot be read at all, and a PDF whose math font',
+      '          decodes to garbage cannot be escalated to OCR. Install it:',
+      '            winget install UB-Mannheim.TesseractOCR',
+      '            https://github.com/UB-Mannheim/tesseract/wiki',
+    );
+  }
+
+  const ocr = Boolean(pdftoppm && tesseract);
+  return {
+    ok: missing.length === 0 && Boolean(table),
+    fatal: !pdftotext,
+    ocr,
+    table: Boolean(table),
+    missing,
+    lines,
   };
 }

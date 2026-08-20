@@ -8,6 +8,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -31,10 +32,10 @@ export function titleFromDocx(docxPath) {
 // clip-pdf's pdfClipContent, minus the PDF-only concerns: a .docx has no fixed
 // pages (so no running header/footer to strip) and pandoc reads its XML directly
 // (so there is no math-font mangling to flag as fidelity: degraded).
-export function docxClipContent({ title, source, text, quality = 'medium', created = today() } = {}) {
+export function docxClipContent({ title, source, text, quality = 'medium', created = today(), topic } = {}) {
   const md = String(text || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
-  const fm = buildFrontmatter({ title, source, created, quality, hash });
+  const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };
 }
 
@@ -57,13 +58,21 @@ function pandocReachable() {
 export function main(argv) {
   const docxPath = argv[0];
   if (!docxPath) {
-    console.error('usage: clip-docx.mjs <file.docx> [--source="<url-or-path>"] [--quality=high|medium|low] [--decline="reason"]');
+    console.error('usage: clip-docx.mjs <file.docx> [--source="<url-or-path>"] [--quality=high|medium|low]');
+    console.error('                           [--topic="<research topic>"] [--decline="reason"]');
+    console.error('');
+    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
+    console.error('           without it, /wiki-triage can never group this clipping by run.');
     process.exit(2);
   }
   const srcArg = argv.find((a) => a.startsWith('--source='));
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : docxPath;
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
+  // Attribution is recorded at clip time or never: /wiki-triage can only group a
+  // clipping under its research run if the run stamped one in. There is no
+  // retro-fit, so a missing --topic is a permanent Unattributed row.
+  const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
 
@@ -103,7 +112,7 @@ export function main(argv) {
   }
 
   const title = titleFromDocx(docxPath);
-  const clip = docxClipContent({ title, source, text, quality });
+  const clip = docxClipContent({ title, source, text, quality, topic });
 
   if (clip.wordCount < THIN_WORD_FLOOR) {
     recordDecline(vaultPath, source, 'thin text (empty/near-empty docx)');

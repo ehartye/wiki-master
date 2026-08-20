@@ -1,5 +1,92 @@
 # Changelog
 
+## 0.20.0 — 2026-08-20
+
+### Every clipper takes `--topic`, not just the HTML one
+
+`clip.mjs` has carried `--topic` since topic attribution landed. The binary-path
+clippers never did — so a research run that clipped a PDF, a Word file or a
+spreadsheet produced clippings with no `topic:` frontmatter, and `/wiki-triage`
+filed every one of them under **Unattributed**.
+
+The cost is not cosmetic, because **topic is recorded going forward only and no tool
+can retro-fit it**. Attribution is captured at clip time or lost permanently, and the
+loss is silent: the clip succeeds, the row just never joins its run. A PDF-heavy topic
+routes most of its candidates away from `clip.mjs`, which is exactly when the gap
+bites hardest — one measured run lost attribution on **16 of 41 clippings (39%)**
+this way, and those rows cannot be repaired.
+
+`clip-pdf.mjs`, `clip-docx.mjs` and `clip-xlsx.mjs` now accept `--topic` and thread it
+into frontmatter through the same `buildFrontmatter` they already shared, so the
+frontmatter contract is unchanged — an absent topic and a blank one remain one state,
+and interior whitespace is normalized so `"BPD  research"` and `"bpd research"` stay
+one triage group.
+
+Flag parsing moved into `lib/topic.mjs` as `parseTopicArg`, giving it a single owner
+across all four clippers. That closes a latent truncation bug on the way: the previous
+inline parse in one script would have been fine, but `split('=')[1]` — the idiom used
+for every other flag in these scripts — silently cuts `--topic="cost=benefit framing"`
+down to `cost`. `parseTopicArg` rejoins on `=`.
+
+The skills were the other half of the defect, and are updated too: `/clip-pdf` and
+`/clip-docx` now document the flag in their argument hints and clip steps, and
+`/wiki-discover`'s Phase 3 spells out that "every clip in the run" includes the
+non-HTML paths, with the commands for each. A script gaining a flag changes nothing
+if the instructions never tell the agent to pass it.
+
+`clip-and-repoint.mjs` deliberately does **not** take `--topic`: it is a repair pass
+over binaries already in the vault, with no research run behind it, and an invented
+topic is worse than none — it files a row under a heading the user has already
+worked through.
+
+
+## 0.19.0 — 2026-08-19
+
+### `clip-pdf` yells when its toolchain is incomplete
+
+A missing external tool used to be invisible. `ocrReachable()` returned `false`, the
+run carried on, and the consequence surfaced later disguised as a fact about the
+document. `clip-pdf` now probes every tool it needs and prints a banner on **every**
+run when one is missing, naming the capability lost rather than the package: not
+"tesseract missing" but "scanned/image PDFs cannot be read at all". `--doctor` runs
+the same probe on its own. A missing `pdftotext` is fatal and exits; the rest are
+degradations.
+
+### A missing OCR toolchain is no longer recorded as a decline
+
+This is the bug the banner was hiding. A thin extraction was declined as
+`thin text (scanned/encrypted; OCR unavailable or also failed)` whether OCR had run
+and failed or had never been installed — and a decline carries a 180-day TTL. The two
+cases are opposites: one is a finding about the PDF, the other is a fact about the
+machine, and only the first justifies suppressing a retry. A thin extraction with no
+OCR toolchain now returns `ocr-unavailable`, records **no** decline, and says what to
+install. (One casualty is already in the wild: `army.mil`'s AFT_Scoring_Scales PDF,
+declined 2026-08-10 by a run that had no Tesseract. Re-clip it once OCR is installed.)
+
+### `--mode` overrides the reading-mode detector
+
+0.18.0 added per-document routing between reading-order and aligned (`-table`)
+extraction. The detector is a heuristic on a continuum and it has a measured
+false-positive class: **a body column with margin annotations beside it**. The CCSS
+Progressions volume scores 0.30–0.37 against a 0.35 threshold along its whole length,
+so it trips as tabular; read with `-table` it splices each margin standards note into
+the body line beside it and leaves hyphenated breaks unjoined, leaving no quotable
+span anywhere in a 637k-word document.
+
+0.18.0's own note that a false positive is "ugly and obviously wrong to any reader"
+turns out not to hold. It reads as ordinary prose and is stamped only
+`fidelity: tabular`, which a reader takes as a minor caveat rather than as "every
+sentence has a margin note spliced into it". That comment is corrected in place.
+
+`--mode=auto|reading-order|table` settles it. An override that **diverges** from the
+detector is recorded rather than silent — the clipping is stamped
+`extraction: reading-order-forced` and the run warns — because a human override
+asserts the detector was wrong about this document, which is a provenance fact a
+later reader needs. An override that agrees with the detector is a no-op and is not
+annotated, so the common case stays byte-identical. An unknown `--mode=` value is an
+error, and `--mode=table` without a `-table`-capable `pdftotext` is refused rather
+than quietly downgraded.
+
 ## 0.18.1 — 2026-08-18
 
 ### Fix: wiki-author/SKILL.md was missing its frontmatter entirely

@@ -1,7 +1,7 @@
 ---
 name: clip-pdf
 description: Clip a PDF (local file or downloaded paper) into the wiki as a Markdown clipping — extract its text and store the MD representation, never the binary PDF, so provenance resolves to real notes. Use when a source is a PDF that /wiki-discover's HTML clipper (Defuddle) cannot handle.
-argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low]"
+argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/clip-pdf.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
@@ -96,18 +96,31 @@ Extraction is tuned for academic PDFs:
 
 ## Steps
 
-1. **Preflight** (once): confirm `pdftotext` is installed — run `pdftotext -h` and
-   look for a version banner. Use `-h`, **not** `-v`: Xpdf's `pdftotext -v` exits
-   **99**, so an exit-code check reports "not installed" on exactly the builds whose
-   `-table` mode you most want. If it is genuinely missing, tell the user to install
-   the [Xpdf tools](https://www.xpdfreader.com/download.html) (preferred) or poppler,
-   and stop; do not fabricate content.
+1. **Preflight** (once): `node ../../scripts/clip-pdf.mjs --doctor`. It probes every
+   external tool and prints what each missing one costs you; it is silent-and-OK only
+   when all four are present. The clipper also prints this banner on **every** run
+   when something is missing, so a degraded toolchain cannot go unnoticed. A missing
+   `pdftotext` is fatal and the clipper exits — do not fabricate content. The rest are
+   degradations: no `-table` loses table row pairings, and no `pdftoppm`/`tesseract`
+   means scanned PDFs cannot be read at all.
 2. **Clip** (this is the only writer to `raw/`):
-   `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier>`
+   `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local PDF and the file path is recorded as the source.
-   - A `thin` or `failed` result means the PDF is scanned/encrypted — report it for
-     manual OCR; do not invent the text.
+   - **`--topic` whenever this clip belongs to a research run** — pass the topic
+     string `/wiki-discover` was given, identical across every clip in the run.
+     It is what lets `/wiki-triage` group the run's leftovers together. **Topic is
+     recorded going forward only: there is no tool that can retro-fit it**, so a
+     clip made without it is an *Unattributed* triage row permanently. Omit it
+     only for a one-off clip with no research run behind it — an invented topic
+     is worse than none, because it files the row under a heading the user has
+     already worked through.
+   - `--mode=auto|reading-order|table` overrides the reading-mode detector for a
+     document it gets wrong. See **Overriding the reading mode** below.
+   - A `thin` result means the PDF is scanned/encrypted and OCR also failed — a
+     decline is recorded. An `ocr-unavailable` result means the OCR toolchain is
+     missing, so **nothing was learned about the PDF** — no decline is recorded;
+     install the tools and re-clip. Never invent the text either way.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    that the extracted text is real prose, not garbled ligatures. `pdftotext`
    output is plain text — light and lossy on tables/figures.
@@ -124,6 +137,46 @@ Extraction is tuned for academic PDFs:
    - **`extraction: table-flattened`** means the rows were **lost** and could not be
      recovered on this machine. Do not assert any pairing from such a clipping;
      install the Xpdf tools and re-clip instead.
+
+## Overriding the reading mode
+
+The detector is a heuristic on a continuum, and it has a measured false-positive
+class: **a document with margin annotations beside a body column**. The CCSS
+Progressions volume scores 0.30–0.37 against a 0.35 threshold along its whole
+length, so it trips as tabular. Read with `-table` it splices each margin standards
+note into the body line beside it and leaves hyphenated breaks unjoined — no span
+of it is quotable, yet it reads as ordinary prose and is stamped only
+`fidelity: tabular`, which looks like a minor caveat. **Assume neither mode is
+right until you have looked at the output.**
+
+```bash
+node ../../scripts/clip-pdf.mjs "<file.pdf>" --mode=reading-order --source="<url>"
+```
+
+- `auto` (default) — the detector chooses.
+- `reading-order` — force reading-order. Correct for prose, two-column papers, and
+  body+margin layouts. Joins hyphenated line breaks; reads each column whole.
+- `table` — force aligned reading. Correct for a real table. Always floors fidelity
+  at `tabular`, because aligned output is reconstructed from horizontal position
+  however you arrived at it.
+
+An override that **diverges** from the detector is recorded, not silent: the
+clipping is stamped `extraction: reading-order-forced` and the run warns on stderr.
+An override that agrees with the detector is a no-op and is not annotated. An
+unknown `--mode=` value is an error, and `--mode=table` on a pdftotext without
+`-table` is refused rather than quietly downgraded — believing you forced a mode
+that was not applied is the failure this whole module exists to prevent.
+
+**How to tell which mode a document wants** — extract two pages both ways and look:
+
+```bash
+pdftotext -enc UTF-8 -f 40 -l 41 "<file.pdf>" -            # reading-order
+pdftotext -enc UTF-8 -f 40 -l 41 -table "<file.pdf>" -     # aligned
+```
+
+If aligned mode puts *unrelated* text on the same line, it is a two-column or
+margin layout — use `reading-order`. If reading-order emits a whole key column
+followed by a whole value column, it is a table — use `table`.
 
 ## Guardrails
 

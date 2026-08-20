@@ -9,6 +9,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -27,10 +28,10 @@ export function titleFromXlsx(xlsxPath) {
 // Build the clipping note. Pure: no IO, no converters — the testable core. Mirrors
 // docxClipContent. A spreadsheet's content is its tables, so the markdown table is
 // the canonical representation; the binary workbook never enters the vault.
-export function xlsxClipContent({ title, source, text, quality = 'medium', created = today() } = {}) {
+export function xlsxClipContent({ title, source, text, quality = 'medium', created = today(), topic } = {}) {
   const md = String(text || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
-  const fm = buildFrontmatter({ title, source, created, quality, hash });
+  const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };
 }
 
@@ -61,13 +62,21 @@ function sofficeReachable() {
 export function main(argv) {
   const xlsxPath = argv[0];
   if (!xlsxPath) {
-    console.error('usage: clip-xlsx.mjs <file.xlsx> [--source="<url-or-path>"] [--quality=high|medium|low] [--decline="reason"]');
+    console.error('usage: clip-xlsx.mjs <file.xlsx> [--source="<url-or-path>"] [--quality=high|medium|low]');
+    console.error('                           [--topic="<research topic>"] [--decline="reason"]');
+    console.error('');
+    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
+    console.error('           without it, /wiki-triage can never group this clipping by run.');
     process.exit(2);
   }
   const srcArg = argv.find((a) => a.startsWith('--source='));
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : xlsxPath;
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
+  // Attribution is recorded at clip time or never: /wiki-triage can only group a
+  // clipping under its research run if the run stamped one in. There is no
+  // retro-fit, so a missing --topic is a permanent Unattributed row.
+  const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
 
@@ -106,7 +115,7 @@ export function main(argv) {
   }
 
   const title = titleFromXlsx(xlsxPath);
-  const clip = xlsxClipContent({ title, source, text, quality });
+  const clip = xlsxClipContent({ title, source, text, quality, topic });
 
   if (clip.wordCount < THIN_WORD_FLOOR) {
     recordDecline(vaultPath, source, 'thin content (empty/near-empty workbook)');

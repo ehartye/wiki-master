@@ -84,6 +84,23 @@ source, or one run becomes several groups. The flag feeds both places a topic
 can land: the clipping's frontmatter when the clip succeeds, and the triage log
 when it fails, so you never have to know which happened.
 
+**"Every clip" includes the non-HTML ones.** A candidate that is a PDF, a Word
+file or a spreadsheet does not go through `clip.mjs` — it goes through
+`clip-pdf.mjs`, `clip-docx.mjs` or `clip-xlsx.mjs` (see the `/clip-pdf` and
+`/clip-docx` skills), and **every one of those takes `--topic` too**:
+
+```bash
+node ../../scripts/clip-pdf.mjs  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>"
+node ../../scripts/clip-docx.mjs "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>"
+node ../../scripts/clip-xlsx.mjs "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
+```
+
+Forgetting it on the binary paths is the failure mode this run is most likely to
+hit, because a PDF-heavy topic routes most of its clips away from `clip.mjs`. One
+measured run lost attribution on **16 of 41 clippings (39%)** exactly this way.
+**Topic is recorded going forward only and nothing can retro-fit it**, so those
+rows are *Unattributed* in triage permanently — the loss is silent and final.
+
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
 `topic`, `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
