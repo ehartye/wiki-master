@@ -87,6 +87,26 @@ annotated, so the common case stays byte-identical. An unknown `--mode=` value i
 error, and `--mode=table` without a `-table`-capable `pdftotext` is refused rather
 than quietly downgraded.
 
+## 0.18.1 — 2026-08-18
+
+### Fix: wiki-author/SKILL.md was missing its frontmatter entirely
+
+`skills/wiki-author/SKILL.md` was created with pure body text and no `---` YAML
+header at all — every other skill declares `name:`/`description:` (optionally
+`argument-hint:`), but this one went straight into prose. Without that header the
+skill loader has no name/description to register it under, so `wiki-author` never
+appeared as an available skill, and reportedly caused `/skills` (and skill loading
+on session start) to error while scanning the full skill set.
+
+The existing drift-guard test for skill frontmatter silently `continue`d past any
+file with no frontmatter block instead of failing on it — a missing-frontmatter
+file looked identical to one with a frontmatter block simply lacking an
+`argument-hint`, which is valid. Added a new test asserting every
+`skills/<name>/SKILL.md` has a frontmatter block with `name: <name>` (matching its
+own directory) and a non-empty `description`, closing the gap that let this ship
+undetected. Verified independently with a real, spec-conformant YAML parser
+(PyYAML) against all 15 skill files.
+
 ## 0.18.0 — 2026-08-18
 
 ### Tabular PDFs no longer claim a fidelity they do not have
