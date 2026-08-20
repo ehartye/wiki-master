@@ -9,7 +9,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
-import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
+import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -161,9 +161,9 @@ export function pdfToText(pdfPath, args = []) {
 // Decide how to read THIS document, and what the resulting clipping may claim.
 // Split from main() so the poppler case -- no `-table`, therefore no faithful
 // reading available -- can be exercised on a machine that does have `-table`.
-export function planExtraction(pdfPath, { caps = pdftotextCapabilities(), detect = detectTabular } = {}) {
+export function planExtraction(pdfPath, { caps = pdftotextCapabilities(), detect = detectTabular, override = 'auto' } = {}) {
   const tab = detect(pdfPath, { canTable: caps.table });
-  const mode = chooseExtraction({ tabular: Boolean(tab && tab.tabular), canTable: caps.table });
+  const mode = chooseExtraction({ tabular: Boolean(tab && tab.tabular), canTable: caps.table, override });
   return { tab, mode, caps };
 }
 
@@ -188,6 +188,26 @@ export function detectTabular(pdfPath, { canTable = pdftotextCapabilities().tabl
       pdfToText(pdfPath, [canTable ? '-table' : '-layout', ...pages]),
     );
   } catch { return null; }
+}
+
+// Probe each OCR tool separately. ocrReachable() collapses both into one boolean,
+// which is all the extraction path needs but is useless to a human: "OCR is off"
+// does not say which of two packages to install.
+export function ocrToolPresence() {
+  const present = (cmd, args) => {
+    try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; }
+    catch (e) { return e.code !== 'ENOENT'; }   // a nonzero -v exit still means installed
+  };
+  return { pdftoppm: present('pdftoppm', ['-v']), tesseract: present('tesseract', ['--version']) };
+}
+
+// The whole external-toolchain picture, in the shape dependencyReport wants.
+export function toolchainReport() {
+  const caps = pdftotextCapabilities();
+  const ocr = ocrToolPresence();
+  return dependencyReport({
+    pdftotext: pdftotextPresent(), table: caps.table, pdftoppm: ocr.pdftoppm, tesseract: ocr.tesseract,
+  });
 }
 
 export function ocrReachable() {
@@ -256,12 +276,75 @@ export function preferBetterExtraction(textClip, ocrClip, { thinFloor = THIN_WOR
   return problemRate(ocrClip) < problemRate(textClip) ? ocrClip : textClip;
 }
 
+// A thin extraction has two very different causes and they must not share a fate.
+//
+// If OCR ran and still could not read the document, the PDF really is scanned or
+// encrypted beyond us: a decline is the right record, and its 180-day TTL stops
+// us retrying a document that cannot change.
+//
+// If OCR was never reachable, we learned NOTHING about the PDF -- only about this
+// machine. Recording a decline there buries a recoverable source behind a
+// judgement nobody made, on a machine that may be the only one missing the tool
+// ("transient failures are not declines"). One such casualty is already in the
+// wild: army.mil's AFT_Scoring_Scales PDF, declined 2026-08-10 by a run that had
+// no Tesseract installed.
+export function thinOutcome({ ocrAvailable } = {}) {
+  if (ocrAvailable) {
+    return {
+      decline: true,
+      status: 'thin',
+      reason: 'thin text (scanned/encrypted; OCR ran and also failed)',
+      message: 'thin content after OCR (decline recorded)',
+    };
+  }
+  return {
+    decline: false,
+    status: 'ocr-unavailable',
+    reason: null,
+    message:
+      'thin text layer AND no OCR toolchain on this machine -- so nothing was learned '
+      + 'about this PDF, only about this install. NOT recorded as a decline. Install '
+      + 'tesseract + pdftoppm and re-clip:\n'
+      + '  winget install UB-Mannheim.TesseractOCR\n'
+      + '  winget install oschwartz10612.Poppler',
+  };
+}
+
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
-    console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low] [--ocr] [--ocr-lang=eng] [--decline="reason"]');
+    console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low]');
+    console.error('                          [--mode=auto|reading-order|table] [--ocr] [--ocr-lang=eng]');
+    console.error('                          [--decline="reason"] [--doctor]');
+    console.error('');
+    console.error('  --mode   reading mode. auto (default) lets the tabular detector choose;');
+    console.error('           reading-order and table override it when it gets a document wrong.');
+    console.error('  --doctor report which external tools are installed, then exit.');
     process.exit(2);
   }
+  let readingMode;
+  try { readingMode = parseMode(argv); }
+  catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+
+  // Yell about the toolchain BEFORE doing any work, on every run. A missing tool
+  // silently downgrades what a clipping can ever be, and the downgrade is
+  // invisible in the output -- so it has to be loud at the top, not inferred
+  // later from a clipping that merely looks thin.
+  const deps = toolchainReport();
+  if (argv.includes('--doctor')) {
+    console.log(deps.ok ? 'clip-pdf toolchain: OK (pdftotext +table, pdftoppm, tesseract)' : deps.lines.join('\n'));
+    return { status: 'doctor', ok: deps.ok, missing: deps.missing };
+  }
+  if (!deps.ok) {
+    console.error('');
+    console.error('=========================== clip-pdf toolchain ===========================');
+    for (const l of deps.lines) console.error(l);
+    console.error('  (run `clip-pdf.mjs --doctor` to re-check)');
+    console.error('=========================================================================');
+    console.error('');
+  }
+  if (deps.fatal) process.exit(1);
+
   const srcArg = argv.find((a) => a.startsWith('--source='));
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : pdfPath;
   const qArg = argv.find((a) => a.startsWith('--quality='));
@@ -307,9 +390,15 @@ export function main(argv) {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
     // invisible downstream, so the choice cannot be a global default (#66).
-    const { tab, mode } = planExtraction(pdfPath);
+    const { tab, mode } = planExtraction(pdfPath, { override: readingMode });
+    // A mode we cannot honor is refused outright: producing a clipping in the
+    // OTHER mode while the operator believes they forced this one is exactly the
+    // silent-wrongness this module refuses everywhere else.
+    if (mode.error) { console.error(`ERROR: ${mode.error}`); process.exit(1); }
     if (mode.warning) console.error(`WARNING: ${mode.warning}`);
-    else if (mode.extraction === 'table-aware') {
+    else if (mode.overrode) {
+      console.log(`--mode=${readingMode}: overriding the detector for this document`);
+    } else if (mode.extraction === 'table-aware') {
       console.log(`tabular layout detected (${tab.promoted}/${tab.keys} key cells re-attach) — reading with -table`);
     }
 
@@ -335,9 +424,11 @@ export function main(argv) {
   }
 
   if (clip.wordCount < THIN_WORD_FLOOR) {
-    recordDecline(vaultPath, source, 'thin text (scanned/encrypted; OCR unavailable or also failed)');
-    console.log(`thin content (OCR unavailable/failed; decline recorded): ${pdfPath}`);
-    return { status: 'thin' };
+    const outcome = thinOutcome({ ocrAvailable: ocrReachable() });
+    if (outcome.decline) recordDecline(vaultPath, source, outcome.reason);
+    console.log(`thin text layer: ${pdfPath}`);
+    console.log(outcome.message);
+    return { status: outcome.status };
   }
 
   const dir = join(vaultPath, 'raw', 'clippings');
@@ -361,7 +452,10 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
-  const how = clip.extraction === 'ocr' ? 'OCR' : clip.extraction === 'table-aware' ? 'text, table-aware' : 'text';
+  const how = clip.extraction === 'ocr' ? 'OCR'
+    : clip.extraction === 'table-aware' ? 'text, table-aware'
+    : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'
+    : 'text';
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${how}${clip.fidelity !== 'high' ? `, fidelity=${clip.fidelity}` : ''})`);
   return { status: 'clipped', slug, file };
 }
