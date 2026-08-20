@@ -1,7 +1,7 @@
 ---
 name: clip-docx
 description: Clip a Word document (.docx/.doc, local file or downloaded paper) into the wiki as a Markdown clipping — extract its text with pandoc and store the MD representation, never the binary document, so provenance resolves to real notes. Use when a source is a Word file that /wiki-discover's HTML clipper (Defuddle) cannot handle and clip-pdf does not apply.
-argument-hint: "<path/to/file.docx> [--source=\"<url>\"] [--quality=high|medium|low]"
+argument-hint: "<path/to/file.docx> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/clip-docx.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
@@ -47,9 +47,15 @@ It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
    tell the user to install pandoc (https://pandoc.org/installing.html) and stop;
    do not fabricate content.
 2. **Clip** (this is the only writer to `raw/` for Word docs):
-   `node ../../scripts/clip-docx.mjs "<path/to/file.docx>" --source="<canonical-url-if-any>" --quality=<tier>`
+   `node ../../scripts/clip-docx.mjs "<path/to/file.docx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local file and the file path is recorded as the source.
+   - **`--topic` whenever this clip belongs to a research run** — pass the topic
+     string `/wiki-discover` was given, identical across every clip in the run,
+     so `/wiki-triage` can group the run's leftovers together. **Topic is recorded
+     going forward only and no tool can retro-fit it**, so a clip made without it
+     is an *Unattributed* triage row permanently. Omit it only when there is no
+     research run behind the clip; never invent one.
    - A `thin` or `failed` result means the document is empty/corrupt/protected —
      report it for manual handling; do not invent the text.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check

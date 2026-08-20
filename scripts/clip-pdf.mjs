@@ -9,6 +9,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { parseTopicArg } from './lib/topic.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -130,13 +131,13 @@ export function assessFidelity(text) {
 // passes a floor down and the stamp can never come out better than the truth.
 // Precedence lives here, not at the call site: a degraded ASSESSMENT (mangled
 // glyphs) always outranks a floor, because wrong characters are the worse defect.
-export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction, fidelityFloor } = {}) {
+export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction, fidelityFloor, topic } = {}) {
   const cleaned = stripRunningHeadersFooters(text || '');
   const md = cleaned.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const assessed = assessFidelity(md).degraded ? 'degraded' : 'high';
   const fidelity = assessed === 'degraded' ? 'degraded' : (fidelityFloor || 'high');
   const hash = createHash('sha256').update(md).digest('hex');
-  const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity, extraction });
+  const fm = buildFrontmatter({ title, source, created, quality, hash, fidelity, extraction, topic });
   return { md, wordCount: wordCount(md), fidelity, assessed, extraction, hash, body: `${fm}\n\n${md}\n` };
 }
 
@@ -315,10 +316,12 @@ export function main(argv) {
   if (!pdfPath) {
     console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low]');
     console.error('                          [--mode=auto|reading-order|table] [--ocr] [--ocr-lang=eng]');
-    console.error('                          [--decline="reason"] [--doctor]');
+    console.error('                          [--topic="<research topic>"] [--decline="reason"] [--doctor]');
     console.error('');
     console.error('  --mode   reading mode. auto (default) lets the tabular detector choose;');
     console.error('           reading-order and table override it when it gets a document wrong.');
+    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
+    console.error('           without it, /wiki-triage can never group this clipping by run.');
     console.error('  --doctor report which external tools are installed, then exit.');
     process.exit(2);
   }
@@ -349,6 +352,10 @@ export function main(argv) {
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : pdfPath;
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
+  // Attribution is recorded at clip time or never: /wiki-triage can only group a
+  // clipping under its research run if the run stamped one in. There is no
+  // retro-fit, so a missing --topic is a permanent Unattributed row.
+  const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
 
@@ -385,7 +392,7 @@ export function main(argv) {
       process.exit(1);
     }
     console.log('OCR: rasterizing + recognizing pages (this is slow)…');
-    clip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr' });
+    clip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', topic });
   } else {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
@@ -411,14 +418,14 @@ export function main(argv) {
       }
       text = ''; // per-URL extraction failure — fall through to the OCR fallback below
     }
-    clip = pdfClipContent({ title, source, text, quality, extraction: mode.extraction, fidelityFloor: mode.fidelityFloor });
+    clip = pdfClipContent({ title, source, text, quality, extraction: mode.extraction, fidelityFloor: mode.fidelityFloor, topic });
     // Auto-fallback on quantity OR quality: a thin layer means a scanned/image
     // PDF; an abundant-but-degraded layer means a broken/symbol font (equations
     // decoding to U+FFFD). Both are exactly OCR's job. Keep whichever pass reads
     // better so escalation can never make the clipping worse.
     if (shouldTryOcr(clip) && ocrReachable()) {
       console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
-      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', fidelityFloor: mode.fidelityFloor });
+      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', fidelityFloor: mode.fidelityFloor, topic });
       clip = preferBetterExtraction(clip, oclip);
     }
   }

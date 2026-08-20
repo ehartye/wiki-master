@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.20.0 — 2026-08-20
+
+### Every clipper takes `--topic`, not just the HTML one
+
+`clip.mjs` has carried `--topic` since topic attribution landed. The binary-path
+clippers never did — so a research run that clipped a PDF, a Word file or a
+spreadsheet produced clippings with no `topic:` frontmatter, and `/wiki-triage`
+filed every one of them under **Unattributed**.
+
+The cost is not cosmetic, because **topic is recorded going forward only and no tool
+can retro-fit it**. Attribution is captured at clip time or lost permanently, and the
+loss is silent: the clip succeeds, the row just never joins its run. A PDF-heavy topic
+routes most of its candidates away from `clip.mjs`, which is exactly when the gap
+bites hardest — one measured run lost attribution on **16 of 41 clippings (39%)**
+this way, and those rows cannot be repaired.
+
+`clip-pdf.mjs`, `clip-docx.mjs` and `clip-xlsx.mjs` now accept `--topic` and thread it
+into frontmatter through the same `buildFrontmatter` they already shared, so the
+frontmatter contract is unchanged — an absent topic and a blank one remain one state,
+and interior whitespace is normalized so `"BPD  research"` and `"bpd research"` stay
+one triage group.
+
+Flag parsing moved into `lib/topic.mjs` as `parseTopicArg`, giving it a single owner
+across all four clippers. That closes a latent truncation bug on the way: the previous
+inline parse in one script would have been fine, but `split('=')[1]` — the idiom used
+for every other flag in these scripts — silently cuts `--topic="cost=benefit framing"`
+down to `cost`. `parseTopicArg` rejoins on `=`.
+
+The skills were the other half of the defect, and are updated too: `/clip-pdf` and
+`/clip-docx` now document the flag in their argument hints and clip steps, and
+`/wiki-discover`'s Phase 3 spells out that "every clip in the run" includes the
+non-HTML paths, with the commands for each. A script gaining a flag changes nothing
+if the instructions never tell the agent to pass it.
+
+`clip-and-repoint.mjs` deliberately does **not** take `--topic`: it is a repair pass
+over binaries already in the vault, with no research run behind it, and an invented
+topic is worse than none — it files a row under a heading the user has already
+worked through.
+
+
 ## 0.19.0 — 2026-08-19
 
 ### `clip-pdf` yells when its toolchain is incomplete

@@ -1,7 +1,7 @@
 ---
 name: clip-pdf
 description: Clip a PDF (local file or downloaded paper) into the wiki as a Markdown clipping — extract its text and store the MD representation, never the binary PDF, so provenance resolves to real notes. Use when a source is a PDF that /wiki-discover's HTML clipper (Defuddle) cannot handle.
-argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low]"
+argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
 > **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/clip-pdf.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
@@ -104,9 +104,17 @@ Extraction is tuned for academic PDFs:
    degradations: no `-table` loses table row pairings, and no `pdftoppm`/`tesseract`
    means scanned PDFs cannot be read at all.
 2. **Clip** (this is the only writer to `raw/`):
-   `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier>`
+   `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local PDF and the file path is recorded as the source.
+   - **`--topic` whenever this clip belongs to a research run** — pass the topic
+     string `/wiki-discover` was given, identical across every clip in the run.
+     It is what lets `/wiki-triage` group the run's leftovers together. **Topic is
+     recorded going forward only: there is no tool that can retro-fit it**, so a
+     clip made without it is an *Unattributed* triage row permanently. Omit it
+     only for a one-off clip with no research run behind it — an invented topic
+     is worse than none, because it files the row under a heading the user has
+     already worked through.
    - `--mode=auto|reading-order|table` overrides the reading-mode detector for a
      document it gets wrong. See **Overriding the reading mode** below.
    - A `thin` result means the PDF is scanned/encrypted and OCR also failed — a

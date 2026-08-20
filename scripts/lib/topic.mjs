@@ -27,6 +27,20 @@ export function topicKey(value) {
   return t ? t.toLowerCase() : null;
 }
 
+// Every clipper parses `--topic=` through here, so a topic can never be read one
+// way on the HTML path and another way on the PDF path -- which would split one
+// research run across two triage groups for no reason a user could see.
+//
+// The rejoin is load-bearing: `split('=')[1]` truncates a topic containing an
+// equals sign ("cost=benefit framing") into "cost", and the loss is silent.
+// Returns null for absent, empty and whitespace-only alike, matching
+// buildFrontmatter's rule that an absent topic and an empty one are one state.
+export function parseTopicArg(argv = []) {
+  const PREFIX = '--topic=';
+  const arg = argv.find((a) => typeof a === 'string' && a.startsWith(PREFIX));
+  return arg ? normalizeTopic(arg.slice(PREFIX.length)) : null;
+}
+
 const lookupKey = (u) => String(u ?? '').trim().toLowerCase();
 
 // The index is built here rather than assembled by callers so that key

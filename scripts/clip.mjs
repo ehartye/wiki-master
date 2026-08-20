@@ -8,7 +8,7 @@ import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { recordIssue } from './lib/triage.mjs';
-import { normalizeTopic } from './lib/topic.mjs';
+import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -211,8 +211,7 @@ export function main(argv) {
   // One flag feeds both topic carriers: frontmatter on the clip path below,
   // and the triage log on every path that queues an issue instead. A caller
   // never has to know which population a URL is about to land in.
-  const topicArg = argv.find((a) => a.startsWith('--topic='));
-  const topic = topicArg ? normalizeTopic(topicArg.slice('--topic='.length)) : null;
+  const topic = parseTopicArg(argv);
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
