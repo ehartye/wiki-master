@@ -275,3 +275,72 @@ test('rebuild re-chunks every file but reuses vectors for unchanged chunk conten
   assert.equal(r.filesChanged, 1, 'rebuild must re-chunk every file, ignoring the manifest');
   assert.equal(second.calls.length, 0, 'unchanged chunk content must not be re-embedded');
 });
+
+// ── One bad chunk must not discard the whole run ───────────────────────────
+// runPool awaited each worker inside its lane and Promise.all'd the lanes, so a
+// single rejection propagated out of refreshIndex before persistIndex was ever
+// reached -- every successful embed in that run was thrown away. Three
+// consecutive real builds failed at ~66-84 of 113 chunks and persisted nothing,
+// leaving the vault on a stale index while search still reported `hybrid` (#70).
+test('a chunk that fails to embed is reported, and the rest of the run still persists', async () => {
+  const v = tempVault({
+    'wiki/concepts/a.md': '# A\n\nSome content about A.\n',
+    'wiki/concepts/poison.md': '# Poison\n\nThis chunk makes the embedder blow up.\n',
+    'wiki/sources/b.md': '# B\n\nSome different content about B.\n',
+  });
+  let attempted = 0;
+  const embedFn = async (text) => {
+    attempted++;
+    if (text.includes('blow up')) throw new Error('Ollama embeddings HTTP 500 -- the input length exceeds the context length');
+    return [1, 2, 3, 4];
+  };
+
+  const r = await refreshIndex({ vaultPath: v, dir: dir(v), embedFn, ...okAvailable });
+
+  assert.equal(attempted, 3, 'every chunk was still attempted');
+  assert.equal(r.chunksEmbedded, 2, 'the two good chunks embedded');
+  assert.equal(r.chunksFailed, 1, 'the bad one is counted, not swallowed');
+  assert.equal(r.failures.length, 1);
+  assert.match(r.failures[0].error, /input length exceeds the context length/,
+    'the reason survives into the report');
+
+  // The whole point: the successful work reached disk.
+  assert.ok(existsSync(join(dir(v), 'chunks.json')), 'index was persisted');
+  assert.equal(Object.keys(readVectorsRaw(v)).length, 2, 'only the good vectors stored');
+});
+
+test('a failed chunk is retried on the next run rather than being remembered as done', async () => {
+  // Self-healing: the manifest still lists the chunk, no vector was written for
+  // it, so neededHashes picks it up again next time. Fix the page (or the model)
+  // and the next build completes it -- no manual repair, no --rebuild.
+  const v = tempVault({ 'wiki/concepts/a.md': '# A\n\nContent that will fail once.\n' });
+  const failing = async () => { throw new Error('Ollama embeddings HTTP 500'); };
+  const r1 = await refreshIndex({ vaultPath: v, dir: dir(v), embedFn: failing, ...okAvailable });
+  assert.equal(r1.chunksFailed, 1);
+  assert.equal(r1.chunksEmbedded, 0);
+
+  let second = 0;
+  const working = async () => { second++; return [1, 2, 3, 4]; };
+  const r2 = await refreshIndex({ vaultPath: v, dir: dir(v), embedFn: working, ...okAvailable });
+  assert.equal(second, 1, 'the previously-failed chunk was retried');
+  assert.equal(r2.chunksEmbedded, 1);
+  assert.equal(r2.chunksFailed, 0);
+});
+
+test('a wholesale embedding failure still throws rather than persisting an empty index', async () => {
+  // Partial tolerance must not become silent acceptance of a dead backend. If a
+  // run of real size embedded nothing, that is infrastructure, not one awkward
+  // page, and quietly writing a vectorless index would be its own silent failure.
+  const v = tempVault({
+    'wiki/concepts/a.md': '# A\n\nSome content about A.\n',
+    'wiki/sources/b.md': '# B\n\nSome different content about B.\n',
+    'wiki/sources/c.md': '# C\n\nYet more distinct content about C.\n',
+    'wiki/sources/d.md': '# D\n\nAnd further distinct content about D.\n',
+  });
+  const dead = async () => { throw new Error('fetch failed'); };
+  await assert.rejects(
+    () => refreshIndex({ vaultPath: v, dir: dir(v), embedFn: dead, ...okAvailable }),
+    /every chunk failed to embed/i,
+  );
+  assert.ok(!existsSync(join(dir(v), 'chunks.json')), 'nothing persisted on a wholesale failure');
+});

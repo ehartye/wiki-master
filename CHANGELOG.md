@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.21.0 — 2026-08-21
+
+### One oversized chunk no longer discards the whole index build
+
+`chunkMarkdown` computed its size budget from body text only, then prepended the
+entire frontmatter block to chunk 0 afterwards with no cap. On a source page citing
+35 clippings that made chunk 0 ~6,500 characters against `nomic-embed-text`'s
+2048-token context; Ollama answered HTTP 500, the rejection propagated out of the
+worker pool before `persistIndex` was ever reached, and **every successful embed in
+the run was thrown away**. Three consecutive builds failed at 66–84 of 113 chunks and
+persisted nothing, while `search.mjs` kept reporting `hybrid` for the files it already
+had — so the vault sat on a stale index with nothing visibly wrong. Reported as #70.
+
+Four independent faults, each fixed on its own merits:
+
+- **`source-hashes` is no longer embedded.** It is a machine join key for the
+  ingest-backlog metric — 35 sha256 digests, 2,325 of that page's 5,126 frontmatter
+  characters. Hex tokenizes badly, so its token cost exceeds its length, and it
+  carries no retrieval signal at all: those tokens could only dilute the vector.
+  The `sources:` wikilinks beside it *are* signal (clipping slugs are topical) and
+  are kept.
+- **The embedded frontmatter is now capped** at 1,200 characters, truncated at a line
+  boundary so the head — `type`, `status`, the earliest sources — survives. This is
+  the general guarantee that dropping one key cannot give: a page citing 200 sources
+  is bounded too. Measured against the reference vault, only **8 of 2,403** indexed
+  pages reach the cap, so it is close to free.
+- **A chunk that fails to embed no longer discards the run.** Failures are collected,
+  the successful work is persisted, and the count and reasons are reported. A missing
+  vector is already something `search.mjs` skips, so a partial index is usable rather
+  than broken. If a run of real size embeds *nothing*, that is infrastructure rather
+  than one awkward page and it still throws — partial tolerance must not become silent
+  acceptance of a dead backend.
+- **Missing vectors are now repaired on the next run.** `planRefresh` keeps an
+  unchanged file out of the changed set, so a chunk that failed once would never have
+  been offered again without `--rebuild`. The build now asks which live chunks lack a
+  vector and re-chunks just those files — derived from state rather than a remembered
+  failure list, so it also repairs vectors lost to an interrupted run.
+
+Two reporting fixes, because this was invisible for three runs:
+
+- **`embed()` includes Ollama's response body in the error.** The failing call said
+  `{"error":"the input length exceeds the context length"}` and the thrown error said
+  only `HTTP 500`, discarding the one sentence that explained it.
+- **`refreshAfterOp` names an incomplete build.** Its own contract is that it "is never
+  silent — a silently stale index is precisely the failure mode the 0.11.0
+  search-health work exists to prevent", but it printed the same notice whether or not
+  chunks had failed.
+
+**Re-embedding:** chunk 0's text changes for any page carrying `source-hash`/`source-hashes`
+— 1,502 of 2,403 pages in the reference vault. That is one chunk per page, it happens
+incrementally on the next `index-embed` run, and it removes pure noise from those vectors.
+
 ## 0.20.0 — 2026-08-20
 
 ### Every clipper takes `--topic`, not just the HTML one

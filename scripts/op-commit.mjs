@@ -147,10 +147,17 @@ export async function refreshAfterOp(vaultPath, {
     if (!plan.run) return { refreshed: false, notice: plan.notice };
 
     const r = await refreshImpl({ vaultPath, dir, embedFn: (text) => ollamaEmbed(text) });
+    // Never silent about a PARTIAL build either. The index persisted and is
+    // usable, but chunks are missing from it, and this notice is the only place
+    // that surfaces -- reporting it as a clean build is the same silent-staleness
+    // failure this function exists to prevent (#70).
+    const failed = r.chunksFailed
+      ? `, ${r.chunksFailed} chunk(s) FAILED to embed (retried next run)`
+      : '';
     return {
       refreshed: true,
       notice: `semantic index: ${r.filesChanged} file(s) changed, ${r.chunksEmbedded} chunk(s) embedded, `
-        + `${r.chunksTotal} total (${(r.elapsedMs / 1000).toFixed(1)}s)`,
+        + `${r.chunksTotal} total (${(r.elapsedMs / 1000).toFixed(1)}s)${failed}`,
     };
   } catch (err) {
     return { refreshed: false, notice: `semantic index not refreshed — ${err.message}` };

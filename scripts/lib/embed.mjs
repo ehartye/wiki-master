@@ -19,7 +19,16 @@ export async function embed(text, { fetchImpl = fetch, model = MODEL, keepAlive 
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ model, prompt: text, keep_alive: keepAlive }),
   });
-  if (!res.ok) throw new Error(`Ollama embeddings HTTP ${res.status}`);
+  if (!res.ok) {
+    // Include the response body. Ollama puts the actual cause there
+    // ({"error":"the input length exceeds the context length"}), and throwing
+    // the status alone discarded the only sentence that explained the failure
+    // (#70). Capped so a stray HTML error page cannot flood the log, and
+    // best-effort so a body that will not read cannot mask the real failure.
+    let detail = '';
+    try { detail = (await res.text() || '').trim().slice(0, 300); } catch { /* keep the status */ }
+    throw new Error(`Ollama embeddings HTTP ${res.status}${detail ? ` -- ${detail}` : ''}`);
+  }
   const data = await res.json();
   return data.embedding;
 }

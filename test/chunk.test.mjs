@@ -151,3 +151,68 @@ test('startLine/endLine are 1-indexed and point at the correct source lines', ()
   // 5 lines of content, trailing newline does not create a phantom 6th line.
   assert.equal(chunks[0].endLine, 5);
 });
+
+// A page's frontmatter rides along with chunk 0, but until 0.20.x it was added
+// AFTER all the size math and never measured. On a source page citing 35
+// clippings that made chunk 0 ~6,500 chars — past nomic-embed-text's 2048-token
+// context — so Ollama 500'd and the whole index build aborted (#70).
+const bigSources = Array.from({ length: 35 }, (_, i) =>
+  `  - "[[raw/clippings/some-fairly-long-clipping-slug-number-${i}.md]]"`).join('\n');
+const bigHashes = Array.from({ length: 35 }, (_, i) => 'a'.repeat(63) + (i % 10)).join(', ');
+
+test('source-hashes is excluded from embedded text: a machine join key with no retrieval signal', () => {
+  const doc = [
+    '---',
+    'type: source',
+    'status: draft',
+    'sources:',
+    bigSources,
+    `source-hashes: [${bigHashes}]`,
+    'ai-generated: true',
+    '---',
+    '',
+    '# Heading',
+    '',
+    'Body prose that should be chunked normally and carries the actual meaning.',
+  ].join('\n');
+  const chunks = chunkMarkdown(doc, { title: 'Fractions' });
+
+  assert.ok(!chunks[0].text.includes('source-hashes'), 'the key itself is gone');
+  assert.ok(!chunks[0].text.includes('a'.repeat(63)), 'no sha256 payload survives');
+  // The rest of the frontmatter is real signal and must stay: clipping slugs are
+  // topical, and type/status are how a reader would search for the page.
+  assert.match(chunks[0].text, /type: source/);
+  assert.match(chunks[0].text, /some-fairly-long-clipping-slug-number-0/);
+});
+
+test('a single sha256 source-hash is dropped too (clippings carry one)', () => {
+  const doc = ['---', 'title: "T"', `source-hash: ${'b'.repeat(64)}`, '---', '', 'Body prose here.'].join('\n');
+  const chunks = chunkMarkdown(doc, { title: 'T' });
+  assert.ok(!chunks[0].text.includes('b'.repeat(64)));
+  assert.match(chunks[0].text, /title: "T"/);
+});
+
+test('chunk 0 stays inside the embedding budget no matter how large the frontmatter is', () => {
+  // The general guarantee. Dropping source-hashes alone fixes the reported page
+  // but not a hypothetical one with 200 sources, so the frontmatter that DOES
+  // get embedded is capped as well.
+  const huge = Array.from({ length: 300 }, (_, i) =>
+    `  - "[[raw/clippings/another-quite-long-clipping-slug-number-${i}.md]]"`).join('\n');
+  const doc = ['---', 'type: source', 'sources:', huge, '---', '', '# H', '', 'Body prose.'].join('\n');
+  const chunks = chunkMarkdown(doc, { title: 'T' });
+  assert.ok(chunks[0].text.length <= 3600,
+    `chunk 0 must stay embeddable, got ${chunks[0].text.length} chars`);
+  // Truncation keeps the head of the block, so the most-cited sources survive.
+  assert.match(chunks[0].text, /type: source/);
+  assert.match(chunks[0].text, /another-quite-long-clipping-slug-number-0/);
+});
+
+test('ordinary frontmatter is passed through untouched', () => {
+  // The overwhelming majority of pages: 6 of 1,339 source pages in the reference
+  // vault exceed the cap. Everything else must chunk exactly as it did before,
+  // or this change re-embeds the entire vault for no reason.
+  const doc = ['---', 'type: source', 'created: 2026-08-21', 'status: draft', '---', '', 'Body prose here.'].join('\n');
+  const chunks = chunkMarkdown(doc, { title: 'T' });
+  assert.match(chunks[0].text, /type: source\ncreated: 2026-08-21\nstatus: draft/);
+  assert.equal(chunks[0].startLine, 1, 'chunk 0 still reports covering the frontmatter');
+});

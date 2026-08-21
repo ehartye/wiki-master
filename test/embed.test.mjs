@@ -72,3 +72,34 @@ test('modelPresent is false when Ollama is unreachable or answers badly', async 
   assert.equal(await modelPresent({ fetchImpl: async () => ({ ok: false }) }), false);
   assert.equal(await modelPresent({ fetchImpl: async () => ({ ok: true, json: async () => ({}) }) }), false);
 });
+
+// The failing call in #70 answered `{"error":"the input length exceeds the
+// context length"}` and the thrown error said only "HTTP 500". Discarding the
+// one sentence that named the cause turned a 30-second read into a multi-step
+// hunt, so the body is now part of the message.
+test('a failed embed reports what Ollama actually said, not just the status', async () => {
+  const fakeFetch = async () => ({
+    ok: false,
+    status: 500,
+    text: async () => '{"error":"the input length exceeds the context length"}',
+  });
+  await assert.rejects(
+    () => embed('x'.repeat(9000), { fetchImpl: fakeFetch }),
+    (err) => {
+      assert.match(err.message, /500/, 'status is still there');
+      assert.match(err.message, /input length exceeds the context length/, 'and the reason');
+      return true;
+    },
+  );
+});
+
+test('an unreadable error body still yields a usable error rather than masking it', async () => {
+  // If reading the body throws, the original HTTP failure is what matters --
+  // it must not be replaced by a confusing secondary error.
+  const fakeFetch = async () => ({
+    ok: false,
+    status: 503,
+    text: async () => { throw new Error('socket hang up'); },
+  });
+  await assert.rejects(() => embed('x', { fetchImpl: fakeFetch }), /503/);
+});
