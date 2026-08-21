@@ -179,16 +179,81 @@ export async function refreshIndex({
     onProgress({ phase: 'chunk', file: f.path, filesRead, filesTotal: plan.changed.length });
   }
 
+  // Recover the text for any chunk the manifest already lists but the vector
+  // store lacks. Without this, "unchanged" is a trap: planRefresh keeps a file
+  // out of plan.changed on mtime/size, so its text is never re-chunked, so a
+  // chunk that failed to embed on an earlier run is never offered to the pool
+  // again -- the gap would only close on --rebuild or an unrelated edit.
+  //
+  // Derived from state, not remembered: this asks "which live chunks have no
+  // vector?" rather than replaying a list of past failures, so it also repairs
+  // vectors lost to an interrupted run or a hand-deleted store. Normally it
+  // reads nothing, because normally nothing is missing.
+  const missingByFile = new Map();
+  for (const [path, entry] of Object.entries(finalManifest)) {
+    for (const c of entry.chunks) {
+      if (vectors[c.hash] || hashToText.has(c.hash)) continue;
+      if (!missingByFile.has(path)) missingByFile.set(path, []);
+      missingByFile.get(path).push(c.hash);
+    }
+  }
+  let filesRepaired = 0;
+  for (const path of missingByFile.keys()) {
+    const f = files.find((x) => x.path === path);
+    if (!f) continue; // file vanished since the manifest was written; prune handles it
+    const chunks = chunkMarkdown(readFileSync(f.abs, 'utf8'), { title: basename(f.path, '.md') });
+    for (const c of chunks) {
+      const h = hash(c.text);
+      if (!hashToText.has(h)) hashToText.set(h, c.text);
+    }
+    filesRepaired++;
+  }
+  if (filesRepaired) onProgress({ phase: 'repair', files: filesRepaired });
+
   const needed = neededHashes([...hashToText.keys()], Object.keys(vectors));
   onProgress({ phase: 'embed-start', needed: needed.length });
 
+  // Embed with per-chunk fault tolerance. Previously a single rejection
+  // propagated out of the pool and out of refreshIndex before persistIndex was
+  // reached, so one unembeddable chunk discarded every successful embed in the
+  // run and the vault silently stayed on a stale index (#70).
+  //
+  // A failed chunk is recorded and skipped, not fatal: the manifest still lists
+  // it, no vector is written, and search already skips chunks with no vector.
+  // The repair pass above re-offers it on the next run, so the failure heals
+  // itself once the cause is fixed. This matches the posture the rest of
+  // wiki-master takes -- degrade and SAY SO, rather than die (search.mjs falls
+  // back to lexical and reports the fact).
   let embedded = 0;
+  const failures = [];
   await runPool(needed, concurrency, async (h) => {
-    const vec = await embedFn(hashToText.get(h));
-    vectors[h] = vec;
-    embedded++;
+    try {
+      const vec = await embedFn(hashToText.get(h));
+      vectors[h] = vec;
+      embedded++;
+    } catch (err) {
+      const text = hashToText.get(h) ?? '';
+      failures.push({ hash: h, chars: text.length, error: String(err && err.message || err) });
+      return;
+    }
     onProgress({ phase: 'embed', embedded, total: needed.length });
   });
+
+  // Tolerating SOME failures must not become silently accepting a dead backend.
+  // If a run of any real size embedded nothing at all, that is infrastructure
+  // rather than one awkward page, and persisting a vectorless index would be its
+  // own silent failure. The size floor matters: on a small incremental run the
+  // single needed chunk may simply be the oversized one, and refusing to persist
+  // there would also throw away the manifest's legitimate changes (removals,
+  // re-chunked files) for no gain -- that case is reported and retried instead.
+  // Preflight already proved Ollama was reachable and the model pulled, so a
+  // backend that dies mid-run fails every chunk and is caught here regardless.
+  if (needed.length >= 3 && embedded === 0) {
+    throw new Error(
+      `every chunk failed to embed (${failures.length}/${needed.length}) -- first error: ${failures[0].error}`
+    );
+  }
+  if (failures.length) onProgress({ phase: 'embed-failed', failures });
 
   // Prune: drop any stored vector whose hash no longer appears in ANY
   // manifest entry's chunk list -- deleted files and edited chunks alike --
@@ -207,6 +272,8 @@ export async function refreshIndex({
     filesUnchanged: plan.unchanged.length,
     filesRemoved: plan.removed.length,
     chunksEmbedded: embedded,
+    chunksFailed: failures.length,
+    failures,
     chunksPruned: pruned,
     chunksTotal: liveHashes.size,
     elapsedMs: Date.now() - startedAt,
@@ -260,6 +327,19 @@ export async function main(argv = process.argv.slice(2)) {
       `${r.filesChanged} file(s) changed, ${r.chunksEmbedded} chunk(s) embedded, ` +
       `${r.chunksPruned} pruned, ${r.chunksTotal} total chunk(s) indexed`
     );
+    // A partial build is a real outcome, not a footnote: the index persisted and
+    // is usable, but it is INCOMPLETE, and saying so is the whole point of
+    // tolerating the failure in the first place. Non-zero exit so a scripted
+    // caller cannot read a partial build as a clean one.
+    if (r.chunksFailed) {
+      console.error(`index-embed: ${r.chunksFailed} chunk(s) FAILED to embed and are missing from the index:`);
+      for (const fail of r.failures.slice(0, 5)) {
+        console.error(`  - ${fail.hash.slice(0, 12)} (${fail.chars} chars): ${fail.error}`);
+      }
+      if (r.failures.length > 5) console.error(`  ... and ${r.failures.length - 5} more`);
+      console.error('  they will be retried automatically on the next run.');
+      process.exitCode = 1;
+    }
     return r;
   } catch (err) {
     console.error(`index-embed: ${err.message}`);

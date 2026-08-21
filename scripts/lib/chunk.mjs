@@ -108,6 +108,54 @@ function hardSplit(paraText, startLine, endLine, targetChars, overlapChars) {
   return pieces;
 }
 
+// Frontmatter rides along with chunk 0, but not all of it is worth embedding and
+// none of it used to be measured. Two separate problems, both fixed here:
+//
+//  1. Some keys are pure MACHINE JOIN KEYS. `source-hashes` on a source page is a
+//     list of sha256 digests used by the ingest-backlog metric; on a heavily-cited
+//     page it was 2,325 of the block's 5,126 characters. Hex tokenizes badly, so
+//     its token cost is worse than its length suggests, and it carries no
+//     retrieval signal whatsoever -- those tokens could only dilute the vector.
+//  2. Even after dropping those, the block is unbounded. A page citing enough
+//     sources still overruns the embedding model's context.
+//
+// Both mattered: on the reported page chunk 0 reached ~6,500 chars against
+// nomic-embed-text's 2048-token window, Ollama answered HTTP 500, and the whole
+// index build aborted without persisting anything (#70).
+const MACHINE_ONLY_KEYS = ['source-hashes', 'source-hash'];
+
+// What chunk 0 may spend on frontmatter. Sized against the real vault rather
+// than picked: 1,333 of 1,339 source pages have frontmatter under this, so the
+// cap changes nothing for them and only the handful of outliers get truncated.
+const FRONTMATTER_BUDGET = 1200;
+
+// Truncation keeps the HEAD of the block, so `type`/`status`/`title` and the
+// earliest `sources:` entries survive -- the keys a reader would actually search
+// for sit at the top, and a YAML list's order is stable. Cut at a line boundary
+// so the embedded text never ends mid-token.
+export function frontmatterForEmbedding(frontmatter, { budget = FRONTMATTER_BUDGET } = {}) {
+  if (!frontmatter) return '';
+  const lines = frontmatter.split('\n');
+  const kept = [];
+  let dropping = false;
+  for (const line of lines) {
+    // A key line starts a new field; an indented/`- ` line continues the one
+    // above. Continuation lines inherit the enclosing key's fate, which is what
+    // makes a multi-line `source-hashes:` block drop as a unit.
+    const isKeyLine = /^[A-Za-z0-9_-]+:/.test(line);
+    if (isKeyLine) dropping = MACHINE_ONLY_KEYS.some((k) => line.startsWith(k + ':'));
+    if (!dropping) kept.push(line);
+  }
+
+  let out = kept.join('\n');
+  if (out.length > budget) {
+    const cut = out.slice(0, budget);
+    const lastNewline = cut.lastIndexOf('\n');
+    out = lastNewline > 0 ? cut.slice(0, lastNewline) : cut;
+  }
+  return out;
+}
+
 export function chunkMarkdown(text, { title, targetChars = 1200, overlapChars = 150 } = {}) {
   if (!text) return [];
 
@@ -267,14 +315,17 @@ export function chunkMarkdown(text, { title, targetChars = 1200, overlapChars = 
   }
 
   // Prefix every chunk with title + heading path, and the first chunk with
-  // frontmatter (never repeated into later chunks). The first chunk's TEXT
-  // includes the frontmatter block, which starts at line 1 of the document,
-  // so its reported startLine widens back to 1 to match what it covers.
+  // frontmatter (never repeated into later chunks). The frontmatter is filtered
+  // and capped first (see frontmatterForEmbedding) -- unfiltered, it was the one
+  // input to a chunk's size that nothing above measured. The first chunk's TEXT
+  // includes the frontmatter block, which starts at line 1 of the document, so
+  // its reported startLine widens back to 1 to match what it covers.
+  const embeddedFm = frontmatterForEmbedding(frontmatter);
   for (let i = 0; i < chunks.length; i++) {
     const prefix = prefixFor(title, chunks[i].headingPath);
-    const fm = i === 0 && frontmatter ? frontmatter + '\n' : '';
+    const fm = i === 0 && embeddedFm ? embeddedFm + '\n' : '';
     chunks[i].text = fm + prefix + chunks[i].text;
-    if (i === 0 && frontmatter) {
+    if (i === 0 && embeddedFm) {
       chunks[i].startLine = 1;
     }
   }
