@@ -3,3 +3,9 @@ node_modules/
 .DS_Store
 # vault-side runtime state (only relevant if a vault is nested in the repo)
 .wiki-master/
+# Playwright MCP scratch output (page snapshots, console logs, and any file a
+# browser session downloads). A session driven from inside this repo drops
+# artifacts here, and `git add -A` would otherwise commit them -- including
+# downloaded source documents that must never enter the repo. The NUL-byte
+# guard in test/drift-guard.test.mjs already skips this directory.
+.playwright-mcp/
