@@ -74,9 +74,26 @@ function decodeFrame(buffer) {
 
 // ========== Configuration ==========
 
-const PORT = process.env.WM_TRIAGE_PORT || 49152 + Math.floor(Math.random() * 16383);
-const HOST = process.env.WM_TRIAGE_HOST || '127.0.0.1';
-const URL_HOST = process.env.WM_TRIAGE_URL_HOST || (HOST === '127.0.0.1' ? 'localhost' : HOST);
+// Remote is opt-in. Binding every interface is a change in exposure, and it
+// should never happen because a machine merely had an env var lying around.
+const REMOTE = process.argv.includes('--remote') || process.env.WM_TRIAGE_REMOTE === '1';
+const HOST = process.env.WM_TRIAGE_HOST || (REMOTE ? '0.0.0.0' : '127.0.0.1');
+
+// http://0.0.0.0 is not an address a browser can open — Chrome blocks it
+// outright — so a wildcard bind must advertise something reachable instead of
+// echoing back the bind address.
+function advertisedHost(bind) {
+  if (bind === '127.0.0.1' || bind === '::1') return 'localhost';
+  if (bind !== '0.0.0.0' && bind !== '::') return bind;
+  for (const iface of Object.values(os.networkInterfaces())) {
+    for (const ni of iface || []) {
+      if (ni.family === 'IPv4' && !ni.internal) return ni.address;
+    }
+  }
+  return os.hostname();
+}
+const URL_HOST = process.env.WM_TRIAGE_URL_HOST || advertisedHost(HOST);
+
 const SESSION_DIR = process.env.WM_TRIAGE_DIR;
 const VAULT_PATH = process.env.WM_TRIAGE_VAULT;
 let ownerPid = process.env.WM_TRIAGE_OWNER_PID ? Number(process.env.WM_TRIAGE_OWNER_PID) : null;
@@ -89,6 +106,87 @@ if (!SESSION_DIR || !VAULT_PATH) {
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
 const TRIAGE_LOG = path.join(VAULT_PATH, '.wiki-master', 'triage.jsonl');
+
+// ========== Session token ==========
+//
+// The terminal Claude is already talking to you in is an authenticated channel,
+// so the credential is delivered there rather than being a password you keep. It
+// lives beside server-info in the gitignored state dir, and it is STABLE across
+// restarts on purpose: regenerating it would silently invalidate the link the
+// user was handed, which is the very problem this is meant to avoid.
+//
+// 128 bits is what lets the login be a link rather than a form. A short PIN would
+// need a rate limiter, a lockout table and per-IP attempt state to survive being
+// reachable from another machine; entropy removes all of that machinery.
+const COOKIE = 'wm_triage';
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
+
+function sessionToken() {
+  const f = path.join(STATE_DIR, 'token');
+  try {
+    const existing = fs.readFileSync(f, 'utf-8').trim();
+    if (/^[0-9a-f]{32,}$/.test(existing)) return existing;
+  } catch (e) {
+    // First run for this vault.
+  }
+  const t = crypto.randomBytes(16).toString('hex');
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.writeFileSync(f, t + '\n', { mode: 0o600 });
+  return t;
+}
+
+const TOKEN = sessionToken();
+
+// The session cookie is scoped to host:port, so a fresh random port on every
+// start would invalidate it silently and demand a new handshake each run. The
+// port that worked is remembered beside the token and reused.
+function randomPort() {
+  return 49152 + crypto.randomInt(16383);
+}
+
+function rememberedPort() {
+  if (process.env.WM_TRIAGE_PORT) return Number(process.env.WM_TRIAGE_PORT);
+  try {
+    const n = Number(fs.readFileSync(path.join(STATE_DIR, 'port'), 'utf-8').trim());
+    if (Number.isInteger(n) && n > 0 && n < 65536) return n;
+  } catch (e) {
+    // First run for this vault.
+  }
+  return randomPort();
+}
+
+function rememberPort(n) {
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.writeFileSync(path.join(STATE_DIR, 'port'), String(n) + '\n');
+}
+
+// Length is checked first because timingSafeEqual throws on a length mismatch,
+// and that throw would itself be the timing signal the call exists to remove.
+function sameToken(candidate) {
+  if (typeof candidate !== 'string' || candidate.length !== TOKEN.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(TOKEN));
+}
+
+function cookieToken(req) {
+  const raw = req.headers.cookie;
+  if (!raw) return null;
+  for (const part of raw.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() === COOKIE) return part.slice(eq + 1).trim();
+  }
+  return null;
+}
+
+function authed(req) {
+  const c = cookieToken(req);
+  return c === null ? false : sameToken(c);
+}
+
+function deny(res) {
+  res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('Unauthorized. Open the link wiki-master printed in your terminal.\n');
+}
 
 // Read per request, not once at startup. A long-lived server that cached these
 // would keep serving the theme and client JS it booted with, so an edit to either
@@ -130,7 +228,30 @@ function render() {
 function handleRequest(req, res) {
   touchActivity();
 
+  // Unauthenticated by design, and deliberately contentless: triage.mjs uses this
+  // to decide whether a server is already up. Gating it would make every liveness
+  // check read as "dead" and spawn a duplicate server on every run.
+  if (req.method === 'GET' && req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('ok\n');
+    return;
+  }
+
   if (req.method === 'GET' && (req.url === '/' || req.url.startsWith('/?'))) {
+    // A token arriving in the query is traded for a cookie and redirected away,
+    // so the credential does not linger in the address bar, in a bookmark, or in
+    // a screenshot of the browser. The clean '/' is what survives in history.
+    const offered = new URL(req.url, 'http://placeholder').searchParams.get('t');
+    if (offered !== null) {
+      if (!sameToken(offered)) return deny(res);
+      res.writeHead(302, {
+        Location: '/',
+        'Set-Cookie': `${COOKIE}=${TOKEN}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${COOKIE_MAX_AGE}`,
+      });
+      res.end();
+      return;
+    }
+    if (!authed(req)) return deny(res);
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(render());
     return;
@@ -142,6 +263,9 @@ function handleRequest(req, res) {
   // — and the saved path rides along in the disposition's note, so the re-clip
   // needs no filename or title matching at all.
   if (req.method === 'POST' && req.url === '/upload') {
+    // Refuse before a single byte is read: an unauthenticated caller must not be
+    // able to spend 256MB of disk on its way to being rejected.
+    if (!authed(req)) return deny(res);
     const url = req.headers['x-wm-url'];
     const kind = req.headers['x-wm-kind'];
     const name = path.basename(String(req.headers['x-wm-filename'] || 'source')).replace(/[^\w.\-]+/g, '_');
@@ -182,6 +306,7 @@ function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && req.url === '/disposition') {
+    if (!authed(req)) return deny(res);
     let body = '';
     req.on('data', (c) => {
       body += c;
@@ -249,6 +374,14 @@ function handleUpgrade(req, socket) {
     socket.destroy();
     return;
   }
+  // The handshake is an ordinary HTTP request, so the session cookie rides along
+  // on a same-origin ws:// connection and is checked exactly like every other
+  // route. Without this the live-reload socket is an unauthenticated way into
+  // the session even while the HTTP routes are gated.
+  if (!authed(req)) {
+    socket.end('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+    return;
+  }
   socket.write(
     'HTTP/1.1 101 Switching Protocols\r\n' +
       'Upgrade: websocket\r\n' +
@@ -300,7 +433,10 @@ function broadcast(msg) {
 
 // ========== Lifecycle ==========
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const IDLE_TIMEOUT_MS = Number(process.env.WM_TRIAGE_IDLE_MS) || 30 * 60 * 1000;
+// The idle check cannot be slower than the timeout it enforces, or a short
+// timeout would never be observed before the next poll.
+const LIFECYCLE_MS = Math.min(60 * 1000, Math.max(250, Math.floor(IDLE_TIMEOUT_MS / 4)));
 let lastActivity = Date.now();
 function touchActivity() {
   lastActivity = Date.now();
@@ -339,7 +475,26 @@ function startServer() {
     );
     watcher.close();
     clearInterval(lifecycle);
+
+    // Close the live-reload sockets before closing the server. server.close()
+    // waits for open connections to end, and a WebSocket never ends on its own —
+    // so with a browser tab still open the callback never fired, the process
+    // lingered holding the port, and it went on refusing every new connection
+    // while the page still showed itself connected. That is the likeliest state
+    // for a remote tab, which has no HTTP traffic to keep the server alive.
+    for (const socket of clients) {
+      try {
+        socket.end(encodeFrame(OPCODES.CLOSE, Buffer.alloc(0)));
+        socket.destroy();
+      } catch (e) {
+        // Already gone.
+      }
+    }
+    clients.clear();
+
     server.close(() => process.exit(0));
+    // Never outlive the decision to stop, whatever else is holding a socket.
+    setTimeout(() => process.exit(0), 2000).unref();
   }
 
   function ownerAlive() {
@@ -355,7 +510,7 @@ function startServer() {
   const lifecycle = setInterval(() => {
     if (!ownerAlive()) shutdown('owner process exited');
     else if (Date.now() - lastActivity > IDLE_TIMEOUT_MS) shutdown('idle timeout');
-  }, 60 * 1000);
+  }, LIFECYCLE_MS);
   lifecycle.unref();
 
   if (ownerPid) {
@@ -366,12 +521,34 @@ function startServer() {
     }
   }
 
-  server.listen(PORT, HOST, () => {
+  // A remembered port can be taken by anything — another vault's server, or an
+  // unrelated process that grabbed it while we were down. Moving is always
+  // better than dying: the link is reprintable, the port is not load-bearing.
+  let port = rememberedPort();
+  let moves = 0;
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE' && moves < 10) {
+      moves++;
+      port = randomPort();
+      server.listen(port, HOST);
+      return;
+    }
+    console.error(JSON.stringify({ type: 'listen-failed', error: err.message }));
+    process.exit(1);
+  });
+
+  server.listen(port, HOST, () => {
+    rememberPort(port);
+    const url = 'http://' + URL_HOST + ':' + port;
     const info = JSON.stringify({
       type: 'server-started',
-      port: Number(PORT),
+      port,
       host: HOST,
-      url: 'http://' + URL_HOST + ':' + PORT,
+      remote: REMOTE,
+      // `url` stays clean so liveness checks and logs carry no credential;
+      // `link` is the one-click entry point Claude hands to the user.
+      url,
+      link: url + '/?t=' + TOKEN,
       screen_dir: CONTENT_DIR,
       state_dir: STATE_DIR,
       vault: VAULT_PATH,

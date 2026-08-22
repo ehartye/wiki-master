@@ -259,7 +259,11 @@
   function connect() {
     var ws;
     try {
-      ws = new WebSocket('ws://' + location.host);
+      // Follow the page's own protocol. Behind an HTTPS front — a tunnel, a
+      // reverse proxy, `tailscale serve` — a hardcoded ws:// is blocked as
+      // mixed content, and live reload dies with no error the user can see.
+      var scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
+      ws = new WebSocket(scheme + location.host);
     } catch (e) {
       return;
     }
