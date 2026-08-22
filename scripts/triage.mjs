@@ -383,7 +383,12 @@ function sessionDir(vaultPath) {
 async function serverAlive(info) {
   if (!info) return false;
   try {
-    const res = await fetch(info.url, { method: 'GET', signal: AbortSignal.timeout(1500) });
+    // /healthz, not '/'. The queue itself is behind the session cookie, so
+    // probing it would read 401 as "no server" and start a duplicate every run.
+    const res = await fetch(`${info.url}/healthz`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(1500),
+    });
     return res.ok;
   } catch {
     return false;
@@ -400,8 +405,10 @@ function readInfo(dir) {
   }
 }
 
-function startServer(vaultPath, dir) {
-  const child = spawn(process.execPath, [join(HERE, 'triage-ui', 'server.cjs')], {
+function startServer(vaultPath, dir, { remote = false } = {}) {
+  const args = [join(HERE, 'triage-ui', 'server.cjs')];
+  if (remote) args.push('--remote');
+  const child = spawn(process.execPath, args, {
     detached: true,
     stdio: 'ignore',
     env: {
@@ -423,9 +430,10 @@ export async function main() {
   const data = collectTriage(vaultPath);
   writeFileSync(join(dir, 'content', `triage-${Date.now()}.html`), renderScreen(data));
 
+  const remote = process.argv.includes('--remote');
   let info = readInfo(dir);
   if (!(await serverAlive(info))) {
-    startServer(vaultPath, dir);
+    startServer(vaultPath, dir, { remote });
     for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(dir)))); i++) {
       await new Promise((r) => setTimeout(r, 250));
     }
@@ -441,7 +449,11 @@ export async function main() {
   };
 
   if (info) {
-    console.log(JSON.stringify({ type: 'triage-ready', url: info.url, ...counts }));
+    // `link` is what the user needs — it carries the session token, so opening
+    // it is the whole login. `url` stays clean for logs and liveness checks.
+    console.log(
+      JSON.stringify({ type: 'triage-ready', url: info.url, link: info.link, remote: !!info.remote, ...counts })
+    );
   } else {
     console.error(
       JSON.stringify({ type: 'triage-server-failed', hint: 'screen written; server did not start', ...counts })

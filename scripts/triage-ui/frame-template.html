@@ -2,6 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!-- The entry link carries the session token in its query string. Modern
+       browsers already drop path and query when sending a cross-origin
+       referrer, but this page loads Google Fonts and links out to every triage
+       source, and a browser default is not where that guarantee belongs. -->
+  <meta name="referrer" content="no-referrer">
   <title>wiki-master :: triage</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

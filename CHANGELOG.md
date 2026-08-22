@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.22.0 — 2026-08-22
+
+### Triage can be driven from another machine, behind a session token
+
+The triage server was built as a loopback companion: no authentication, a random
+port, and a URL derived on the assumption the browser was on the same box. It was
+one env var away from being reachable from the LAN and nothing about it was ready
+for that. Every route now requires a session token.
+
+The token is delivered through the terminal, because that is already an
+authenticated channel — Claude prints a link that carries it, opening the link
+trades it for an `HttpOnly; SameSite=Strict` cookie and redirects to a clean `/`,
+so the credential does not linger in the address bar, a bookmark or a screenshot.
+128 bits is what lets the login be a link rather than a form: a short PIN would
+need a rate limiter, a lockout table and per-IP attempt state to survive being
+reachable off-machine, and entropy removes all of it. `SameSite=Strict` also closes
+the DNS-rebinding path that existed even on loopback.
+
+The token is stable and re-printable rather than memorized — it lives in the
+gitignored `state/` dir at mode `0600`, so losing the link costs nothing and
+rotation is deleting one file. The port is remembered for the same reason: a cookie
+is scoped to `host:port`, and a fresh random port each start would silently force a
+new login every run. A remembered port already in use now moves instead of killing
+the server.
+
+`--remote` is opt-in and binds every interface. Binding by default would be a change
+in exposure nobody asked for, and it must not happen just because an env var was
+lying around.
+
+### `http://0.0.0.0` is never advertised as a URL
+
+Setting `WM_TRIAGE_HOST=0.0.0.0` produced `url: "http://0.0.0.0:PORT"` — the address
+the server binds, not one any browser can open; Chrome blocks it outright. A wildcard
+bind now advertises a real interface address, and `WM_TRIAGE_URL_HOST` overrides it.
+
+### Live reload survives an HTTPS front
+
+The client hardcoded `ws://`. Behind a tunnel, a reverse proxy or `tailscale serve`,
+that is blocked as mixed content and live reload dies with nothing the user can see.
+It now follows `location.protocol`.
+
+### An idle shutdown no longer leaves a zombie holding the port
+
+`server.close()` waits for open connections, and a WebSocket never ends on its own,
+so the callback never fired and `process.exit(0)` never ran. The process lingered
+holding the port and refusing every new connection while the page still showed itself
+connected — and since only HTTP requests and file writes counted as activity, a
+browser tab sitting on the live-reload socket was the *most* likely way to reach it.
+Sockets are now closed before `server.close()`, with a timeout that exits regardless.
+
 ## 0.21.0 — 2026-08-21
 
 ### One oversized chunk no longer discards the whole index build
