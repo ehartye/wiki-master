@@ -45,6 +45,15 @@ const WRONG_NODE_OVERLAP_CEILING = 0.2;
 const DEFAULT_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// Defuddle's own default is `Accept-Language: *` — "any language at all" — and some
+// servers take that literally. Measured on ai.google.dev: six cookieless fetches of
+// one page returned two English and four machine translations (zh-CN, ja, id, ar,
+// each tagged `-x-mtfrom-en`); `--lang en` pinned it to English 6/6. A clipping gets
+// quoted verbatim later, so a silently translated one is worse than a failed fetch —
+// it is wrong content wearing the same frontmatter as right content. Change this if
+// the vault is not English; it is the one knob.
+const CLIP_LANG = 'en';
+
 export function slugify(title) {
   const s = (title || '')
     .replace(/[\\/:*?"<>|#^[\]]/g, '-')
@@ -174,23 +183,56 @@ export function knownSourceUrls(vaultPath) {
   return urls;
 }
 
+// The ladder crosses two axes: how to launch Defuddle, and whether to claim to be
+// a browser. Both rungs of the second axis are required, because the two failures
+// they fix are opposites.
+//
+// WITH the UA, ai.google.dev is unreachable — not blocked, looping. The site offers
+// silent OAuth sign-in to anything it reads as a browser:
+//   docs -> /oauth2authorize?prompt=none -> accounts.google.com
+//        -> /oauth2callback?error=interaction_required -> docs -> ...
+// A real browser escapes because its cookie jar carries `signin_details` forward and
+// the server stops retrying; undici keeps no cookies across redirects, so it spins
+// until "redirect count exceeded" and surfaces as the opaque `Error: fetch failed`.
+// That took an entire class of Google developer documentation off the table.
+//
+// WITHOUT it, NCBI PMC serves a bot-check shell (see DEFAULT_USER_AGENT above).
+//
+// Order follows how each one fails. The PMC failure is SILENT — a short, valid
+// payload Defuddle parses without complaint, so there is no error to fall back on —
+// which means the UA has to be tried first or that fix is simply lost. The Google
+// failure is LOUD, and loud is exactly what a fallback can catch. Bare is tried
+// immediately after each launcher's UA attempt rather than after both, so the common
+// case costs one extra local call instead of an `npx` cold start.
+//
 // Run through the shell (execSync) so Windows resolves the `defuddle.cmd` npm shim
 // via PATHEXT; execFile can't launch .cmd. The URL is validated as a real URL in
 // main() and double-quoted, so it is safe to interpolate.
-function runDefuddleJson(url) {
+export function defuddleAttempts(url) {
   const q = `"${url}"`;
   const ua = `"${DEFAULT_USER_AGENT}"`;
-  const cmds = [
-    `defuddle parse ${q} --json --user-agent ${ua}`,
-    `npx --yes defuddle parse ${q} --json --user-agent ${ua}`,
-  ];
+  const lang = `--lang ${CLIP_LANG}`;
+  return ['defuddle parse', 'npx --yes defuddle parse'].flatMap((launch) => [
+    `${launch} ${q} --json ${lang} --user-agent ${ua}`,
+    `${launch} ${q} --json ${lang}`,
+  ]);
+}
+
+const execDefuddle = (cmd) =>
+  execSync(cmd, {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+
+export function runDefuddleJson(url, { run = execDefuddle } = {}) {
   let lastErr;
-  for (const cmd of cmds) {
+  for (const cmd of defuddleAttempts(url)) {
     try {
-      return JSON.parse(execSync(cmd, {
-        encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
-      }));
-    } catch (e) { lastErr = e; }
+      return JSON.parse(run(cmd));
+    } catch (e) {
+      lastErr = e;
+    }
   }
   throw lastErr;
 }

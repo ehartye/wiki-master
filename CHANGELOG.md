@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.22.1 — 2026-08-22
+
+### Google developer documentation is clippable again
+
+`clip.mjs` could not clip `ai.google.dev` at all — it failed with an opaque
+`Error: fetch failed`, taking an entire class of high-value sources with it. The
+cause was the hardcoded browser `User-Agent`, but not by being blocked. The site
+offers silent OAuth sign-in to any client it reads as a browser:
+
+```
+docs → /oauth2authorize?prompt=none → accounts.google.com
+     → /oauth2callback?error=interaction_required → docs → …
+```
+
+A real browser escapes because its cookie jar carries `signin_details` forward and
+the server stops retrying. `undici` keeps no cookies across redirects, so it spun
+until `redirect count exceeded` — which surfaces as `fetch failed`.
+
+Simply dropping the User-Agent would have traded one broken class for another: it
+is there because NCBI PMC serves a bot-check shell without it (17 words vs 14,885).
+So each launcher now tries the browser UA first and falls back to a bare request.
+The order follows how each site fails — PMC fails *silently*, returning a short but
+valid payload with no error to retry on, so its fix must come first; Google fails
+*loudly*, which is precisely what a fallback can catch.
+
+### Clippings can no longer arrive machine-translated
+
+Found while verifying the above: the first successful clip came back in Japanese.
+Defuddle defaults to `Accept-Language: *` — "any language at all" — and Google takes
+it literally. Six cookieless fetches of one page returned two English and four
+machine translations (zh-CN, ja, id, ar, each tagged `-x-mtfrom-en`), varying per
+request. A clipping is quoted verbatim later, so a silently translated one is worse
+than a failed fetch: it is wrong content wearing the same frontmatter as right
+content, with nothing downstream able to tell.
+
+Every attempt now pins `--lang en`, which held English 6/6 in the same test. The
+`CLIP_LANG` constant is the knob if the vault is not English.
+
 ## 0.22.0 — 2026-08-22
 
 ### Triage can be driven from another machine, behind a session token
