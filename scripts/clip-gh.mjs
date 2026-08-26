@@ -91,6 +91,41 @@ const LANGUAGE_BY_EXT = {
 };
 export function languageHintForExt(ext) { return LANGUAGE_BY_EXT[ext.toLowerCase()] || ''; }
 
+// clip-gh writes one clipping PER REPO FILE, so its output filename is
+// derived from a full, sometimes deeply-nested repo-relative PATH — not a
+// short human title. clip.mjs's shared `slugify()` (built for article
+// titles) blindly truncates to 120 characters, which is unsafe here: a real
+// ~10k-file Salesforce DX repo had many sibling files sharing one long
+// directory prefix and differing only in their last few characters
+// (`Foo.js` vs `Foo.html` vs `Foo.js-meta.xml`, or
+// `...MockWith4Records.json` vs `...MockWith8Records.json`) — truncating at
+// a fixed length collapsed every one of them to an IDENTICAL filename, and
+// each subsequent write silently overwrote the file written before it.
+// Confirmed against the real repo: 49 files silently lost in one run.
+//
+// Same character-substitution rule as `slugify()` (duplicated, not
+// imported, so a future change to clip.mjs's title-slugging behavior can't
+// silently change file-naming here), but the truncation ceiling is much
+// longer, and — critically — when a path DOES exceed it, a short hash of
+// the FULL original path (not the truncated remainder) is appended, so any
+// two paths differing anywhere — even only in their last few characters —
+// still resolve to different filenames. A pure function of relPath alone
+// (no dependency on write order or which sibling files exist), so
+// re-running against an unchanged repo always maps one source file to the
+// same output filename every time — required for dedup to keep working.
+const REPO_SLUG_SAFE_LENGTH = 100;
+export function slugifyRepoPath(relPath) {
+  const s = String(relPath || '')
+    .replace(/[\\/:*?"<>|#^[\]]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/-+/g, '-')
+    .trim()
+    .replace(/[-\s]+$/, '');
+  if (s.length <= REPO_SLUG_SAFE_LENGTH) return s || 'untitled';
+  const digest = createHash('sha256').update(String(relPath)).digest('hex').slice(0, 12);
+  return `${s.slice(0, REPO_SLUG_SAFE_LENGTH - digest.length - 1)}-${digest}`;
+}
+
 // Build one file's clipping. Pure: no IO, no git, no gh — the testable core.
 // A `.md` file is stored AS-IS, never re-fenced (fencing a markdown file
 // would nest its own headings and code fences inside an outer fence and
@@ -281,7 +316,7 @@ export function main(argv) {
       const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
       if (clip.wordCount < THIN_WORD_FLOOR) { thin++; continue; }
       if (existingHashes.has(clip.hash)) { unchanged++; continue; }
-      const fileSlug = slugify(relPath);
+      const fileSlug = slugifyRepoPath(relPath);
       writeFileSync(join(outDir, `${fileSlug}.md`), clip.body);
       clipped++;
     }

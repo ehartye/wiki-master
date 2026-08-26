@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.27.0 — 2026-08-26
+
+### Fix: clip-gh silently overwrote clippings on repos with long, deeply-nested paths
+
+Found in real production use, clipping a large Salesforce DX repo
+(`sfdx-source/.../lwc/SomeVeryLongComponentName/SomeVeryLongComponentName.js`
+-style paths, routinely 130+ characters deep): `clip-gh.mjs` reused
+`clip.mjs`'s shared `slugify()` — built for short article titles — to name
+each per-file clipping. `slugify()` truncates at a fixed 120 characters, and
+many real repos have several sibling files sharing one long directory prefix
+that differ only in their last few characters (`Foo.js` vs `Foo.html` vs
+`Foo.js-meta.xml`, or `...MockWith4Records.json` vs
+`...MockWith8Records.json`). Truncating at a fixed length collapsed every
+one of them to an **identical output filename**, and each subsequent write
+silently overwrote the file written before it — no error, no warning.
+Measured against the real repo that surfaced this: **49 files silently lost**
+in a single clip run (a reported `clipped: 5118` did not match the 5,069
+distinct files actually left on disk afterward — that discrepancy is what
+led to the investigation).
+
+New `slugifyRepoPath()` in `scripts/clip-gh.mjs`, used only for per-file
+output naming (repo/owner directory naming is unaffected — those are short
+GitHub identifiers with no collision risk). Same character-substitution rule
+as `slugify()`, but truncation only kicks in above a longer, filesystem-safe
+ceiling (100 characters), and when a path does exceed it, a short hash of
+the **full original path** — not the truncated remainder — is appended, so
+any two paths differing anywhere, even only in their last few characters,
+still resolve to different filenames. A pure function of the repo-relative
+path alone (no dependency on write order or which sibling files exist), so
+re-running against an unchanged repo still maps one source file to the same
+output filename every time, preserving dedup correctness.
+
+Adds 6 new tests in `test/clip-gh.test.mjs`, including a direct regression
+pin using the real colliding paths from the bug report. Re-verified against
+the real ~10k-file repo that surfaced this: 5,118 non-thin files now produce
+5,118 distinct slugs — zero collisions, longest slug safely bounded at 100
+characters. Full suite: 797 passing, 1 skipped, 0 failing.
+
 ## 0.26.0 — 2026-08-26
 
 ### Fix: repair the vault's actual DOMINANT `sources:` YAML defect (508 pages), missed by 0.25.0's validation
