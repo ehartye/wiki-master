@@ -228,3 +228,48 @@ export function fixSourcesOrder(fileText) {
   const block = fm[2].slice(0, defect.index) + fixed + fm[2].slice(defect.index + whole.length);
   return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
 }
+
+// A `sources:` line written inline as `sources: [[A]]` or comma-joined as
+// `sources: [[A]], [[B]], [[C]]` looks correct to the eye (Obsidian still
+// renders each `[[...]]` as a clickable link) but is not valid YAML list
+// syntax: `[[A]]` is one bracket pair too many — a flow sequence containing a
+// flow sequence containing the string "A" — and multiple comma-joined bracket
+// pairs on one line do not parse as one legal flow value at all (nothing
+// encloses the whole thing). `.obsidian/types.json` registers `sources` as a
+// list (`multitext`) vault-wide, so every page carrying this shape surfaces
+// "type mismatch, expected list" in Obsidian's Properties panel — confirmed
+// live on 283 pages across wiki/sources, wiki/concepts, wiki/entities, and
+// wiki/syntheses. Rewrites into the SAME quoted flow-sequence shape
+// `insertSources` (above) already emits for this exact field — `sources:
+// ["[[A]]", "[[B]]"]` — rather than an unquoted block list: an unquoted
+// `- [[link]]` block-list item is itself flow-parsed by YAML (same
+// double-bracket ambiguity one level down), which breaks outright on any link
+// text containing a YAML-significant bare character (`?` is the one this
+// vault's own link titles hit — e.g. "...Why Should You Care?..."). Quoting
+// makes every item an unambiguous plain string regardless of its content.
+// Pure string surgery, same discipline as fixSourcesOrder: it only recognizes
+// this exact inline shape; `sources: []` (a genuinely valid empty list) and
+// an already-correct block or flow list are both left untouched.
+export function fixInlineSources(fileText) {
+  const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fm) return fileText;
+  // The trailing terminator is `\r?\n` when another frontmatter field follows
+  // `sources:`, or an empty end-of-string match when `sources:` is the LAST
+  // field — in that case fm[3]'s own leading `\r?\n` (captured as part of the
+  // closing `---` fence) already supplies the newline, so `sep` must stay ''
+  // rather than add a second one and leave a blank line before the fence.
+  const unquoted = fm[2].match(/^sources:[ \t]*((?:\[\[[^\]]+\]\][ \t]*,?[ \t]*)+)(\r?\n|$)/m);
+  // Second, distinct shape: a single QUOTED-STRING scalar (`sources: "[[X]]"`)
+  // — a valid scalar, but a scalar, not a list. Tried only when the unquoted
+  // shape above did not match, so the two never fight over the same line.
+  const quotedScalar = !unquoted
+    && fm[2].match(/^sources:[ \t]*"(\[\[[^\]]+\]\])"[ \t]*(\r?\n|$)/m);
+  const defect = unquoted || quotedScalar;
+  if (!defect) return fileText;
+  const links = [...defect[1].matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1]);
+  if (!links.length) return fileText;
+  const sep = defect[2];
+  const fixed = `sources: [${links.map((l) => `"[[${l}]]"`).join(', ')}]${sep}`;
+  const block = fm[2].slice(0, defect.index) + fixed + fm[2].slice(defect.index + defect[0].length);
+  return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
+}

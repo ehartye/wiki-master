@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.25.0 — 2026-08-26
+
+### Feat: clip a GitHub repository into the wiki as per-file clippings
+
+A GitHub repository is not one document — it is dozens or hundreds of
+independently-citable files, and dumping a whole tree into a single clipping
+would be both unquotable and unreviewable. New `scripts/clip-gh.mjs` +
+`skills/clip-gh/` close this gap: it shells out to the `gh` CLI to clone a
+repo to a **temp directory** (`gh repo clone owner/repo <tmp> -- --depth 1`,
+transparently using the caller's existing `gh auth` session; cleaned up in a
+`finally`, success or failure — the clone never touches the vault), walks its
+real files, and writes **one clipping per included file** under
+`raw/clippings/gh/<owner>/<repo>/`, plus one `_repo-overview.md` manifest
+citing the repo's tree URL and listing what was included/excluded.
+
+"Don't clip the whole repo contents" is enforced by three curated exclusion
+rules rather than full `.gitignore` parsing: dependency/build directories at
+any depth (`node_modules`, `vendor`, `dist`, `build`, `.venv`, `__pycache__`,
+etc. — `.github/` is deliberately spared, since CI workflow YAML is real
+content), binary/media/archive/compiled extensions, and generated lockfiles
+by exact basename, plus a 256 KB per-file size ceiling. A repo whose
+includable-file count exceeds a 300-file default cap writes nothing and
+reports the real count instead of clipping silently; `--max-files=N` raises
+it and `--ref=<branch>` can narrow to a smaller subtree.
+
+Each included file is clipped with a real GitHub blob URL citation at the
+exact commit clipped (`.../blob/<sha-or-ref>/<path>`, not the repo root) —
+`.md`/`.mdx` files are stored as-is, everything else is wrapped in a
+language-hinted fenced code block from a small extension lookup table. A
+file under a ~20-word floor (lower than other clippers' ~100-word floor,
+since a real short script or config is still worth a clipping) is skipped as
+thin. Dedup is per-repo and content-hash-based rather than URL-based like
+other `clip-*` scripts: because one clip produces many files, `clip-gh.mjs`
+reads the `source-hash` already recorded under that repo's own output
+directory and only writes files whose content actually changed, reporting
+`unchanged` for the rest — verified end-to-end against a real small public
+repo (multiple real clippings landed, re-running was fully idempotent, temp
+clone directories left no trace, and `health.mjs --backlog` correctly
+recognized the new subdirectory files as part of the ingest backlog).
+
+Adds `skills/clip-gh/SKILL.md` and `test/clip-gh.test.mjs` (pure unit tests
+covering repo-spec parsing across `owner/repo`/URL/SSH-remote shapes, the
+exclusion rules, blob-URL construction, language-hint lookup, and the
+frontmatter/hash contract for both the per-file and manifest clippings; no
+live network call in the suite itself).
+
+### Fix: repair vault-wide invalid `sources:` frontmatter YAML
+
+Obsidian's "type mismatch, expected list" lint surfaced a real, widespread
+defect: 322 vault pages had a `sources:` frontmatter value that Obsidian's
+own link renderer tolerated but was not actually valid YAML, discovered via
+exhaustive PyYAML validation (the vault's own tooling uses a
+regex-tolerant convention that didn't catch it, and no existing health/lint
+check did either). Three distinct shapes were found and fixed:
+
+- **283 files** — an inline, comma-joined list of wikilinks
+  (`sources: [[A]], [[B]], [[C]]`): each `[[X]]` is a nested flow sequence
+  one bracket pair too many, and multiple comma-joined bracket groups don't
+  parse as one legal flow value without an enclosing pair.
+- **35 files** — a quoted single scalar (`sources: "[[X]]"`): valid YAML,
+  but a string, not a list.
+- **4 files** — an otherwise-correct block list where an item's link title
+  ended in a bare `?` immediately before `]]`, which breaks flow-sequence
+  parsing one level down even inside a block list; hand-fixed directly
+  rather than generalized into a broader "quote every risky character"
+  pass, since that would have touched 54 files when only these 4 actually
+  failed to parse.
+
+New `fixInlineSources()` in `scripts/lib/backfill.mjs` (with
+`scripts/repair-inline-sources.mjs` as its dry-run/`--apply` driver) rewrites
+both bulk shapes into a **quoted flow-sequence** —
+`sources: ["[[A]]", "[[B]]"]` — matching the vault's own pre-existing
+`insertSources()` convention, chosen specifically because quoting sidesteps
+the nested-bracket/special-character ambiguity an unquoted block list
+reintroduces. Exhaustive PyYAML re-validation after the repair: 0 problems
+across all 1,139 `wiki/*.md` files. Adds 15 new tests in
+`test/backfill.test.mjs`.
+
 ## 0.24.0 — 2026-08-26
 
 ### Feat: clip Confluence pages into the wiki
