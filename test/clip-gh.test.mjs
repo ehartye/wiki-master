@@ -7,6 +7,7 @@ import {
   languageHintForExt,
   fileClipContent,
   repoManifestContent,
+  slugifyRepoPath,
 } from '../scripts/clip-gh.mjs';
 
 // A GitHub repo is identified as `owner/repo`, but users paste every shape:
@@ -161,4 +162,52 @@ test('repoManifestContent handles a missing description gracefully', () => {
     includedPaths: ['a.txt'], excludedCount: 0, created: '2026-08-26',
   });
   assert.doesNotMatch(c.body, /null/);
+});
+
+// slugifyRepoPath: clip-gh writes one clipping PER REPO FILE, so its output
+// filename is derived from a full, sometimes deeply-nested repo-relative
+// PATH — not a short human title. clip.mjs's shared `slugify()` (built for
+// article titles) blindly truncates to 120 characters, which is unsafe here:
+// a real ~10k-file Salesforce DX repo had many sibling files sharing one
+// long directory prefix and differing only in their last few characters
+// (`Foo.js` vs `Foo.html` vs `Foo.js-meta.xml`, or `...MockWith4Records.json`
+// vs `...MockWith8Records.json`) — truncating at a fixed length collapsed
+// every one of them to an IDENTICAL filename, and each subsequent write
+// silently overwrote the file before it. Confirmed: 49 real files silently
+// lost in a single run before this fix existed.
+test('slugifyRepoPath matches ordinary slugify output for a short, typical repo path', () => {
+  assert.equal(slugifyRepoPath('src/main.js'), 'src-main.js');
+  assert.equal(slugifyRepoPath('README.md'), 'README.md');
+});
+
+test('slugifyRepoPath is a pure, deterministic function — same input always yields the same output', () => {
+  const p = 'sfdx-source/CMPL123/main/ai-text-summarization/lwc/textSummarizationRelationshipConfiguration/textSummarizationRelationshipConfiguration.html';
+  assert.equal(slugifyRepoPath(p), slugifyRepoPath(p));
+});
+
+// The actual regression this fix exists for: two real sibling paths from the
+// bug report, sharing a common prefix well past 120 characters, must resolve
+// to two DIFFERENT filenames.
+test('slugifyRepoPath gives two different long sibling paths two different filenames (the actual collision bug)', () => {
+  const a = 'sfdx-source/CMPL123/main/ai-text-summarization/lwc/textSummarizationRelationshipConfiguration/textSummarizationRelationshipConfiguration.html';
+  const b = 'sfdx-source/CMPL123/main/ai-text-summarization/lwc/textSummarizationRelationshipConfiguration/textSummarizationRelationshipConfiguration.js';
+  const c = 'sfdx-source/CMPL123/main/ai-text-summarization/lwc/textSummarizationRelationshipConfiguration/textSummarizationRelationshipConfiguration.js-meta.xml';
+  const slugs = new Set([slugifyRepoPath(a), slugifyRepoPath(b), slugifyRepoPath(c)]);
+  assert.equal(slugs.size, 3, 'each distinct long path must produce a distinct slug');
+});
+
+test('slugifyRepoPath gives two paths differing only near the very end (past a long common prefix) different filenames', () => {
+  const a = 'sfdx-source/CMPL123/main/report-template/lwc/completedReportsGenerationStatusTable/__tests__/data/completedReportsMockWith4Records.json';
+  const b = 'sfdx-source/CMPL123/main/report-template/lwc/completedReportsGenerationStatusTable/__tests__/data/completedReportsMockWith8Records.json';
+  assert.notEqual(slugifyRepoPath(a), slugifyRepoPath(b));
+});
+
+test('slugifyRepoPath keeps every filename under a safe length bound regardless of input length', () => {
+  const veryLong = 'a/'.repeat(100) + 'file.js'; // absurdly deep path
+  assert.ok(slugifyRepoPath(veryLong).length <= 120, `expected a bounded slug, got ${slugifyRepoPath(veryLong).length} chars`);
+});
+
+test('slugifyRepoPath never produces an empty string', () => {
+  assert.ok(slugifyRepoPath('').length > 0);
+  assert.ok(slugifyRepoPath('///').length > 0);
 });
