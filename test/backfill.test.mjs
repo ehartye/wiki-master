@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planSourceHashBackfill, insertSourceHashes, insertSourceHash, fixSourcesOrder } from '../scripts/lib/backfill.mjs';
+import { planSourceHashBackfill, insertSourceHashes, insertSourceHash, fixSourcesOrder, fixInlineSources } from '../scripts/lib/backfill.mjs';
 
 // Clippings written before `source-hash` existed carry none, so they can never be
 // hash-joined and their summaries stay permanently un-recordable. Stamping the
@@ -194,4 +194,110 @@ test('fixSourcesOrder is idempotent — running it twice is the same as running 
   const text = '---\nsources:\nsource-hashes: ["abc1234"]\n  - [[raw/clippings/Foo.md]]\n---\nbody\n';
   const once = fixSourcesOrder(text);
   assert.equal(fixSourcesOrder(once), once);
+});
+
+// `sources: [[A]]` is not a list at all -- it is one bracket pair too many
+// ([[A]] is a flow sequence containing a flow sequence containing the string
+// "A"), and `sources: [[A]], [[B]]` does not even parse as one legal flow
+// value (no single enclosing bracket pair around the whole thing). Obsidian's
+// Properties panel registers `sources` as a list (`multitext` in
+// .obsidian/types.json) vault-wide, so every page carrying this shape reports
+// "type mismatch, expected list" -- confirmed live on 283 pages across
+// wiki/sources, wiki/concepts, wiki/entities, and wiki/syntheses. This is a
+// distinct defect from the one fixSourcesOrder repairs (that one is about
+// source-hashes landing between a correctly-formed sources: block list and its
+// own items); a dedicated test above already pins inline sources: as
+// out-of-scope for fixSourcesOrder specifically so the two do not overlap.
+test('fixInlineSources rewrites a single inline wikilink into a quoted flow sequence', () => {
+  const text = '---\ntitle: "Foo"\nsources: [[raw/clippings/Bar.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixInlineSources(text);
+  assert.equal(
+    out,
+    '---\ntitle: "Foo"\nsources: ["[[raw/clippings/Bar.md]]"]\nai-generated: true\n---\nbody\n',
+  );
+});
+
+test('fixInlineSources rewrites comma-joined multi-link inline sources into a quoted flow sequence', () => {
+  const text = '---\nsources: [[raw/clippings/A.md]], [[raw/clippings/B.md]], [[raw/clippings/C.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixInlineSources(text);
+  assert.equal(
+    out,
+    '---\nsources: ["[[raw/clippings/A.md]]", "[[raw/clippings/B.md]]", "[[raw/clippings/C.md]]"]\nai-generated: true\n---\nbody\n',
+  );
+});
+
+// The bug this quoting choice specifically fixes: an unquoted `[[link]]`
+// containing a bare YAML-significant character breaks the flow-sequence
+// parser outright rather than merely mis-typing the property. Confirmed live
+// against real vault link titles ("...Why Should You Care?...",
+// "...Two Connected Apps?.md"): a first cut of this repair that wrote an
+// UNQUOTED block list (`- [[link]]`) still hit this, because a bare
+// `[[link]]` block-list item is itself flow-parsed by YAML one level down.
+// Quoting sidesteps it regardless of shape.
+test('fixInlineSources quotes a link whose title contains a bare "?" without corrupting it', () => {
+  const text = '---\nsources: [[raw/clippings/Why does Gearset have two Connected Apps?.md]]\n---\nbody\n';
+  const out = fixInlineSources(text);
+  assert.equal(
+    out,
+    '---\nsources: ["[[raw/clippings/Why does Gearset have two Connected Apps?.md]]"]\n---\nbody\n',
+  );
+});
+
+test('fixInlineSources is a no-op on sources: [] (a genuinely valid empty list)', () => {
+  const text = '---\nsources: []\nai-generated: true\n---\nbody\n';
+  assert.equal(fixInlineSources(text), text);
+});
+
+test('fixInlineSources is a no-op on an already-correct block list', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/Foo.md]]\nai-generated: true\n---\nbody\n';
+  assert.equal(fixInlineSources(text), text);
+});
+
+test('fixInlineSources is a no-op on an already-correct quoted flow sequence', () => {
+  const text = '---\nsources: ["[[raw/clippings/Foo.md]]", "[[raw/clippings/Bar.md]]"]\nai-generated: true\n---\nbody\n';
+  assert.equal(fixInlineSources(text), text);
+});
+
+// A THIRD defect shape, distinct from the inline-unquoted one above: `sources:
+// "[[X]]"` is a single QUOTED STRING -- a valid scalar, but a scalar, not a
+// list at all. This is the same visible "type mismatch, expected list" defect
+// the unquoted shape produces (Obsidian's Properties panel does not
+// distinguish "wrong shape of scalar" from "wrong shape of nested flow
+// sequence" -- both are simply "not the registered list type"). Confirmed
+// live on 35 wiki/sources pages, all single-citation (each one's own
+// `insertSource`-style helper apparently wrote the FIRST citation as a bare
+// quoted scalar rather than a one-item list).
+test('fixInlineSources rewrites a single quoted-string sources: into a one-item quoted flow sequence', () => {
+  const text = '---\nsources: "[[raw/clippings/Foo.md]]"\nsource-hashes: ["abc123"]\n---\nbody\n';
+  const out = fixInlineSources(text);
+  assert.equal(
+    out,
+    '---\nsources: ["[[raw/clippings/Foo.md]]"]\nsource-hashes: ["abc123"]\n---\nbody\n',
+  );
+});
+
+test('fixInlineSources handles a quoted-string sources: as the last frontmatter field', () => {
+  const text = '---\nsources: "[[raw/clippings/Foo.md]]"\n---\nbody\n';
+  const out = fixInlineSources(text);
+  assert.equal(out, '---\nsources: ["[[raw/clippings/Foo.md]]"]\n---\nbody\n');
+});
+
+test('fixInlineSources is a no-op when there is no frontmatter at all', () => {
+  const text = 'just a body, no frontmatter\n';
+  assert.equal(fixInlineSources(text), text);
+});
+
+test('fixInlineSources preserves every other frontmatter field and the body untouched', () => {
+  const text = '---\ntype: concept\ncreated: 2026-01-01\nsources: [[raw/clippings/Only.md]]\nquality: high\n---\n# Heading\n\nBody prose.\n';
+  const out = fixInlineSources(text);
+  assert.match(out, /^type: concept\n/m);
+  assert.match(out, /created: 2026-01-01\n/);
+  assert.match(out, /quality: high\n/);
+  assert.ok(out.endsWith('# Heading\n\nBody prose.\n'));
+});
+
+test('fixInlineSources is idempotent — running it twice is the same as running it once', () => {
+  const text = '---\nsources: [[raw/clippings/A.md]], [[raw/clippings/B.md]]\n---\nbody\n';
+  const once = fixInlineSources(text);
+  assert.equal(fixInlineSources(once), once);
 });
