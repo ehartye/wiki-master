@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.23.0 — 2026-08-26
+
+### Feat: clip PowerPoint decks (.pptx) into the wiki
+
+PowerPoint was the last common Office format `/wiki-discover`'s HTML clipper
+(`clip.mjs` → Defuddle) couldn't reach — it only handles web pages, and the
+existing `clip-docx`/`clip-xlsx` scripts only handle Word documents and
+spreadsheets. A `.pptx` slide deck has neither flowing HTML nor a pandoc input
+format at all (`pandoc --list-input-formats` lists `docx`/`odt`/`rtf` but no
+presentation format), so it fell through every existing path.
+
+New `scripts/clip-pptx.mjs` + bundled `scripts/lib/pptx-extract.py` close the
+gap using **python-pptx**, not LibreOffice — the same category of problem
+`clip-xlsx` solved (an OOXML zip pandoc can't read), but pptx's clean answer is
+a small, targeted Python library rather than pulling in a large LibreOffice
+dependency for one format. The helper is invoked as a subprocess from Node
+(`execFileSync('python3', [...])`), mirroring how `clip-docx`/`clip-xlsx` shell
+out to `pandoc`/`soffice` — zero new npm packages, one new external-tool
+dependency (`pip3 install python-pptx`), with the same reachability-check and
+graceful "not installed" error path as its siblings.
+
+**Deliberate design choice**: this is a brand-new, self-contained
+implementation shipped inside wiki-master itself — it does not shell out to, or
+otherwise runtime-depend on, any other installed Copilot plugin's copy of
+python-pptx glue. That keeps wiki-master portable: it works the same whether or
+not some other plugin happens to be installed on a given machine.
+
+Covered: slide text (bullets/paragraphs), tables (rendered as markdown tables),
+and speaker notes, one `## Slide N` section per slide (numbered to match the
+real deck for citation, even when a slide has no extractable text). Explicitly
+**not** covered: legacy binary `.ppt` (PowerPoint 97-2003) — python-pptx cannot
+read that format at all, so `clip-pptx.mjs` detects the extension and fails
+clearly, telling the user to convert to `.pptx` first, rather than attempting a
+workaround extraction. New `skills/clip-pptx/SKILL.md` documents the preflight,
+usage, and the same "fidelity not truth" / sole-writer-to-`raw/` guardrails as
+`clip-docx`/`clip-xlsx`.
+
 ## 0.22.2 — 2026-08-25
 
 ### Fix: a real, working pdftotext could be misreported as absent
