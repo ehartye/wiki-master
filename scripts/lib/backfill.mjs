@@ -241,15 +241,16 @@ export function fixSourcesOrder(fileText) {
 // live on 283 pages across wiki/sources, wiki/concepts, wiki/entities, and
 // wiki/syntheses. Rewrites into the SAME quoted flow-sequence shape
 // `insertSources` (above) already emits for this exact field — `sources:
-// ["[[A]]", "[[B]]"]` — rather than an unquoted block list: an unquoted
-// `- [[link]]` block-list item is itself flow-parsed by YAML (same
-// double-bracket ambiguity one level down), which breaks outright on any link
-// text containing a YAML-significant bare character (`?` is the one this
-// vault's own link titles hit — e.g. "...Why Should You Care?..."). Quoting
-// makes every item an unambiguous plain string regardless of its content.
+// ["[[A]]", "[[B]]"]`. An unquoted BLOCK list (`- [[link]]`) is a distinct,
+// separately-handled defect — see `fixBlockSources` below; that shape turned
+// out to be silently mis-typed on EVERY item, not merely on the rare one
+// whose title carries a bare YAML-significant character, an assumption this
+// comment used to make and its own test suite used to enshrine as a no-op
+// case. Quoting makes every item an unambiguous plain string regardless of
+// its content, for both shapes.
 // Pure string surgery, same discipline as fixSourcesOrder: it only recognizes
 // this exact inline shape; `sources: []` (a genuinely valid empty list) and
-// an already-correct block or flow list are both left untouched.
+// an already-correct quoted flow sequence are both left untouched.
 export function fixInlineSources(fileText) {
   const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
   if (!fm) return fileText;
@@ -272,4 +273,49 @@ export function fixInlineSources(fileText) {
   const fixed = `sources: [${links.map((l) => `"[[${l}]]"`).join(', ')}]${sep}`;
   const block = fm[2].slice(0, defect.index) + fixed + fm[2].slice(defect.index + defect[0].length);
   return fm[1] + block + fm[3] + fileText.slice(fm[0].length);
+}
+
+// A FOURTH defect shape, and the vault's actual DOMINANT one (508 of 1,140
+// pages — more than the 283 inline-unquoted and 35 quoted-scalar shapes
+// combined): a `sources:` BLOCK list whose items are bare, unquoted
+// wikilinks —
+//   sources:
+//     - [[raw/clippings/A.md]]
+//     - [[raw/clippings/B.md]]
+// This is the single most natural-looking way to hand-write a multi-source
+// list, renders correctly in Obsidian (each `[[...]]` still becomes a
+// clickable link), and was wrongly assumed by an earlier repair pass — and
+// its own test suite — to already be valid. It is not: a block-list item
+// value that itself starts with `[` is flow-sequence syntax one level down,
+// so `- [[link]]` parses not as the string "[[link]]" but as a list
+// containing one list containing the string "link". This is not limited to
+// titles carrying a YAML-significant bare character (that produces a harder
+// outright parse error — a different, much rarer failure, and out of scope
+// here since it requires per-file judgement, not bulk rewriting); a
+// completely ordinary, plain wikilink item hits this on every single line.
+// Rewrites only lines that are EXACTLY `- [[...]]` (optional surrounding
+// whitespace, nothing else on the line) into the same quoted-string
+// convention used elsewhere, preserving the block-list shape (better for
+// long multi-source pages than collapsing to one inline flow-sequence line):
+//   sources:
+//     - "[[raw/clippings/A.md]]"
+//     - "[[raw/clippings/B.md]]"
+// A line with any other shape on it (already quoted, plain prose text with a
+// link embedded mid-sentence, etc.) is left untouched — same discipline as
+// every other fix* function here: recognize one exact shape, touch nothing
+// else, and be a no-op (safe to re-run) once every item is already quoted.
+export function fixBlockSources(fileText) {
+  const fm = fileText.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fm) return fileText;
+  const block = fm[2].match(/^sources:[ \t]*\r?\n((?:[ \t]+-[ \t]+.*(?:\r?\n|$))+)/m);
+  if (!block) return fileText;
+  const items = block[1];
+  const fixedItems = items.replace(
+    /^([ \t]+-[ \t]+)(\[\[.*\]\])([ \t]*)$/gm,
+    (whole, lead, link, trail) => `${lead}"${link.replace(/"/g, '\\"')}"${trail}`,
+  );
+  if (fixedItems === items) return fileText;
+  const newBlock = `sources:\n${fixedItems}`;
+  const body = fm[2].slice(0, block.index) + newBlock + fm[2].slice(block.index + block[0].length);
+  return fm[1] + body + fm[3] + fileText.slice(fm[0].length);
 }

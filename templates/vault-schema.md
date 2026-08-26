@@ -28,7 +28,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   `topic` records the research topic the clipping was gathered for (the argument given to
   `/wiki-discover`); it is omitted for clips made outside a research run, and it is what the
   triage queue groups by.
-- Wiki pages: `type, created, updated, reviewed, status, sources:[[...]], ai-generated`.
+- Wiki pages: `type, created, updated, reviewed, status, sources:["[[...]]"], ai-generated`.
   Source pages also carry `source-hashes:[<sha256>,…]` — the `source-hash` of each
   clipping they summarize; this is the content key the ingest-backlog metric joins on.
   `wiki/authored/` pages additionally carry optional `project` (a slug, one `/` deep

@@ -14,7 +14,7 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
 1. **`raw/` bodies are immutable.** Read raw sources; never edit their content —
    it is the evidence every wiki page cites. Frontmatter is pipeline state and
    may be updated by wiki-master tooling only.
-2. **Provenance on every claim.** Each wiki page you write carries `sources: [[...]]`
+2. **Provenance on every claim.** Each wiki page you write carries `sources: ["[[...]]"]`
    linking back to the `raw/` notes it derives from, plus `ai-generated: true`.
    **Exception: `wiki/authored/`** — original content with no `raw/` counterpart
    (advisory documentation, policy, house style) declares this explicitly via
@@ -60,7 +60,7 @@ bookkeeping. Use the `obsidian-cli` skill for all vault access.
   there, and nothing ever empties it.
 - Wiki page frontmatter (set via `property:set`, typed):
   `type` (source|entity|concept|synthesis|authored), `created`, `updated`, `reviewed`,
-  `status` (stub|draft|maintained), `sources: [[...]]`, `ai-generated: true`.
+  `status` (stub|draft|maintained), `sources: ["[[...]]"]`, `ai-generated: true`.
 - **`wiki/authored/`** is where original, primary content lives — advisory
   documentation, policy, house style, or any other work you're writing directly
   into the vault rather than deriving from a captured source. It is not a
@@ -237,7 +237,7 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
 
 ## Workflows
 - **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
-  (summary + `sources: [[raw link]]`) → update the entities/concepts it touches
+  (summary + `sources: ["[[raw link]]"]`) → update the entities/concepts it touches
   (create stubs where missing) → add `[[links]]` both directions → regenerate the
   catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
   directory) → write the log entry via `node ../../scripts/log-entry.mjs`.
@@ -342,7 +342,7 @@ citations are logged for review. If the vault is git-synced, running it once and
 committing repairs every machine.
 
 **Repairing title-shaped citations (`provenanceGaps > 0`).** A separate, older drift:
-ingest wrote `sources: [[<the source's title>]]`, but the clipper had already
+ingest wrote `sources: ["[[<the source's title>]]"]`, but the clipper had already
 slugified that title into the filename (`/`, `:`, `#` → `-`, 120-char cap). Any title
 carrying one of those characters or running long cites a file that does not exist —
 the page is a `provenanceGap` and its clipping reads as unparsed, though the ingest

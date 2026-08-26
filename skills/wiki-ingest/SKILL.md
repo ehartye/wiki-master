@@ -20,10 +20,17 @@ work and not the user's in-progress writing. Close it in step 6.
 
 For each source:
 1. Read it (`obsidian read path=...`). Discuss the key takeaways with the user.
-2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: [[<raw link>]]`,
+2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: ["[[<raw link>]]"]`,
    `type: source`, `ai-generated: true`, and typed `created`/`updated`/`reviewed`.
-   **Cite the clipping by its actual filesystem path — `sources: [[raw/clippings/
-   <exact filename>.md]]` — copied from the path you just read, never retyped from
+   **Always quote each wikilink inside the list — `sources: ["[[A]]", "[[B]]"]`,
+   never a bare `sources: [[A]]` or an unquoted block list (`- [[A]]`).** Both
+   unquoted shapes look correct and Obsidian still renders the links, but neither
+   is valid YAML: `[[A]]` is flow-sequence syntax one level too many and silently
+   parses into a nested list instead of a string, which is exactly the "type
+   mismatch, expected list" defect `node ../../scripts/repair-inline-sources.mjs`
+   exists to repair in bulk. Quoting is what makes it an unambiguous string.
+   **Cite the clipping by its actual filesystem path — `sources: ["[[raw/clippings/
+   <exact filename>.md]]"]` — copied from the path you just read, never retyped from
    the source's title.** The clipper slugifies a title into a filename (`/`, `:`,
    `#`, `*`, `?`, quotes and brackets all become `-`, then a 120-char cap), so any
    title carrying one of those characters or running long does NOT name its own
@@ -34,7 +41,7 @@ For each source:
    Also record `source-hashes: [<sha256>, …]` — the `source-hash` frontmatter value
    of each clipping you summarized (read it from the clipping's frontmatter). This
    is the machine key the ingest-backlog metric joins on — immune to filename and
-   citation drift; the `sources: [[…]]` wikilink stays for navigation.
+   citation drift; the `sources: ["[[…]]"]` wikilink stays for navigation.
    To repair vaults that already drifted this way:
    `node ../../scripts/repair-provenance-links.mjs` (dry run) then `--apply`.
 3. Update the entities and concepts it touches; create stubs (`status: stub`) where

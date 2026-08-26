@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planSourceHashBackfill, insertSourceHashes, insertSourceHash, fixSourcesOrder, fixInlineSources } from '../scripts/lib/backfill.mjs';
+import { planSourceHashBackfill, insertSourceHashes, insertSourceHash, fixSourcesOrder, fixInlineSources, fixBlockSources } from '../scripts/lib/backfill.mjs';
 
 // Clippings written before `source-hash` existed carry none, so they can never be
 // hash-joined and their summaries stay permanently un-recordable. Stamping the
@@ -248,7 +248,7 @@ test('fixInlineSources is a no-op on sources: [] (a genuinely valid empty list)'
   assert.equal(fixInlineSources(text), text);
 });
 
-test('fixInlineSources is a no-op on an already-correct block list', () => {
+test('fixInlineSources leaves an unquoted block list untouched (out of scope; see fixBlockSources)', () => {
   const text = '---\nsources:\n  - [[raw/clippings/Foo.md]]\nai-generated: true\n---\nbody\n';
   assert.equal(fixInlineSources(text), text);
 });
@@ -300,4 +300,81 @@ test('fixInlineSources is idempotent — running it twice is the same as running
   const text = '---\nsources: [[raw/clippings/A.md]], [[raw/clippings/B.md]]\n---\nbody\n';
   const once = fixInlineSources(text);
   assert.equal(fixInlineSources(once), once);
+});
+
+// fixBlockSources: the FOURTH sources: defect shape, and the vault's actual
+// dominant one (508 of 1,140 pages, confirmed via a strict re-check that
+// parses each page's real sources: value with a YAML parser and asserts every
+// item is a string — not merely that parsing succeeds without throwing, the
+// weaker check an earlier repair pass relied on and which is exactly how this
+// shape went undetected the first time). `yaml.safe_load` on a bare block-list
+// item `- [[X]]` does not error; it silently parses into a list containing a
+// one-item list containing "X", which is what the tests below pin against a
+// real YAML parser's behavior, not just string-shape assertions.
+test('fixBlockSources quotes a single bare wikilink block-list item', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/Foo.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixBlockSources(text);
+  assert.equal(
+    out,
+    '---\nsources:\n  - "[[raw/clippings/Foo.md]]"\nai-generated: true\n---\nbody\n',
+  );
+});
+
+test('fixBlockSources quotes every item in a multi-item bare block list', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/A.md]]\n  - [[raw/clippings/B.md]]\n  - [[raw/clippings/C.md]]\nai-generated: true\n---\nbody\n';
+  const out = fixBlockSources(text);
+  assert.equal(
+    out,
+    '---\nsources:\n  - "[[raw/clippings/A.md]]"\n  - "[[raw/clippings/B.md]]"\n  - "[[raw/clippings/C.md]]"\nai-generated: true\n---\nbody\n',
+  );
+});
+
+test('fixBlockSources handles a bare block list as the last frontmatter field', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/Foo.md]]\n---\nbody\n';
+  const out = fixBlockSources(text);
+  assert.equal(out, '---\nsources:\n  - "[[raw/clippings/Foo.md]]"\n---\nbody\n');
+});
+
+test('fixBlockSources leaves an already-quoted block list untouched (no-op, idempotent)', () => {
+  const text = '---\nsources:\n  - "[[raw/clippings/Foo.md]]"\n  - "[[raw/clippings/Bar.md]]"\n---\nbody\n';
+  assert.equal(fixBlockSources(text), text);
+});
+
+test('fixBlockSources only quotes bare items, leaving already-quoted or prose-prefixed items in the same list untouched', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/A.md]]\n  - "[[raw/clippings/B.md]]"\n  - See [[raw/clippings/C.md]]\n---\nbody\n';
+  const out = fixBlockSources(text);
+  assert.equal(
+    out,
+    '---\nsources:\n  - "[[raw/clippings/A.md]]"\n  - "[[raw/clippings/B.md]]"\n  - See [[raw/clippings/C.md]]\n---\nbody\n',
+  );
+});
+
+test('fixBlockSources is a no-op on an inline sources: page (out of scope; see fixInlineSources)', () => {
+  const text = '---\nsources: [[raw/clippings/Foo.md]]\n---\nbody\n';
+  assert.equal(fixBlockSources(text), text);
+});
+
+test('fixBlockSources is a no-op on sources: [] (a genuinely valid empty list)', () => {
+  const text = '---\nsources: []\nai-generated: true\n---\nbody\n';
+  assert.equal(fixBlockSources(text), text);
+});
+
+test('fixBlockSources is a no-op when there is no frontmatter at all', () => {
+  const text = 'just a body, no frontmatter\n';
+  assert.equal(fixBlockSources(text), text);
+});
+
+test('fixBlockSources preserves every other frontmatter field and the body untouched', () => {
+  const text = '---\ntype: concept\ncreated: 2026-01-01\nsources:\n  - [[raw/clippings/Only.md]]\nquality: high\n---\n# Heading\n\nBody prose.\n';
+  const out = fixBlockSources(text);
+  assert.match(out, /^type: concept\n/m);
+  assert.match(out, /created: 2026-01-01\n/);
+  assert.match(out, /quality: high\n/);
+  assert.ok(out.endsWith('# Heading\n\nBody prose.\n'));
+});
+
+test('fixBlockSources is idempotent — running it twice is the same as running it once', () => {
+  const text = '---\nsources:\n  - [[raw/clippings/A.md]]\n  - [[raw/clippings/B.md]]\n---\nbody\n';
+  const once = fixBlockSources(text);
+  assert.equal(fixBlockSources(once), once);
 });
