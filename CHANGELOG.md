@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.26.0 — 2026-08-26
+
+### Fix: repair the vault's actual DOMINANT `sources:` YAML defect (508 pages), missed by 0.25.0's validation
+
+0.25.0 fixed 322 pages with an inline/quoted-scalar `sources:` defect, and
+claimed "0 problems across all 1,139 `wiki/*.md` files" — but that validation
+only checked that `yaml.safe_load()` did not throw, never that the *parsed
+value* was actually a list of strings. That missed the vault's real dominant
+defect shape, reported live by a user after 0.25.0 shipped: an unquoted block
+list —
+
+```yaml
+sources:
+  - [[A]]
+  - [[B]]
+```
+
+— parses **successfully**, but into a nested list (a list containing a
+one-item list containing a string), not a list of strings. This is silently
+wrong, not a parse error, which is exactly why the earlier exception-based
+check missed it. A fresh scan that actually inspects each parsed item's type
+found it on **508 pages** across `wiki/sources`, `wiki/concepts`,
+`wiki/entities`, and `wiki/syntheses` — more than the 322 pages the previous
+release fixed. A further one-off, `wiki/concepts/Models API.md`, had a
+distinct triple-dash corruption (`- - - wiki/sources/X`, wikilink brackets
+stripped entirely) and was hand-fixed directly rather than folded into a
+general-purpose fixer for one occurrence.
+
+**Root cause, not just the symptom**: `templates/vault-schema.md` and two
+skill files (`wiki-maintainer/SKILL.md`, `wiki-ingest/SKILL.md`) all showed
+this exact unquoted shape as the canonical `sources:` example. Every
+hand-authored page kept reproducing the defect even after 0.25.0's repair —
+including pages written earlier in the *same session* that shipped 0.25.0.
+All three docs now show the correct quoted shape (`sources: ["[[A]]",
+"[[B]]"]`), with an explicit callout in `wiki-ingest/SKILL.md` naming both
+invalid shapes so this does not recur a third time.
+
+New `fixBlockSources()` in `scripts/lib/backfill.mjs` rewrites only block-list
+item lines that are exactly `- [[...]]` (nothing else on the line) into
+`- "[[...]]"`, preserving the block-list shape (better for long multi-source
+pages than collapsing to one inline flow-sequence line) — already-quoted or
+prose-prefixed items in the same list are left untouched. Wired into
+`scripts/repair-inline-sources.mjs` alongside the existing `fixInlineSources`,
+so one driver run now repairs both defect shapes. Adds 10 new tests in
+`test/backfill.test.mjs`, and corrects one existing test (and its
+supporting comment in `backfill.mjs`) that had wrongly asserted a bare block
+list was "already correct."
+
+Re-validated the real vault with a stricter checker (parses `sources:` and
+asserts every item is a string, not just that parsing succeeds): **0
+problems across all 1,140 `wiki/*.md` files.** `health.mjs` confirms no new
+broken links (6 broken, all pre-existing deferred forward-links, 0
+defect/stale).
+
 ## 0.25.0 — 2026-08-26
 
 ### Feat: clip a GitHub repository into the wiki as per-file clippings
