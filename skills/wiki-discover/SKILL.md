@@ -95,6 +95,16 @@ node ../../scripts/clip-docx.mjs "<file.docx>" --source="<url>" --quality=<tier>
 node ../../scripts/clip-xlsx.mjs "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
 ```
 
+**A Confluence Cloud URL is HTML but also does not go through `clip.mjs`** — it
+requires authentication `clip.mjs`'s anonymous fetch does not have, and reads
+as thin content / gets auto-declined. Route it to `/clip-confluence` instead
+(only applies if the `confluencer` plugin is installed — an optional runtime
+dependency this one clipper alone takes on; see its skill for why):
+
+```bash
+node ../../scripts/clip-confluence.mjs "<confluence-url-or-page-id>" --quality=<tier> --topic="<topic>"
+```
+
 Forgetting it on the binary paths is the failure mode this run is most likely to
 hit, because a PDF-heavy topic routes most of its clips away from `clip.mjs`. One
 measured run lost attribution on **16 of 41 clippings (39%)** exactly this way.
