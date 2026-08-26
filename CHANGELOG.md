@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.24.0 — 2026-08-26
+
+### Feat: clip Confluence pages into the wiki
+
+`clip.mjs`'s anonymous Defuddle fetch cannot reach a Confluence Cloud page —
+it sits behind Atlassian auth, so the request hits the login wall or an empty
+SPA shell, reads as thin content, and gets auto-declined. New
+`scripts/clip-confluence.mjs` + `skills/clip-confluence/` close this gap by
+shelling out to the separately-installed `confluencer` plugin's `page.mjs`
+(the same authenticated fetch the `confluence` skill itself uses), parsing its
+provenance header (title / space / page ID / version / updated / URL), and
+writing the standard clipping frontmatter — mirroring clip-docx/clip-pdf's
+pipeline (thin-content floor, hash-based dedup, slug disambiguation, decline
+tracking).
+
+Exporting the page to PDF and running it through the existing `/clip-pdf`
+instead was considered and rejected: it is a double lossy conversion
+(Confluence storage format → PDF render → `pdftotext` extraction) versus the
+one clean hop `page.mjs` already does to Markdown, `clip-pdf.mjs` itself
+documents that table extraction can silently mispair rows while reading as
+clean prose, and Confluence validation/compliance corpora are dominated by
+exactly that shape of content (approval blocks, signature tables,
+requirement-to-test traceability matrices). It also would not fix live Jira
+macros that already fail to render for `page.mjs`, and stays fully manual per
+page regardless.
+
+**Deliberate exception to the portability principle 0.23.0 just established**:
+every other `clip-*` skill is self-contained specifically so wiki-master works
+the same whether or not some other plugin is installed. This one breaks that
+on purpose — `confluencer` is a whole configured, authenticated Atlassian
+integration (base URL, account email, API token, connectivity), not a generic
+stateless library like `pandoc`/`python-pptx`, and re-implementing an
+Atlassian client inside wiki-master to preserve portability would be the wrong
+trade. So `confluencer` is treated as an **optional** runtime dependency:
+`clip-confluence.mjs` searches every `~/.copilot/installed-plugins/*/`
+marketplace folder for it (an explicit `WIKI_MASTER_CONFLUENCER_SCRIPTS`
+overrides the search), and degrades gracefully rather than failing confusingly
+when it is absent — one clear message and a `confluencer-missing` status,
+never a raw `ENOENT`. A new `--doctor` flag reports whether it was found and,
+if so, hands off to confluencer's **own** `doctor.mjs` for the auth/config
+check wiki-master has no business performing itself.
+
+**Known limitation, documented rather than fixed**: Confluence pages mutate in
+place at a stable URL (we watched one page's `Version` climb from 1 to 10 in
+an afternoon), but dedup is keyed on bare URL like every other `clip-*`
+script — so deliberately re-clipping an updated page currently reads as
+`duplicate (already clipped)` and is silently skipped. Flagged in the skill doc
+as a candidate for version-aware dedup (URL + Version) if it becomes a real
+workflow; not built now to keep this change scoped.
+
+Adds `skills/clip-confluence/SKILL.md`, `test/clip-confluence.test.mjs` (pure
+unit tests only — provenance-header parsing, frontmatter/hash contract, and
+the plugin-search helper against a scratch temp directory; no live network
+call or real confluencer invocation), and a short pointer from `/wiki-discover`
+alongside the existing PDF/Word/spreadsheet routing.
+
 ## 0.23.0 — 2026-08-26
 
 ### Feat: clip PowerPoint decks (.pptx) into the wiki
