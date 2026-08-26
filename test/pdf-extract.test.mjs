@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parsePdftotextCapabilities, shortKeyLines, tabularity, chooseExtraction,
+  parsePdftotextCapabilities, pdftotextCapabilities, shortKeyLines, tabularity, chooseExtraction,
 } from '../scripts/lib/pdf-extract.mjs';
 
 test('parsePdftotextCapabilities detects the Xpdf -table mode, and its absence in poppler', () => {
@@ -32,6 +32,47 @@ test('parsePdftotextCapabilities detects the Xpdf -table mode, and its absence i
   // An unreadable/absent probe must not masquerade as capable.
   assert.equal(parsePdftotextCapabilities('').table, false);
   assert.equal(parsePdftotextCapabilities('').flavor, 'unknown');
+});
+
+// Real bug, found live: poppler is a fork of Xpdf's original codebase, and a
+// real, current poppler build's own banner text credits BOTH "The Poppler
+// Developers" AND "Copyright ... Glyph & Cog, LLC" (Xpdf's author) -- confirmed
+// on poppler 26.01.0's actual `pdftotext -v` output. The old flavor check tested
+// for "Glyph & Cog" FIRST, so this genuine poppler install (no -table) was
+// misclassified as 'xpdf'.
+test('parsePdftotextCapabilities classifies a poppler banner that also credits Xpdf\'s author as poppler, not xpdf', () => {
+  const popplerWithLegacyCredit = [
+    'pdftotext version 26.01.0',
+    'Copyright 2005-2026 The Poppler Developers - http://poppler.freedesktop.org',
+    'Copyright 1996-2011, 2022 Glyph & Cog, LLC',
+    '  -layout              : maintain original physical layout',
+  ].join('\n');
+  const cap = parsePdftotextCapabilities(popplerWithLegacyCredit);
+  assert.equal(cap.flavor, 'poppler', 'an explicit "poppler" mention must win over the incidental Xpdf-author credit line');
+  assert.equal(cap.table, false, 'this poppler build has no -table mode');
+});
+
+// Real bug, found live: a poppler build (26.01.0) exits 0 for `-h`/`-v` and writes
+// its ENTIRE banner + usage listing to stderr, never stdout. spawnSync-based probes
+// must capture stderr on a SUCCESSFUL (exit-0) run, not only inside a catch/failure
+// branch — an execFileSync-based probe that only returns its success value (stdout)
+// silently discards that text and misreports a real, working poppler install as
+// `flavor: 'unknown'`, which then reports the whole PDF toolchain as absent (fatal)
+// even though it is fully installed and functional. Xpdf's own pdftotext exits 99
+// for `-v`, which is why this exact case never surfaced on an Xpdf machine.
+test('pdftotextCapabilities captures stderr text even when the probe exits 0', () => {
+  const popplerBannerOnStderr = [
+    'pdftotext version 26.01.0',
+    'Copyright 2005-2026 The Poppler Developers - http://poppler.freedesktop.org',
+    'Usage: pdftotext [options] <PDF-file> [<text-file>]',
+    '  -layout              : maintain original physical layout',
+  ].join('\n');
+  // Fakes exactly the real shape: exit 0, stdout empty, everything on stderr.
+  const probe = () => ({ status: 0, stdout: '', stderr: popplerBannerOnStderr });
+  const caps = pdftotextCapabilities({ probe });
+  assert.equal(caps.flavor, 'poppler', 'must not misreport an installed, working pdftotext as unknown');
+  assert.equal(caps.layout, true);
+  assert.equal(caps.table, false);
 });
 
 test('shortKeyLines picks out standalone key-column cells, not prose lines', () => {
