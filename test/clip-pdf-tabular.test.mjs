@@ -107,7 +107,20 @@ test('a poppler install cannot silently flatten a table: it warns and marks it d
     assert.match(clip.body, /fidelity: degraded/);
 
     // Xpdf, same document: recovered, and stamped as reconstructed rather than verbatim.
-    const xpdf = planExtraction(table, { caps: { table: true, layout: true, flavor: 'xpdf' } });
+    // The real installed pdftotext on THIS machine may not have -table at all (this is
+    // exactly the poppler case the first half of this test covers) -- asking the real
+    // binary to run with `-table` on such a machine doesn't simulate "an Xpdf install",
+    // it just fails (poppler exits with a usage error for a flag it doesn't recognise),
+    // which `detectTabular`'s try/catch swallows into a null result and silently defeats
+    // this half of the test. `detect` is stubbed here for the same reason `caps` is
+    // injected above the block comment: this branch verifies planExtraction's WIRING
+    // (given tabular detection + table capability, does it choose -table mode?), not
+    // detection itself -- which the poppler-path checks above and detectTabular's own
+    // tests elsewhere already exercise against a real binary.
+    const xpdf = planExtraction(table, {
+      caps: { table: true, layout: true, flavor: 'xpdf' },
+      detect: () => ({ tabular: true }),
+    });
     assert.deepEqual(xpdf.mode.args, ['-table']);
     assert.equal(xpdf.mode.extraction, 'table-aware');
     assert.equal(xpdf.mode.fidelityFloor, 'tabular');

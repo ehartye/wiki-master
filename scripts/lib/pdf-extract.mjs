@@ -21,7 +21,7 @@
 //
 // So the mode is chosen per document, and when the faithful mode is unavailable
 // the clipping says so instead of quietly claiming fidelity it does not have.
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 // A key-column cell: short and standalone. Tuned to admit "5.35", "SSP.01",
 // "G, H, P, T" and reject any real sentence.
@@ -52,8 +52,16 @@ export function parsePdftotextCapabilities(helpText) {
   const t = String(helpText || '');
   // 'unknown' means the probe told us nothing we recognise -- treat that as
   // absent, not as a capable install we failed to name.
-  const flavor = /xpdfreader|Glyph & Cog/i.test(t) ? 'xpdf'
-    : /poppler/i.test(t) ? 'poppler'
+  //
+  // poppler checked FIRST, deliberately: poppler is a fork of Xpdf's original
+  // codebase and its own real banner still credits "Copyright ... Glyph & Cog,
+  // LLC" (Xpdf's author) alongside "The Poppler Developers" -- confirmed live
+  // on poppler 26.01.0. A poppler-first check treats an explicit "poppler"
+  // mention as the decisive signal; only a banner with NO poppler mention at
+  // all falls through to the xpdf/Glyph & Cog check, since a genuine Xpdf
+  // banner never says "poppler".
+  const flavor = /poppler/i.test(t) ? 'poppler'
+    : /xpdfreader|Glyph & Cog/i.test(t) ? 'xpdf'
     : /pdftotext/i.test(t) ? 'unnamed'
     : 'unknown';
   return {
@@ -68,19 +76,38 @@ export function parsePdftotextCapabilities(helpText) {
 // Probe once per process. pdftotext prints usage to stdout (Xpdf) or stderr
 // (poppler) and exits non-zero for -h on some builds, so capture both streams
 // and ignore the exit code.
+//
+// Real bug, found live: `execFileSync` only returns stdout on a SUCCESSFUL
+// (exit-0) call -- it has no way to also hand back stderr from that same call,
+// unlike its behavior on a failing call, where both are attached to the thrown
+// error. A poppler build that exits 0 for -h/-v and writes its entire banner +
+// usage listing to stderr (confirmed: poppler 26.01.0) therefore probed as
+// completely blank text, misreporting a real, working pdftotext install as
+// `flavor: 'unknown'` -- which then reported the whole PDF toolchain as absent
+// (fatal) even though it was fully installed and functional. `spawnSync` returns
+// both streams unconditionally regardless of exit code, so this no longer
+// depends on which exit-code/stream convention a given build happens to use.
+//
+// `probe` is injectable (defaults to the real spawnSync-backed probe) purely so
+// this exact regression -- exit 0, banner on stderr -- can be asserted
+// deterministically in a test without depending on whichever pdftotext build
+// happens to be installed on the machine running the suite.
+function realProbe(flag) {
+  return spawnSync('pdftotext', [flag], { encoding: 'utf8' });
+}
+
 let capsCache;
-export function pdftotextCapabilities() {
-  if (capsCache) return capsCache;
+export function pdftotextCapabilities({ probe = realProbe } = {}) {
+  const usingRealProbe = probe === realProbe;
+  if (usingRealProbe && capsCache) return capsCache;
   let out = '';
   for (const flag of ['-h', '-v']) {
-    try {
-      out += execFileSync('pdftotext', [flag], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) || '';
-    } catch (err) {
-      out += `${err.stdout || ''}${err.stderr || ''}`;
-    }
+    const r = probe(flag);
+    out += `${r.stdout || ''}${r.stderr || ''}`;
   }
-  capsCache = parsePdftotextCapabilities(out);
-  return capsCache;
+  const caps = parsePdftotextCapabilities(out);
+  if (usingRealProbe) capsCache = caps;
+  return caps;
 }
 
 // Is pdftotext installed at all? Deliberately NOT `pdftotext -v && exit 0`:

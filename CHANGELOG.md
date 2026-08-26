@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.22.2 — 2026-08-25
+
+### Fix: a real, working pdftotext could be misreported as absent
+
+`node scripts/clip-pdf.mjs --doctor` reported `pdftotext is not installed -- no
+PDF can be clipped at all` on a machine with a real, working poppler `pdftotext`
+(26.01.0) on `PATH`. Two independent bugs in the capability probe, both found live:
+
+- **Bug 1 (the fatal one): stderr silently discarded on a successful probe.**
+  `pdftotextCapabilities()` used `execFileSync`, which returns only `stdout` on a
+  successful (exit-0) call — stderr was captured only inside the failure
+  (non-zero exit) branch. This poppler build exits **0** for both `-h` and `-v`
+  and writes its entire banner and usage listing to **stderr**, so the probe saw
+  nothing at all and classified a fully functional install as `flavor: 'unknown'`
+  — which `pdftotextPresent()` then reported as absent. Switched to `spawnSync`,
+  which returns both streams unconditionally regardless of exit code, so this no
+  longer depends on which exit-code/stream convention a given build happens to
+  use. `probe` is now injectable so this exact regression (exit 0, banner on
+  stderr) is asserted deterministically in a test rather than depending on
+  whichever `pdftotext` happens to be on the machine running the suite.
+- **Bug 2 (found while fixing bug 1): poppler misclassified as Xpdf.** Once
+  stderr was actually captured, the flavor heuristic checked for `Glyph & Cog`
+  (Xpdf's author) *before* `poppler` — but poppler is a fork of Xpdf's original
+  codebase and its own real banner still credits `Glyph & Cog, LLC` alongside
+  `The Poppler Developers`, so this real poppler install classified as `'xpdf'`.
+  Reordered to check for an explicit `poppler` mention first; a genuine Xpdf
+  banner never says "poppler", so this cannot produce a false negative on a real
+  Xpdf install.
+- **Test-suite side effect, also fixed**: the whole tabular-PDF integration test
+  file (`test/clip-pdf-tabular.test.mjs`) had always been silently *skipped* on
+  any machine hitting bug 1 (its own `skip` flag was driven by
+  `pdftotextPresent()`), so it had never actually run here. Fixing detection
+  un-skipped it and surfaced one pre-existing, unrelated test-design gap: a
+  scenario simulating "an Xpdf machine" via an injected fake capability set
+  still let `detectTabular` invoke the *real* installed binary with `-table` —
+  which throws on a poppler build that doesn't support the flag, silently
+  defeating the assertion. Fixed by also injecting a fake `detect` for that
+  scenario, so it verifies `planExtraction`'s wiring without depending on which
+  `pdftotext` flavor happens to be installed.
+
+Full suite: 734 passing, 1 skipped (no real `-table` mode on this machine —
+correct, not a gap), 0 failing, verified stable across repeated runs.
+
 ## 0.22.1 — 2026-08-22
 
 ### Google developer documentation is clippable again
