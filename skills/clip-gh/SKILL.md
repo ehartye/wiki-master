@@ -139,6 +139,25 @@ things as `unchanged` rather than rewriting them. There is no separate
 and checked at the whole-repo level (`github.com/<owner>/<repo>`), same
 shape as every other source type's decline key.
 
+**Digest mode re-clips prune stale listings automatically.** Module
+grouping is recomputed fresh on every run (see `groupIntoModules`'s own
+comment for why groups are bounded, not 1:1 with file count) — so a re-clip
+of a repo that has grown, shrunk, or reorganized enough to cross a
+splitting threshold can produce different group boundaries than the prior
+run. Rather than leaving the old run's now-meaningless listings sitting in
+`raw/` forever (a slow-motion version of exactly the clutter problem digest
+mode exists to avoid), `clip-gh.mjs` compares this run's expected filenames
+(manifest + every current listing + every current non-thin anchor) against
+what is actually in the output directory and deletes anything unexpected,
+reporting it as `pruned`. Verified against the real repo that motivated
+digest mode: forcing a grouping change via a lower `--max-groups` between
+two runs correctly pruned every one of the prior run's now-obsolete
+listings, with zero data loss (the module table's file counts still summed
+to the full included total) and a further identical re-run pruning nothing.
+This only applies to digest-mode output (listings/manifest/anchors); a
+per-file-mode clipping for a source file renamed or deleted upstream is
+**not** currently pruned — that remains a known gap.
+
 ## Steps
 
 1. **Preflight** (once, or whenever a clip fails unexpectedly):

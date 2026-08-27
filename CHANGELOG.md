@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.29.0 — 2026-08-27
+
+### Fix: clip-gh digest mode re-clips no longer leave stale listings behind
+
+Digest mode (0.28.0) recomputes module grouping fresh on every run — so a
+re-clip of a repo that has grown, shrunk, or reorganized enough to cross a
+splitting threshold produces different group boundaries than the prior
+run, and the old run's now-meaningless listings had nowhere to go: nothing
+cleaned them up. Left unaddressed across repeated re-clips of an
+actively-developed repo, that is a slow-motion version of the exact
+clutter problem digest mode itself exists to avoid — just smaller and
+quieter than one big 1:1 dump.
+
+New `findStaleDigestFiles()` in `scripts/clip-gh.mjs`: after writing a
+digest, compares the run's actual expected filenames (manifest + every
+current listing + every current non-thin anchor) against what is really in
+the output directory, and deletes anything unexpected — reporting it as
+`pruned` in the run's console output. An anchor file that has since become
+thin is correctly treated as no longer expected too, not just a grouping
+change.
+
+Verified against the real repo that motivated digest mode: forcing a
+grouping change between two runs (via a lower `--max-groups`) correctly
+pruned all 132 of the prior run's now-obsolete listings, with the module
+table's file counts still summing to the exact full included total (zero
+data loss), and a further identical re-run pruning nothing (fully stable,
+no oscillation).
+
+Scoped to digest-mode output only — a per-file-mode clipping for a source
+file renamed or deleted upstream is not currently pruned; documented as a
+remaining known gap in the skill doc rather than silently left unstated.
+
+Adds 6 new tests in `test/clip-gh.test.mjs`. Full suite: 827 passing, 1
+skipped, 0 failing.
+
 ## 0.28.0 — 2026-08-26
 
 ### Feat: clip-gh digest mode — bounded output for large repos, never 1:1 with file count

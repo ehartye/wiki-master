@@ -12,6 +12,7 @@ import {
   moduleListingContent,
   digestManifestContent,
   selectAnchorFiles,
+  findStaleDigestFiles,
 } from '../scripts/clip-gh.mjs';
 
 // A GitHub repo is identified as `owner/repo`, but users paste every shape:
@@ -436,5 +437,48 @@ test('digestManifestContent is deterministic — same input yields byte-identica
     excludedCount: 0, anchorFiles: [], created: '2026-08-26',
   };
   assert.equal(digestManifestContent(input).body, digestManifestContent(input).body);
+});
+
+// findStaleDigestFiles: digest mode recomputes module grouping fresh on
+// every run (see groupIntoModules' own comment), so a re-clip of a repo
+// that has grown/shrunk enough to cross a splitting threshold can leave a
+// PRIOR run's listing sitting under a filename this run no longer produces
+// — never automatically cleaned up until now. Left unaddressed across
+// repeated re-clips of an actively-changing repo, this is a slow-motion
+// version of the exact clutter problem digest mode itself exists to avoid.
+// Pure: takes plain filename lists, no filesystem access, so "what counts
+// as stale" is directly testable without a real repo clone or output dir.
+test('findStaleDigestFiles reports nothing stale when existing files exactly match expected', () => {
+  const existing = ['_repo-overview.md', '_listing-src.md'];
+  const expected = ['_repo-overview.md', '_listing-src.md'];
+  assert.deepEqual(findStaleDigestFiles(existing, expected), []);
+});
+
+test('findStaleDigestFiles reports an existing file this run no longer expects', () => {
+  const existing = ['_repo-overview.md', '_listing-src.md', '_listing-old-module.md'];
+  const expected = ['_repo-overview.md', '_listing-src.md'];
+  assert.deepEqual(findStaleDigestFiles(existing, expected), ['_listing-old-module.md']);
+});
+
+test('findStaleDigestFiles reports every stale file when several are stale', () => {
+  const existing = ['_repo-overview.md', '_listing-a.md', '_listing-b.md', 'README.md'];
+  const expected = ['_repo-overview.md'];
+  assert.deepEqual(findStaleDigestFiles(existing, expected).sort(), ['README.md', '_listing-a.md', '_listing-b.md']);
+});
+
+test('findStaleDigestFiles does not report an expected file that has not been written yet (missing is not stale)', () => {
+  const existing = ['_repo-overview.md'];
+  const expected = ['_repo-overview.md', '_listing-not-yet-written.md'];
+  assert.deepEqual(findStaleDigestFiles(existing, expected), []);
+});
+
+test('findStaleDigestFiles ignores non-.md entries even if unexpected (defensive; outDir should only ever hold clippings)', () => {
+  const existing = ['_repo-overview.md', '.DS_Store', 'some-other-file.txt'];
+  const expected = ['_repo-overview.md'];
+  assert.deepEqual(findStaleDigestFiles(existing, expected), []);
+});
+
+test('findStaleDigestFiles returns an empty array when nothing exists yet', () => {
+  assert.deepEqual(findStaleDigestFiles([], ['_repo-overview.md']), []);
 });
 
