@@ -171,8 +171,223 @@ export function repoManifestContent({ owner, repo, ref, description, primaryLang
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
 }
 
+// A module's directory path for URL/citation purposes: strip groupIntoModules'
+// own display decorations ('(root)' and the ' (direct files)' suffix) back
+// down to a real repo-relative path (or '' for the root, which must not grow
+// a trailing slash on the tree URL below).
+function moduleDirPath(moduleName) {
+  return moduleName.replace(/ \(direct files\)$/, '').replace(/^\(root\)$/, '');
+}
+
+// One digest-mode "listing" per module group — the mechanical, no-judgment
+// half of "some combination of listings and summary" (see main()'s digest
+// branch and groupIntoModules' own comment for why groups are bounded, not
+// 1:1 with file count). A table of path/size/language per file, NEVER file
+// content: cheap and safe to generate for every module without reading or
+// interpreting what any file actually does. Cites the module's own directory
+// tree URL, not a blob — mirrors repoManifestContent citing the repo tree
+// rather than a file for the same reason (this represents a whole directory,
+// not one file in it).
+export function moduleListingContent({ owner, repo, ref, moduleName, files = [], quality = 'medium', created = today(), topic } = {}) {
+  const dirPath = moduleDirPath(moduleName);
+  const source = `https://github.com/${owner}/${repo}/tree/${ref}${dirPath ? `/${dirPath}` : ''}`;
+  const title = `${repo}/${moduleName} at ${ref} (${files.length} file${files.length === 1 ? '' : 's'})`;
+  const sorted = files.slice().sort((a, b) => a.path.localeCompare(b.path));
+  const lines = [
+    `# ${moduleName}`,
+    '',
+    `${files.length} file${files.length === 1 ? '' : 's'} in this module. Listing only — see individual clippings`,
+    'for full content where one exists.',
+    '',
+    '| File | Size (bytes) | Language |',
+    '| --- | --- | --- |',
+    ...sorted.map((f) => `| \`${f.path}\` | ${f.size ?? ''} | ${languageHintForExt(extname(f.path)) || ''} |`),
+  ];
+  const md = lines.join('\n').trim();
+  const hash = createHash('sha256').update(md).digest('hex');
+  const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
+  return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
+}
+
+// Universally valuable files worth clipping in FULL even in digest mode —
+// never a heuristic "biggest file" or "most-referenced file" guess, which
+// would have no principled basis for "important" and could easily be wrong.
+// Matched by exact/variant basename only, and only within a shallow depth
+// (repo root, or one level of monorepo-style package nesting) — a
+// coincidentally anchor-named file buried deep in the tree is not a
+// repo-level anchor. `maxAnchors` keeps even a monorepo with hundreds of
+// packages (each with its own README) from producing hundreds of full clips.
+const ANCHOR_BASENAME_RE = [
+  /^readme(\.[a-z0-9]+)?$/i,
+  /^licen[cs]e(\.[a-z0-9]+)?$/i,
+  /^changelog(\.[a-z0-9]+)?$/i,
+  /^contributing(\.[a-z0-9]+)?$/i,
+  /^package\.json$/i,
+  /^sfdx-project\.json$/i,
+  /^pom\.xml$/i,
+  /^cargo\.toml$/i,
+  /^go\.mod$/i,
+  /^pyproject\.toml$/i,
+  /^composer\.json$/i,
+  /^gemfile$/i,
+  /^build\.gradle(\.kts)?$/i,
+];
+const ANCHOR_MAX_DEPTH = 3; // repo root (depth 1) through one level of monorepo nesting (depth 3)
+
+export function selectAnchorFiles(paths, { maxAnchors = 15 } = {}) {
+  const matched = paths.filter((p) => {
+    const segments = p.split('/');
+    if (segments.length > ANCHOR_MAX_DEPTH) return false;
+    return ANCHOR_BASENAME_RE.some((re) => re.test(segments[segments.length - 1]));
+  });
+  return matched.slice(0, maxAnchors);
+}
+
+// The digest-mode manifest — the entry point for a repo too large for a
+// one-clipping-per-file digest. Reports TOTALS and bounded GROUPS (extension
+// composition, module listing sizes), never a per-file bullet list: that is
+// exactly the 1:1-with-file-count scaling this whole digest mode exists to
+// avoid (see groupIntoModules' own comment for the incident that motivated
+// it — a 5,118-file, one-clipping-per-file run that flooded a vault's
+// orphan/graph view before anything had a chance to be ingested).
+export function digestManifestContent({
+  owner, repo, ref, description, primaryLanguage,
+  totalIncluded = 0, moduleGroups = [], extensionCounts = {},
+  excludedCount = 0, anchorFiles = [], quality = 'medium', created = today(), topic,
+} = {}) {
+  const source = `https://github.com/${owner}/${repo}/tree/${ref}`;
+  const title = `${owner}/${repo} at ${ref} (digest)`;
+  const extRows = Object.entries(extensionCounts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const moduleRows = moduleGroups.slice().sort((a, b) => b.files.length - a.files.length || a.name.localeCompare(b.name));
+  const lines = [
+    `# ${owner}/${repo} — digest`,
+    '',
+    description ? description : '_(no description)_',
+    '',
+    `- **Primary language:** ${primaryLanguage || 'unknown'}`,
+    `- **Ref clipped:** \`${ref}\``,
+    `- **Total files represented:** ${totalIncluded} (across ${moduleGroups.length} module listing${moduleGroups.length === 1 ? '' : 's'} below)`,
+    `- **Files excluded (dependency/build/binary/oversized):** ${excludedCount}`,
+    `- **Anchor files clipped in full:** ${anchorFiles.length}`,
+    '',
+    'This repo was too large for a one-clipping-per-file digest — a',
+    'per-module *listing* replaces per-file clippings below, so the number',
+    'of documents does not grow 1:1 with the number of source files.',
+    '',
+    '## Composition',
+    '',
+    '| Extension | Files |',
+    '| --- | --- |',
+    ...extRows.map(([ext, count]) => `| \`${ext || '(none)'}\` | ${count} |`),
+    '',
+    '## Modules',
+    '',
+    '| Module | Files |',
+    '| --- | --- |',
+    ...moduleRows.map((g) => `| \`${g.name}\` | ${g.files.length} |`),
+  ];
+  if (anchorFiles.length) {
+    lines.push('', '## Anchor files (clipped in full)', '', ...anchorFiles.map((p) => `- \`${p}\``));
+  }
+  const md = lines.join('\n').trim();
+  const hash = createHash('sha256').update(md).digest('hex');
+  const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
+  return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
+}
+
 function ghReachable() {
   try { execFileSync('gh', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
+}
+
+const DEFAULT_MAX_FILES_PER_GROUP = 150;
+// 150, not the much smaller cap a first pass used: measured against the real
+// repo that motivated digest mode, its two largest directories alone (a
+// Salesforce metadata "main" and its mirrored "test" tree) contain 65 and 66
+// real functional submodules respectively, several of which are themselves
+// still large enough to need a further level of splitting. A low cap forces
+// those two directories to stay as two giant, unsubdivided listings instead
+// of exposing their real module boundaries — still bounded and still no
+// data loss, just less useful than it could be. 150 groups against even a
+// ~10k-file repo is still a ~65x reduction from one-clipping-per-file, so
+// "doesn't scale 1:1" holds comfortably with real headroom to spare.
+const DEFAULT_MAX_GROUPS = 150;
+const DEFAULT_MAX_GROUP_DEPTH = 6;
+
+// Splits a flat list of repo-relative paths into a BOUNDED number of named
+// module groups — the mechanism that keeps digest-mode output (see main()'s
+// digest branch) from scaling 1:1 with file count. A repo with 10 files and
+// a repo with 10,000 files both produce a small, bounded number of listing
+// documents; the bigger repo's groups are just larger, up to a hard cap,
+// rather than there being more and more of them. Built after a real clip-gh
+// run against a ~10k-file Salesforce repo produced 5,118 separate clipping
+// files — one per source file — which flooded the vault's orphan/graph view
+// before anything had a chance to be ingested and cross-linked.
+//
+// Starts with ONE group covering every included path. While the largest
+// group still exceeds maxFilesPerGroup, and splitting it would not push the
+// total group count past maxGroups, and its own depth is under maxDepth, it
+// is replaced by its immediate child groups — partitioned by the next path
+// segment past the group's own prefix. Files with no further segment (they
+// sit directly in that directory, alongside subdirectories) collect into
+// their own "(direct files)" group rather than being lost. A group that
+// cannot be split any further (every file in it is already a direct child —
+// no directory structure left to divide on) or whose split would breach
+// maxGroups is accepted as-is, oversized: a graceful ceiling, never a silent
+// file loss. (A pathological repo with thousands of same-depth sibling
+// directories can still end up as one large accepted group rather than many
+// small ones — bounding total group count matters more here than perfectly
+// even bucketing of a shape this uncommon in real repos.)
+export function groupIntoModules(paths, {
+  maxFilesPerGroup = DEFAULT_MAX_FILES_PER_GROUP,
+  maxGroups = DEFAULT_MAX_GROUPS,
+  maxDepth = DEFAULT_MAX_GROUP_DEPTH,
+} = {}) {
+  if (!paths.length) return [];
+  let groups = [{ prefix: '', depth: 0, files: paths.slice(), splittable: true, isDirect: false }];
+
+  for (;;) {
+    const candidates = groups.filter((g) => g.splittable && g.files.length > maxFilesPerGroup && g.depth < maxDepth);
+    if (!candidates.length) break;
+    candidates.sort((a, b) => b.files.length - a.files.length || a.prefix.localeCompare(b.prefix));
+    const target = candidates[0];
+
+    const prefixLen = target.prefix ? target.prefix.length + 1 : 0;
+    const bySegment = new Map();
+    const direct = [];
+    for (const f of target.files) {
+      const rest = f.slice(prefixLen);
+      const slash = rest.indexOf('/');
+      if (slash === -1) { direct.push(f); continue; }
+      const seg = rest.slice(0, slash);
+      if (!bySegment.has(seg)) bySegment.set(seg, []);
+      bySegment.get(seg).push(f);
+    }
+
+    if (!bySegment.size) {
+      // Every file here is already a direct child — nothing left to split on.
+      target.splittable = false;
+      continue;
+    }
+    const newCount = bySegment.size + (direct.length ? 1 : 0);
+    if (groups.length - 1 + newCount > maxGroups) {
+      // Splitting would breach the cap — keep this one group, oversized.
+      target.splittable = false;
+      continue;
+    }
+
+    const replacement = [];
+    for (const [seg, files] of bySegment) {
+      replacement.push({ prefix: target.prefix ? `${target.prefix}/${seg}` : seg, depth: target.depth + 1, files, splittable: true, isDirect: false });
+    }
+    if (direct.length) {
+      replacement.push({ prefix: target.prefix, depth: target.depth, files: direct, splittable: false, isDirect: true });
+    }
+    groups = groups.filter((g) => g !== target).concat(replacement);
+  }
+
+  return groups
+    .map((g) => ({ name: (g.prefix || '(root)') + (g.isDirect ? ' (direct files)' : ''), files: g.files }))
+    .sort((a, b) => b.files.length - a.files.length || a.name.localeCompare(b.name));
 }
 
 // Every real file under `dir`, repo-relative, in a stable (sorted) order —
@@ -190,6 +405,73 @@ function walkRepoFiles(dir, base = dir) {
     }
   }
   return out.sort();
+}
+
+// Digest-mode branch: instead of refusing a repo whose file count is over
+// the per-file cap, write a BOUNDED set of documents that still represents
+// every included file — a manifest (composition + module-group totals), one
+// listing per module group (path/size/language, never content), and a full
+// clip for a small, deterministic set of anchor files. See
+// groupIntoModules' own comment for the incident that motivated this: a
+// 5,118-file, one-clipping-per-file run against a real repo that flooded a
+// vault's orphan/graph view before anything had a chance to be ingested.
+// I/O glue only — every decision it makes (grouping, anchor selection,
+// content shape) lives in an already-unit-tested pure function above.
+function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups }) {
+  const extensionCounts = {};
+  for (const p of included) {
+    const ext = extname(p).toLowerCase() || '(none)';
+    extensionCounts[ext] = (extensionCounts[ext] || 0) + 1;
+  }
+  const groups = groupIntoModules(included, maxGroups ? { maxGroups } : undefined);
+  const anchorPaths = selectAnchorFiles(included);
+
+  const existingHashes = new Map();
+  if (existsSync(outDir)) {
+    for (const f of readdirSync(outDir)) {
+      if (!f.endsWith('.md')) continue;
+      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(join(outDir, f), 'utf8').slice(0, 800));
+      if (m) existingHashes.set(m[1].toLowerCase(), f);
+    }
+  }
+
+  let listingsWritten = 0; let listingsUnchanged = 0;
+  for (const g of groups) {
+    const files = g.files.map((relPath) => ({ path: relPath, size: statSync(join(tmp, relPath)).size }));
+    const listing = moduleListingContent({ owner, repo, ref: resolvedRef, moduleName: g.name, files, quality, topic });
+    if (existingHashes.has(listing.hash)) { listingsUnchanged++; continue; }
+    writeFileSync(join(outDir, `${slugifyRepoPath(`_listing-${g.name}`)}.md`), listing.body);
+    listingsWritten++;
+  }
+
+  let anchorsClipped = 0; let anchorsUnchanged = 0; let anchorsThin = 0;
+  for (const relPath of anchorPaths) {
+    const content = readFileSync(join(tmp, relPath), 'utf8');
+    const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
+    if (clip.wordCount < THIN_WORD_FLOOR) { anchorsThin++; continue; }
+    if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
+    writeFileSync(join(outDir, `${slugifyRepoPath(relPath)}.md`), clip.body);
+    anchorsClipped++;
+  }
+
+  const manifest = digestManifestContent({
+    owner, repo, ref: resolvedRef, description: meta.description, primaryLanguage: meta.primaryLanguage,
+    totalIncluded: included.length, moduleGroups: groups, extensionCounts,
+    excludedCount: excluded.length, anchorFiles: anchorPaths, quality, topic,
+  });
+  writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
+
+  const totalDocs = 1 + listingsWritten + anchorsClipped;
+  console.log(`digest mode: ${included.length} file(s) represented across ${groups.length} module listing(s) — ${owner}/${repo} was over the per-file cap`);
+  console.log(`  documents written this run: ${totalDocs} (manifest: 1, listings: ${listingsWritten}, anchor clips: ${anchorsClipped})`);
+  console.log(`  listings unchanged (already up to date): ${listingsUnchanged}`);
+  console.log(`  anchor clips unchanged: ${anchorsUnchanged}, thin (skipped): ${anchorsThin}`);
+  console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
+  return {
+    status: 'digest', totalIncluded: included.length, moduleCount: groups.length,
+    listingsWritten, listingsUnchanged, anchorsClipped, anchorsUnchanged, anchorsThin,
+    excluded: excluded.length, outDir,
+  };
 }
 
 export function main(argv) {
@@ -210,13 +492,21 @@ export function main(argv) {
       return { status: 'ok' };
     }
     console.error('usage: clip-gh.mjs <owner/repo | github-url> [--ref=<branch>] [--quality=high|medium|low]');
-    console.error('                        [--topic="<research topic>"] [--max-files=N] [--decline="reason"]');
+    console.error('                        [--topic="<research topic>"] [--max-files=N] [--force-full]');
+    console.error('                        [--max-groups=N]');
+    console.error('                        [--decline="reason"]');
     console.error('       clip-gh.mjs --doctor   (check whether gh is installed and authenticated)');
     console.error('');
     console.error('  Clones the repo to a temp directory (never into the vault), then writes ONE');
     console.error('  clipping per included source file to raw/clippings/gh/<owner>/<repo>/ — never');
     console.error('  one giant dump of the whole repo. Excludes dependency/build directories,');
     console.error('  binaries, lockfiles, and oversized files by default.');
+    console.error('');
+    console.error('  A repo over the per-file cap (default 300) switches to DIGEST mode instead of');
+    console.error('  refusing: a manifest + bounded per-module file listings + a small set of full');
+    console.error('  anchor clips (README, LICENSE, top-level manifests), never one file per source');
+    console.error('  file. Pass --force-full (with a raised --max-files) to force the old exhaustive');
+    console.error('  per-file behavior on a large repo instead.');
     process.exit(2);
   }
 
@@ -233,6 +523,9 @@ export function main(argv) {
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   const maxFilesArg = argv.find((a) => a.startsWith('--max-files='));
   const maxFiles = maxFilesArg ? Number(maxFilesArg.split('=')[1]) : DEFAULT_MAX_FILES;
+  const maxGroupsArg = argv.find((a) => a.startsWith('--max-groups='));
+  const maxGroups = maxGroupsArg ? Number(maxGroupsArg.split('=')[1]) : undefined;
+  const forceFull = argv.includes('--force-full');
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
@@ -291,14 +584,20 @@ export function main(argv) {
       else included.push(relPath);
     }
 
+    const outDir = join(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
+
     if (included.length > maxFiles) {
-      console.error(`${included.length} includable files found — over the ${maxFiles}-file default cap.`);
-      console.error(`Re-run with --max-files=${included.length} (or higher) to proceed, or --ref=<a smaller subtree>.`);
-      console.error('Nothing was written. This vault does not clip an entire large repo silently.');
+      if (!forceFull) {
+        mkdirSync(outDir, { recursive: true });
+        return writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups });
+      }
+      console.error(`${included.length} includable files found — over the ${maxFiles}-file cap, and --force-full was given.`);
+      console.error(`Re-run with --max-files=${included.length} (or higher) to force full per-file clipping,`);
+      console.error('or drop --force-full to write a bounded digest (manifest + module listings) instead.');
+      console.error('Nothing was written.');
       return { status: 'too-many-files', includedCount: included.length, maxFiles };
     }
 
-    const outDir = join(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
     mkdirSync(outDir, { recursive: true });
 
     const existingHashes = new Map();
