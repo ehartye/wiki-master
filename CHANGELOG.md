@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.28.0 — 2026-08-26
+
+### Feat: clip-gh digest mode — bounded output for large repos, never 1:1 with file count
+
+A real clip against a ~10,000-file Salesforce DX monorepo, in the original
+one-clipping-per-file mode, wrote 5,118 separate clippings — none linked
+from anywhere yet — which flooded the vault's (and Obsidian's own)
+orphan/graph view before `/wiki-ingest` had a chance to cross-reference any
+of them. Removing that clip and rethinking the approach led to digest mode:
+for a repo over the per-file cap (default 300 files), `clip-gh.mjs` now
+writes a **bounded** set of documents instead of refusing or scaling
+linearly with file count — "some combination of listings and summary."
+
+- **Digest manifest** (`_repo-overview.md`): description/language/ref plus
+  two bounded tables — a **composition** breakdown (extension → count) and
+  a **modules** breakdown (module name → file count) — never a per-file
+  bullet list, which would itself scale 1:1 with file count.
+- **One *listing* per module group** — a table of file path/size/language,
+  never file content. New `groupIntoModules()` computes groups by
+  recursively splitting the repo's real directory structure only where a
+  directory has too many files to summarize in one listing, capped at 150
+  groups by default (`--max-groups=N`) with each group capped at 150 files
+  before further splitting. A repo with 10 files and one with 10,000 both
+  produce a small, bounded number of listings — the big repo's groups are
+  just bigger, up to the cap, never more numerous without limit. The
+  grouping algorithm's core invariant — no file is ever lost or
+  double-counted across groups — is directly unit-tested, including a
+  stress test against 5,000 synthetic top-level directories.
+- **A small set of full-content "anchor" clips** — new `selectAnchorFiles()`
+  deterministically matches README (and monorepo-package variants),
+  LICENSE, CHANGELOG, and top-level project manifests (`package.json`,
+  `sfdx-project.json`, `pom.xml`, `Cargo.toml`, `go.mod`, etc.) by basename
+  only, capped at 15 — never a heuristic "biggest file" guess, which would
+  have no principled basis for "important."
+
+Digest mode does **not** attempt to auto-generate "key modules" or "notable
+pattern" prose — that is a genuine summarization/judgment task belonging in
+`wiki/sources/` as a normal `/wiki-ingest`-style synthesis citing the
+digest as evidence, not something a deterministic script should guess at.
+The skill doc now describes this as an explicit follow-up: read the
+manifest's module table plus a sample of the largest/most distinctive
+modules, then hand-write a small, bounded number of `wiki/sources/` pages —
+conservative, not one per module.
+
+A repo over the cap no longer refuses outright: digest mode is now the
+default over-cap behavior, with a new `--force-full` flag (combined with a
+raised `--max-files`) to opt into the old exhaustive per-file behavior when
+genuinely needed.
+
+Re-verified against the real repo that motivated this: **9,874 files
+represented across exactly 150 listing documents** (down from 5,118
+separate per-file clippings) — the sum of every listing's file count
+equals the total included count (zero data loss), re-running is fully
+idempotent, and the vault's own orphan metric showed zero new orphans from
+the clip (it already excludes `raw/`; the practical win is Obsidian's own
+native graph view now sees 160 total documents instead of 5,118).
+
+Adds `groupIntoModules`, `moduleListingContent`, `selectAnchorFiles`, and
+`digestManifestContent` to `scripts/clip-gh.mjs`, plus 24 new tests in
+`test/clip-gh.test.mjs`. Full suite: 821 passing, 1 skipped, 0 failing (one
+unrelated pre-existing flaky test file — `triage-auth`, port/timing-based —
+confirmed passing reliably in isolation).
+
 ## 0.27.0 — 2026-08-26
 
 ### Fix: clip-gh silently overwrote clippings on repos with long, deeply-nested paths
