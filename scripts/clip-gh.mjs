@@ -295,6 +295,30 @@ export function digestManifestContent({
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
 }
 
+// Digest mode recomputes module grouping fresh on every run (see
+// groupIntoModules' own comment for why groups are bounded, not 1:1 with
+// file count) — so a re-clip of a repo that has grown/shrunk enough to
+// cross a splitting threshold can leave a PRIOR run's listing sitting under
+// a filename this run no longer produces. Left uncleaned across repeated
+// re-clips of an actively-changing repo, that is a slow-motion version of
+// the exact clutter problem digest mode itself exists to avoid — just
+// smaller and quieter than one big 1:1 dump.
+//
+// Pure: given the digest output directory's actual current filenames and
+// the set this run expects to exist (manifest + every current listing
+// slug + every current anchor slug), returns which existing `.md` files
+// are stale — present on disk but produced by no current group or anchor.
+// An EXPECTED file that has not been written yet (e.g. skipped because its
+// content is unchanged from a prior run — see the dedup comment on
+// `writeDigest`) is never reported as stale; only the reverse direction
+// counts. Never touches anything other than `.md` files — this directory
+// is `clip-gh.mjs`-owned by convention, but staying scoped to its own
+// extension is a cheap, free defensive floor regardless.
+export function findStaleDigestFiles(existingFilenames, expectedFilenames) {
+  const expected = new Set(expectedFilenames);
+  return existingFilenames.filter((f) => f.endsWith('.md') && !expected.has(f));
+}
+
 function ghReachable() {
   try { execFileSync('gh', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
 }
@@ -435,12 +459,21 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
     }
   }
 
+  // Every filename THIS run considers current — a listing for every group
+  // (always, groups are never "thin") and an anchor only when it clears the
+  // thin floor. Anything already on disk that never lands in this set (a
+  // prior run's listing for a module grouping this run no longer produces,
+  // or a prior run's anchor clip that is now thin) is stale and pruned below.
+  const expectedFilenames = new Set(['_repo-overview.md']);
+
   let listingsWritten = 0; let listingsUnchanged = 0;
   for (const g of groups) {
     const files = g.files.map((relPath) => ({ path: relPath, size: statSync(join(tmp, relPath)).size }));
     const listing = moduleListingContent({ owner, repo, ref: resolvedRef, moduleName: g.name, files, quality, topic });
+    const listingFilename = `${slugifyRepoPath(`_listing-${g.name}`)}.md`;
+    expectedFilenames.add(listingFilename);
     if (existingHashes.has(listing.hash)) { listingsUnchanged++; continue; }
-    writeFileSync(join(outDir, `${slugifyRepoPath(`_listing-${g.name}`)}.md`), listing.body);
+    writeFileSync(join(outDir, listingFilename), listing.body);
     listingsWritten++;
   }
 
@@ -449,8 +482,10 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
     const content = readFileSync(join(tmp, relPath), 'utf8');
     const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
     if (clip.wordCount < THIN_WORD_FLOOR) { anchorsThin++; continue; }
+    const anchorFilename = `${slugifyRepoPath(relPath)}.md`;
+    expectedFilenames.add(anchorFilename);
     if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
-    writeFileSync(join(outDir, `${slugifyRepoPath(relPath)}.md`), clip.body);
+    writeFileSync(join(outDir, anchorFilename), clip.body);
     anchorsClipped++;
   }
 
@@ -461,16 +496,29 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
   });
   writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
 
+  // Prune LAST, after every current file has actually been written — a
+  // stale check run before writing would see a not-yet-created listing as
+  // "missing" (correctly not stale) but could not yet tell a genuinely
+  // orphaned prior-run file from one this run simply hasn't gotten to.
+  const currentFilenames = readdirSync(outDir);
+  const staleFilenames = findStaleDigestFiles(currentFilenames, [...expectedFilenames]);
+  for (const f of staleFilenames) rmSync(join(outDir, f));
+
   const totalDocs = 1 + listingsWritten + anchorsClipped;
   console.log(`digest mode: ${included.length} file(s) represented across ${groups.length} module listing(s) — ${owner}/${repo} was over the per-file cap`);
   console.log(`  documents written this run: ${totalDocs} (manifest: 1, listings: ${listingsWritten}, anchor clips: ${anchorsClipped})`);
   console.log(`  listings unchanged (already up to date): ${listingsUnchanged}`);
   console.log(`  anchor clips unchanged: ${anchorsUnchanged}, thin (skipped): ${anchorsThin}`);
   console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
+  if (staleFilenames.length) {
+    console.log(`  pruned (no longer produced by this repo's current structure): ${staleFilenames.length}`);
+    for (const f of staleFilenames.slice(0, 10)) console.log(`    ${f}`);
+    if (staleFilenames.length > 10) console.log(`    ... and ${staleFilenames.length - 10} more`);
+  }
   return {
     status: 'digest', totalIncluded: included.length, moduleCount: groups.length,
     listingsWritten, listingsUnchanged, anchorsClipped, anchorsUnchanged, anchorsThin,
-    excluded: excluded.length, outDir,
+    excluded: excluded.length, pruned: staleFilenames.length, outDir,
   };
 }
 
