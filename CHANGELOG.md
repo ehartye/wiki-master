@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.29.1 — 2026-09-01
+
+### Fix: clip-pptx hardcoded `python3`, which is broken on Windows
+
+`clip-pptx.mjs` invoked `python3` directly. The python.org Windows installer
+only ever creates `python.exe` — it never writes a `python3.exe` — while
+Windows itself ships an always-on-PATH WindowsApps `python3.exe` App Execution
+Alias that exits nonzero with "Python was not found". So on Windows `python3`
+resolves *and* fails, and because the clipper's fallback reachability probe was
+hardcoded to the same name, it then reported `python-pptx not found` on
+machines where Python and python-pptx were both correctly installed — pointing
+the user at the wrong fix entirely.
+
+New `pickPython()` in `scripts/clip-pptx.mjs` resolves the interpreter by
+RUNNING candidates (`python3`, `python`, `py`) rather than trusting a name. It
+makes two passes: the first accepts only a candidate that can `import pptx`, so
+a working interpreter lacking the library never shadows a later one that has it;
+the second accepts any interpreter that merely runs, which keeps "no Python at
+all" distinguishable from "Python, but no python-pptx" — the two need different
+fixes and previously produced the same message. The missing-library error now
+names the resolved interpreter and suggests `<cmd> -m pip install python-pptx`,
+since installing into a different interpreter than the one running the helper is
+the exact silent failure this bug produced.
+
+`skills/clip-pptx/SKILL.md`'s preflight step carried the same hardcoded probe
+and is updated to match, so an agent following the skill no longer reaches the
+same wrong conclusion.
+
+Verified on Windows with the real Store-alias shape in place: the previous code
+exits 1 with the misleading message; the new code falls back to `python` and
+clips the deck successfully.
+
 ## 0.29.0 — 2026-08-27
 
 ### Fix: clip-gh digest mode re-clips no longer leave stale listings behind
