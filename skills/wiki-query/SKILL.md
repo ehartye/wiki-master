@@ -27,7 +27,11 @@ than reimplementing its search-mechanics/health-disclosure logic here.
 2. Synthesize an answer that **cites** the pages/sources it rests on. A raw/
    hit (if `--include-raw` surfaced one) is unvetted evidence, not yet a
    reviewed claim — cite it as such, not as if it were an established
-   wiki/ page.
+   wiki/ page. To verify a `wiki/` citation actually traces back to real
+   evidence (rather than a broken or title-drifted link), pipe it into
+   `node ../../scripts/resolve-evidence.mjs` — faster than opening the page
+   and reading its `sources:` frontmatter by hand, and it reports a genuine
+   gap plainly rather than you assuming the citation is good.
 3. If the answer is substantive and not already captured, offer to file it as a new
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
    (`node ../../scripts/index-gen.mjs`) and write the log entry:

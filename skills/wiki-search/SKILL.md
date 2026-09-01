@@ -74,6 +74,29 @@ from "raw/ was never checked." **Reach for this before falling back to a
 raw shell `grep`** — it's the same underlying index, tool-assisted, and
 consistent with how every other lookup in this vault works.
 
+## Jumping from a wiki/ hit to its raw/ evidence
+
+A `wiki/` hit is a synthesized page, not the evidence itself — normally,
+reaching the raw clipping it rests on means opening the page and reading its
+`sources:` frontmatter by hand. `node ../../scripts/resolve-evidence.mjs`
+does that walk for you, and is built to take a hit straight from this
+skill's own output, piped:
+
+```bash
+node ../../scripts/search.mjs "your terms" | node ../../scripts/resolve-evidence.mjs
+```
+
+It also takes explicit paths (`node ../../scripts/resolve-evidence.mjs
+"wiki/sources/Foo.md:23"` — the `:line` search.mjs prints is stripped
+automatically), and a `raw/...` path passed straight through is reported as
+already being the evidence, not re-resolved. It never guesses: a page whose
+citation trail doesn't actually reach `raw/` is reported as `unreachable`
+(a real gap — matches `health.mjs`'s `provenanceGaps`/`unreachableProvenance`
+vocabulary) rather than silently omitted or invented, and a page that
+legitimately has no provenance (`wiki/authored/`'s `sources: []`) is
+reported as `declared-no-provenance`, distinctly — a deliberate disclosure,
+not a defect.
+
 ## Steps
 
 1. Run the search: `node ../../scripts/search.mjs "<terms>" [--include-raw]`.
@@ -81,7 +104,10 @@ consistent with how every other lookup in this vault works.
    trusting the results — disclose any degradation to the user.
 3. Read from the matched line (`path:line`) outward, not from the top of
    the page — that is the passage that actually matched.
-4. Return the matching paths/lines to whatever asked for them. If what's
+4. Need the raw source behind a `wiki/` hit? Pipe it into
+   `resolve-evidence.mjs` (above) rather than opening the page and tracing
+   its `sources:` field by hand.
+5. Return the matching paths/lines to whatever asked for them. If what's
    actually needed is a synthesized, cited answer (and possibly a new page
    filed back), hand off to `/wiki-query` rather than writing that
    synthesis here.
