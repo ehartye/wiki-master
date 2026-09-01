@@ -249,7 +249,11 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   **When a source discusses a concept that already has a page, revise that page
   rather than adding a parallel one** — accumulating per-concept is what makes the
   wiki compound instead of sprawl.
-- **Query** (`/wiki-query`): search relevant pages → synthesize with citations →
+- **Search** (`/wiki-search`): pure retrieval — find matching `wiki/` pages
+  (and, with `--include-raw`, `raw/` clippings too) and return citation-ready
+  `path:line` results. No synthesis, no writes; use this whenever you just
+  need to locate something, not answer a question.
+- **Query** (`/wiki-query`): calls `/wiki-search` → synthesize with citations →
   offer to file the answer back as a new `wiki/syntheses/` page so it compounds.
 - **Lint** (`/wiki-lint`): run `/wiki-health` first (cheap); then read the flagged
   pages and look for contradictions, stale claims, missing concept pages, and

@@ -1,6 +1,6 @@
 ---
 name: wiki-query
-description: Answer a question against the wiki with citations, and optionally file the answer back so knowledge compounds. Use whenever the user asks to search the wiki, look something up, or find what the wiki knows about a topic.
+description: Ask a question against the wiki and get a synthesized, cited answer, with the option to file it back as a new page so knowledge compounds. Use whenever the user wants a narrative answer to a question, not just a list of matching pages — for pure retrieval (find what pages exist on a topic, locate a passage) use /wiki-search instead.
 argument-hint: <your question>
 ---
 
@@ -10,30 +10,24 @@ Load the `wiki-maintainer` skill and follow its **Query** workflow.
 
 Question: $ARGUMENTS
 
-1. Search the wiki: `node ../../scripts/search.mjs "..."` (resolved relative to this
-   skill's own directory). Results are `path:line` — the line is the passage that
-   matched, so read from there rather than the top of the page.
+This skill does two things pure retrieval does not: it **synthesizes** an
+answer (not just a list of matching pages) and it can **file that answer
+back** into the wiki so the next question benefits from it. Retrieval itself
+is `/wiki-search`'s job — load that skill and use it for step 1 below rather
+than reimplementing its search-mechanics/health-disclosure logic here.
 
-   **A status line always prints to stderr. Read it, and tell the user when it is not
-   `hybrid`.** Search never fails loudly; it degrades to a working but weaker answer,
-   which is why the disclosure exists:
-   - `(hybrid · N chunks)` — keyword and chunk-level semantic, RRF-fused. Full strength.
-   - `(lexical — <what is off> · run --health)` — Obsidian keyword only. The results are
-     still real, but semantic ranking contributed nothing. **Say so in your answer** —
-     a user reading a confident synthesis has no way to know the retrieval was degraded.
-
-   To diagnose or fix: `node ../../scripts/search.mjs --health` for the full report,
-   `--setup` for the exact remediation commands. The usual causes are Ollama not
-   running, the embedding model not pulled, or the index not built
-   (`node ../../scripts/index-embed.mjs`).
-
-   **`op-commit` refreshes the index after every bracketed operation**, so anything
-   written through an operation is already searchable. What it cannot see is an edit made
-   outside one — a hand edit in Obsidian, a `git pull` from another machine. The index is
-   chunk-content-hash keyed, so it can be incomplete but never wrong: a stale index misses
-   recent edits rather than serving outdated text. `--health` reports how many files have
-   changed since the last refresh.
-2. Synthesize an answer that **cites** the pages/sources it rests on.
+1. **Search**: load the `wiki-search` skill and run
+   `node ../../scripts/search.mjs "..."` (add `--include-raw` if the question
+   is plausibly about something recent enough that it may only exist as an
+   unprocessed clipping, not yet a wiki/ page). Read the stderr status
+   line(s) `wiki-search` describes — **when the tier is not `hybrid`, or a
+   raw/ check came back empty, say so in your answer.** A user reading a
+   confident synthesis has no way to know the retrieval underneath it was
+   degraded or incomplete.
+2. Synthesize an answer that **cites** the pages/sources it rests on. A raw/
+   hit (if `--include-raw` surfaced one) is unvetted evidence, not yet a
+   reviewed claim — cite it as such, not as if it were an established
+   wiki/ page.
 3. If the answer is substantive and not already captured, offer to file it as a new
    `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
    (`node ../../scripts/index-gen.mjs`) and write the log entry:
