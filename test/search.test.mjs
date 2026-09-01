@@ -246,6 +246,27 @@ test('keywordSearch passes through real hits unchanged', () => {
   assert.deepEqual(results, ['a.md', 'b.md']);
 });
 
+// keywordSearch defaults to path=wiki (unchanged existing behavior — raw/ is
+// evidence, not the browsable index, and every existing caller of this
+// function must keep seeing only wiki/ hits with zero code changes on their
+// part). A `path` option makes raw/ coverage reachable WITHOUT touching the
+// default: this is what closes the actual gap behind agents grepping raw/
+// directly — Obsidian's own full-text index already covers raw/ fine
+// (confirmed live: `obsidian search query=... path=raw` returns real hits),
+// the only reason wiki-master itself never surfaced them was this one
+// hardcoded string.
+test('keywordSearch defaults to path=wiki when no path option is given', () => {
+  let seenArgs;
+  keywordSearch('q', { obsidianJsonImpl: (args) => { seenArgs = args; return []; } });
+  assert.ok(seenArgs.includes('path=wiki'), `expected path=wiki in ${JSON.stringify(seenArgs)}`);
+});
+
+test('keywordSearch queries path=raw when explicitly requested', () => {
+  let seenArgs;
+  keywordSearch('q', { path: 'raw', obsidianJsonImpl: (args) => { seenArgs = args; return []; } });
+  assert.ok(seenArgs.includes('path=raw'), `expected path=raw in ${JSON.stringify(seenArgs)}`);
+});
+
 // Found while wiring the health disclosure: with Ollama reachable but the
 // model not pulled, embed() throws HTTP 404 (confirmed live), and search()'s
 // hybrid branch called semanticRun with no guard -- an unhandled rejection
@@ -264,6 +285,74 @@ test('search: a semantic channel that fails at runtime falls back to lexical ins
   assert.equal(r.tier, 'lexical');
   assert.deepEqual(r.results, [{ path: 'k.md' }]);
   assert.match(r.note, /404|fail/i);
+});
+
+// The `rawKeywordSearch` dep is OPTIONAL and additive by design: every test
+// above calls search() without it and must keep behaving exactly as before
+// (no existing caller — purge.mjs's collectSeeds included — should see any
+// change unless it deliberately opts in). It exists to give the wiki-search
+// skill a way to surface raw/ evidence alongside wiki/ results without
+// blending them into the RRF-fused ranking (raw/ is not chunked/embedded,
+// so there is no semantic rank to fuse it into) and without requiring a
+// fallback to a plain shell grep.
+test('search: without rawKeywordSearch, behavior is unchanged (raw/ never surfaces)', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => false,
+    indexAvailable: async () => true,
+    semanticRun: async () => { throw new Error('should not be called'); },
+  });
+  assert.deepEqual(r.results, [{ path: 'k.md' }]);
+  assert.equal(r.rawCount, undefined, 'rawCount must not appear at all when raw was never searched');
+});
+
+test('search: with rawKeywordSearch, raw/ hits are appended after the normal tiering result', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => true,
+    indexAvailable: async () => true,
+    semanticRun: async () => [{ path: 's.md', score: 0.9, startLine: 12 }],
+    rawKeywordSearch: async () => ['raw/clippings/Evidence.md'],
+  });
+  assert.equal(r.tier, 'hybrid', 'raw/ coverage must not change the tier the wiki-only channels earned');
+  const paths = r.results.map((x) => x.path);
+  assert.ok(paths.includes('k.md') && paths.includes('s.md'), 'wiki hits are still present');
+  assert.ok(paths.includes('raw/clippings/Evidence.md'), 'raw hit is appended');
+  assert.equal(r.rawCount, 1);
+});
+
+test('search: a raw/ hit is tagged so a caller can tell it apart from a vetted wiki/ hit', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => [],
+    ollamaAvailable: async () => false,
+    indexAvailable: async () => false,
+    semanticRun: async () => { throw new Error('should not be called'); },
+    rawKeywordSearch: async () => ['raw/clippings/Evidence.md'],
+  });
+  const hit = r.results.find((x) => x.path === 'raw/clippings/Evidence.md');
+  assert.equal(hit.zone, 'raw');
+});
+
+test('search: a raw/ hit already present among the wiki results (e.g. a citation of raw/ from wiki/) is not duplicated', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['raw/clippings/Evidence.md'],
+    ollamaAvailable: async () => false,
+    indexAvailable: async () => false,
+    semanticRun: async () => { throw new Error('should not be called'); },
+    rawKeywordSearch: async () => ['raw/clippings/Evidence.md'],
+  });
+  const matches = r.results.filter((x) => x.path === 'raw/clippings/Evidence.md');
+  assert.equal(matches.length, 1);
+});
+
+test('search: rawKeywordSearch returning zero hits still reports rawCount: 0 (never-silent — a caller must be able to tell raw/ was checked and came up empty)', async () => {
+  const r = await search('q', {
+    keywordSearch: async () => ['k.md'],
+    ollamaAvailable: async () => false,
+    indexAvailable: async () => false,
+    rawKeywordSearch: async () => [],
+  });
+  assert.equal(r.rawCount, 0);
 });
 
 // ── renderResult: never-silent disclosure, stdout/stderr split ─────────────
@@ -319,4 +408,40 @@ test('renderResult: the first-in-window call prints the full block instead of th
   const oneLine = renderResult(result, assessed, { announceFull: false }).stderr;
   assert.ok(full.length > oneLine.length, 'the full block carries more than the one-liner');
   assert.equal(oneLine.length, 1, 'subsequent searches inside the window get exactly one line');
+});
+
+// rawCount disclosure: --include-raw's whole point is that raw/ coverage is
+// never silent either way -- a caller must be able to tell "raw/ was
+// checked and had N hits" from "raw/ was never checked at all" just by
+// reading stderr, the same never-silent guarantee this function already
+// gives the wiki-only tiers. Absent (undefined) `rawCount` -- every existing
+// caller's result shape -- must add nothing, so this is purely additive.
+test('renderResult: discloses how many raw/ hits were found when rawCount is present', () => {
+  const result = { tier: 'hybrid', results: [{ path: 'a.md' }], rawCount: 3 };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.ok(stderr.some((l) => /raw/.test(l) && /3/.test(l)), `expected a raw/ hit-count line, got: ${stderr.join(' | ')}`);
+});
+
+test('renderResult: discloses zero raw/ hits explicitly rather than omitting the line (never-silent applies here too)', () => {
+  const result = { tier: 'hybrid', results: [{ path: 'a.md' }], rawCount: 0 };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.ok(stderr.some((l) => /raw/.test(l) && /0/.test(l)), `expected an explicit zero-hits line, got: ${stderr.join(' | ')}`);
+});
+
+test('renderResult: adds no raw/ disclosure line when rawCount is absent (--include-raw was not used)', () => {
+  const result = { tier: 'hybrid', results: [{ path: 'a.md' }] };
+  const assessed = assessTiers({
+    ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
+    index: { available: true, coverage: { chunks: 100, embedded: 100, missing: 0 }, filesChanged: 0 },
+  });
+  const { stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
+  assert.equal(stderr.length, 1, 'no raw-related line when raw/ was never searched');
 });

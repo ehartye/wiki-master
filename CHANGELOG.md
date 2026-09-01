@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.30.0 — 2026-09-01
+
+### Feat: split wiki-query into wiki-search (retrieval) + wiki-query (synthesis), and give search real raw/ coverage
+
+`wiki-query` bundled three distinct responsibilities under one name: search
+the wiki, synthesize a cited answer, and optionally file that answer back
+as a new page. Only the first is actually "search" — reported after a user
+noticed agents grepping `raw/` directly instead of using any wiki-master
+tool, prompting a closer look at why.
+
+**Root cause, confirmed live, not guessed**: Obsidian's own full-text index
+already covers `raw/` fine (`obsidian search query=... path=raw` returns
+real hits) — the semantic/chunk index deliberately excludes it (a
+documented, unchanged decision: embedding raw/ would roughly triple the
+index), but the **keyword** tier had zero reason to exclude it and did
+anyway, via one hardcoded `path=wiki` in `keywordSearch()`. There was
+previously no tool-assisted way to search `raw/` at all, which is exactly
+why agents fell back to a shell grep.
+
+**Fixes the actual gap**: `keywordSearch()` gains an optional `path` param
+(default `'wiki'`, unchanged for every existing caller). `search()` gains an
+optional `rawKeywordSearch` dep — absent for every existing caller
+(`purge.mjs`'s `collectSeeds` included, fully unaffected) — that appends
+`raw/` hits after the normal tiering result, tagged `zone: 'raw'`, never
+blended into the RRF-fused ranking (raw/ isn't chunked, so there's nothing
+to fuse it against, and blending unvetted evidence into reviewed wiki/
+results would erase a distinction that matters). `renderResult()` discloses
+the raw hit count explicitly, including `0`, so a caller can tell "checked,
+found nothing" apart from "never checked." New CLI flag:
+`node scripts/search.mjs "..." --include-raw`.
+
+**Splits the skill** to match: new `skills/wiki-search/SKILL.md` is pure
+retrieval (search + health disclosure + `--include-raw`, no synthesis, no
+writes). `skills/wiki-query/SKILL.md` keeps its name (still the natural fit
+for "ask a question, get a filed answer") but is narrowed to synthesis and
+optional filing, now delegating retrieval to `/wiki-search` instead of
+duplicating its search-mechanics prose. `wiki-maintainer`'s workflow list
+and `README.md`'s skill table updated to match.
+
+Adds 12 new tests across `test/search.test.mjs`. Full suite (excluding two
+pre-existing, unrelated flaky server-timing test files, both confirmed
+passing 24/24 in isolation): 817 passing, 1 skipped, 0 failing. Live-tested
+against the real vault: ordinary search output is byte-identical to before;
+`--include-raw` correctly surfaced real `raw/clippings/` hits alongside
+unchanged `wiki/` results, with an explicit disclosed hit count.
+
 ## 0.29.1 — 2026-09-01
 
 ### Fix: clip-pptx hardcoded `python3`, which is broken on Windows

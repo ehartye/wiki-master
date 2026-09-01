@@ -80,13 +80,31 @@ export function mergeRRF(lists) {
 // index -- either missing on its own degrades to `lexical`, never a partial
 // or misleading `hybrid` (design spec section 5.4/5.5). A built-but-empty
 // index (see loadChunkIndex) counts as absent, not present.
+//
+// `rawKeywordSearch` is an OPTIONAL, additive fifth dep -- absent for every
+// existing caller (purge.mjs's collectSeeds included), so their behavior is
+// byte-for-byte unchanged. When a caller (the wiki-search skill) does supply
+// it, raw/ hits are appended AFTER the normal tiering result rather than
+// fused into it: raw/ clippings are not chunked/embedded (that was a
+// deliberate, documented scope decision -- see index-embed.mjs's own
+// comment -- embedding them would roughly triple the index), so there is no
+// semantic rank to fuse them into, and blending unvetted raw evidence into
+// the same ranked list as reviewed wiki/ pages would erase a distinction
+// that matters (a raw/ hit is immutable source evidence, not yet
+// synthesized). Each raw hit carries `zone: 'raw'` so a caller can tell
+// them apart programmatically, on top of the `raw/` path prefix itself
+// already making this visually obvious. `rawCount` is always set (even 0)
+// whenever rawKeywordSearch was actually called, so a caller can disclose
+// "raw/ was checked and came up empty" rather than raw/ coverage being
+// silently indistinguishable from never having been checked at all.
 export async function search(query, deps) {
-  const { keywordSearch, ollamaAvailable, indexAvailable, semanticRun } = deps;
+  const { keywordSearch, ollamaAvailable, indexAvailable, semanticRun, rawKeywordSearch } = deps;
   const keywordHits = await keywordSearch(query);
   const ollamaUp = await ollamaAvailable();
   const hasIndex = await indexAvailable();
   const results = keywordHits.map((path) => ({ path }));
 
+  let base;
   if (ollamaUp && hasIndex) {
     try {
       const semanticHits = await semanticRun(query);
@@ -98,7 +116,7 @@ export async function search(query, deps) {
       );
       const fused = mergeRRF([keywordHits, semanticHits.map((h) => h.path)])
         .map((r) => (lineByPath.has(r.path) ? { ...r, startLine: lineByPath.get(r.path) } : r));
-      return { tier: 'hybrid', results: fused };
+      base = { tier: 'hybrid', results: fused };
     } catch (err) {
       // isAvailable() proves only that the server answers -- a reachable
       // Ollama with the model never pulled 404s on every embed call
@@ -107,16 +125,24 @@ export async function search(query, deps) {
       // the tier label would otherwise be actively false, fall back to
       // lexical, same as the qmd tier's own established philosophy (an
       // optional accelerator that fails at runtime falls through).
-      return { tier: 'lexical', results, note: `semantic channel failed (${err.message}) -- run \`node scripts/search.mjs --health\`` };
+      base = { tier: 'lexical', results, note: `semantic channel failed (${err.message}) -- run \`node scripts/search.mjs --health\`` };
     }
-  }
-
-  if (ollamaUp && !hasIndex) {
+  } else if (ollamaUp && !hasIndex) {
     // The one case where the caller's next action differs from "Ollama is
     // down": there is a fix (`node scripts/index-embed.mjs`), not a wait.
-    return { tier: 'lexical', results, note: 'semantic index missing or empty -- run `node scripts/index-embed.mjs` to build it' };
+    base = { tier: 'lexical', results, note: 'semantic index missing or empty -- run `node scripts/index-embed.mjs` to build it' };
+  } else {
+    base = { tier: 'lexical', results };
   }
-  return { tier: 'lexical', results };
+
+  if (rawKeywordSearch) {
+    const rawHits = await rawKeywordSearch(query);
+    const already = new Set(base.results.map((r) => r.path));
+    const additions = rawHits.filter((p) => !already.has(p)).map((path) => ({ path, zone: 'raw' }));
+    base = { ...base, results: [...base.results, ...additions], rawCount: additions.length };
+  }
+
+  return base;
 }
 
 // The `obsidian` CLI's `search` command prints the plain-text sentence "No
@@ -125,9 +151,16 @@ export async function search(query, deps) {
 // SyntaxError. A zero-hit search is not a failure; it just means the keyword
 // channel contributes nothing to this query, so it is treated the same as an
 // empty result list rather than allowed to crash the whole tiering ladder.
-export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJson } = {}) {
+//
+// `path` defaults to 'wiki' -- unchanged behavior for every existing caller.
+// Obsidian's own full-text index already covers raw/ just fine (confirmed
+// live: `obsidian search query=... path=raw` returns real hits); the only
+// reason wiki-master itself never surfaced them was this one hardcoded
+// scope. Passing `path: 'raw'` is what the wiki-search skill's --include-raw
+// flag uses to close that gap without touching the wiki/-only default.
+export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJson, path = 'wiki' } = {}) {
   try {
-    return obsidianJsonImpl(['search', `query=${query}`, 'path=wiki', `limit=${limit}`]) ?? [];
+    return obsidianJsonImpl(['search', `query=${query}`, `path=${path}`, `limit=${limit}`]) ?? [];
   } catch {
     return [];
   }
@@ -152,7 +185,7 @@ async function loadSearchContext(vaultPath, limit) {
   return { indexDir, index, ollamaUp, semanticRun };
 }
 
-export async function main(query, { limit = 10 } = {}) {
+export async function main(query, { limit = 10, includeRaw = false } = {}) {
   const { path: vaultPath } = resolveVault();
   const { index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, limit);
 
@@ -161,21 +194,27 @@ export async function main(query, { limit = 10 } = {}) {
     ollamaAvailable: async () => ollamaUp,
     indexAvailable: () => index.available,
     semanticRun,
+    ...(includeRaw ? { rawKeywordSearch: async (q) => keywordSearch(q, { limit, path: 'raw' }) } : {}),
   });
 }
 
 // Pure formatting: given a search() result and an assessTiers() verdict,
 // decides what a caller sees on each stream. stdout carries ONLY the answer
 // (paths, optionally :line) so piping stays clean (`search.mjs "q" | ...`);
-// every diagnostic -- the tier line, the full block, search()'s own note --
-// goes to stderr. This is the never-silent guarantee itself: a degraded
-// search always emits at least the one-liner naming what is off, whether or
-// not the caller is watching stderr.
-export function renderResult({ results, note }, assessed, { chunks, announceFull = false } = {}) {
+// every diagnostic -- the tier line, the full block, search()'s own note,
+// the raw/ hit count when --include-raw was used -- goes to stderr. This is
+// the never-silent guarantee itself: a degraded search always emits at
+// least the one-liner naming what is off, whether or not the caller is
+// watching stderr -- and raw/ coverage gets the same treatment: `rawCount`
+// undefined means raw/ was never checked (no line added, existing callers'
+// output is unchanged); `rawCount: 0` is disclosed explicitly rather than
+// looking identical to "never checked" would.
+export function renderResult({ results, note, rawCount }, assessed, { chunks, announceFull = false } = {}) {
   const stderr = announceFull
     ? fullReport(assessed, { chunks }).split('\n')
     : [statusLine(assessed, { chunks })];
   if (note) stderr.push(note);
+  if (rawCount !== undefined) stderr.push(`(raw/ clippings checked via --include-raw: ${rawCount} hit${rawCount === 1 ? '' : 's'})`);
 
   const stdout = results.map((hit) => (hit.startLine != null ? `${hit.path}:${hit.startLine}` : hit.path));
   return { stdout, stderr };
@@ -208,7 +247,7 @@ async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0 }) {
   });
 }
 
-async function runQuery(query) {
+async function runQuery(query, { includeRaw = false } = {}) {
   const { path: vaultPath } = resolveVault();
   const { indexDir, index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, 10);
 
@@ -217,6 +256,7 @@ async function runQuery(query) {
     ollamaAvailable: async () => ollamaUp,
     indexAvailable: () => index.available,
     semanticRun,
+    ...(includeRaw ? { rawKeywordSearch: async (q) => keywordSearch(q, { limit: 10, path: 'raw' }) } : {}),
   });
 
   const cov = coverage(index.manifest, Object.keys(index.vectors));
@@ -302,12 +342,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else if (argv.includes('--setup')) {
     await runSetupCommand();
   } else {
-    const query = argv.join(' ');
+    const includeRaw = argv.includes('--include-raw');
+    const query = argv.filter((a) => a !== '--include-raw').join(' ');
     if (!query) {
-      console.error('usage: node scripts/search.mjs "<question>" | --health | --setup');
+      console.error('usage: node scripts/search.mjs "<question>" [--include-raw] | --health | --setup');
       process.exit(1);
     } else {
-      await runQuery(query);
+      await runQuery(query, { includeRaw });
     }
   }
 }
