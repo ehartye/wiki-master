@@ -46,11 +46,38 @@ export function pptxClipContent({ title, source, text, quality = 'medium', creat
 // a heavyweight dependency for this alone), emitting slide headings, bullet text,
 // table cells as markdown tables, and speaker notes, in deck order.
 export function pptxToText(pptxPath) {
-  return execFileSync('python3', [HELPER, pptxPath], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
+  const { cmd } = python();
+  if (!cmd) throw new Error('no python interpreter');
+  return execFileSync(cmd, [HELPER, pptxPath], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
 }
 
-function pythonPptxReachable() {
-  try { execFileSync('python3', ['-c', 'import pptx'], { stdio: 'ignore' }); return true; } catch { return false; }
+// Candidate interpreters, in preference order: `python3` (correct on macOS/Linux,
+// where a bare `python` may be absent or Python 2), then `python` (the ONLY name
+// the python.org Windows installer creates — it never writes a python3.exe), then
+// the `py` launcher. Hardcoding `python3` broke Windows outright: Windows ships a
+// WindowsApps\python3.exe App Execution Alias that is always on PATH and exits
+// nonzero with "Python was not found", so a correctly-installed python-pptx
+// reported itself missing. Candidates are therefore probed by RUNNING them.
+const PYTHON_CANDIDATES = ['python3', 'python', 'py'];
+
+// Pure resolution core — `probe(cmd, args) -> boolean` says whether `cmd args` ran
+// successfully. Two passes, so a working interpreter that lacks the library never
+// shadows a later one that has it, and so "no Python at all" stays distinguishable
+// from "Python, but no python-pptx" — the two need different fixes.
+export function pickPython(candidates, probe) {
+  for (const c of candidates) if (probe(c, ['-c', 'import pptx'])) return { cmd: c, pptx: true };
+  for (const c of candidates) if (probe(c, ['-c', ''])) return { cmd: c, pptx: false };
+  return { cmd: null, pptx: false };
+}
+
+function runs(cmd, args) {
+  try { execFileSync(cmd, args, { stdio: 'ignore' }); return true; } catch { return false; }
+}
+
+let resolvedPython;
+function python() {
+  if (!resolvedPython) resolvedPython = pickPython(PYTHON_CANDIDATES, runs);
+  return resolvedPython;
 }
 
 export function main(argv) {
@@ -108,8 +135,15 @@ export function main(argv) {
   catch {
     // Distinguish "python-pptx not installed" (fatal — fix the install) from
     // "this file failed" (skip, so batch runs continue).
-    if (!pythonPptxReachable()) {
-      console.error('python-pptx not found. Install it: pip3 install python-pptx');
+    const { cmd, pptx } = python();
+    if (!cmd) {
+      console.error(`no Python interpreter found (tried ${PYTHON_CANDIDATES.join(', ')}). Install Python 3, then: pip install python-pptx`);
+      process.exit(1);
+    }
+    if (!pptx) {
+      // Name the resolved interpreter: installing into a DIFFERENT python than the
+      // one that runs the helper is the exact way this fails silently.
+      console.error(`python-pptx not found for ${cmd}. Install it: ${cmd} -m pip install python-pptx`);
       process.exit(1);
     }
     console.log(`extraction failed (corrupt/protected deck — clip manually): ${pptxPath}`);
