@@ -5,12 +5,47 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { loadDeclines, isDeclined, recordDecline, removeDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
+
+// The floor exists to catch an extraction that FAILED — a corrupt, image-only, or
+// password-protected document pandoc turned into almost nothing. It cannot tell that
+// apart from a document which is genuinely short, because word count is the only
+// signal it has, and a one-page classroom handout (a bare list of case names, a blank
+// analysis form, a vocabulary sheet) is complete at 40 words. Declining those loses
+// real sources: the decline is recorded, so a batch re-run skips them silently, and
+// the material never reaches the vault at all.
+//
+// `--allow-short` is the human saying they opened the file and it is short on purpose.
+// It is opt-in per clip rather than a lower global floor, so the safety net keeps
+// doing its real job on every clip that did not ask.
+export function shouldDeclineAsThin(wordCount, { allowShort = false } = {}) {
+  if (allowShort) return false;
+  return wordCount < THIN_WORD_FLOOR;
+}
+
+export function parseAllowShort(argv = []) {
+  return argv.includes('--allow-short');
+}
+
+// The exact reason string this module records when the floor refuses a document.
+// Named so the override below can recognize its own decline and nothing else.
+export const THIN_DECLINE_REASON = 'thin text (empty/near-empty docx)';
+
+// A decline is checked before extraction, so without this the flag would be
+// unreachable in the only situation that produces it: you discover a document
+// needs `--allow-short` because a first pass already declined it and wrote the
+// decline down. `--allow-short` therefore clears THIS module's own automated
+// thin decline — and only that one. A human `--decline="reason"` outranks the
+// flag, because it means "I decided not to keep this", which word count never did.
+export function overridesDecline(entry, { allowShort = false } = {}) {
+  if (!allowShort || !entry) return false;
+  return entry.reason === THIN_DECLINE_REASON;
+}
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -60,6 +95,7 @@ export function main(argv) {
   if (!docxPath) {
     console.error('usage: clip-docx.mjs <file.docx> [--source="<url-or-path>"] [--quality=high|medium|low]');
     console.error('                           [--topic="<research topic>"] [--decline="reason"]');
+    console.error('                           [--allow-short]');
     console.error('');
     console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
     console.error('           without it, /wiki-triage can never group this clipping by run.');
@@ -73,6 +109,7 @@ export function main(argv) {
   // clipping under its research run if the run stamped one in. There is no
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);
+  const allowShort = parseAllowShort(argv);
 
   const { path: vaultPath } = resolveVault();
 
@@ -87,8 +124,15 @@ export function main(argv) {
   const declines = loadDeclines(vaultPath);
   if (isDeclined(source, declines)) {
     const e = declines.find((d) => isDeclined(source, [d]));
-    console.log(`declined previously (${e.date}: ${e.reason}): ${source}`);
-    return { status: 'declined' };
+    if (overridesDecline(e, { allowShort })) {
+      // Clear it rather than clipping around it, so the vault stops carrying a
+      // decline that no longer reflects a decision anyone holds.
+      removeDecline(vaultPath, source, e.reason);
+      console.log(`clearing prior thin decline (--allow-short): ${source}`);
+    } else {
+      console.log(`declined previously (${e.date}: ${e.reason}): ${source}`);
+      return { status: 'declined' };
+    }
   }
 
   if (isDuplicateUrl(source, knownSourceUrls(vaultPath))) {
@@ -114,9 +158,9 @@ export function main(argv) {
   const title = titleFromDocx(docxPath);
   const clip = docxClipContent({ title, source, text, quality, topic });
 
-  if (clip.wordCount < THIN_WORD_FLOOR) {
-    recordDecline(vaultPath, source, 'thin text (empty/near-empty docx)');
-    console.log(`thin content (decline recorded): ${docxPath}`);
+  if (shouldDeclineAsThin(clip.wordCount, { allowShort })) {
+    recordDecline(vaultPath, source, THIN_DECLINE_REASON);
+    console.log(`thin content (decline recorded; pass --allow-short if it is short on purpose): ${docxPath}`);
     return { status: 'thin' };
   }
 

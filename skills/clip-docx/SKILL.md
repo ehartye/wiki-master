@@ -36,6 +36,7 @@ a Bash tool per the PATHEXT hazard), then writes `raw/clippings/<slug>.md` with 
 standard clipping frontmatter (`source`, `created`, `tags:[clippings]`, `quality`,
 `source-hash`). It skips duplicates and prior declines, and records a decline for a
 **thin** extraction (empty or near-empty document) so it is not retried blindly.
+Pass **`--allow-short`** to clip a document that is genuinely brief — see step 2.
 
 It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
 - **No running header/footer stripping.** A `.docx` has no fixed pages, so pandoc
@@ -65,6 +66,13 @@ It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
      research run behind the clip; never invent one.
    - A `thin` or `failed` result means the document is empty/corrupt/protected —
      report it for manual handling; do not invent the text.
+   - **`--allow-short` when the document is short on purpose.** The thin floor is
+     100 words, and word count cannot tell a failed extraction apart from a
+     complete one-page handout — a bare list, a blank worksheet, a vocabulary
+     sheet. Open the file, confirm the extraction is whole, then re-clip with the
+     flag. It is opt-in per clip precisely so every other clip keeps the safety
+     net: never reach for it to push past a document you have not looked at, and
+     never use it on one whose text pandoc actually failed to read.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    that the extracted text is real prose. pandoc output is plain text — light and
    lossy on tables/figures.
