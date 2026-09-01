@@ -28,7 +28,9 @@ opaque attachment.
 bundled Python helper (`scripts/lib/pptx-extract.py`) built on **python-pptx** —
 **not** pandoc (pandoc has no `.pptx` input format at all) and **not**
 LibreOffice (avoids a heavyweight dependency for this one format). The helper is
-invoked via Node's `execFileSync('python3', [...])`. This is a brand-new,
+invoked via Node's `execFileSync` against the first working interpreter among
+`python3`, `python`, `py` (Windows never installs a `python3.exe`, and its
+always-on-PATH WindowsApps `python3` alias fails outright). This is a brand-new,
 self-contained implementation shipped inside wiki-master — it does **not** shell
 out to, or otherwise depend on, any other installed Copilot plugin's copy of
 python-pptx glue, so wiki-master stays portable across machines regardless of
@@ -50,9 +52,15 @@ attempting extraction and reporting a confusing downstream error.
 
 ## Steps
 
-1. **Preflight** (once): confirm python-pptx is installed —
-   `python3 -c "import pptx"`. If it fails, tell the user to run
-   `pip3 install python-pptx` and stop; do not fabricate content.
+1. **Preflight** (once): confirm python-pptx is installed. Probe the same
+   candidates the clipper does, in order, and use the FIRST that succeeds:
+   `python3 -c "import pptx"`, then `python -c "import pptx"`, then
+   `py -c "import pptx"`. On Windows a bare `python3` may be the WindowsApps
+   alias stub, which fails even when Python and python-pptx are correctly
+   installed — so a `python3` failure alone does NOT mean the library is missing.
+   If every candidate fails, tell the user to run `<interpreter> -m pip install
+   python-pptx` (naming the interpreter that will run the helper — installing into
+   a different one is the classic silent failure) and stop; do not fabricate content.
 2. **Clip** (this is the only writer to `raw/` for PowerPoint decks):
    `node ../../scripts/clip-pptx.mjs "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin. Omit for a purely local file and the file

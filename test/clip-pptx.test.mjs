@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { titleFromPptx, pptxClipContent } from '../scripts/clip-pptx.mjs';
+import { titleFromPptx, pptxClipContent, pickPython } from '../scripts/clip-pptx.mjs';
 
 // A slide deck's content is its slides — bullets, tables, speaker notes. The
 // binary .pptx itself never enters the vault — the markdown produced by the
@@ -32,4 +32,38 @@ test('pptxClipContent normalizes CRLF and collapses blank-line runs', () => {
 
 test('pptxClipContent counts words for the thin-content gate', () => {
   assert.equal(pptxClipContent({ title: 'T', source: 's', text: 'one two three' }).wordCount, 3);
+});
+
+// Interpreter resolution. Windows never installs a `python3.exe` — the python.org
+// installer ships `python.exe` only — while Windows itself ships a
+// `WindowsApps\python3.exe` App Execution Alias that exits nonzero with "Python was
+// not found" whenever real Python is absent from that store. So `python3` is
+// simultaneously present on PATH and non-functional, and hardcoding it made a
+// correctly-installed python-pptx report itself missing. Resolution therefore
+// probes candidates by RUNNING them, never by testing for their existence.
+
+test('pickPython falls through a present-but-broken python3 to a working python', () => {
+  // The Windows shape: `python3` resolves (the Store alias) but fails to execute.
+  const probe = (cmd) => cmd === 'python';
+  assert.deepEqual(pickPython(['python3', 'python'], probe), { cmd: 'python', pptx: true });
+});
+
+test('pickPython prefers a candidate that can import pptx over one that merely runs', () => {
+  // `python3` is a working interpreter without the library; `python` has it.
+  const probe = (cmd, args) => args.includes('import pptx') ? cmd === 'python' : true;
+  assert.deepEqual(pickPython(['python3', 'python'], probe), { cmd: 'python', pptx: true });
+});
+
+test('pickPython keeps candidate order when the first one already has pptx', () => {
+  assert.deepEqual(pickPython(['python3', 'python'], () => true), { cmd: 'python3', pptx: true });
+});
+
+test('pickPython reports an interpreter found but pptx missing', () => {
+  // Drives the honest error: the install is fine, the library is not.
+  const probe = (cmd, args) => !args.includes('import pptx');
+  assert.deepEqual(pickPython(['python3', 'python'], probe), { cmd: 'python3', pptx: false });
+});
+
+test('pickPython reports no interpreter at all', () => {
+  assert.deepEqual(pickPython(['python3', 'python'], () => false), { cmd: null, pptx: false });
 });
