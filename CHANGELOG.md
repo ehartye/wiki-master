@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.31.0 — 2026-09-01
+
+### Feat: resolve-evidence.mjs — jump from a search hit straight to its raw/ evidence
+
+A `wiki/` search hit is a synthesized page, not the evidence itself —
+reaching the raw clipping it rests on meant manually opening the page,
+reading its `sources:` frontmatter, and opening the linked file. The
+mechanism to do this already existed in code (`evidencePaths()` in
+`lib/graph.mjs`, used internally by `lint.mjs` and
+`repair-quote-provenance.mjs`) but was never exposed as an on-demand,
+single-page lookup.
+
+New `scripts/resolve-evidence.mjs` closes that gap: pipe a `search.mjs` hit
+straight in (`node scripts/search.mjs "topic" | node
+scripts/resolve-evidence.mjs`), or pass explicit paths, and it prints the
+real `raw/` evidence each one resolves to. Deliberately reuses
+`evidencePaths()` rather than reimplementing the walk — a second,
+subtly-different definition of "evidence" would be a real risk. Every
+outcome mirrors an already-scored vocabulary from `computeGraphMetrics`
+(`declaredNoProvenance`, `unreachableProvenance`) rather than inventing new
+terms, and never guesses: a citation that doesn't actually reach `raw/` is
+reported as `unreachable`, not silently omitted or invented; a page that
+legitimately has no provenance (`wiki/authored/`'s `sources: []`) is
+reported as `declared-no-provenance`, distinctly, since a deliberate
+disclosure must not read like a defect. An already-`raw/` input (e.g. from
+`--include-raw`) is reported as already being the evidence, not re-resolved.
+
+Found and fixed one real bug during its own live smoke test: `readFileSync(0)`
+for reading piped stdin hits a genuine Node.js `EAGAIN` race on macOS when
+the other end of the pipe is a live Node process (exactly this tool's
+primary documented use case, `search.mjs | resolve-evidence.mjs`) —
+switched to async stdin iteration, which doesn't hit it.
+
+Documented in both `skills/wiki-search/SKILL.md` (as a follow-up step after
+a search) and `skills/wiki-query/SKILL.md` (to verify a citation actually
+traces to real evidence before presenting it as fact).
+
+Adds 15 new tests in `test/resolve-evidence.test.mjs`, mirroring
+`test/evidence-trail.test.mjs`'s own fixture convention. Full suite
+(excluding two pre-existing, unrelated flaky server-timing test files,
+both confirmed passing 24/24 in isolation): 832 passing, 1 skipped, 0
+failing. Live-tested against the real vault: a well-cited source page, an
+authored page with no provenance, an already-raw input, a not-found path,
+and the full `search.mjs --include-raw | resolve-evidence.mjs` pipeline
+all resolved correctly.
+
 ## 0.30.0 — 2026-09-01
 
 ### Feat: split wiki-query into wiki-search (retrieval) + wiki-query (synthesis), and give search real raw/ coverage
