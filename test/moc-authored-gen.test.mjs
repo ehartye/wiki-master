@@ -175,3 +175,53 @@ test('is idempotent and leaves no temp files', () => {
 test('MIN_PAGES is 2 — the documented, adjustable threshold', () => {
   assert.equal(MIN_PAGES, 2);
 });
+
+// A bare `[[architecture]]` link is only safe when exactly one page in the whole
+// vault is named that — the authored-project-structure v2 design deliberately
+// reuses overview.md/architecture.md/roadmap.md across every project, so the MOC
+// generator must switch to the vault's own documented piped full-path form
+// (skills/wiki-maintainer/SKILL.md) whenever a page's basename collides.
+test('renderProjectCatalog emits a piped full-path link for a basename ambiguous vault-wide', () => {
+  const catalog = renderProjectCatalog({
+    pages: [page('wiki/authored/sparta-suite/migrator/architecture.md', 'sparta-suite/migrator', 'architecture')],
+    ambiguousNames: new Set(['architecture']),
+  });
+  assert.ok(
+    catalog.includes('[[wiki/authored/sparta-suite/migrator/architecture|architecture]]'),
+    `expected a piped full-path link, got: ${catalog}`
+  );
+});
+
+test('renderProjectCatalog keeps a bare link when ambiguousNames is omitted or the name is unique — unchanged default behavior', () => {
+  const pages = [page('wiki/authored/demo/architecture.md', 'demo', 'architecture')];
+  assert.ok(renderProjectCatalog({ pages }).includes('[[architecture]]'), 'no ambiguousNames param at all');
+  assert.ok(renderProjectCatalog({ pages, ambiguousNames: new Set() }).includes('[[architecture]]'), 'empty ambiguousNames set');
+});
+
+test('regenerateAuthoredMocs: two projects sharing architecture.md each get a piped link naming their OWN full path, not each other\'s', () => {
+  const v = tempVault();
+  mkdirSync(join(v, 'wiki', 'authored', 'alpha'), { recursive: true });
+  mkdirSync(join(v, 'wiki', 'authored', 'beta'), { recursive: true });
+  const write = (project, name, kind) => writeFileSync(
+    join(v, 'wiki', 'authored', project, `${name}.md`),
+    `---\ntype: authored\nsources: []\nproject: ${project}\nkind: ${kind}\n---\n# ${name}\n\n## Summary\n`
+  );
+  // architecture.md is the deliberate collision under test; each project's second
+  // page uses a distinct name so it's unambiguous and MIN_PAGES (2) is still met.
+  write('alpha', 'architecture', 'architecture');
+  write('alpha', 'alpha-guide', 'guide');
+  write('beta', 'architecture', 'architecture');
+  write('beta', 'beta-guide', 'guide');
+  const r = regenerateAuthoredMocs(v, { apply: true });
+  assert.ok(r.written.includes('alpha') && r.written.includes('beta'));
+  const alphaMoc = readFileSync(join(v, 'moc', 'alpha.md'), 'utf8');
+  const betaMoc = readFileSync(join(v, 'moc', 'beta.md'), 'utf8');
+  assert.ok(alphaMoc.includes('[[wiki/authored/alpha/architecture|architecture]]'),
+    `alpha's MOC should pipe its OWN architecture.md, got: ${alphaMoc}`);
+  assert.ok(betaMoc.includes('[[wiki/authored/beta/architecture|architecture]]'),
+    `beta's MOC should pipe its OWN architecture.md, got: ${betaMoc}`);
+  assert.ok(!alphaMoc.includes('wiki/authored/beta/architecture'), 'alpha\'s MOC must not name beta\'s file');
+  assert.ok(!betaMoc.includes('wiki/authored/alpha/architecture'), 'beta\'s MOC must not name alpha\'s file');
+  // Each project's own distinctly-named page is unambiguous and stays bare.
+  assert.ok(alphaMoc.includes('[[alpha-guide]]') && betaMoc.includes('[[beta-guide]]'));
+});

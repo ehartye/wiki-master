@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent, findAmbiguousNames, wikilinkTarget } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -599,4 +599,54 @@ test('buildGraph leaves backlogStatus undefined when absent — no invented defa
   writeFileSync(join(dir, 'wiki', 'authored', 'plain2.md'), '---\ntype: authored\nsources: []\n---\nbody\n');
   const g = buildGraph(dir);
   assert.equal(g.pages.find((p) => p.path === 'wiki/authored/plain2.md').backlogStatus, undefined);
+});
+
+// ─── findAmbiguousNames / wikilinkTarget — the fix for a real, live bug: the
+// authored-project-structure v2 design deliberately reuses bare canonical names
+// (overview.md/architecture.md/roadmap.md, one per project) across 12+
+// sparta-suite/chewie/adc sub-projects, but the three catalog GENERATORS
+// (index-gen.mjs, moc-authored-gen.mjs, backlog-gen.mjs) all wrote plain bare
+// `[[title]]` links regardless. Since a bare link resolves to exactly one
+// global winner (see resolveLinkTarget/buildNameIndex above), only 1-of-12
+// same-named pages ever actually received its intended inbound link — the rest
+// silently read as orphans, however many generated catalogs "linked" them. ───
+
+test('findAmbiguousNames flags a basename shared by two content pages, vault-wide', () => {
+  const ambiguous = findAmbiguousNames([
+    { path: 'wiki/authored/sparta-suite/migrator/architecture.md' },
+    { path: 'wiki/authored/sparta-suite/other/architecture.md' },
+    { path: 'wiki/authored/sparta-suite/migrator/overview.md' },
+  ]);
+  assert.ok(ambiguous.has('architecture'));
+  assert.ok(!ambiguous.has('overview'), 'a unique basename is not ambiguous');
+});
+
+test('findAmbiguousNames ignores non-content pages (raw/, log/, _templates/) — they never contend for the nav bare name', () => {
+  const ambiguous = findAmbiguousNames([
+    { path: 'wiki/sources/Foo.md' },
+    { path: 'raw/clippings/Foo.md' },
+    { path: 'log/2026-01-01-000000-ingest-foo.md' },
+  ]);
+  assert.ok(!ambiguous.has('foo'), 'exactly one content page named Foo — a raw/log twin does not make it ambiguous');
+});
+
+test('wikilinkTarget stays bare when the basename is unique', () => {
+  const p = { path: 'wiki/authored/demo/overview.md' };
+  assert.equal(wikilinkTarget(p, new Set()), 'overview');
+});
+
+test('wikilinkTarget switches to the vault\'s documented piped full-path form when the basename is ambiguous', () => {
+  const p = { path: 'wiki/authored/sparta-suite/migrator/architecture.md' };
+  assert.equal(
+    wikilinkTarget(p, new Set(['architecture'])),
+    'wiki/authored/sparta-suite/migrator/architecture|architecture'
+  );
+});
+
+test('wikilinkTarget matching is case-insensitive, consistent with resolveLinkTarget/buildNameIndex', () => {
+  const p = { path: 'wiki/authored/demo/Architecture.md' };
+  assert.equal(
+    wikilinkTarget(p, new Set(['architecture'])),
+    'wiki/authored/demo/Architecture|Architecture'
+  );
 });

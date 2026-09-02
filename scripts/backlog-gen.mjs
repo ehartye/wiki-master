@@ -16,7 +16,7 @@ import { readFileSync, writeFileSync, existsSync, renameSync, mkdirSync } from '
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph } from './lib/graph.mjs';
+import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByBacklogStatus } from './lib/authored-group.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
@@ -30,16 +30,16 @@ const STATUS_HEADING = {
   dropped: '## Dropped',
 };
 
-function link(p) {
-  return `- [[${basename(p.path, '.md')}]]`;
+function link(p, ambiguousNames) {
+  return `- [[${wikilinkTarget(p, ambiguousNames)}]]`;
 }
 
-export function renderBacklogCatalog({ pages }) {
+export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
   const lines = [];
   for (const { status, pages: group } of groupByBacklogStatus(pages)) {
     lines.push(STATUS_HEADING[status] ?? `## ${status}`);
     const sorted = [...group].sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...sorted.map(link), '');
+    lines.push(...sorted.map((p) => link(p, ambiguousNames)), '');
   }
   return lines.join('\n').trimEnd();
 }
@@ -72,6 +72,10 @@ function writeFenced(path, catalog, projectTitle) {
 // there is nothing to index, and creating an empty roadmap.md would be pure ceremony.
 export function regenerateBacklogRoadmaps(vaultPath, { apply = false } = {}) {
   const { pages } = buildGraph(vaultPath);
+  // Computed from the WHOLE vault, before filtering to backlog items — a backlog
+  // item slug can collide with another project's just as easily as
+  // overview.md/architecture.md/roadmap.md can (see graph.mjs's findAmbiguousNames).
+  const ambiguousNames = findAmbiguousNames(pages);
   const items = pages.filter((p) => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item');
   const projects = groupByProject(items);
   const written = [];
@@ -79,7 +83,7 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false } = {}) {
     written.push(project);
     if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
-    writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems }), project);
+    writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project);
   }
   return { written };
 }

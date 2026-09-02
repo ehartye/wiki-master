@@ -36,6 +36,23 @@ test('renderBacklogCatalog renders bare bullets with no invented description tex
   assert.match(catalog.trim(), /^## Planned\n- \[\[only-item\]\]$/);
 });
 
+// Same collision risk as moc-authored-gen.mjs/index-gen.mjs: a backlog-item
+// slug can be reused across two projects' backlog/ folders just as easily as
+// overview.md/architecture.md/roadmap.md, and a bare link would silently
+// resolve to only one of them, vault-wide.
+test('renderBacklogCatalog emits a piped full-path link for a backlog-item basename ambiguous vault-wide', () => {
+  const catalog = renderBacklogCatalog({
+    pages: [item('wiki/authored/demo/backlog/auth-fix.md', 'demo', 'planned')],
+    ambiguousNames: new Set(['auth-fix']),
+  });
+  assert.ok(catalog.includes('[[wiki/authored/demo/backlog/auth-fix|auth-fix]]'));
+});
+
+test('renderBacklogCatalog keeps a bare link when ambiguousNames is omitted — unchanged default behavior', () => {
+  const catalog = renderBacklogCatalog({ pages: [item('wiki/authored/demo/backlog/auth-fix.md', 'demo', 'planned')] });
+  assert.ok(catalog.includes('[[auth-fix]]'));
+});
+
 function tempVault() {
   const v = mkdtempSync(join(tmpdir(), 'wm-backlog-'));
   mkdirSync(join(v, 'wiki', 'authored', 'demo', 'backlog'), { recursive: true });
@@ -108,4 +125,19 @@ test('is idempotent and leaves no temp files', () => {
   regenerateBacklogRoadmaps(v, { apply: true });
   const second = readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
   assert.equal(first, second);
+});
+
+test('regenerateBacklogRoadmaps: two projects with a same-named backlog item each get a piped link naming their OWN full path', () => {
+  const v = tempVault(); // already has demo/backlog/; add a second project's own
+  mkdirSync(join(v, 'wiki', 'authored', 'other', 'backlog'), { recursive: true });
+  writeItem(v, 'auth-fix', 'demo', 'planned');
+  writeItem(v, 'auth-fix', 'other', 'planned');
+  const r = regenerateBacklogRoadmaps(v, { apply: true });
+  assert.ok(r.written.includes('demo') && r.written.includes('other'));
+  const demoRoadmap = readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
+  const otherRoadmap = readFileSync(join(v, 'wiki', 'authored', 'other', 'roadmap.md'), 'utf8');
+  assert.ok(demoRoadmap.includes('[[wiki/authored/demo/backlog/auth-fix|auth-fix]]'),
+    `demo's roadmap should pipe its OWN auth-fix.md, got: ${demoRoadmap}`);
+  assert.ok(otherRoadmap.includes('[[wiki/authored/other/backlog/auth-fix|auth-fix]]'),
+    `other's roadmap should pipe its OWN auth-fix.md, got: ${otherRoadmap}`);
 });
