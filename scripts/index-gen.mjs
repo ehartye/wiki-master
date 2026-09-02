@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, isContent } from './lib/graph.mjs';
+import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
 // LLM from writing its index; TheKnowledge's recovery rests on "indexes are
@@ -24,9 +24,8 @@ const SECTIONS = [
   ['entity', '## Entities'],
 ];
 
-function link(p) {
-  const title = basename(p.path, '.md');
-  return `- [[${title}]]${p.status === 'stub' ? ' (stub)' : ''}`;
+function link(p, ambiguousNames) {
+  return `- [[${wikilinkTarget(p, ambiguousNames)}]]${p.status === 'stub' ? ' (stub)' : ''}`;
 }
 
 export function renderCatalog({ pages }) {
@@ -34,6 +33,10 @@ export function renderCatalog({ pages }) {
   // roadmap.md (backlog-gen.mjs) -- excluded here for the same reason
   // moc-authored-gen.mjs excludes them from its per-project catalog.
   const content = pages.filter((p) => isContent(p.path) && p.kind !== 'backlog-item');
+  // Computed from the FULL, unfiltered vault pages (this function's own `pages`
+  // param already is that, unlike the per-project catalogs) -- two pages sharing
+  // a basename are just as ambiguous to a bare link here as anywhere else.
+  const ambiguousNames = findAmbiguousNames(pages);
   const byType = new Map(SECTIONS.map(([t]) => [t, []]));
   const other = [];
   for (const p of content) {
@@ -46,12 +49,12 @@ export function renderCatalog({ pages }) {
     if (!group.length) continue;
     lines.push(heading);
     group.sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...group.map(link), '');
+    lines.push(...group.map((p) => link(p, ambiguousNames)), '');
   }
   if (other.length) {
     lines.push('## Other');
     other.sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...other.map(link), '');
+    lines.push(...other.map((p) => link(p, ambiguousNames)), '');
   }
   return lines.join('\n').trimEnd();
 }

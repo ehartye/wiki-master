@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 
 export const STUB_WORD_FLOOR = 10;
@@ -342,6 +342,46 @@ export function resolveLinkTarget(byName, target, { nav = false } = {}) {
   if (byName.has(full)) return pick(full);
   const bare = full.split('/').pop() || full;
   return pick(bare);
+}
+
+// The three catalog GENERATORS (index-gen.mjs, moc-authored-gen.mjs,
+// backlog-gen.mjs) all write bare `- [[title]]` links — safe only when title's
+// basename is unique, vault-wide, among content pages. resolveLinkTarget's nav
+// resolution already prefers a content page over a raw/log/template file for a
+// shared basename (see buildNameIndex above), so a content/non-content
+// collision is never ambiguous for navigation. A collision BETWEEN two content
+// pages is: whichever file the filesystem walk visits first silently wins,
+// vault-wide, regardless of which page's own catalog wrote the link. This is
+// exactly the risk the authored-project-structure v2 design accepted on
+// purpose — overview.md/architecture.md/roadmap.md are deliberately reused
+// bare names, one per project (see docs/superpowers/specs/
+// 2026-08-11-authored-project-structure-v2-design.md §2 and
+// skills/wiki-maintainer/SKILL.md) — so a generator must check every link it
+// writes against the WHOLE vault, never just the subset of pages it happens to
+// be rendering (one project, one kind, …).
+export function findAmbiguousNames(pages) {
+  const counts = new Map();
+  for (const p of pages) {
+    if (!isContent(p.path)) continue;
+    const name = basename(p.path, '.md').toLowerCase();
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  const ambiguous = new Set();
+  for (const [name, count] of counts) if (count > 1) ambiguous.add(name);
+  return ambiguous;
+}
+
+// The vault's own documented escape hatch for an ambiguous bare name —
+// `[[path|Display]]`, naming the full (extension-stripped) path so Obsidian
+// resolves the exact file every time, no matter how many other pages share
+// its basename. Every unambiguous name stays bare, matching the terse,
+// no-invented-text style every generated catalog already uses. Returns just
+// the wikilink TARGET (no surrounding `[[ ]]`), so callers keep control of the
+// bullet formatting (a leading `- `, a trailing ` (stub)`, …) around it.
+export function wikilinkTarget(p, ambiguousNames) {
+  const title = basename(p.path, '.md');
+  if (!ambiguousNames.has(title.toLowerCase())) return title;
+  return `${p.path.replace(/\.md$/i, '')}|${title}`;
 }
 
 export function computeGraphMetrics({ pages }, opts = {}) {

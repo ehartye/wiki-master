@@ -38,6 +38,31 @@ test('renderCatalog groups an authored page under its own section', () => {
   assert.ok(catalog.includes('[[policy]]'), 'lists the authored page');
 });
 
+// Same root cause as moc-authored-gen.mjs's identical bug: overview.md/
+// architecture.md/roadmap.md are deliberately reused bare names across projects
+// (docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md
+// §2), so the whole-vault index.md must ALSO switch to the documented piped
+// full-path form for a colliding name — a bare link resolves to exactly one
+// global winner regardless of which generated catalog wrote it.
+test('renderCatalog emits a piped full-path link for a basename ambiguous vault-wide', () => {
+  const catalog = renderCatalog({ pages: [
+    { path: 'wiki/authored/alpha/architecture.md', type: 'authored', status: 'maintained' },
+    { path: 'wiki/authored/beta/architecture.md', type: 'authored', status: 'maintained' },
+  ] });
+  assert.ok(catalog.includes('[[wiki/authored/alpha/architecture|architecture]]'));
+  assert.ok(catalog.includes('[[wiki/authored/beta/architecture|architecture]]'));
+  assert.ok(!catalog.includes('[[architecture]]'), 'never falls back to the ambiguous bare form');
+});
+
+test('renderCatalog keeps a unique basename bare, even alongside an unrelated collision elsewhere', () => {
+  const catalog = renderCatalog({ pages: [
+    { path: 'wiki/authored/alpha/architecture.md', type: 'authored', status: 'maintained' },
+    { path: 'wiki/authored/beta/architecture.md', type: 'authored', status: 'maintained' },
+    { path: 'wiki/authored/alpha/overview.md', type: 'authored', status: 'maintained' },
+  ] });
+  assert.ok(catalog.includes('[[overview]]'), 'the only page named overview stays bare');
+});
+
 // kind: backlog-item pages are already indexed by their own project's generated
 // roadmap.md (backlog-gen.mjs). Listing every item a second time in the
 // whole-vault index would recreate, at the top level, the exact per-item sprawl

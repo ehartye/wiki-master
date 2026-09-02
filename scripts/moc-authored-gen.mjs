@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, existsSync, renameSync, mkdirSync } from '
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph } from './lib/graph.mjs';
+import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByKind, OTHER } from './lib/authored-group.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/moc-authored-gen.mjs %%';
@@ -49,11 +49,11 @@ export function projectSlug(project) {
   return project.replace(/\//g, '-');
 }
 
-function link(p) {
-  return `- [[${basename(p.path, '.md')}]]`;
+function link(p, ambiguousNames) {
+  return `- [[${wikilinkTarget(p, ambiguousNames)}]]`;
 }
 
-export function renderProjectCatalog({ pages }) {
+export function renderProjectCatalog({ pages, ambiguousNames = new Set() }) {
   // backlog-item pages are already indexed by the project's own generated roadmap.md
   // (backlog-gen.mjs, grouped by backlog-status). Listing each one again here would
   // recreate the exact per-item sprawl the folder/backlog split exists to remove --
@@ -63,7 +63,7 @@ export function renderProjectCatalog({ pages }) {
   for (const { kind, pages: group } of groupByKind(filtered)) {
     lines.push(KIND_HEADING[kind] ?? `## ${kind}`);
     const sorted = [...group].sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...sorted.map(link), '');
+    lines.push(...sorted.map((p) => link(p, ambiguousNames)), '');
   }
   return lines.join('\n').trimEnd();
 }
@@ -95,6 +95,10 @@ function writeFenced(path, catalog) {
 // caller can inspect what WOULD happen without writing anything.
 export function regenerateAuthoredMocs(vaultPath, { apply = false } = {}) {
   const { pages } = buildGraph(vaultPath);
+  // Computed from the WHOLE vault, before filtering to wiki/authored/ — a bare
+  // name written into project A's MOC is exactly as ambiguous as one written
+  // anywhere else if project B (or any other page) shares that basename.
+  const ambiguousNames = findAmbiguousNames(pages);
   const authored = pages.filter((p) => p.path.startsWith('wiki/authored/'));
   const projects = groupByProject(authored).filter((g) => g.pages.length >= MIN_PAGES);
   const written = [];
@@ -102,7 +106,7 @@ export function regenerateAuthoredMocs(vaultPath, { apply = false } = {}) {
     written.push(project);
     if (!apply) continue;
     const mocPath = join(vaultPath, 'moc', `${projectSlug(project)}.md`);
-    writeFenced(mocPath, renderProjectCatalog({ pages: projectPages }));
+    writeFenced(mocPath, renderProjectCatalog({ pages: projectPages, ambiguousNames }));
   }
   return { written };
 }

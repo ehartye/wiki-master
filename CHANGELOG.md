@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.32.0 — 2026-09-02
+
+### Fix: generated catalogs (MOC, index, roadmap) wrote ambiguous bare wikilinks for names deliberately reused across projects
+
+`docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md`
+§2 deliberately reuses bare canonical filenames — `overview.md`,
+`architecture.md`, `roadmap.md` — one per `wiki/authored/` project, relying on
+each project's own folder for uniqueness on disk. The design doc, and
+`skills/wiki-maintainer`/`skills/wiki-author`'s own SKILL.md, are explicit
+that any wikilink to one of these files must use the piped full-path form
+(`[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`) once a second
+project acquires the same name, since a bare `[[roadmap]]` resolves to
+exactly one global winner (`resolveLinkTarget`'s collision-prone bare-name
+fallback) — every other same-named page across every other project is then
+silently unreachable by that link, however many times it's written.
+
+All three catalog generators — `moc-authored-gen.mjs` (per-project MOC),
+`index-gen.mjs` (vault-wide index.md), and `backlog-gen.mjs` (per-project
+roadmap.md, itemizing `backlog/*.md`) — wrote plain bare `- [[title]]` links
+regardless, in direct violation of that documented contract. Live impact:
+with 12+ sparta-suite/chewie/adc sub-projects each carrying their own
+`architecture.md`/`data-flow.md`/`roadmap.md`, only 1-of-12 same-named pages
+ever received its intended inbound link from a generated MOC — the rest read
+as orphans no matter how many project MOCs "linked" them.
+
+`scripts/lib/graph.mjs` gains two shared helpers so the three generators can
+never again drift out of sync on how they decide this: `findAmbiguousNames(pages)`
+computes, vault-wide, which basenames collide among content pages (a
+raw/clippings/ or log/ twin does not count — nav resolution already prefers
+content for those); `wikilinkTarget(p, ambiguousNames)` returns the vault's own
+piped full-path form for a colliding name and the plain bare title otherwise.
+Each generator now computes `ambiguousNames` once from the FULL vault graph —
+before filtering down to one project's or one kind's own pages — since a bare
+name is exactly as ambiguous no matter which subset of pages happens to be
+rendering it.
+
+Adds 11 new tests across `test/graph.test.mjs`, `test/moc-authored-gen.test.mjs`,
+`test/index-gen.test.mjs`, and `test/backlog-gen.test.mjs`, including
+end-to-end regressions that build two real projects sharing a filename and
+assert each project's regenerated catalog names its own file, not its
+sibling's.
+
 ## 0.31.0 — 2026-09-01
 
 ### Feat: resolve-evidence.mjs — jump from a search hit straight to its raw/ evidence
