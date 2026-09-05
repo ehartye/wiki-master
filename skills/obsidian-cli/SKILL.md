@@ -3,6 +3,15 @@ name: obsidian-cli
 description: Reference for driving the native Obsidian command-line interface (v1.12+). Use whenever a wiki-master operation needs to read, search, link, tag, or edit notes in the vault via the `obsidian` CLI.
 ---
 
+> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
+> `scripts/` and `templates/` paths from this skill's installed directory:
+> `../../` is the plugin root. Use quoted absolute paths when running helpers;
+> do not resolve them from the current workspace or depend on plugin-root shell
+> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
+> no skill-loading tool. References such as `/wiki-health` mean that skill's
+> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
+> as the user's request when the host does not substitute it.
+
 # Driving the Obsidian CLI
 
 The vault is targeted by name: `obsidian vault=<name> <command> ...`. wiki-master
