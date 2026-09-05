@@ -8,14 +8,6 @@
   },
   "license": "MIT",
   "repository": "https://github.com/ehartye/wiki-master",
-  "keywords": [
-    "obsidian",
-    "wiki",
-    "knowledge-base",
-    "llm",
-    "second-brain"
-  ],
-  "skills": [
-    "skills/"
-  ]
+  "keywords": ["obsidian", "wiki", "knowledge-base", "llm", "second-brain"],
+  "skills": ["skills/"]
 }
