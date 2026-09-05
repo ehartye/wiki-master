@@ -112,7 +112,12 @@ that run's group instead of Unattributed. Omit it when there is no run behind th
 an invented topic is worse than none, because it files the row under a heading the user
 has already worked through.
 
-Kinds: `failed` · `thin` · `wrong-node` · `blocked` · `fidelity` · `attention`.
+Kinds: `failed` · `gone` · `thin` · `wrong-node` · `blocked` · `fidelity` · `attention`.
+
+`failed` and `gone` ask opposite things of the user: `failed` means *try this again, by
+hand or from a signed-in browser*; `gone` means *stop trying — the page is a 404, or
+redirects onto an error page, so find another source or drop the claim*. Never file a
+dead link as `failed`; a row nobody can action is a row that stays in the queue forever.
 
 ## Guardrails
 - **The log is append-only.** Never rewrite `triage.jsonl` — dispositions are appended and
