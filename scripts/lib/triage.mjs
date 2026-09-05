@@ -135,6 +135,48 @@ export function openIssues(log) {
   return [...state.values()];
 }
 
+// The kinds a successful clip actually answers: every one of them is a claim
+// that the CONTENT could not be obtained, which arriving at the content
+// disproves outright.
+//
+// `attention` and `fidelity` are deliberately absent. `attention` means "a human
+// needs to decide something about this link" — reaching the content does not make
+// that decision, and closing it would delete somebody's todo. `fidelity` is a
+// claim about how far an ALREADY-CLIPPED extraction can be trusted; a fresh clip
+// of the same url does not settle it either.
+export const CLIP_RESOLVES_KINDS = ['failed', 'thin', 'wrong-node', 'blocked', 'gone'];
+
+// Close the rows a clip just disproved.
+//
+// Without this the queue only ever grows. Measured on the reference vault
+// (2026-09-05): replaying 54 open `failed` rows clipped 20 and found 9 already
+// present, yet `failed` stayed at 54 and the open total went 65 -> 74, because
+// each retry's new, specific diagnosis was appended BESIDE the stale blanket row
+// instead of replacing it. 29 of the 54 rows described sources that were sitting
+// in the vault. A queue that cannot drain is one people stop reading.
+//
+// `outcome` is recorded as the disposition so the log stays auditable: "closed
+// because a clip landed" must stay distinguishable from "closed because a human
+// said ignore", forever. Returns the number of rows closed; zero writes nothing,
+// so an ordinary clip of a never-queued url does not grow the log.
+export function closeIssuesResolvedByClip(vaultPath, url, outcome = 'clipped') {
+  const open = openIssues(loadIssueLog(vaultPath));
+  const target = key(url, '');
+  let closed = 0;
+  for (const issue of open) {
+    if (!CLIP_RESOLVES_KINDS.includes(issue.kind)) continue;
+    if (key(issue.url, '') !== target) continue;
+    disposeIssue(vaultPath, {
+      url: issue.url,
+      kind: issue.kind,
+      disposition: outcome,
+      note: `closed automatically: clip succeeded (${outcome})`,
+    });
+    closed++;
+  }
+  return closed;
+}
+
 // Sources settled by a disposition — but only while nothing newer has happened.
 // "A recurrence reopens an issue" (see the header): an issue recorded AFTER a
 // disposition means the world changed or the disposition could not be honoured —
