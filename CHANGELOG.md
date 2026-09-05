@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.34.0 — 2026-09-05
+
+### Feat: `clip-docx --allow-short`, so a genuinely short document is not lost to the thin-content floor
+
+`clip-docx` declines any extraction under 100 words as thin and records a
+decline for it. That floor exists to catch an extraction that **failed** — a
+corrupt, image-only, or password-protected document pandoc turned into almost
+nothing — and it does that job well.
+
+What it cannot do is tell a failed extraction apart from a document that is
+genuinely short, because word count is the only signal it has. A one-page
+classroom handout is complete at 40 words: a bare list of case names, a blank
+analysis worksheet, a vocabulary sheet. All of them declined.
+
+**Reported from real use**: clipping a teacher's Canvas course export, five of
+fifteen artifacts were declined — including the single most load-bearing one,
+a required-reading list whose contents were the entire reason for the clip. The
+decline is persisted, so a batch re-run skips them silently and the material
+never reaches the vault at all. The failure is quiet in exactly the way that
+matters: the run reports success on the other ten.
+
+**Why a flag and not a lower floor.** Lowering `THIN_WORD_FLOOR` globally would
+trade one silent failure for another — empty extractions would start landing in
+`raw/` looking like real sources. `--allow-short` is opt-in per clip: the human
+asserting they opened the file and it is short on purpose. Every clip that does
+not pass it keeps the full safety net.
+
+The thin decision moves into an exported pure function,
+`shouldDeclineAsThin(wordCount, { allowShort })`, with `parseAllowShort(argv)`
+beside it — testable without touching the filesystem, matching how the rest of
+this module is structured.
+
+```bash
+node scripts/clip-docx.mjs "handout.docx" --allow-short --quality=high
+```
+
+The decline message now names the flag, so the next person hitting this does not
+have to read the source to find out why a complete document was refused.
+
 ## 0.33.0 — 2026-09-05
 
 ### Feature: browser-render rung recovers JavaScript-rendered pages the static clipper cannot see
