@@ -1,11 +1,11 @@
 # wiki-master
 
-A **Claude Code and GitHub Copilot CLI** plugin that realizes Andrej Karpathy's
+A **Claude Code, GitHub Copilot CLI, and Codex** plugin that realizes Andrej Karpathy's
 [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 natively on Obsidian: the agent incrementally compiles and maintains a persistent,
 densely interlinked markdown wiki over your curated sources.
 
-- The **agent** (Claude Code or GitHub Copilot CLI) is the synthesis engine.
+- The **agent** (Claude Code, GitHub Copilot CLI, or Codex) is the synthesis engine.
 - The **native `obsidian` CLI** does all resolved-semantics work (links, search,
   typed properties, graph health, versioning).
 - A small Node helper layer does zero-LLM structural checks.
@@ -17,8 +17,8 @@ in single-digit milliseconds. A vector database solves a problem this scale does
 
 ## Requirements
 
-- A host agent: **Claude Code** or **GitHub Copilot CLI** — both load the same
-  plugin. Claude Code is not required for Copilot CLI (the plugin runs standalone).
+- A host agent: **Claude Code**, **GitHub Copilot CLI**, or **Codex** with plugin support.
+  Each host loads the same skills and runs the bundled helpers independently.
 - Obsidian 1.12+ with the official command-line interface enabled
   (Settings → General → Command line interface).
 - The vault open in Obsidian (the CLI drives the running app).
@@ -29,9 +29,9 @@ in single-digit milliseconds. A vector database solves a problem this scale does
 
 ## Install
 
-The plugin ships its operations as **skills**, so both hosts expose them as
-`/wiki-*` and run the same `scripts/` (Node). Copilot CLI loads it with no Claude
-Code present.
+The plugin ships its operations as **skills** and shares the same `scripts/`
+(Node) across all three hosts. Claude Code and Copilot CLI expose `/wiki-*`;
+in Codex, select a skill or ask for it by name (for example, “use wiki-health”).
 
 **Claude Code:**
 ```
@@ -50,6 +50,12 @@ Or run straight from a local clone on either host — e.g.
 repo's default branch to carry `.github/plugin/marketplace.json` and
 `.claude-plugin/marketplace.json`.)
 
+**Codex:**
+
+The Codex manifest is `.codex-plugin/plugin.json`. See [Codex setup](docs/codex.md)
+for personal marketplace installation and host-specific usage. Keep the entire
+plugin folder together: the skills use the sibling `scripts/` and `templates/`.
+
 ## Quick start
 
 1. `/wiki-init` — scaffolds the vault and prints one-time setup.
@@ -61,7 +67,9 @@ repo's default branch to carry `.github/plugin/marketplace.json` and
 
 ## Skills
 
-Invoked as `/wiki-*` on both Claude Code and GitHub Copilot CLI.
+Invoked as `/wiki-*` on Claude Code and GitHub Copilot CLI. In Codex, select
+the matching skill or ask for it by name; the slash notation below identifies
+the same workflows.
 
 | Skill | Purpose |
 |---|---|

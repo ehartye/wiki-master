@@ -3,6 +3,15 @@ name: wiki-relink
 description: Deepen relationships — add inferred links, materialize frequently-referenced entities, build/refresh MOCs.
 ---
 
+> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
+> `scripts/` and `templates/` paths from this skill's installed directory:
+> `../../` is the plugin root. Use quoted absolute paths when running helpers;
+> do not resolve them from the current workspace or depend on plugin-root shell
+> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
+> no skill-loading tool. References such as `/wiki-health` mean that skill's
+> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
+> as the user's request when the host does not substitute it.
+
 Load the `wiki-maintainer` skill and follow its **Relink** workflow.
 
 0. Open the operation: `TOKEN=$(node ../../scripts/op-begin.mjs --op relink)` — records

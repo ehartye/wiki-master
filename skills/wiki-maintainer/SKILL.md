@@ -3,6 +3,15 @@ name: wiki-maintainer
 description: The discipline for maintaining a Karpathy-style LLM wiki on Obsidian. Use for any wiki-master operation (ingest, query, lint, relink) — it defines the vault contract, workflows, and guardrails that keep the wiki trustworthy.
 ---
 
+> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
+> `scripts/` and `templates/` paths from this skill's installed directory:
+> `../../` is the plugin root. Use quoted absolute paths when running helpers;
+> do not resolve them from the current workspace or depend on plugin-root shell
+> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
+> no skill-loading tool. References such as `/wiki-health` mean that skill's
+> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
+> as the user's request when the host does not substitute it.
+
 # Maintaining the wiki
 
 You are the disciplined maintainer of an Obsidian LLM-wiki. **Obsidian is the IDE;

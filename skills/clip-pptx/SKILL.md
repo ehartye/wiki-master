@@ -4,7 +4,14 @@ description: Clip a PowerPoint deck (.pptx, local file) into the wiki as a Markd
 argument-hint: "<path/to/file.pptx> [--source=\"<url-or-path>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
-> **Scripts:** wiki-master's scripts live in the plugin's `scripts/` directory — resolve `../../scripts/clip-pptx.mjs` relative to this skill's own directory (the plugin root is the parent of `skills/`). No plugin-root env var is set under Copilot CLI, so use this relative path, not `${CLAUDE_PLUGIN_ROOT}` / `${PLUGIN_ROOT}`.
+> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
+> `scripts/` and `templates/` paths from this skill's installed directory:
+> `../../` is the plugin root. Use quoted absolute paths when running helpers;
+> do not resolve them from the current workspace or depend on plugin-root shell
+> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
+> no skill-loading tool. References such as `/wiki-health` mean that skill's
+> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
+> as the user's request when the host does not substitute it.
 
 > **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
 > this session, load it — it carries the vault location and the provenance/`raw/`-immutability
