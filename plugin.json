@@ -1,13 +1,21 @@
 {
   "name": "wiki-master",
   "description": "Maintain a Karpathy-style LLM wiki on Obsidian using the native obsidian CLI.",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "author": {
     "name": "ehartye",
     "email": "eric@hartye.com"
   },
   "license": "MIT",
   "repository": "https://github.com/ehartye/wiki-master",
-  "keywords": ["obsidian", "wiki", "knowledge-base", "llm", "second-brain"],
-  "skills": ["skills/"]
+  "keywords": [
+    "obsidian",
+    "wiki",
+    "knowledge-base",
+    "llm",
+    "second-brain"
+  ],
+  "skills": [
+    "skills/"
+  ]
 }

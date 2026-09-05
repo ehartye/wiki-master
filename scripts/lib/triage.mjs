@@ -26,7 +26,13 @@ export const ISSUE_KINDS = [
   'failed', // fetch failed — 403, paywall, transient network
   'thin', // extracted, but SPA/paywall shell below the word floor
   'wrong-node', // extraction landed on the wrong DOM node
-  'blocked', // domain on the blocklist
+  'blocked', // domain on the blocklist, or an anti-bot gate that held
+  // The source is DEAD — a 404/410, or a redirect onto an error page. Split out
+  // of 'failed' because the two ask opposite things of a human: 'failed' means
+  // "try this again, from a browser"; 'gone' means "stop trying, find another
+  // source or drop the claim". Filing a dead link as maybe-transient is how a
+  // queue accumulates rows nobody can ever action.
+  'gone',
   'fidelity', // clipped, but degraded: gibberish, OCR damage, abstract-only
   'attention', // generic: a link the agent wants a human decision on
 ];

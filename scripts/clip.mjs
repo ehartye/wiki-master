@@ -1,9 +1,11 @@
-import { readFileSync, existsSync, writeFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, existsSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
@@ -29,6 +31,13 @@ const DESCRIPTION_SUBSTANTIVE_DISTINCTIVE_WORDS = 8;
 // fix. A real match reflects a large fraction of the description's wording;
 // pure topical coincidence reflects only a sliver of it.
 const WRONG_NODE_OVERLAP_CEILING = 0.2;
+
+// A short extraction carrying at least this many markdown headings, over at
+// least this many words, is a structured reference page rather than an empty
+// shell. See the note in classifyShortExtraction for why structure, not length,
+// is what separates the two.
+const STRUCTURED_MIN_HEADINGS = 3;
+const STRUCTURED_MIN_WORDS = Math.floor(THIN_WORD_FLOOR / 5);
 
 // A realistic desktop browser User-Agent, always sent to Defuddle. Some
 // sites/WAFs (confirmed: NCBI's PMC) serve a bot-check interstitial page to
@@ -152,6 +161,23 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
     return { kind: 'short_real_article' };
   }
 
+  // The <article>/<main> test above only fires when Defuddle's html BEGINS with
+  // that tag, which a reference page whose extraction starts at a heading never
+  // does. registry.khronos.org's XR_EXT_hand_tracking man page — 58 words under
+  // four headings, complete and correct — was declined for 180 days and queued
+  // for a human on exactly that technicality.
+  //
+  // Section structure is the better signal, because it is the one thing the
+  // false positive cannot fake: an SPA shell is short BECAUSE it has no content,
+  // so it has no sections either. docs.mealie.io, the case this must keep
+  // rejecting, extracts to the three words "Back to top" under no headings at
+  // all. Three headings rather than two keeps a lone "Sign in"/"Related" stub
+  // from qualifying, and the word floor stops a bare table of contents.
+  const headings = (String(markdown || '').match(/^#{1,6}\s+\S/gm) || []).length;
+  if (headings >= STRUCTURED_MIN_HEADINGS && words >= STRUCTURED_MIN_WORDS) {
+    return { kind: 'short_real_article' };
+  }
+
   const bodyLower = String(markdown || '').toLowerCase();
   const distinctiveDescriptionWords = String(description || '')
     .split(/\s+/)
@@ -225,6 +251,18 @@ const execDefuddle = (cmd) =>
     stdio: ['ignore', 'pipe', 'ignore'],
   });
 
+// Same as execDefuddle but KEEPS stderr. The render rung reports why it failed
+// as JSON on stderr — crucially, whether the rung could run at all — and
+// discarding that stream (as the Defuddle path deliberately does, to keep npx
+// chatter out of the log) collapsed every render failure into a bare "Command
+// failed", hiding a real bug behind it for a full end-to-end run.
+const execRender = (cmd) =>
+  execSync(cmd, {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
 export function runDefuddleJson(url, { run = execDefuddle } = {}) {
   let lastErr;
   for (const cmd of defuddleAttempts(url)) {
@@ -235,6 +273,89 @@ export function runDefuddleJson(url, { run = execDefuddle } = {}) {
     }
   }
   throw lastErr;
+}
+
+const RENDER_CLI = join(dirname(fileURLToPath(import.meta.url)), 'render-page.mjs');
+
+// A thin extraction is normally cached as a decline, because thin-ness is
+// deterministic given the page's markup: re-fetching cannot change the answer,
+// so the next run should skip without paying for it.
+//
+// That justification collapses when the browser rung never ran. With it, the
+// answer WOULD have been different -- measured on four of this vault's own
+// thin/failed rows. Declining anyway buries a recoverable source for the full
+// 180-day TTL on the strength of a package the user has simply not installed
+// yet, and they would not discover it until long after fixing the setup. The
+// URL still reaches triage either way; only the caching is withheld.
+export function shouldDeclineThin({ renderRan }) {
+  return renderRan === true;
+}
+
+// The rung after the static ladder: render the page in a real browser, judge the
+// result, then hand the rendered DOM back to Defuddle. See lib/render.mjs for why
+// a browser is needed at all and why it has to be headful.
+//
+// Order matters and is load-bearing. The GUARD RUNS BEFORE EXTRACTION, because
+// rendering does not merely recover pages — it makes pages succeed that the
+// static ladder correctly refused, and some of those successes are the wrong
+// page. Extract first and a stale Epic doc URL yields 443 fluent words of the
+// documentation index; there is nothing in that text to mark it as not being the
+// article that was asked for, so it has to be refused on the redirect, before
+// anyone can be tempted by the prose.
+export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
+  // Per-URL scratch path: two sessions clipping into one vault is normal here
+  // (lib/triage.mjs), and a shared filename would let one render overwrite
+  // another's page and file the wrong article under the wrong url.
+  const htmlFile = join(tmp, `wm-render-${createHash('sha1').update(url).digest('hex').slice(0, 16)}.html`);
+  let meta;
+  try {
+    meta = JSON.parse(run(`node "${RENDER_CLI}" "${url}" "${htmlFile}"`));
+  } catch (e) {
+    // render-page.mjs exits 3 with {unavailable:true} when the rung cannot run
+    // at all — no playwright-core, no browser. That is a setup problem the user
+    // fixes once for every future URL, and reporting it per-URL as "the site
+    // blocked us" would send them off to triage 60 sources by hand instead.
+    let payload = {};
+    try { payload = JSON.parse(String(e.stderr || '')); } catch { /* not ours */ }
+    return {
+      ok: false,
+      kind: 'failed',
+      unavailable: payload.unavailable === true,
+      reason: payload.error || `render failed: ${String(e.message || e).split('\n')[0]}`,
+    };
+  }
+
+  const verdict = classifyRenderOutcome({ requestedUrl: url, ...meta });
+  if (!verdict.ok) {
+    rmSync(htmlFile, { force: true });
+    return verdict;
+  }
+
+  // Re-extract with Defuddle rather than keeping the browser's innerText, so a
+  // rendered clipping gets the same title/author/date parsing and boilerplate
+  // removal as every other clipping in the vault.
+  try {
+    const data = JSON.parse(run(`${defuddleLauncher()} parse "${htmlFile}" --json --lang ${CLIP_LANG}`));
+    return { ok: true, data, finalUrl: meta.finalUrl };
+  } catch (e) {
+    return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${String(e.message || e).split('\n')[0]}` };
+  } finally {
+    rmSync(htmlFile, { force: true });
+  }
+}
+
+// Whichever launcher works here — mirrors the two rungs of defuddleAttempts so a
+// globally-installed Defuddle is preferred and npx is the fallback.
+let cachedLauncher;
+function defuddleLauncher() {
+  if (cachedLauncher) return cachedLauncher;
+  try {
+    execSync('defuddle --version', { stdio: 'ignore' });
+    cachedLauncher = 'defuddle';
+  } catch {
+    cachedLauncher = 'npx --yes defuddle';
+  }
+  return cachedLauncher;
 }
 
 function defuddleReachable() {
@@ -281,30 +402,71 @@ export function main(argv) {
   }
 
   let data;
+  // 'text' when the static ladder produced the content, 'rendered' when a browser
+  // had to. Recorded in frontmatter so a reader knows the text came out of a live
+  // DOM rather than the served html — the same role `extraction: ocr` plays for
+  // clip-pdf, and read the same way by triage (a method, not a defect).
+  let extraction = 'text';
   try { data = runDefuddleJson(url); }
   catch {
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
-    // batch runs continue). A per-URL failure is usually a 403 / paywall / SPA.
+    // batch runs continue).
     if (!defuddleReachable()) {
       console.error(`Defuddle CLI not found. Install it: npm i -g defuddle`);
       process.exit(1);
     }
-    // A transient failure is deliberately NOT declined — it may recover, and a
-    // 180-day TTL would bury a recoverable source. It IS queued for triage, so the
-    // link survives the terminal scrollback and reaches a human.
-    const reason = 'fetch failed (likely 403/paywall/transient)';
-    recordIssue(vaultPath, { url, kind: 'failed', reason, topic });
-    console.log(`clip failed (likely blocked/paywalled — clip manually; queued for triage): ${url}`);
-    return { status: 'failed', reason };
+    // The static ladder never runs JavaScript, so its failures are dominated by
+    // pages that HAVE no content until a browser builds it. Sampling 17 entries
+    // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
+    // recovered 8 of them outright and correctly re-diagnosed most of the rest.
+    const r = renderAttempt(url);
+    if (r.ok) {
+      data = r.data;
+      extraction = 'rendered';
+    } else {
+      // `unavailable` means the rung never ran (no playwright-core, no browser),
+      // so nothing has been learned about this URL. Say so once, plainly, rather
+      // than filing a setup problem as the site's fault on every URL in the batch.
+      if (r.unavailable) console.error(`render rung unavailable: ${r.reason}`);
+      // Still NOT declined: a decline is a judgment, and a fetch failure is a
+      // fact about one attempt. A 180-day TTL would bury a recoverable source.
+      const kind = r.unavailable ? 'failed' : r.kind;
+      const reason = r.unavailable
+        ? 'fetch failed (likely 403/paywall/transient; browser render unavailable)'
+        : r.reason;
+      recordIssue(vaultPath, { url, kind, reason, topic });
+      console.log(`clip failed — ${reason} (queued for triage): ${url}`);
+      return { status: 'failed', reason };
+    }
   }
 
-  const md = data.contentMarkdown || data.content || '';
+  let md = data.contentMarkdown || data.content || '';
+  // A thin extraction off the STATIC html is the exact signature of a page whose
+  // article is built client-side: docs.mealie.io serves 299 words of markup that
+  // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
+  // only way to tell "nothing there" apart from "nothing there yet". Skipped when
+  // the render rung already supplied this text — it does not get a second turn.
+  // Whether the browser rung got to weigh in on this URL at all. It has already
+  // run (and succeeded) when extraction === 'rendered'; otherwise it is set by
+  // the thin-path attempt just below.
+  let renderRan = extraction === 'rendered';
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan) {
+    const r = renderAttempt(url);
+    renderRan = !r.unavailable;
+    const rendered = r.ok ? (r.data.contentMarkdown || r.data.content || '') : '';
+    if (wordCount(rendered) >= THIN_WORD_FLOOR) {
+      data = r.data;
+      md = rendered;
+      extraction = 'rendered';
+    }
+  }
+
   if (wordCount(md) < THIN_WORD_FLOOR) {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
     if (verdict.kind !== 'short_real_article') {
       // Thin/wrong-node is deterministic given this page's current markup — record
       // it so the next run skips without re-fetching. TTL re-litigates eventually.
-      recordDecline(vaultPath, url, verdict.reason);
+      if (shouldDeclineThin({ renderRan })) recordDecline(vaultPath, url, verdict.reason);
       // Also queue it: the decline stops the re-fetch, but the source was still
       // wanted and only a human can clip it manually.
       recordIssue(vaultPath, {
@@ -314,7 +476,10 @@ export function main(argv) {
         topic,
       });
       const label = verdict.kind === 'wrong_node' ? 'possible extraction mismatch' : 'thin content';
-      console.log(`${label} (clip manually; decline + triage recorded): ${url}`);
+      const recorded = shouldDeclineThin({ renderRan })
+        ? 'decline + triage recorded'
+        : 'triage recorded; not declined — browser render unavailable';
+      console.log(`${label} (clip manually; ${recorded}): ${url}`);
       return { status: 'thin', reason: verdict.reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
@@ -324,7 +489,7 @@ export function main(argv) {
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({
     title: data.title, source: url, author: data.author,
-    published: data.published, created, quality, hash, topic,
+    published: data.published, created, quality, hash, topic, extraction,
   });
   let slug = slugify(data.title);
   let file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);

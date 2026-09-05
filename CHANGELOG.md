@@ -1,5 +1,83 @@
 # Changelog
 
+## 0.33.0 — 2026-09-05
+
+### Feature: browser-render rung recovers JavaScript-rendered pages the static clipper cannot see
+
+Defuddle fetches HTML and parses it; it never runs JavaScript. Pages that build
+their article client-side therefore have nothing to extract — `dev.epicgames.com`
+returns 200 with ~30KB of Angular shell and **three words** of text — and pages
+behind an anti-bot gate get an interstitial instead. Sampling 17 entries from
+the reference vault's own `failed`/`thin` triage queue, that one blind spot
+accounted for most of the queue.
+
+`clip.mjs` now falls back to rendering the page in a real browser
+(`scripts/lib/render.mjs` + `scripts/render-page.mjs`), then hands the rendered
+DOM back to Defuddle so extraction, metadata and boilerplate removal stay
+identical to every other clipping. The rung runs **only after the existing
+static ladder has failed**, so healthy pages pay nothing; it costs ~2-4s when it
+does run. Measured recovery on that sample: 8 of 17, including 3,190 words from
+`tripo3d.ai`, 2,744 from `securitylabs.datadoghq.com` and 1,738 from
+`unrealengine.com` — all previously filed as "fetch failed".
+
+The non-obvious part, and the reason this is not simply "add a headless
+browser": a **headless** browser fixes only half the class. Headless Chrome
+still sat on Cloudflare's interstitial at 37 words and drew an outright 403 from
+Epic; the same navigations headful returned the full articles. The browser is
+therefore launched headful and parked offscreen, which keeps it out of the way
+during a batch run. Playwright's bundled Chromium passed exactly where system
+Chrome did, so it is the headful-ness that matters, not the build.
+
+Requires `npm i -g playwright-core` and Chrome or Edge. Both are optional and
+degrade gracefully: without them the rung is skipped, the unavailability is
+reported once rather than per-URL, and pages queue for triage as before.
+
+### Fix: rendering could file the wrong page under a source's URL
+
+Rendering does not merely recover pages — it makes pages *succeed* that the
+static ladder correctly refused, and some of those successes are a different
+page. A stale Epic doc URL renders 443 words of fluent prose that is the
+documentation index, not the requested article; `.../unreal-mcp-in-unreal-engine`
+lands on `/documentation/403`, served as HTTP 200. Clipped unguarded, the vault
+would cite the index as the article forever: wrong content wearing right
+frontmatter, strictly worse than the failed fetch it replaced.
+
+`classifyRenderOutcome` now judges the render **before** extraction is
+attempted, comparing the final URL's last path segment against the requested
+one. Whole-URL comparison was far too strict — `counterpointresearch.com` moves
+`/insight/<slug>` to `/en/insights/<slug>` and that is still the article asked
+for — so only a *replaced* slug is refused, alongside 404/410, error-page
+destinations, and unsolved bot challenges.
+
+### Fix: `failed` triage rows conflated five unrelated causes
+
+Every Defuddle throw was recorded as `"fetch failed (likely
+403/paywall/transient)"`. That bucket actually held dead links (404), soft
+404/403 redirects served as HTTP 200, TLS chain failures, undici header-size
+overflows, and genuine paywalls — indistinguishable to whoever had to triage
+them. The render rung doubles as the diagnostic, supplying the HTTP status and
+final URL, and issues are now filed with the specific cause. A new `gone` issue
+kind separates dead sources from recoverable ones: `failed` means *try again*,
+`gone` means *stop trying*.
+
+### Fix: complete short reference pages were declined as SPA shells
+
+`classifyShortExtraction` treated a page as a real article only when Defuddle's
+HTML literally *began* with `<article>` or `<main>`. `registry.khronos.org`'s
+`XR_EXT_hand_tracking` man page — 58 words under four headings, complete and
+correct — begins with a heading, so it was declined for 180 days and queued for
+a human. Section structure is now accepted as evidence too: an SPA shell is
+short *because* it has no content, so it has no headings either
+(`docs.mealie.io` extracts to the three words "Back to top" under none).
+
+### Fix: a thin page was declined for 180 days even when the render rung never ran
+
+The decline is justified by thin-ness being deterministic — re-fetching cannot
+change the answer. That collapses when the browser rung was unavailable, where
+the answer *would* have been different. Such pages now reach triage without
+being cached as declined, so installing the optional dependency does not leave
+recoverable sources buried behind a TTL.
+
 ## 0.32.1 — 2026-09-05
 
 ### Fix: Codex could not parse the shared hooks configuration

@@ -26,6 +26,11 @@ in single-digit milliseconds. A vector database solves a problem this scale does
 - Optional: [Ollama](https://ollama.com) with an embedding model
   (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
   gracefully if absent.
+- Optional: `npm i -g playwright-core`, plus Chrome or Edge, for the
+  browser-render clip rung — clipping JavaScript-rendered pages that serve no
+  article text to a plain fetch. Degrades gracefully if absent; without it those
+  pages are queued for triage exactly as before. Set `WIKI_MASTER_BROWSER` to
+  point at a specific browser executable.
 
 ## Install
 
