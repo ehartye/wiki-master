@@ -62,17 +62,19 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
-test('version is identical across all six manifests (Claude + Copilot + lockfile)', () => {
-  // The version is one fact copied into six files — the exact drift seam this
-  // suite exists to guard. wiki-master ships to two hosts (Claude Code reads
-  // .claude-plugin/; Copilot CLI reads a root plugin.json + .github/plugin/),
+test('version is identical across all seven manifests (Claude + Copilot + Codex + lockfile)', () => {
+  // The version is one fact copied into seven files — the exact drift seam this
+  // suite exists to guard. wiki-master ships to three hosts (Claude Code reads
+  // .claude-plugin/; Copilot CLI reads a root plugin.json + .github/plugin/;
+  // Codex reads .codex-plugin/),
   // and a manifest set that disagrees about what version this is must fail loud.
-  // package-lock.json is the sleepiest of the six: npm rewrites it only when
-  // someone runs `npm install`, so a bump that edits the other five by hand
+  // package-lock.json is the sleepiest of the seven: npm rewrites it only when
+  // someone runs `npm install`, so a bump that edits the other six by hand
   // leaves the lockfile silently pinned to the previous version.
   const versions = [
     'package.json',
     '.claude-plugin/plugin.json',
+    '.codex-plugin/plugin.json',
     '.claude-plugin/marketplace.json',
     'plugin.json',
     '.github/plugin/marketplace.json',
@@ -84,6 +86,17 @@ test('version is identical across all six manifests (Claude + Copilot + lockfile
   const distinct = new Set(versions.map((x) => x.v));
   assert.equal(distinct.size, 1,
     `manifests disagree: ${versions.map((x) => `${x.f}=${x.v}`).join(', ')}`);
+});
+
+test('shared plugin hooks use supported fields and remain opt-in on every host', () => {
+  // Codex rejects unknown root fields; Claude Code supports description + hooks.
+  // Keep disabled examples in documentation, never in the auto-loaded config.
+  const config = JSON.parse(readFileSync(join(ROOT, 'hooks/hooks.json'), 'utf8'));
+  for (const key of Object.keys(config)) {
+    assert.ok(['description', 'hooks'].includes(key), `unsupported hooks field: ${key}`);
+  }
+  if ('description' in config) assert.equal(typeof config.description, 'string');
+  assert.deepEqual(config.hooks, {}, 'no hooks should execute by default');
 });
 
 test('Copilot manifests are structurally valid and point at skills/', () => {

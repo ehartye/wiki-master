@@ -1,14 +1,4 @@
 {
-  "comment": "Optional SessionStart health nudge. Disabled by default. To enable, move the entry from `disabled` into `hooks`.",
-  "hooks": {},
-  "disabled": {
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          { "type": "command", "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/health.mjs || true" }
-        ]
-      }
-    ]
-  }
+  "description": "Optional SessionStart health nudge. Disabled by default. See hooks/README.md to enable it in Claude Code.",
+  "hooks": {}
 }

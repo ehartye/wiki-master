@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.32.1 — 2026-09-05
+
+### Fix: Codex could not parse the shared hooks configuration
+
+Replace the unsupported top-level `comment` field with `description` and
+remove the unsupported `disabled` field from `hooks/hooks.json`. Keep hooks
+disabled by default and preserve the optional Claude Code SessionStart health
+check example in `hooks/README.md`.
+
 ## 0.32.0 — 2026-09-02
 
 ### Fix: generated catalogs (MOC, index, roadmap) wrote ambiguous bare wikilinks for names deliberately reused across projects
