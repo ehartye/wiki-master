@@ -9,7 +9,7 @@ import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
-import { recordIssue } from './lib/triage.mjs';
+import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -398,6 +398,11 @@ export function main(argv) {
   }
 
   if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+    // A url already in the vault closes any row that says it could not be
+    // fetched — that row is describing a source sitting on disk. This is the
+    // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
+    // queue fills with entries nobody can action.
+    closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
   }
 
@@ -505,6 +510,10 @@ export function main(argv) {
   }
 
   writeFileSync(file, `${fm}\n\n${md}\n`);
+  // Written first, closed second: a row must never be marked resolved by a clip
+  // that then failed to land. Ordering it this way makes the worst case a stale
+  // OPEN row (visible, re-runnable) instead of a silently closed one.
+  closeIssuesResolvedByClip(vaultPath, url, 'clipped');
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
   return { status: 'clipped', slug, file };
 }

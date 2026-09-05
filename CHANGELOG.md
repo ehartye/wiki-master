@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.34.1 — 2026-09-05
+
+### Fix: the triage queue could only ever grow — a successful clip never closed the row it answered
+
+`clip.mjs` records an issue on every failure and nothing at all on success, so a
+source that finally arrives leaves its old row standing forever. Worse, a retry's
+new, specific diagnosis is appended *beside* the stale blanket one rather than
+replacing it, so working the queue makes it louder.
+
+Measured while replaying this vault's 54 open `failed` rows through the
+browser-render rung added in 0.33.0: **20 clipped and 9 turned out to be already
+in the vault, yet `failed` stayed at 54** and total open issues went 65 → 74. 29
+of the 54 rows described sources sitting on disk. A queue that cannot drain is
+one people stop reading, which costs far more than the rows themselves.
+
+A successful clip — and a `duplicate`, which is the same fact discovered a
+different way — now closes any open row for that URL whose kind means *we could
+not get this content*: `failed`, `thin`, `wrong-node`, `blocked`, `gone`.
+
+`attention` and `fidelity` are deliberately excluded. `attention` means a human
+wants to decide something about the link, and arriving at the content does not
+make that decision; closing it would delete somebody's todo. `fidelity` is a
+claim about how far an already-clipped extraction can be trusted, which a fresh
+clip of the same URL does not settle either.
+
+The disposition records *how* the row was resolved, so "closed because a clip
+landed" stays distinguishable from "closed because a human said ignore" — the
+log is events, not state. Closing nothing writes nothing, so an ordinary clip of
+a never-queued URL does not grow the log.
+
 ## 0.34.0 — 2026-09-05
 
 ### Feat: `clip-docx --allow-short`, so a genuinely short document is not lost to the thin-content floor
