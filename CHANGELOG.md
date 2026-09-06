@@ -27,6 +27,27 @@ but a translated page is different content: this vault pins Defuddle to
 failed one. Folding them together would let a Japanese page satisfy the dedup
 gate for an English one nobody clipped.
 
+### Fix: web-archive banners were being clipped as if the source had written them
+
+Wayback and Archive-It inject their own banner above the page they serve, and
+Defuddle has no reason to know it is not the article. Three clippings in the
+reference vault open with one, so anything quoting their first paragraph would
+attribute archival boilerplate to the source. This vault leans on archives
+heavily — 9 `web.archive.org` and 2 `wayback.archive-it.org` URLs in a single
+triage queue — so it recurs rather than being a one-off.
+
+The banner is now stripped **before** the content is measured or hashed, which
+matters twice over: the thin-content floor must judge the article rather than
+the banner, and the `source-hash` must describe what the vault will actually
+quote. One clipping had reached 385 words on banner plus terms-of-use text and
+sailed straight past a 100-word gate that exists to reject pages with no article
+in them.
+
+Stripping is anchored to the **start** of the document. A banner is only ever
+injected at the top, while an article *about* link rot may quote the same
+sentence in its body — matching content anywhere would silently edit the source.
+An ordinary clipping is returned byte-identical.
+
 ### Fix: a PDF URL failed cryptically instead of naming the clipper that handles it
 
 `arxiv.org/pdf/2404.03337` (confirmed `application/pdf`) went through the entire

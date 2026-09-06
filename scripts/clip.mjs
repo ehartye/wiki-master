@@ -133,6 +133,33 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   return lines.join('\n');
 }
 
+// Web-archive services inject their own banner above the page they serve, and
+// Defuddle has no reason to know it is not the article. Three clippings in this
+// vault open with one, so anything quoting their first paragraph would be
+// quoting archival boilerplate as if the source had written it — and the vault
+// leans on archives heavily (9 web.archive.org and 2 wayback.archive-it.org
+// urls in a single triage queue), so it recurs rather than being a one-off.
+//
+// Anchored to the START of the document, deliberately. A banner is only ever
+// injected at the top, while an article ABOUT link rot may quote the same
+// sentence in its body — stripping by content anywhere would silently edit the
+// source. `index.php.md` also shows why this must run BEFORE the word floor:
+// its banner plus terms-of-use text reached 385 words and sailed past a 100-word
+// gate that exists precisely to reject pages with no article in them.
+const ARCHIVE_CHROME = [
+  // Archive-It. Ends at the media-item count, followed by the widget's stray
+  // glyph lines (`<`, `×`, `\>`) which are controls, not content.
+  /^\s*(?:hide\s+)?You are viewing an archived web page collected at the request of[\s\S]*?of this archived page\.(?:\s*Found \d+ archived media items out of \d+ total on this page\.)?(?:\s*(?:<|×|\\>))*\s*/i,
+  // The Wayback Machine's single header line.
+  /^\s*The Wayback Machine\s*-\s*https?:\/\/\S+\s*/i,
+];
+
+export function stripArchiveChrome(md) {
+  let out = String(md ?? '');
+  for (const re of ARCHIVE_CHROME) out = out.replace(re, '');
+  return out.trim() === '' ? out.trim() : out.trimStart();
+}
+
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
 function today() { return new Date().toISOString().slice(0, 10); }
 function normalizeWord(w) { return String(w).toLowerCase().replace(/[^a-z0-9]/g, ''); }
@@ -483,7 +510,10 @@ export function main(argv) {
     }
   }
 
-  let md = data.contentMarkdown || data.content || '';
+  // Stripped before anything measures or hashes it: the word floor below must
+  // judge the article, not the archive's banner, and the source-hash must
+  // describe what the vault will actually quote.
+  let md = stripArchiveChrome(data.contentMarkdown || data.content || '');
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -496,7 +526,7 @@ export function main(argv) {
   if (wordCount(md) < THIN_WORD_FLOOR && !renderRan) {
     const r = renderAttempt(url);
     renderRan = !r.unavailable;
-    const rendered = r.ok ? (r.data.contentMarkdown || r.data.content || '') : '';
+    const rendered = r.ok ? stripArchiveChrome(r.data.contentMarkdown || r.data.content || '') : '';
     if (wordCount(rendered) >= THIN_WORD_FLOOR) {
       data = r.data;
       md = rendered;
