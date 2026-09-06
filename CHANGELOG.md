@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.34.2 — 2026-09-06
+
+### Fix: a session parameter let one article into the vault twice
+
+`isDuplicateUrl` is a **pre-fetch** gate, so it never sees content hashes — it
+compares URLs. Replaying the failed-clip queue put unrealengine.com's MetaHuman
+article in `raw/` as two clippings with an *identical* `source-hash`, under URLs
+differing only by `?sessionInvalidated=true`.
+
+`normalizeUrl` now strips a named list of session and ad/analytics parameters
+before comparing. It still never drops the query itself: that regression is
+already on the record in this file's own comment — an earlier version collapsed
+every `news.ycombinator.com/item?id=X` to one string and discarded genuinely
+different articles as false duplicates.
+
+The list is evidence-led rather than guessed. Across the reference vault's 2,341
+clippings only 47 URLs carry a query at all, and their parameters are
+`id`(26) `v`(6) `lang`(4) `hl`(2) `key`(2) `fmt`(2) `moc`(1)
+`sessionInvalidated`(1) `inline`(1) `p`(1) `pid`(1) `c`(1) `download`(1) —
+exactly one session artifact, everything else load-bearing.
+
+**`lang` and `hl` are deliberately not stripped.** They look like presentation,
+but a translated page is different content: this vault pins Defuddle to
+`--lang en` precisely because a silently translated clipping is worse than a
+failed one. Folding them together would let a Japanese page satisfy the dedup
+gate for an English one nobody clipped.
+
+### Fix: web-archive banners were being clipped as if the source had written them
+
+Wayback and Archive-It inject their own banner above the page they serve, and
+Defuddle has no reason to know it is not the article. Three clippings in the
+reference vault open with one, so anything quoting their first paragraph would
+attribute archival boilerplate to the source. This vault leans on archives
+heavily — 9 `web.archive.org` and 2 `wayback.archive-it.org` URLs in a single
+triage queue — so it recurs rather than being a one-off.
+
+The banner is now stripped **before** the content is measured or hashed, which
+matters twice over: the thin-content floor must judge the article rather than
+the banner, and the `source-hash` must describe what the vault will actually
+quote. One clipping had reached 385 words on banner plus terms-of-use text and
+sailed straight past a 100-word gate that exists to reject pages with no article
+in them.
+
+Stripping is anchored to the **start** of the document. A banner is only ever
+injected at the top, while an article *about* link rot may quote the same
+sentence in its body — matching content anywhere would silently edit the source.
+An ordinary clipping is returned byte-identical.
+
+### Fix: a PDF URL failed cryptically instead of naming the clipper that handles it
+
+`arxiv.org/pdf/2404.03337` (confirmed `application/pdf`) went through the entire
+ladder — four Defuddle attempts, then a full browser launch — to arrive at
+`rendered, but extraction failed: Command failed: npx --yes defuddle parse …`,
+which names neither the cause nor the cure. The vault already holds eight arxiv
+PDFs that `clip-pdf` extracted correctly; nothing was pointing anyone at it.
+
+The failure path now recognises a PDF URL and stops there, queuing an
+`attention` row that names `clip-pdf` and the exact command. Recognition is by
+URL shape — a `.pdf` extension, or a `/pdf/` path *segment*, which is how every
+arxiv PDF in `raw/` is addressed (no extension at all). Judging from the URL
+keeps `main()` synchronous and spends no request on the ordinary pages that are
+the other 99% of clips; it is consulted only after the HTML ladder has already
+failed, so a false positive costs nothing real.
+
 ## 0.34.1 — 2026-09-05
 
 ### Fix: the triage queue could only ever grow — a successful clip never closed the row it answered
