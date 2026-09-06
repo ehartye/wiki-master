@@ -277,6 +277,31 @@ export function runDefuddleJson(url, { run = execDefuddle } = {}) {
 
 const RENDER_CLI = join(dirname(fileURLToPath(import.meta.url)), 'render-page.mjs');
 
+// Is this url a PDF? Judged from the url alone, deliberately: main() is
+// synchronous, and a content-type probe on every clip would spend a request on
+// the ~99% of urls that are ordinary pages to answer a question only the
+// failure path ever asks.
+//
+// Two shapes, both taken from real vault sources: a path ending in `.pdf`
+// (cambridgemaths.org/…/espresso_36.pdf) and a `/pdf/` path segment with no
+// extension at all, which is how every arxiv PDF in raw/ is addressed
+// (arxiv.org/pdf/2404.03337). Matching the segment rather than the substring is
+// what keeps /pdfs and /pdfviewer/help out.
+//
+// A false positive costs nothing real: this is consulted ONLY after the HTML
+// ladder has already failed, so the worst case is suggesting clip-pdf for a
+// page that was never going to clip as HTML anyway.
+export function looksLikePdfUrl(url) {
+  let pathname;
+  try {
+    ({ pathname } = new URL(url));
+  } catch {
+    return false;
+  }
+  if (/\.pdf$/i.test(pathname)) return true;
+  return pathname.split('/').some((seg) => seg.toLowerCase() === 'pdf');
+}
+
 // A thin extraction is normally cached as a decline, because thin-ness is
 // deterministic given the page's markup: re-fetching cannot change the answer,
 // so the next run should skip without paying for it.
@@ -420,6 +445,19 @@ export function main(argv) {
       console.error(`Defuddle CLI not found. Install it: npm i -g defuddle`);
       process.exit(1);
     }
+    // A PDF is not a page this clipper can ever read, and rendering one only
+    // buys a longer way to say so: arxiv.org/pdf/2404.03337 spent four Defuddle
+    // attempts and a full browser launch to arrive at "rendered, but extraction
+    // failed: Command failed: npx …", which names neither cause nor cure. Stop
+    // here and name the tool that does handle it — the vault already holds
+    // eight arxiv PDFs that clip-pdf extracted correctly.
+    if (looksLikePdfUrl(url)) {
+      const reason = 'this url serves a PDF — clip it with clip-pdf (download the file, then: node scripts/clip-pdf.mjs <file.pdf> --source="<url>")';
+      recordIssue(vaultPath, { url, kind: 'attention', reason, topic });
+      console.log(`clip failed — ${reason} (queued for triage): ${url}`);
+      return { status: 'failed', reason };
+    }
+
     // The static ladder never runs JavaScript, so its failures are dominated by
     // pages that HAVE no content until a browser builds it. Sampling 17 entries
     // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
