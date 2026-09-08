@@ -26,6 +26,6 @@ Create, replace and append ordinary Markdown through exact-path filesystem edits
 
 Raw `obsidian` commands and older plugin copies bypass this guard. Updating every cooperating caller is necessary; this is not machine-wide interception. Killing a guard owner frees the OS reservation but cannot prove an orphaned CLI child or app-side mutation has finished. Within one Node process, await asynchronous CLI work before calling the synchronous adapter so its event loop can release its gate.
 
-This implementation is on `fix/cli-transport-guards`, unreleased. Installed 0.36.0 copies are unchanged. Release, plugin update and a new agent session are needed to activate it through installed skills. No vault migration is required.
+Available in wiki-master 0.37.0. Update installed plugin copies and start a new agent session to activate the guard through installed skills. Earlier copies remain unguarded. No vault migration is required.
 
 The [design](superpowers/specs/2026-09-08-cli-transport-guards-design.md) records evidence and alternatives. The [implementation plan](superpowers/plans/2026-09-08-cli-transport-guards.md) records verification. Transport tests use fake child processes and temporary artifacts, never oversized requests against a live vault. Paired skill probes in `eval/cli-safeguards/` measure simulated intended actions, not executed production reliability.
