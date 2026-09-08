@@ -1,6 +1,6 @@
 # Skill reliability
 
-This change makes wiki-master workflows resilient when the Obsidian CLI is unavailable, reduces the always-loaded instructions, and adds behavioral checks. It is implemented on `feat/skill-reliability`; it is not a released plugin update.
+Version 0.36.0 makes wiki-master workflows resilient when the Obsidian CLI is unavailable, reduces the always-loaded instructions, and adds behavioral checks. Update installed plugin copies to activate the revised skills. Existing vaults need no content migration; factual-review gaps still require checking claims against evidence.
 
 ## Runtime and completion
 
