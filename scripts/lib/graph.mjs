@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
+import { parseNote, normalizeIdentity } from './note.mjs';
 
 export const STUB_WORD_FLOOR = 10;
 export const HUB_MIN_BACKLINKS = 5;
@@ -36,22 +37,26 @@ const MAX_EVIDENCE_DEPTH = 3;
 // never expanded. Order of a page's links must not decide what counts as
 // evidence.
 export function evidencePaths(page, byName, pages) {
+  return evidenceRoutes(page, byName, pages).map(route => route.path);
+}
+
+export function evidenceRoutes(page, byName, pages) {
   const seen = new Set([page.path]);
   const found = [];
-  let frontier = [{ p: page, depth: 0, viaEvidence: false }];
+  let frontier = [{ p: page, depth: 0, via: [page.path] }];
   while (frontier.length) {
     const next = [];
-    for (const { p, depth, viaEvidence } of frontier) {
-      if (p.path !== page.path && (viaEvidence || isEvidencePath(p.path))) found.push(p.path);
+    for (const { p, depth, via } of frontier) {
+      if (p.path !== page.path) found.push({ path: p.path, kind: depth === 1 ? 'direct' : 'transitive', via });
       if (depth >= MAX_EVIDENCE_DEPTH) continue;
-      for (const t of [...(p.fmTargets ?? []), ...(p.outTargets ?? [])]) {
+      for (const t of [...(p.fmTargets ?? []), ...(p.evidenceTargets ?? p.outTargets ?? [])]) {
         const target = pages.get(resolveLinkTarget(byName, t));
         if (!target || seen.has(target.path)) continue;
         // From the page itself: only step toward evidence. From evidence pages:
         // keep following their provenance (source page → its raw clippings).
-        if (depth === 0 && !isEvidencePath(target.path)) continue;
+        if (!isEvidencePath(target.path)) continue;
         seen.add(target.path);
-        next.push({ p: target, depth: depth + 1, viaEvidence: isEvidencePath(target.path) });
+        next.push({ p: target, depth: depth + 1, via: [...via, target.path] });
       }
     }
     frontier = next;
@@ -85,13 +90,39 @@ function splitFrontmatter(md) {
 //  - frontmatter wikilinks (sources:) are PROVENANCE: they count as citation
 //    (a cited raw file is "parsed") and a broken one is a real defect, but
 //    they never hide a dead-end — a reader cannot navigate via frontmatter.
-function wikilinks(text) {
+export function wikilinks(text) {
   const out = [];
   for (const m of text.matchAll(/\[\[([^\]|#]+)/g)) {
     const t = m[1].trim();
     if (t) out.push(t);
   }
   return out;
+}
+
+// Related sections are navigation, including nested subsections. Resume at
+// the next peer/ancestor heading so later legitimate citations remain usable.
+export function citationBody(body) {
+  let relatedDepth = null;
+  let relatedList = false;
+  return body.split(/\r?\n/).filter(line => {
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/);
+    if (heading) {
+      relatedList = false;
+      if (relatedDepth !== null && heading[1].length <= relatedDepth) relatedDepth = null;
+      if (/^(?:related(?:\s+(?:pages|concepts|links|topics))?|relationships)\s*:?$/i.test(heading[2])) relatedDepth = heading[1].length;
+    }
+    if (/^\s*(?:\*\*)?(?:Related|Relationships)(?:\*\*)?\s*:(?:\*\*)?/i.test(line)) {
+      relatedList = true;
+      return false;
+    }
+    if (relatedList) {
+      // Lists may contain blank separators or indented continuation lines.
+      // A new unindented factual paragraph is a boundary too, not just a heading.
+      if (/^\s*$|^\s*(?:[-+*]|\d+[.)])\s+|^\s+\S|^\s*\[\[[^\n]+\]\]\s*$/.test(line)) return false;
+      relatedList = false;
+    }
+    return relatedDepth === null;
+  }).join('\n');
 }
 
 // Parse a `source-hashes:` frontmatter list — YAML flow (`["h1","h2"]`) or block
@@ -113,23 +144,21 @@ export function buildGraph(vaultPath) {
       const r = rel ? `${rel}/${e}` : e;
       if (statSync(abs).isDirectory()) walk(abs, r);
       else if (e.endsWith('.md')) {
-        const { fm, body } = splitFrontmatter(readFileSync(abs, 'utf8'));
-        const status = fm.match(/^status:\s*"?([\w-]+)"?/m)?.[1];
-        const type = fm.match(/^type:\s*"?([\w-]+)"?/m)?.[1];
-        const created = fm.match(/^created:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
-        const updated = fm.match(/^updated:\s*"?(\d{4}-\d{2}-\d{2})/m)?.[1];
+        const markdown = readFileSync(abs, 'utf8');
+        const { fm } = splitFrontmatter(markdown);
+        const { body, metadata, sources, aliases } = parseNote(markdown);
+        const { status, type, created, updated } = metadata;
         // Project-documentation metadata for wiki/authored/ pages — see
         // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
         // `project:` may carry one `/` for a sub-project tier (`sparta/migrator`);
         // `kind:` and `decision-status:` are single-word controlled vocabularies.
         // All three are optional and left undefined (never defaulted) when absent.
-        const project = fm.match(/^project:\s*"?([\w][\w\-/]*)"?/m)?.[1];
-        const kind = fm.match(/^kind:\s*"?([\w-]+)"?/m)?.[1];
-        const decisionStatus = fm.match(/^decision-status:\s*"?([\w-]+)"?/m)?.[1];
+        const { project, kind } = metadata;
+        const decisionStatus = metadata['decision-status'];
         // A backlog item (kind: backlog-item) carries its own status, edited in place instead
         // of appended as a dated update — see docs/superpowers/specs/
         // 2026-08-11-authored-project-structure-v2-design.md §3.
-        const backlogStatus = fm.match(/^backlog-status:\s*"?([\w-]+)"?/m)?.[1];
+        const backlogStatus = metadata['backlog-status'];
         // Monolith-detection signal (spec §5.4): counts bold callouts that read as a
         // dated status update ("**Update (2026-08-11):**", "**Milestone (...):**",
         // "**... status updated (...):**") — the shape a living, continuously-appended
@@ -154,12 +183,18 @@ export function buildGraph(vaultPath) {
           kind,
           decisionStatus,
           backlogStatus,
+          metadata,
+          sources,
+          aliases,
+          reviewed: metadata.reviewed,
+          scope: metadata.scope,
           updateCalloutCount,
           sourceHash,
           sourceHashes,
           words: (body.match(/\S+/g) || []).length,
           outTargets: wikilinks(body),
-          fmTargets: wikilinks(fm),
+          evidenceTargets: wikilinks(citationBody(body)),
+          fmTargets: sources.flatMap(source => wikilinks(source)),
           // `sources: []` is a DISCLOSURE — an internally-derived page (an
           // experiment readout, an analysis) stating it has no external
           // artifact. Omitting the key entirely discloses nothing. Those are
@@ -297,15 +332,42 @@ export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays 
 // to the concept page. Collisions WITHIN a class stay first-wins — genuinely
 // ambiguous, and the full-path key above is how you say which one you meant.
 const NAV = '\u0000nav';
+const canonicalIndexes = new WeakSet();
 export function buildNameIndex(pages) {
   const byName = new Map();
+  canonicalIndexes.add(byName);
   for (const p of pages) {
-    if (!byName.has(p.name)) byName.set(p.name, p.path);
-    const navKey = p.name + NAV;
+    const name = normalizeIdentity(p.name);
+    if (!byName.has(name)) byName.set(name, p.path);
+    const navKey = name + NAV;
     const navPrior = byName.get(navKey);
     if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path))) byName.set(navKey, p.path);
     const fullKey = p.path.replace(/\.md$/i, '').toLowerCase();
     if (!byName.has(fullKey)) byName.set(fullKey, p.path);
+  }
+  const labels = new Map();
+  const identityPages = pages.filter(p => isContent(p.path) || isEvidencePath(p.path));
+  for (const p of identityPages) {
+    const additional = [...(p.aliases ?? [])];
+    // A title repeating its own basename adds no new identity. Keep the
+    // established raw/content channel preference for those shared basenames.
+    if (p.metadata?.title && normalizeIdentity(p.metadata.title) !== normalizeIdentity(p.name)) additional.push(p.metadata.title);
+    for (const label of additional) {
+      const key = normalizeIdentity(label);
+      if (!key) continue;
+      if (!labels.has(key)) labels.set(key, new Set());
+      labels.get(key).add(p.path);
+    }
+  }
+  for (const [key, paths] of labels) {
+    for (const p of identityPages) if (normalizeIdentity(p.name) === key) paths.add(p.path);
+    // Full canonical paths always win over title/alias labels.
+    if (pages.some(p => p.path.replace(/\.md$/i, '').toLowerCase() === key.replace(/\.md$/i, ''))) continue;
+    const raw = [...paths].filter(path => path.startsWith('raw/'));
+    const content = [...paths].filter(isContent);
+    const unique = candidates => candidates.length === 1 ? candidates[0] : undefined;
+    byName.set(key, unique(raw.length ? raw : content));
+    byName.set(key + NAV, unique(content.length ? content : raw));
   }
   return byName;
 }
@@ -335,11 +397,14 @@ export function resolveLinkTarget(byName, target, { nav = false } = {}) {
   // Consult the nav-preferred entry first at whichever key matches. A
   // path-qualified key has no nav twin, so it falls straight through to the one
   // exact file it names — the disambiguation above is unaffected.
-  const pick = (k) => (nav ? byName.get(k + NAV) : undefined) ?? byName.get(k);
-  const lower = target.toLowerCase();
+  const pick = (k) => nav && byName.has(k + NAV) ? byName.get(k + NAV) : byName.get(k);
+  const lower = normalizeIdentity(target);
   if (byName.has(lower)) return pick(lower);
   const full = lower.replace(/\.md$/i, '');
   if (byName.has(full)) return pick(full);
+  // A fully indexed graph can prove a qualified file is absent. Retain bare
+  // fallback only for legacy caller-supplied basename maps, not live graphs.
+  if (full.includes('/') && canonicalIndexes.has(byName)) return undefined;
   const bare = full.split('/').pop() || full;
   return pick(bare);
 }
@@ -457,7 +522,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
   // its clipping indistinguishable from one never processed. Scored as a defect —
   // it breaks provenance, which is the property every citation in the wiki rests on.
   const citesRaw = (p) =>
-    [...p.outTargets, ...(p.fmTargets ?? [])].some((t) => {
+    [...(p.evidenceTargets ?? p.outTargets), ...(p.fmTargets ?? [])].some((t) => {
       const target = resolveLinkTarget(byName, t);
       return target && target.startsWith('raw/');
     });
@@ -485,7 +550,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
   const legacyCited = new Set();
   for (const p of pages) {
     if (!isSourcePage(p.path) || p.sourceHashes?.length) continue;
-    for (const t of [...p.outTargets, ...(p.fmTargets ?? [])]) {
+    for (const t of [...(p.evidenceTargets ?? p.outTargets), ...(p.fmTargets ?? [])]) {
       const target = resolveLinkTarget(byName, t);
       if (target) legacyCited.add(target);
     }

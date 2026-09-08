@@ -1,0 +1,40 @@
+{
+  "summary": {
+    "score": 6,
+    "orphans": 106,
+    "deadEnds": 59,
+    "brokenLinks": 754,
+    "hubStubs": 65,
+    "monolithCandidates": 0,
+    "unparsedSources": 4071,
+    "unsummarizedSources": 214,
+    "missingHash": 0,
+    "backfillPending": 0,
+    "provenanceGaps": 1,
+    "unreachableProvenance": 5,
+    "declaredNoProvenance": 253,
+    "declaredStubs": 154,
+    "brokenClass": {
+      "defects": 20,
+      "stale": 0,
+      "deferred": 734
+    }
+  },
+  "newPageBrokenLinks": [],
+  "ragEvidence": [
+    "wiki/sources/A Systematic Taxonomy of Failure Modes in Retrieval-Augmented Generation Systems.md",
+    "wiki/sources/Memory in the Age of AI Agents.md",
+    "raw/clippings/A Systematic Taxonomy of Failure Modes in Retrieval-Augmented Generation Systems.md",
+    "raw/clippings/Memory in the Age of AI Agents.md"
+  ],
+  "remainingProvenanceGaps": [
+    "wiki/sources/NoteBuddy (Ray-Ban Meta document scanner).md"
+  ],
+  "remainingUnreachable": [
+    "wiki/authored/anikademy/backlog/standards-code-fence.md",
+    "wiki/concepts/Measured Limits Are Conditional on the Feature Set.md",
+    "wiki/concepts/Model-Based Data Auditing.md",
+    "wiki/concepts/Night Stalker Prep — Roadmap.md",
+    "wiki/concepts/Subdued Rank Translates Color, Not Shape.md"
+  ]
+}

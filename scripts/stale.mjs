@@ -5,15 +5,17 @@ const DAY = 86_400_000;
 const THRESHOLDS = { fresh: 30, aging: 90, stale: 180 }; // days; beyond stale => rotten
 
 function ageDays(page, today) {
-  const ds = [page.reviewed, page.updated].filter(Boolean).map((d) => new Date(d).getTime());
-  if (!ds.length) return Infinity;
-  return (today.getTime() - Math.max(...ds)) / DAY;
+  const reviewed = page.reviewed ? new Date(page.reviewed).getTime() : NaN;
+  if (!Number.isFinite(reviewed)) return Infinity;
+  return (today.getTime() - reviewed) / DAY;
 }
 
 export function computeStale(pages, { today = new Date() } = {}) {
   const buckets = { fresh: [], aging: [], stale: [], rotten: [] };
+  const missingReview = [];
   for (const p of pages) {
     const age = ageDays(p, today);
+    if (!Number.isFinite(age)) missingReview.push(p.path);
     const withAge = { ...p, ageDays: age };
     if (age < THRESHOLDS.fresh) buckets.fresh.push(withAge);
     else if (age < THRESHOLDS.aging) buckets.aging.push(withAge);
@@ -22,8 +24,8 @@ export function computeStale(pages, { today = new Date() } = {}) {
   }
   const report =
     `Freshness: fresh ${buckets.fresh.length} · aging ${buckets.aging.length} · ` +
-    `stale ${buckets.stale.length} · rotten ${buckets.rotten.length}`;
-  return { buckets, report };
+    `stale ${buckets.stale.length} · rotten ${buckets.rotten.length} · missing review ${missingReview.length}`;
+  return { buckets, report, missingReview };
 }
 
 // Reads pages via the native Bases dashboard (stale.base view "all").
@@ -39,7 +41,7 @@ export function main() {
   const r = computeStale(pages, {});
   console.log(r.report);
   for (const p of [...r.buckets.stale, ...r.buckets.rotten]) {
-    console.log(`  ${Math.round(p.ageDays)}d  ${p.path}`);
+    console.log(`  ${Number.isFinite(p.ageDays) ? `${Math.round(p.ageDays)}d` : 'missing review'}  ${p.path}`);
   }
   return r;
 }

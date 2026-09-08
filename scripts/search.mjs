@@ -1,13 +1,18 @@
 import {
   readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
+import { execFile } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
-import { resolveVault, obsidianJson } from './lib/vault.mjs';
+import { resolveVault, obsidianJson, buildArgs } from './lib/vault.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { statusReport } from './index-embed.mjs';
+import { hash } from './lib/embed-cache.mjs';
+import { buildNameIndex } from './lib/graph.mjs';
+import { noteIdentity, exactIdentity, lexicalScore, terms, inScope,
+  matchesFilters, passageFor, boundedMetadata, citationProvenance, METADATA_VERSION } from './lib/retrieval.mjs';
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';
@@ -15,11 +20,9 @@ const VECTORS_IDX = 'vectors.idx.json';
 
 // Loads the chunk-level semantic index built by index-embed.mjs, touching
 // only the three fixed files under .wiki-master/ -- never the vault's wiki/
-// content itself. A query must never walk or hash the vault (that was 211ms
-// of avoidable work on every search -- design spec section 3): the manifest
-// already knows every chunk's path and line, so this is the only I/O the
-// query path needs. `readFileImpl` is injectable so callers can prove that
-// (see test/search.test.mjs).
+// content itself. The query path ranks compact manifest metadata first, then
+// validates only bounded candidates against live content; it never walks or
+// hashes the entire vault. `readFileImpl` is injectable for index-load tests.
 //
 // A missing or empty index is a first-class, non-fatal state (design spec
 // section 5.5 / 5.3): building one takes minutes, so a query must never
@@ -31,10 +34,11 @@ export function loadChunkIndex(dir, { readFileImpl = readFileSync, existsImpl = 
   const manifestFile = join(dir, CHUNKS_FILE);
   const binFile = join(dir, VECTORS_BIN);
   const idxFile = join(dir, VECTORS_IDX);
-  if (!existsImpl(manifestFile) || !existsImpl(binFile) || !existsImpl(idxFile)) {
+  if (!existsImpl(manifestFile)) {
     return { manifest: {}, vectors: {}, available: false };
   }
   const manifest = JSON.parse(readFileImpl(manifestFile, 'utf8'));
+  if (!existsImpl(binFile) || !existsImpl(idxFile)) return { manifest, vectors: {}, available: false };
   const idx = JSON.parse(readFileImpl(idxFile, 'utf8'));
   const vectors = decodeVectors(readFileImpl(binFile), idx);
   const totalChunks = Object.values(manifest).reduce((n, e) => n + (e.chunks?.length ?? 0), 0);
@@ -172,30 +176,133 @@ export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJs
 // contract must not change) and the CLI's `runQuery` below, which needs the
 // same facts (ollamaUp, the loaded index) to build the health disclosure
 // without loading the ~17MB vector store a second time.
-async function loadSearchContext(vaultPath, limit) {
+export async function createSearchContext({ vaultPath = resolveVault().path,
+  keywordSearchFn, embedFn = queryEmbed, checkAvailable = () => isAvailable({ fetchImpl: boundedFetch }) } = {}) {
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadChunkIndex(indexDir);
-  const ollamaUp = await isAvailable();
-  const semanticRun = async (q) => semanticSearch(q, {
+  const ollamaUp = await checkAvailable();
+  const semanticRun = async (q, limit, options = {}) => semanticSearch(q, {
     vectors: index.vectors,
-    manifest: index.manifest,
-    embedFn: ollamaEmbed,
+    manifest: Object.fromEntries(Object.entries(index.manifest).filter(([path, entry]) =>
+      inScope(path) && (!entry.metadata || matchesFilters(entry.metadata, options)))),
+    embedFn,
     topN: limit,
   });
-  return { indexDir, index, ollamaUp, semanticRun };
+  const name = vaultPath === resolveVault().path ? resolveVault().name : basename(vaultPath);
+  const names = buildNameIndex(Object.entries(index.manifest).map(([path, entry]) => ({
+    path, name: basename(path, '.md').toLowerCase(), metadata: entry.metadata ?? {}, aliases: entry.aliases ?? [] })));
+  return { vaultPath, indexDir, index, ollamaUp, semanticRun, names,
+    keywordSearchFn: keywordSearchFn ?? ((q, options) => boundedKeywordSearch(q, { ...options, name })) };
 }
 
-export async function main(query, { limit = 10, includeRaw = false } = {}) {
-  const { path: vaultPath } = resolveVault();
-  const { index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, limit);
+// Search has a bounded wait without changing the shared wrapper used by long
+// mutation commands. A failed channel is distinct from zero hits.
+export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = execFile } = {}) {
+  const args = buildArgs(name, ['search', `query=${query}`, `path=${path}`, `limit=${limit}`, 'format=json']);
+  const out = await new Promise((resolve, reject) => execFileImpl('obsidian', args,
+    { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+    (err, stdout) => err ? reject(err) : resolve(stdout.trim())));
+  if (!out || out === 'No matches found.') return [];
+  const parsed = JSON.parse(out);
+  if (!Array.isArray(parsed) || parsed.some(p => typeof p !== 'string')) throw new Error('Unexpected Obsidian search response');
+  return parsed;
+}
 
-  return search(query, {
-    keywordSearch: async (q) => keywordSearch(q, { limit }),
-    ollamaAvailable: async () => ollamaUp,
-    indexAvailable: () => index.available,
-    semanticRun,
-    ...(includeRaw ? { rawKeywordSearch: async (q) => keywordSearch(q, { limit, path: 'raw' }) } : {}),
+const boundedFetch = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(10000) });
+const queryEmbed = text => ollamaEmbed(text, { fetchImpl: (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(30000) }) });
+
+function validateOptions(query, options) {
+  if (typeof query !== 'string' || !query.trim()) throw new Error('query must not be empty');
+  if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 100) throw new Error('--limit must be an integer from 1 to 100');
+  for (const key of ['project', 'type', 'status']) {
+    if (options[key] !== undefined && (typeof options[key] !== 'string' || !options[key].trim())) throw new Error(`--${key} requires a value`);
+  }
+}
+
+// Metadata ranking scans the compact manifest. Only a bounded pool of candidate
+// files is read, once each, to verify current identities, filters and passages.
+// A reusable context keeps vectors resident across evaluation questions.
+export async function main(query, options = {}) {
+  const { limit = 10, includeRaw = false } = options;
+  validateOptions(query, { ...options, limit });
+  const context = options.context ?? await createSearchContext({ vaultPath: options.vaultPath });
+  const { vaultPath, index, ollamaUp, semanticRun, keywordSearchFn } = context;
+  const poolLimit = Math.min(500, Math.max(100, limit * 5));
+  const diagnostics = [];
+  const catalog = Object.entries(index.manifest).filter(([path]) => inScope(path));
+  const metadataComplete = catalog.length > 0 && catalog.every(([, e]) => e.metadataVersion === METADATA_VERSION);
+  if (!metadataComplete) diagnostics.push({ code: 'metadata-incomplete', message: 'Refresh index-embed to enable complete title and alias lookup.' });
+  const named = catalog.map(([path, entry]) => ({ path, score: lexicalScore(query, path, entry),
+    scopeMatch: matchesFilters(entry.metadata ?? {}, options) }))
+    .filter(x => x.score > 0).sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.path.localeCompare(b.path));
+  const keywordPaths = new Set();
+  const queries = [...new Set([query, terms(query).slice(0, 8).join(' OR ')])].filter(Boolean);
+  const keywordRequests = ['wiki', 'moc'].flatMap(scope => queries.map(q => ({ q, scope })));
+  if (includeRaw) keywordRequests.push({ q: query, scope: 'raw' });
+  const keywordRuns = await Promise.allSettled(keywordRequests.map(({ q, scope }) => keywordSearchFn(q, { limit: poolLimit, path: scope })));
+  const rawPaths = [];
+  keywordRuns.forEach((run, i) => {
+    if (run.status === 'rejected') diagnostics.push({ code: 'keyword-failed', scope: keywordRequests[i].scope, message: String(run.reason?.message ?? run.reason).slice(0, 300) });
+    else for (const path of run.value) {
+      if (keywordRequests[i].scope === 'raw' && inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path);
+      else if (inScope(path)) keywordPaths.add(path);
+    }
   });
+  const keywordAvailable = keywordRuns.some((run, i) => keywordRequests[i].scope !== 'raw' && run.status === 'fulfilled');
+  let tier = keywordAvailable ? 'lexical' : 'identity-only';
+  let semanticHits = [];
+  if (ollamaUp && index.available) {
+    try { semanticHits = await semanticRun(query, poolLimit, options); tier = keywordAvailable ? 'hybrid' : 'semantic+identity'; }
+    catch (err) { diagnostics.push({ code: 'semantic-failed', message: err.message }); }
+  } else diagnostics.push({ code: index.available ? 'ollama-unavailable' : 'index-unavailable', message: 'Semantic retrieval unavailable; lexical retrieval used.' });
+  const semanticByPath = new Map(semanticHits.filter(h => inScope(h.path)).map(h => [h.path, h]));
+  const prelim = mergeRRF([named.map(x => x.path), [...keywordPaths], [...semanticByPath.keys()]]);
+  const exactNames = named.filter(x => x.score === 1000).map(x => x.path);
+  const candidates = [...new Set([...exactNames, ...prelim.map(x => x.path)])];
+  const rawCandidates = [...new Set(rawPaths)].slice(0, poolLimit);
+  const indexStatus = { available: index.available, metadataComplete, freshness: 'candidate-validated', checked: 0, modified: 0, removed: 0 };
+  if (candidates.length > poolLimit) diagnostics.push({ code: 'candidate-limit', message: `Validated first ${poolLimit} of ${candidates.length} candidates.` });
+  const live = new Map();
+  for (const path of [...candidates.slice(0, poolLimit), ...rawCandidates]) {
+    indexStatus.checked++;
+    let text, stat;
+    try { stat = statSync(join(vaultPath, path)); text = readFileSync(join(vaultPath, path), 'utf8'); }
+    catch (err) {
+      if (err.code === 'ENOENT') indexStatus.removed++;
+      else diagnostics.push({ code: 'candidate-unreadable', path, message: err.message });
+      continue;
+    }
+    const entry = index.manifest[path];
+    const modified = entry && (entry.contentHash ? entry.contentHash !== hash(text) : entry.mtimeMs !== stat.mtimeMs || entry.size !== stat.size);
+    if (modified) indexStatus.modified++;
+    const current = noteIdentity(text, path);
+    if (!matchesFilters(current.metadata, options)) continue;
+    const lexical = lexicalScore(query, path, current, text);
+    // A stale semantic vector alone is no longer evidence of relevance.
+    const semantic = !modified ? semanticByPath.get(path) : undefined;
+    if (!lexical && !semantic && !keywordPaths.has(path) && !rawPaths.includes(path)) continue;
+    const exact = exactIdentity(query, path, current);
+    live.set(path, { path, title: current.title.slice(0, 256), metadata: boundedMetadata(current.metadata),
+      ...citationProvenance(text, context.names),
+      indexFreshness: !entry ? 'unindexed' : modified ? 'modified' : entry.contentHash ? 'current' : 'unverified',
+      match: exact ? 'exact' : lexical || keywordPaths.has(path) || rawPaths.includes(path) ? 'lexical' : 'semantic',
+      ...passageFor(text, query, semantic?.startLine), lexical, semantic,
+      ...(path.startsWith('raw/') ? { zone: 'raw' } : {}) });
+  }
+  const lexRank = [...live.values()].filter(h => h.lexical > 0 && !h.zone)
+    .sort((a,b) => b.lexical - a.lexical || a.path.localeCompare(b.path)).map(h => h.path);
+  const semRank = [...semanticByPath.keys()].filter(p => live.get(p)?.semantic);
+  const scores = new Map(mergeRRF([lexRank, semRank]).map(h => [h.path, h.score]));
+  const ranked = [...live.values()].sort((a,b) => Number(!!a.zone) - Number(!!b.zone) ||
+    Number(b.match === 'exact') - Number(a.match === 'exact') || (scores.get(b.path) ?? 0) - (scores.get(a.path) ?? 0) || a.path.localeCompare(b.path));
+  const exact = ranked.filter(h => h.match === 'exact');
+  if (exact.length > 1) diagnostics.push({ code: 'ambiguous-identity', paths: exact.map(h => h.path), message: 'Multiple pages match this identity; use a full path to disambiguate.' });
+  if (indexStatus.modified || indexStatus.removed) diagnostics.push({ code: 'stale-candidates', message: `${indexStatus.modified} modified and ${indexStatus.removed} removed candidates; refresh index-embed.` });
+  const rawRanked = ranked.filter(h => h.zone === 'raw');
+  const selected = [...ranked.filter(h => !h.zone).slice(0, limit), ...rawRanked.slice(0, limit)];
+  const results = selected.map(({ lexical, semantic, ...hit }) => ({ ...hit, score: scores.get(hit.path) ?? 0 }));
+  return { tier, results, index: indexStatus, diagnostics,
+    ...(includeRaw ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
 
 // Pure formatting: given a search() result and an assessTiers() verdict,
@@ -209,10 +316,15 @@ export async function main(query, { limit = 10, includeRaw = false } = {}) {
 // undefined means raw/ was never checked (no line added, existing callers'
 // output is unchanged); `rawCount: 0` is disclosed explicitly rather than
 // looking identical to "never checked" would.
-export function renderResult({ results, note, rawCount }, assessed, { chunks, announceFull = false } = {}) {
+export function renderResult({ results, note, rawCount, tier, diagnostics = [] }, assessed, { chunks, announceFull = false } = {}) {
+  const queryAssessment = { ...assessed, tier: tier ?? assessed.tier,
+    gaps: [...assessed.gaps, ...(diagnostics.some(d => d.code === 'keyword-failed') ? [{
+      channel: 'keyword', state: 'request failed', buys: 'Full-text keyword coverage is incomplete.',
+      fix: 'Check Obsidian CLI availability and retry the query.',
+    }] : [])] };
   const stderr = announceFull
-    ? fullReport(assessed, { chunks }).split('\n')
-    : [statusLine(assessed, { chunks })];
+    ? fullReport(queryAssessment, { chunks }).split('\n')
+    : [statusLine(queryAssessment, { chunks })];
   if (note) stderr.push(note);
   if (rawCount !== undefined) stderr.push(`(raw/ clippings checked via --include-raw: ${rawCount} hit${rawCount === 1 ? '' : 's'})`);
 
@@ -240,24 +352,18 @@ function writeNoticeIso(dir, iso) {
 // statusReport -- see the design spec's own warning against re-walking/
 // re-hashing the vault on every query (section 3).
 async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0 }) {
-  const modelOk = ollamaUp ? await modelPresent() : false;
+  const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
   return assessTiers({
     ollama: { reachable: ollamaUp, modelPresent: modelOk, model: EMBED_MODEL },
     index: { available: index.available, coverage: cov, filesChanged },
   });
 }
 
-async function runQuery(query, { includeRaw = false } = {}) {
-  const { path: vaultPath } = resolveVault();
-  const { indexDir, index, ollamaUp, semanticRun } = await loadSearchContext(vaultPath, 10);
-
-  const result = await search(query, {
-    keywordSearch: async (q) => keywordSearch(q, { limit: 10 }),
-    ollamaAvailable: async () => ollamaUp,
-    indexAvailable: () => index.available,
-    semanticRun,
-    ...(includeRaw ? { rawKeywordSearch: async (q) => keywordSearch(q, { limit: 10, path: 'raw' }) } : {}),
-  });
+async function runQuery(query, options = {}) {
+  const context = await createSearchContext();
+  const { vaultPath, indexDir, index, ollamaUp } = context;
+  const result = await main(query, { ...options, context });
+  if (options.json) { console.log(JSON.stringify(result)); return; }
 
   const cov = coverage(index.manifest, Object.keys(index.vectors));
   const announceFull = shouldAnnounceFull(readNoticeIso(indexDir), Date.now());
@@ -276,6 +382,7 @@ async function runQuery(query, { includeRaw = false } = {}) {
   const { stdout, stderr } = renderResult(result, assessed, { chunks: cov.chunks, announceFull });
 
   for (const line of stderr) console.error(line);
+  for (const d of result.diagnostics) console.error(`${d.code}: ${d.message}`);
   for (const line of stdout) console.log(line);
 
   if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
@@ -285,7 +392,7 @@ async function runHealthCommand() {
   const { path: vaultPath } = resolveVault();
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadChunkIndex(indexDir);
-  const ollamaUp = await isAvailable();
+  const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
   let files = Object.keys(index.manifest).length;
@@ -297,7 +404,7 @@ async function runHealthCommand() {
   } catch { /* vault unreadable -- report what the index itself knows */ }
 
   const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
-  const modelOk = ollamaUp ? await modelPresent() : false;
+  const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
 
   const sizeBytes = ['chunks.json', 'vectors.bin', 'vectors.idx.json']
     .reduce((sum, f) => { try { return sum + statSync(join(indexDir, f)).size; } catch { return sum; } }, 0);
@@ -325,7 +432,7 @@ async function runSetupCommand() {
   const { path: vaultPath } = resolveVault();
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadChunkIndex(indexDir);
-  const ollamaUp = await isAvailable();
+  const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
   let filesChanged = 0;
@@ -335,6 +442,26 @@ async function runSetupCommand() {
   console.log(setupPlan(assessed));
 }
 
+export function parseArgs(argv) {
+  const options = { json: false, limit: 10, includeRaw: false };
+  const words = [];
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--json') options.json = true;
+    else if (arg === '--include-raw') options.includeRaw = true;
+    else if (arg.startsWith('--')) {
+      const [name, ...rest] = arg.slice(2).split('=');
+      if (!['limit', 'project', 'type', 'status'].includes(name)) throw new Error(`unknown option: --${name}`);
+      const value = rest.length ? rest.join('=') : argv[++i];
+      if (!value || value.startsWith('--')) throw new Error(`--${name} requires a value`);
+      options[name] = name === 'limit' ? Number(value) : value;
+    } else words.push(arg);
+  }
+  const query = words.join(' ');
+  validateOptions(query, options);
+  return { query, ...options };
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
   if (argv.includes('--health')) {
@@ -342,13 +469,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   } else if (argv.includes('--setup')) {
     await runSetupCommand();
   } else {
-    const includeRaw = argv.includes('--include-raw');
-    const query = argv.filter((a) => a !== '--include-raw').join(' ');
-    if (!query) {
-      console.error('usage: node scripts/search.mjs "<question>" [--include-raw] | --health | --setup');
-      process.exit(1);
-    } else {
-      await runQuery(query, { includeRaw });
+    try {
+      const { query, ...options } = parseArgs(argv);
+      await runQuery(query, options);
+    } catch (err) {
+      console.error(`search: ${err.message}`);
+      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
+      process.exitCode = 1;
     }
   }
 }

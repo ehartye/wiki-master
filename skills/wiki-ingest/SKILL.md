@@ -51,8 +51,15 @@ For each source:
    citation drift; the `sources: ["[[…]]"]` wikilink stays for navigation.
    To repair vaults that already drifted this way:
    `node ../../scripts/repair-provenance-links.mjs` (dry run) then `--apply`.
-3. Update the entities and concepts it touches; create stubs (`status: stub`) where
-   a `[[link]]` has no page yet. Add links in both directions.
+3. Before creating a concept, search the proposed title, equivalent wording and
+   nearby passages. Extend the canonical page, add a genuinely equivalent alias,
+   or explain the new concept's distinct scope. Use `_templates/concept-note.md`;
+   follow `wiki-maintainer/references/efficacy.md` for aliases and relationships.
+   Create a stub (`status: stub`) only for an identified gap. Explain each useful
+   connection under `## Relationships`; keep supporting citations in `sources:`
+   and the relevant prose. Relatedness does not establish support. Update the
+   task map the new knowledge helps answer. Preserve `reviewed` on pages that
+   received only metadata/link edits; stamp it only after factual verification.
 4. Regenerate the catalog: `node ../../scripts/index-gen.mjs`
    (never hand-edit index.md's generated fence). Write the log entry by piping the
    narrative to `node ../../scripts/log-entry.mjs --op ingest --title "<title>"`

@@ -1,0 +1,2461 @@
+{
+  "version": 1,
+  "datasetHash": "3c477c963dd557b28038357c169922239f2f727fcf67e63d83e6c5f29cf9161b",
+  "split": "development",
+  "status": "complete",
+  "coverage": {
+    "total": 40,
+    "selected": 30,
+    "evaluated": 30,
+    "failed": 0,
+    "expectedFilesChecked": true,
+    "missingExpectedPages": 0,
+    "missingExpectedData": 0,
+    "passageExpected": 1,
+    "passageEvaluated": 1,
+    "evidenceExpected": 2,
+    "evidenceEvaluated": 2
+  },
+  "summary": {
+    "pageRecallAt10": 0.9666666666666667,
+    "precisionAt3": 0.35555555555555557,
+    "reciprocalRank": 0.8761111111111111,
+    "passageHitRate": 1,
+    "evidenceRecall": 1,
+    "evidenceCorrectness": 1,
+    "latencyMs": 137.28327333333328,
+    "outputCharacters": 495728,
+    "estimatedTokens": 123942
+  },
+  "byCategory": {
+    "alias": {
+      "selected": 8,
+      "evaluated": 8,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 1,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 141.38128749999987,
+      "outputCharacters": 139213,
+      "estimatedTokens": 34804
+    },
+    "complement": {
+      "selected": 5,
+      "evaluated": 5,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.6666666666666666,
+      "reciprocalRank": 1,
+      "passageHitRate": null,
+      "evidenceRecall": 1,
+      "evidenceCorrectness": 1,
+      "latencyMs": 148.89652000000007,
+      "outputCharacters": 88192,
+      "estimatedTokens": 22050
+    },
+    "exact": {
+      "selected": 5,
+      "evaluated": 5,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 1,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 146.84502000000012,
+      "outputCharacters": 82304,
+      "estimatedTokens": 20579
+    },
+    "paraphrase": {
+      "selected": 4,
+      "evaluated": 4,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.16666666666666666,
+      "reciprocalRank": 0.4458333333333333,
+      "passageHitRate": 1,
+      "evidenceRecall": 1,
+      "evidenceCorrectness": 1,
+      "latencyMs": 156.98979999999983,
+      "outputCharacters": 71851,
+      "estimatedTokens": 17964
+    },
+    "state": {
+      "selected": 4,
+      "evaluated": 4,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 1,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 69.7211000000002,
+      "outputCharacters": 44390,
+      "estimatedTokens": 11099
+    },
+    "task": {
+      "selected": 4,
+      "evaluated": 4,
+      "pageRecallAt10": 0.75,
+      "precisionAt3": 0.25,
+      "reciprocalRank": 0.625,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 150.47414999999955,
+      "outputCharacters": 69778,
+      "estimatedTokens": 17446
+    }
+  },
+  "bySplit": {
+    "development": {
+      "selected": 30,
+      "evaluated": 30,
+      "pageRecallAt10": 0.9666666666666667,
+      "precisionAt3": 0.35555555555555557,
+      "reciprocalRank": 0.8761111111111111,
+      "passageHitRate": 1,
+      "evidenceRecall": 1,
+      "evidenceCorrectness": 1,
+      "latencyMs": 137.28327333333328,
+      "outputCharacters": 495728,
+      "estimatedTokens": 123942
+    }
+  },
+  "cost": {
+    "tokenEstimateMethod": "ceil(outputCharacters / 4); estimate, not tokenizer usage",
+    "latencyScope": "Search invocation only; reusable context construction and evaluation excluded."
+  },
+  "definitions": {
+    "precisionAt3": "Expected relevant pages among first three unique results, divided by 3.",
+    "passageHitRate": "Expected literal substrings found in returned passages for the expected page (case-insensitive).",
+    "evidenceCorrectness": "Expected evidence hits / (expected + forbidden evidence hits); other paths are unjudged. No entailment judgment.",
+    "evidenceResolution": "Returned provenance resolved through source/raw citation routes when a vault is supplied. Legacy outputs without provenance are unavailable.",
+    "aggregation": "Macro means over evaluated non-null metrics; inspect coverage, missing ground truth and per-question failures."
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "query": "Agent Memory",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16987,
+      "estimatedTokens": 4247,
+      "latencyMs": 163.6180000000004,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 128 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/sources/Meta-Cognitive Memory Policy Optimization for Long-Horizon LLM Agents.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/concepts/Agent-Readable Vault.md",
+        "wiki/sources/Voyager — An Open-Ended Embodied Agent.md",
+        "wiki/syntheses/Authoring Agent Skills.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q02",
+      "query": "LLM Wiki Pattern",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 18221,
+      "estimatedTokens": 4556,
+      "latencyMs": 167.8748000000005,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3781 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/sources/LLM Wiki Maintenance - Drift, Contradictions and Review.md",
+        "wiki/concepts/Reported LLM alpha is not deployment evidence.md",
+        "wiki/concepts/Pattern Languages.md",
+        "wiki/sources/OpenHands — LLM Provider Support.md",
+        "wiki/sources/From Human Experts to Machines - LLM-Supported Ontology and KG Construction.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/sources/LLM-Empowered Knowledge Graph Construction - A Survey.md",
+        "wiki/sources/Echoes in AI - Plot Diversity in LLM Outputs.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q03",
+      "query": "Implementation Intentions",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16465,
+      "estimatedTokens": 4117,
+      "latencyMs": 148.19150000000081,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 104 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Mental Contrasting with Implementation Intentions.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Goal Setting Theory.md",
+        "moc/Learning and Goal-Directed Behavior.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Habit Formation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q04",
+      "query": "Adaptive Audio",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Audio.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17230,
+      "estimatedTokens": 4308,
+      "latencyMs": 138.33519999999953,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 110 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Adaptive Audio.md",
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Interactive Audio.md",
+        "wiki/concepts/Redbook Audio as a Step Backward.md",
+        "wiki/concepts/Audio-First Choosing.md",
+        "wiki/concepts/AI Audio vs Procedural Audio.md",
+        "wiki/concepts/Web Audio Platform.md",
+        "wiki/concepts/Audio Thread Constraints.md",
+        "wiki/sources/W3C Audio WG — TPAC 2025.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q05",
+      "query": "STEM Education",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 13401,
+      "estimatedTokens": 3351,
+      "latencyMs": 116.20559999999932,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 128 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/STEM Education.md",
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/sources/Tennessee K-5 STEM Standards Framework.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/sources/Education Week — Social Studies and Science Get Short Shrift in Elementary Schools.md",
+        "wiki/sources/A Classification of Artificial Intellige.md",
+        "wiki/sources/Artificial Intelligence in Mathematics Education (variant 2).md",
+        "wiki/sources/Artificial Intelligence in Education.md",
+        "wiki/sources/A systematic review of teaching and lear.md",
+        "wiki/concepts/Plasma and Fusion Education.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q09",
+      "query": "RAG",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16588,
+      "estimatedTokens": 4147,
+      "latencyMs": 132.72839999999997,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 114 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/authored/hartye-party/guides/hartye-party — Contributing.md",
+        "wiki/sources/Civil Rights Act (1964).md",
+        "wiki/concepts/Crocheted and Knitted Surface Shading.md",
+        "wiki/authored/hartye-party/hartye-party — Architecture.md",
+        "wiki/authored/apcademy-government/architecture.md",
+        "wiki/sources/The Book of Shaders — Patterns.md",
+        "wiki/authored/hartye-party/reference/hartye-party — Game Catalog.md",
+        "wiki/sources/Sauer — Rushed Legislation Reading and Questions.md",
+        "wiki/authored/anikademy/backlog/maker-studio-toolset.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q10",
+      "query": "If-then planning",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16384,
+      "estimatedTokens": 4096,
+      "latencyMs": 139.70949999999993,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Menu Planning vs Inventory Shopping.md",
+        "wiki/authored/aftershift/overview.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/Understanding Food Planning Strategies of Food Insecure Populations (Dillahunt et al., CHI 2023).md",
+        "wiki/concepts/Conditionalizing Sequences.md",
+        "wiki/authored/north-star/North Star — Roadmap.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Alternative Contracting Methods.md",
+        "wiki/concepts/Informal Before Formal.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q11",
+      "query": "Intention–behavior gap",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Intention-Action Gap.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17560,
+      "estimatedTokens": 4390,
+      "latencyMs": 161.23039999999946,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 113 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "moc/Learning and Goal-Directed Behavior.md",
+        "wiki/concepts/Information Gap Theory of Curiosity.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Habit Formation.md",
+        "wiki/concepts/Goal Setting Theory.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q12",
+      "query": "Self regulation",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 15256,
+      "estimatedTokens": 3814,
+      "latencyMs": 141.35449999999946,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 107 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Self-Determination Theory.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/concepts/Self-Monitoring.md",
+        "wiki/sources/CCI Self-Help Workbooks.md",
+        "wiki/concepts/Self-Help and Bibliotherapy.md",
+        "wiki/sources/BPS — Self-Help and Wellbeing (Wood).md",
+        "wiki/sources/The Skeptic — Self-Help Industry Evidence.md",
+        "wiki/syntheses/apcademy-government/articles/2.13 Discretionary and Rulemaking Authority.md",
+        "wiki/sources/a-self-improving-coding-agent.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q13",
+      "query": "LLM-maintained wiki",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17028,
+      "estimatedTokens": 4257,
+      "latencyMs": 145.8648000000003,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3778 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/sources/LLM Wiki Maintenance - Drift, Contradictions and Review.md",
+        "wiki/sources/OpenHands — LLM Provider Support.md",
+        "wiki/sources/From Human Experts to Machines - LLM-Supported Ontology and KG Construction.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/sources/Cited but Not Verified — Parsing and Evaluating Source Attribution in LLM Deep Research Agents.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/sources/LLM-Empowered Knowledge Graph Construction - A Survey.md",
+        "wiki/sources/constrained-llm-agents-crypto.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q14",
+      "query": "Agent-readable knowledge base",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 21895,
+      "estimatedTokens": 5474,
+      "latencyMs": 139.8095999999996,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 133 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Agent-Readable Vault.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/syntheses/Authoring Agent Skills.md",
+        "wiki/concepts/Agent Memory.md",
+        "wiki/sources/Obsidian Second Brain with Claude Code - My Agent-Readable Vault Setup.md",
+        "wiki/concepts/Engine Agent Skill Packs.md",
+        "wiki/concepts/Agent Skills (Open Standard).md",
+        "wiki/concepts/Agent Skills Supply-Chain Risk.md",
+        "wiki/concepts/Knowledge Graph Construction.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q15",
+      "query": "Dynamic music techniques",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 18071,
+      "estimatedTokens": 4518,
+      "latencyMs": 138.9417000000003,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 120 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Gameplay-Driven Music.md",
+        "wiki/concepts/Generative Music.md",
+        "wiki/concepts/Games Built Around Music.md",
+        "wiki/concepts/Diegetic Game Music.md",
+        "wiki/syntheses/Procedural Audio and Gameplay-Driven Music — Overview.md",
+        "wiki/concepts/The Evaporating Segregation of Sound, Noise and Music.md",
+        "wiki/concepts/Limited Adaptability of Licensed Music.md",
+        "wiki/concepts/iMUSE.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q16",
+      "query": "STEM versus STEAM",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM and STEAM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16431,
+      "estimatedTokens": 4108,
+      "latencyMs": 131.41139999999996,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 103 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/concepts/STEM Education.md",
+        "wiki/sources/Steam Audio — Spatialization Settings.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/sources/Is It Possible for Young Students to Lea.md",
+        "wiki/sources/Tennessee K-5 STEM Standards Framework.md",
+        "wiki/authored/anikademy/reference/learn-more-earth-and-sky.md",
+        "wiki/concepts/Thruster and Exhaust VFX Cadence.md",
+        "wiki/authored/book-nom/vision/notes/thermal-and-recovery-field-curve-2026-09.md",
+        "wiki/concepts/Game Feel and Juice.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q17",
+      "query": "How can an AI agent remember information across separate sessions?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16402,
+      "estimatedTokens": 4101,
+      "latencyMs": 132.6970999999994,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 242 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/AI Coaching.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/sources/ai-agent-pull-requests-on-github-frequency-structure-and-merge-conflict-rates.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/sources/NIST AI Agent Standards Initiative.md",
+        "wiki/concepts/Human-AI Interaction Design.md",
+        "wiki/sources/9 AI coding agent incidents that deleted production data.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q18",
+      "query": "Why compile knowledge into a persistent wiki instead of retrieving raw documents every time?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.3333333333333333,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 18376,
+      "estimatedTokens": 4594,
+      "latencyMs": 155.3064000000004,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3777 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/concepts/Maintenance Rot in Machine-Written Knowledge Bases.md",
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/concepts/Knowledge Graph Construction.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/concepts/Knowledge Tracing.md",
+        "wiki/sources/Claude Code Issue 10162 — Persistent Mode for Statusline Commands.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/authored/wiki-master/guides/maintenance.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q19",
+      "query": "How do I link a situational cue to a specific action toward a goal?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0,
+        "reciprocalRank": 0.25,
+        "passageHitRate": 1,
+        "evidenceRecall": 1,
+        "evidenceCorrectness": 1
+      },
+      "outputCharacters": 17577,
+      "estimatedTokens": 4395,
+      "latencyMs": 157.61269999999968,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 113 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Goal Setting Theory.md",
+        "moc/Learning and Goal-Directed Behavior.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/sources/The Development of Goal Setting Theory - A Half Century Retrospective.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/syntheses/Parent-Proposed Goals as a Team Process.md",
+        "wiki/concepts/Side Effects of Goal Setting.md",
+        "wiki/concepts/Anticipatory and Procedural Cues.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "unresolvedEvidence": [],
+      "returnedEvidence": [
+        "raw/clippings/-Learning Together- AI-Mediated Support for Parental Involvement in Everyday Learning.md",
+        "raw/clippings/A tale of two clocks - Articles.md",
+        "raw/clippings/Academic motivation in adolescents- the role of parental autonomy support, psychological needs satisfaction and self-con.md",
+        "raw/clippings/An Initial Discussion of Timing Consider.md",
+        "raw/clippings/Comparing artificial intelligence and human coaching goal attainment efficacy.md",
+        "raw/clippings/Different components of cognitive-behavioral therapy affect specific cognitive mechanisms.md",
+        "raw/clippings/Division of Cancer Control and Population Sciences (DCCPS).md",
+        "raw/clippings/Google re-Work - Guides- Set goals with OKRs.md",
+        "raw/clippings/Optimized but Unowned- How AI-Authored Goals Undermine the Motivation They Are Meant to Drive.md",
+        "raw/clippings/Pathways to Student Motivation- A Meta-Analysis of Antecedents of Autonomous and Controlled Motivations.md",
+        "raw/clippings/Self-regulatory behavior change techniques in interventions to promote healthy eating, physical activity, or weight loss.md",
+        "raw/clippings/Strengthening Relationships Through Goals.md",
+        "raw/clippings/The Risks of Rewards.md",
+        "raw/clippings/Unique Effects of Setting Goals on Behavior Change- Systematic Review and Meta-Analysis.md",
+        "raw/clippings/Web Game Performance Optimization.md",
+        "raw/clippings/epstein-chi16.md",
+        "raw/clippings/goals-gone-wild.md",
+        "raw/clippings/gollwitzer-implementation-intentions.md",
+        "raw/clippings/locke-latham-2019.md",
+        "wiki/sources/A Tale of Two Clocks.md",
+        "wiki/sources/CBT Components and Cognitive Mechanisms.md",
+        "wiki/sources/Goals Gone Wild - Systematic Side Effects of Goal Setting.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/Google re-Work Guide - Set Goals With OKRs.md",
+        "wiki/sources/Nuñez et al — Timing in a Magician-Robot Performance.md",
+        "wiki/sources/Optimized but Unowned - How AI-Authored Goals Undermine Motivation.md",
+        "wiki/sources/Rune — Web Game Performance.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/sources/Setting Goals — Unique Effects Meta-Analysis (Epton 2017).md",
+        "wiki/sources/Strengthening Relationships Through Goals.md",
+        "wiki/sources/The Development of Goal Setting Theory - A Half Century Retrospective.md"
+      ],
+      "unjudgedEvidence": [
+        "raw/clippings/-Learning Together- AI-Mediated Support for Parental Involvement in Everyday Learning.md",
+        "raw/clippings/A tale of two clocks - Articles.md",
+        "raw/clippings/Academic motivation in adolescents- the role of parental autonomy support, psychological needs satisfaction and self-con.md",
+        "raw/clippings/An Initial Discussion of Timing Consider.md",
+        "raw/clippings/Comparing artificial intelligence and human coaching goal attainment efficacy.md",
+        "raw/clippings/Different components of cognitive-behavioral therapy affect specific cognitive mechanisms.md",
+        "raw/clippings/Division of Cancer Control and Population Sciences (DCCPS).md",
+        "raw/clippings/Google re-Work - Guides- Set goals with OKRs.md",
+        "raw/clippings/Optimized but Unowned- How AI-Authored Goals Undermine the Motivation They Are Meant to Drive.md",
+        "raw/clippings/Pathways to Student Motivation- A Meta-Analysis of Antecedents of Autonomous and Controlled Motivations.md",
+        "raw/clippings/Self-regulatory behavior change techniques in interventions to promote healthy eating, physical activity, or weight loss.md",
+        "raw/clippings/Strengthening Relationships Through Goals.md",
+        "raw/clippings/The Risks of Rewards.md",
+        "raw/clippings/Unique Effects of Setting Goals on Behavior Change- Systematic Review and Meta-Analysis.md",
+        "raw/clippings/Web Game Performance Optimization.md",
+        "raw/clippings/epstein-chi16.md",
+        "raw/clippings/goals-gone-wild.md",
+        "raw/clippings/locke-latham-2019.md",
+        "wiki/sources/A Tale of Two Clocks.md",
+        "wiki/sources/CBT Components and Cognitive Mechanisms.md",
+        "wiki/sources/Goals Gone Wild - Systematic Side Effects of Goal Setting.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/Google re-Work Guide - Set Goals With OKRs.md",
+        "wiki/sources/Nuñez et al — Timing in a Magician-Robot Performance.md",
+        "wiki/sources/Optimized but Unowned - How AI-Authored Goals Undermine Motivation.md",
+        "wiki/sources/Rune — Web Game Performance.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/sources/Setting Goals — Unique Effects Meta-Analysis (Epton 2017).md",
+        "wiki/sources/Strengthening Relationships Through Goals.md",
+        "wiki/sources/The Development of Goal Setting Theory - A Half Century Retrospective.md"
+      ],
+      "status": "evaluated"
+    },
+    {
+      "id": "q20",
+      "query": "How do I trace each generated statement back to the evidence that supports it?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0,
+        "reciprocalRank": 0.2,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 19496,
+      "estimatedTokens": 4874,
+      "latencyMs": 182.34299999999985,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 166 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/authored/anikademy-math/backlog/source-the-progression.md",
+        "wiki/syntheses/evidence-bearing-on-the-money-machine-go-live-decision.md",
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/sources/bmev-md-order-statistics-2026-07.md",
+        "wiki/concepts/Source Attribution.md",
+        "wiki/sources/bmev-md-service-inversion-2026-07.md",
+        "wiki/concepts/Model-Based Data Auditing.md",
+        "wiki/authored/Tools That Infer State Fail Silently.md",
+        "wiki/sources/Bai et al — A Survey of Explainable Knowledge Tracing.md",
+        "wiki/sources/Quantifying and Combining Crypto Alphas.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q25",
+      "query": "What did our wiki navigation scaling measurements find?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 15998,
+      "estimatedTokens": 4000,
+      "latencyMs": 160.4426999999996,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3776 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Index-Only Navigation Is Untested at This Scale.md",
+        "wiki/authored/wiki-master/notes/index-scaling.md",
+        "wiki/sources/KSP Wiki — Deep Space Kraken.md",
+        "wiki/concepts/Proportional Navigation.md",
+        "wiki/sources/Discrete-Selection and Focus Traversal Research.md",
+        "wiki/concepts/Ray-Ban Display Input — Measured on Device.md",
+        "wiki/sources/Information Transfer Rate in Brain-Computer Interfaces.md",
+        "wiki/authored/anikademy-math/decisions/client-stack-and-3d-adr.md",
+        "wiki/authored/wiki-master/guides/maintenance.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q27",
+      "query": "Where should I start exploring procedural graphics techniques?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/Procedural Graphics.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16611,
+      "estimatedTokens": 4153,
+      "latencyMs": 148.8772999999992,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 168 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "moc/Procedural Graphics.md",
+        "wiki/sources/De Carli et al — A Survey of Procedural Content Generation Techniques.md",
+        "wiki/sources/Hidalgo et al — Procedural Graphics Model and Behavior Generation.md",
+        "wiki/sources/Rodrigues et al — Procedural Virtual Worlds.md",
+        "wiki/sources/Hendrikx et al — Procedural Content Generation for Games.md",
+        "wiki/concepts/Procedural generation.md",
+        "wiki/sources/Smelik et al — Interactive Creation of Virtual Worlds Using Procedural Sketching.md",
+        "wiki/concepts/Procedural content generation.md",
+        "wiki/concepts/Procedural modeling.md",
+        "wiki/sources/Duncan — How I Learned to Love Procedural Art (GDC 2015).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q29",
+      "query": "What structure makes an Obsidian knowledge base readable and maintainable by an agent?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17388,
+      "estimatedTokens": 4347,
+      "latencyMs": 147.08539999999994,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 181 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Agent-Readable Vault.md",
+        "wiki/sources/Obsidian Second Brain with Claude Code - My Agent-Readable Vault Setup.md",
+        "wiki/sources/kepano obsidian-skills - Agent Skills for Obsidian.md",
+        "wiki/entities/Obsidian.md",
+        "wiki/sources/claude-obsidian AGENTS.md (repo).md",
+        "wiki/sources/The TL;DR of Claude Code Inside Obsidian.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/concepts/Knowledge Graph Construction.md",
+        "wiki/sources/Obsidian CLI (official reference).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q30",
+      "query": "How do we judge whether an AI generated citation actually supports the statement?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0,
+        "precisionAt3": 0,
+        "reciprocalRank": 0,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 19781,
+      "estimatedTokens": 4946,
+      "latencyMs": 145.49119999999948,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 188 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/sources/Investigating and Designing for Trust in AI-powered Code Generation Tools.md",
+        "wiki/sources/Measuring the Impact of Early-2025 AI on Experienced Open-Source Developer Productivity.md",
+        "wiki/concepts/AI Content Policy and Provenance.md",
+        "wiki/sources/GhostCite — A Large-Scale Analysis of Citation Validity in the Age of Large Language Models.md",
+        "wiki/sources/Confabulated References in the Age of AI — Contamination of the Biomedical Scientific Literature.md",
+        "wiki/sources/Unity — AI-Generated Content on the Asset Store.md",
+        "wiki/sources/My AI agent almost merged its own pull request.md",
+        "wiki/concepts/AI in Construction.md",
+        "wiki/sources/Jozefiak — Which AI Coding Harness Works Unattended.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q31",
+      "query": "How do self-regulation, the intention-action gap, and if-then plans fit together?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 1,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": 1,
+        "evidenceCorrectness": 1
+      },
+      "outputCharacters": 20896,
+      "estimatedTokens": 5224,
+      "latencyMs": 175.36030000000028,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 125 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Self-Determination Theory.md",
+        "wiki/syntheses/apcademy-government/articles/1.9 Federalism in Action.md",
+        "wiki/syntheses/apcademy-government/items/1.9 Federalism in Action.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/CCI Self-Help Workbooks.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "unresolvedEvidence": [],
+      "returnedEvidence": [
+        "raw/clippings/Academic motivation in adolescents- the role of parental autonomy support, psychological needs satisfaction and self-con.md",
+        "raw/clippings/Autonomy, Relatedness, and Competence in UX Design.md",
+        "raw/clippings/CCI - Self Help Resources for Mental Health Problems.md",
+        "raw/clippings/Comparing artificial intelligence and human coaching goal attainment efficacy.md",
+        "raw/clippings/Different components of cognitive-behavioral therapy affect specific cognitive mechanisms.md",
+        "raw/clippings/Division of Cancer Control and Population Sciences (DCCPS).md",
+        "raw/clippings/Federal Grants to State and Local Governments- Trends and Issues.md",
+        "raw/clippings/Improving Assertiveness Self-Help Resources.md",
+        "raw/clippings/National Federation of Independent Business v. Sebelius-Opinion of the Court - Wikisource, the free online library.md",
+        "raw/clippings/Optimized but Unowned- How AI-Authored Goals Undermine the Motivation They Are Meant to Drive.md",
+        "raw/clippings/Pathways to Student Motivation- A Meta-Analysis of Antecedents of Autonomous and Controlled Motivations.md",
+        "raw/clippings/Printz v. United States-Opinion of the Court - Wikisource, the free online library.md",
+        "raw/clippings/Self-regulatory behavior change techniques in interventions to promote healthy eating, physical activity, or weight loss.md",
+        "raw/clippings/Strengthening Relationships Through Goals.md",
+        "raw/clippings/The Risks of Rewards.md",
+        "raw/clippings/Unique Effects of Setting Goals on Behavior Change- Systematic Review and Meta-Analysis.md",
+        "raw/clippings/epstein-chi16.md",
+        "raw/clippings/feedback-controls.md",
+        "raw/clippings/gollwitzer-implementation-intentions.md",
+        "raw/clippings/locke-latham-2019.md",
+        "wiki/sources/Autonomy, Relatedness, and Competence in UX Design.md",
+        "wiki/sources/Bureau et al — Pathways to Student Motivation Meta-Analysis.md",
+        "wiki/sources/CBT Components and Cognitive Mechanisms.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/National Federation of Independent Business v. Sebelius-Opinion of the Court - Wikisource, the free online library.md",
+        "wiki/sources/Optimized but Unowned - How AI-Authored Goals Undermine Motivation.md",
+        "wiki/sources/PAIR Guidebook — Feedback and Controls.md",
+        "wiki/sources/Printz v. United States-Opinion of the Court - Wikisource, the free online library.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/sources/Setting Goals — Unique Effects Meta-Analysis (Epton 2017).md",
+        "wiki/sources/Strengthening Relationships Through Goals.md",
+        "wiki/sources/Çelik — Parental Autonomy Support and Adolescent Academic Motivation.md"
+      ],
+      "unjudgedEvidence": [
+        "raw/clippings/Academic motivation in adolescents- the role of parental autonomy support, psychological needs satisfaction and self-con.md",
+        "raw/clippings/Autonomy, Relatedness, and Competence in UX Design.md",
+        "raw/clippings/CCI - Self Help Resources for Mental Health Problems.md",
+        "raw/clippings/Comparing artificial intelligence and human coaching goal attainment efficacy.md",
+        "raw/clippings/Different components of cognitive-behavioral therapy affect specific cognitive mechanisms.md",
+        "raw/clippings/Division of Cancer Control and Population Sciences (DCCPS).md",
+        "raw/clippings/Federal Grants to State and Local Governments- Trends and Issues.md",
+        "raw/clippings/Improving Assertiveness Self-Help Resources.md",
+        "raw/clippings/National Federation of Independent Business v. Sebelius-Opinion of the Court - Wikisource, the free online library.md",
+        "raw/clippings/Optimized but Unowned- How AI-Authored Goals Undermine the Motivation They Are Meant to Drive.md",
+        "raw/clippings/Pathways to Student Motivation- A Meta-Analysis of Antecedents of Autonomous and Controlled Motivations.md",
+        "raw/clippings/Printz v. United States-Opinion of the Court - Wikisource, the free online library.md",
+        "raw/clippings/Self-regulatory behavior change techniques in interventions to promote healthy eating, physical activity, or weight loss.md",
+        "raw/clippings/Strengthening Relationships Through Goals.md",
+        "raw/clippings/The Risks of Rewards.md",
+        "raw/clippings/Unique Effects of Setting Goals on Behavior Change- Systematic Review and Meta-Analysis.md",
+        "raw/clippings/epstein-chi16.md",
+        "raw/clippings/feedback-controls.md",
+        "raw/clippings/locke-latham-2019.md",
+        "wiki/sources/Autonomy, Relatedness, and Competence in UX Design.md",
+        "wiki/sources/Bureau et al — Pathways to Student Motivation Meta-Analysis.md",
+        "wiki/sources/CBT Components and Cognitive Mechanisms.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/sources/National Federation of Independent Business v. Sebelius-Opinion of the Court - Wikisource, the free online library.md",
+        "wiki/sources/Optimized but Unowned - How AI-Authored Goals Undermine Motivation.md",
+        "wiki/sources/PAIR Guidebook — Feedback and Controls.md",
+        "wiki/sources/Printz v. United States-Opinion of the Court - Wikisource, the free online library.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/sources/Setting Goals — Unique Effects Meta-Analysis (Epton 2017).md",
+        "wiki/sources/Strengthening Relationships Through Goals.md",
+        "wiki/sources/Çelik — Parental Autonomy Support and Adolescent Academic Motivation.md"
+      ],
+      "status": "evaluated"
+    },
+    {
+      "id": "q32",
+      "query": "How is agent memory related to context engineering and a maintained LLM wiki?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/Context Engineering.md",
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16994,
+      "estimatedTokens": 4249,
+      "latencyMs": 128.89939999999933,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3776 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/Context Engineering.md",
+        "wiki/sources/Meta-Cognitive Memory Policy Optimization for Long-Horizon LLM Agents.md",
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "wiki/sources/Mei et al. — A Survey of Context Engineering for LLMs.md",
+        "moc/Agent Knowledge and Wiki Maintenance.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q33",
+      "query": "How does integrated STEM education relate to adding the arts through STEAM?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md",
+        "wiki/concepts/STEM and STEAM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 15488,
+      "estimatedTokens": 3872,
+      "latencyMs": 137.20119999999952,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 168 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/concepts/STEM Education.md",
+        "wiki/sources/Is It Possible for Young Students to Lea.md",
+        "wiki/sources/Artificial Intelligence Integrated Educa.md",
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/sources/Tennessee K-5 STEM Standards Framework.md",
+        "wiki/sources/Integration of Artificial Intelligence i.md",
+        "wiki/concepts/Arts Education Standards.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/concepts/AI in Mathematics Education.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q34",
+      "query": "Why is adaptive music sometimes called dynamic even though adaptive audio has a narrower meaning?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Adaptive Audio.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 15813,
+      "estimatedTokens": 3954,
+      "latencyMs": 160.66470000000118,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 169 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Adaptive Audio.md",
+        "wiki/concepts/Interactive Audio.md",
+        "wiki/concepts/Diegetic Game Music.md",
+        "wiki/syntheses/Procedural Audio and Gameplay-Driven Music — Overview.md",
+        "wiki/concepts/Gameplay-Driven Music.md",
+        "wiki/concepts/Limited Adaptability of Licensed Music.md",
+        "wiki/concepts/Redbook Audio as a Step Backward.md",
+        "wiki/concepts/Games Built Around Music.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q36",
+      "query": "Why does retrieving relevant documents not guarantee correct source attribution?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 19001,
+      "estimatedTokens": 4751,
+      "latencyMs": 142.35699999999997,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 194 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Source Attribution.md",
+        "wiki/sources/Cited but Not Verified — Parsing and Evaluating Source Attribution in LLM Deep Research Agents.md",
+        "wiki/concepts/A Stale Passage in an Authoritative Source Propagates.md",
+        "wiki/authored/apcademy-government/decisions/null-not-guessed-adr.md",
+        "wiki/sources/kirschner-sweller-clark-minimal-guidance.md",
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/Fabricated Citations.md",
+        "wiki/sources/Government in America - Owned Scan.md",
+        "wiki/authored/book-nom/overview.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q37",
+      "query": "OCR fidelity decision",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "project": "wiki-master",
+        "type": "authored"
+      },
+      "expectedPages": [
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 8721,
+      "estimatedTokens": 2181,
+      "latencyMs": 52.05240000000049,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 18,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md",
+        "wiki/authored/wiki-master/roadmap.md",
+        "wiki/authored/wiki-master/notes/index-scaling.md",
+        "wiki/authored/wiki-master/guides/maintenance.md",
+        "wiki/authored/wiki-master/overview.md",
+        "wiki/authored/wiki-master/backlog/moc-authored-gen-emits-bare-canonical-names.md",
+        "wiki/authored/wiki-master/architecture.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q38",
+      "query": "Implementation Intentions",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "type": "concept",
+        "status": "stub"
+      },
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 12947,
+      "estimatedTokens": 3237,
+      "latencyMs": 56.24229999999989,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 89,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Mental Contrasting with Implementation Intentions.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Standards Revision Cycles.md",
+        "wiki/concepts/Digital Mental Health.md",
+        "wiki/concepts/Mental Health Apps.md",
+        "wiki/concepts/Predicting Risk of Software Changes.md",
+        "wiki/concepts/Narrative Deference.md",
+        "wiki/concepts/Night Stalker Prep — Roadmap.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q39",
+      "query": "index scaling",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "project": "wiki-master"
+      },
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 8954,
+      "estimatedTokens": 2239,
+      "latencyMs": 50.18840000000091,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 13,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md",
+        "wiki/authored/wiki-master/architecture.md",
+        "wiki/authored/wiki-master/guides/maintenance.md",
+        "wiki/authored/wiki-master/backlog/moc-authored-gen-emits-bare-canonical-names.md",
+        "wiki/authored/wiki-master/roadmap.md",
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md",
+        "wiki/authored/wiki-master/overview.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q40",
+      "query": "wiki-master roadmap",
+      "split": "development",
+      "category": "state",
+      "options": {},
+      "expectedPages": [
+        "wiki/authored/wiki-master/roadmap.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 13768,
+      "estimatedTokens": 3442,
+      "latencyMs": 120.40129999999954,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 3780 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/authored/wiki-master/roadmap.md",
+        "wiki/authored/wiki-master/overview.md",
+        "wiki/authored/wiki-master/guides/maintenance.md",
+        "wiki/authored/wiki-master/architecture.md",
+        "wiki/authored/hartye-party/roadmap.md",
+        "moc/wiki-master.md",
+        "wiki/authored/anikademy-math/roadmap.md",
+        "wiki/authored/anikademy/roadmap.md",
+        "wiki/authored/claude-sprites/roadmap.md",
+        "wiki/authored/anikademy/Anikademy — Roadmap.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    }
+  ],
+  "condition": {
+    "backend": "Semantic plus local identity/lexical ranking; Obsidian keyword backend disabled",
+    "comparison": "Same keyword-disabled condition as original semantic-only baseline. Corpus includes approved pilot and indexed MOCs.",
+    "date": "2026-09-08",
+    "latencyCaveat": "Reusable context construction excluded; original baseline includes old per-query index load."
+  }
+}

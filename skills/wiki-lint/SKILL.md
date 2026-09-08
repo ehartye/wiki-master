@@ -14,12 +14,17 @@ description: Periodic deep maintenance pass — structural health, contradiction
 
 Load the `wiki-maintainer` skill and follow its **Lint** workflow.
 
-1. Run `/wiki-health` first: `node ../../scripts/health.mjs`. If the
-   wiki is empty or clean, stop early — do not burn tokens. Only once you know
-   there is work to do, open the operation:
+1. Run `/wiki-health` first: `node ../../scripts/health.mjs`. Stop for an empty
+   wiki. A clean graph does not skip semantic review: sample changed or high-use
+   pages for stale claims, contradictory evidence and missing useful connections.
+   Keep the sample bounded and report its size. Open an operation only before
+   making edits:
    `TOKEN=$(node ../../scripts/op-begin.mjs --op lint)` — records what was already
    uncommitted, so step 6 commits your fixes and not the user's in-progress work.
-2. Run drift: `node ../../scripts/drift.mjs`.
+2. Run `node ../../scripts/drift.mjs --coverage`, then a bounded embedding check:
+   `node ../../scripts/drift.mjs --limit=10`. Read eligible/evaluated/failed/skipped
+   counts. Zero evaluated is not a clean result; report missing evidence or backend
+   failures. Similarity is a topical diagnostic, never proof of claim correctness.
 3. Run the content lint: `node ../../scripts/lint.mjs` (warn-only,
    never scored). It flags (a) quotes that cannot be verified against the page's
    raw/ evidence trail — adjudicate each: real drift gets fixed against the
@@ -30,7 +35,11 @@ Load the `wiki-maintainer` skill and follow its **Lint** workflow.
    between pages, claims superseded by newer sources, concepts referenced but
    unwritten, and missing cross-references.
 5. Apply only safe, unambiguous fixes; present the rest as a proposed change list
-   for the user to approve. Stamp `reviewed` on pages you touch. Write the log entry:
+   for the user to approve when not already authorized. Set `updated` on edited
+   pages; stamp `reviewed` only where claims were actually verified against their
+   evidence or current project behavior. Mechanical links, aliases and formatting
+   preserve prior `reviewed` dates. Record what was checked and what remains
+   uncertain. Write the log entry:
    `node ../../scripts/log-entry.mjs --op lint --title "<summary>"` (details on stdin).
 6. Close the operation:
    `node ../../scripts/op-commit.mjs --op lint --title "<summary>" --since $TOKEN`

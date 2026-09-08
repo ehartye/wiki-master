@@ -1,0 +1,2013 @@
+{
+  "version": 1,
+  "datasetHash": "3c477c963dd557b28038357c169922239f2f727fcf67e63d83e6c5f29cf9161b",
+  "split": "all",
+  "status": "incomplete",
+  "coverage": {
+    "total": 40,
+    "selected": 40,
+    "evaluated": 40,
+    "failed": 0,
+    "expectedFilesChecked": true,
+    "missingExpectedPages": 0,
+    "missingExpectedData": 0,
+    "passageExpected": 1,
+    "passageEvaluated": 0,
+    "evidenceExpected": 2,
+    "evidenceEvaluated": 0
+  },
+  "summary": {
+    "pageRecallAt10": 0.8875,
+    "precisionAt3": 0.31666666666666665,
+    "reciprocalRank": 0.7675,
+    "passageHitRate": null,
+    "evidenceRecall": null,
+    "evidenceCorrectness": null,
+    "latencyMs": 173.7253099999998,
+    "outputCharacters": 48929,
+    "estimatedTokens": 12250
+  },
+  "byCategory": {
+    "alias": {
+      "selected": 8,
+      "evaluated": 8,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 0.875,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 77.86304999999987,
+      "outputCharacters": 9427,
+      "estimatedTokens": 2360
+    },
+    "complement": {
+      "selected": 6,
+      "evaluated": 6,
+      "pageRecallAt10": 0.9166666666666666,
+      "precisionAt3": 0.5,
+      "reciprocalRank": 0.8333333333333334,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 77.47273333333276,
+      "outputCharacters": 7199,
+      "estimatedTokens": 1802
+    },
+    "exact": {
+      "selected": 8,
+      "evaluated": 8,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 0.875,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 78.34734999999989,
+      "outputCharacters": 9718,
+      "estimatedTokens": 2433
+    },
+    "paraphrase": {
+      "selected": 8,
+      "evaluated": 8,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 0.875,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 558.3795375000001,
+      "outputCharacters": 9997,
+      "estimatedTokens": 2503
+    },
+    "state": {
+      "selected": 4,
+      "evaluated": 4,
+      "pageRecallAt10": 0.75,
+      "precisionAt3": 0.25,
+      "reciprocalRank": 0.625,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 77.61057499999924,
+      "outputCharacters": 4786,
+      "estimatedTokens": 1199
+    },
+    "task": {
+      "selected": 6,
+      "evaluated": 6,
+      "pageRecallAt10": 0.5,
+      "precisionAt3": 0.1111111111111111,
+      "reciprocalRank": 0.3666666666666667,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 76.16903333333342,
+      "outputCharacters": 7802,
+      "estimatedTokens": 1953
+    }
+  },
+  "bySplit": {
+    "development": {
+      "selected": 30,
+      "evaluated": 30,
+      "pageRecallAt10": 0.9166666666666666,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 0.7899999999999999,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 205.35684666666643,
+      "outputCharacters": 36200,
+      "estimatedTokens": 9065
+    },
+    "heldout": {
+      "selected": 10,
+      "evaluated": 10,
+      "pageRecallAt10": 0.8,
+      "precisionAt3": 0.26666666666666666,
+      "reciprocalRank": 0.7,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 78.83069999999994,
+      "outputCharacters": 12729,
+      "estimatedTokens": 3185
+    }
+  },
+  "cost": {
+    "tokenEstimateMethod": "ceil(outputCharacters / 4); estimate, not tokenizer usage",
+    "latencyScope": "Search invocation only; reusable context construction and evaluation excluded."
+  },
+  "definitions": {
+    "precisionAt3": "Expected relevant pages among first three unique results, divided by 3.",
+    "passageHitRate": "Expected literal substrings found in returned passages for the expected page (case-insensitive).",
+    "evidenceCorrectness": "Expected evidence hits / (expected + forbidden evidence hits); other paths are unjudged. No entailment judgment.",
+    "evidenceResolution": "Returned provenance resolved through source/raw citation routes when a vault is supplied. Legacy outputs without provenance are unavailable.",
+    "aggregation": "Macro means over evaluated non-null metrics; inspect coverage, missing ground truth and per-question failures."
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "query": "Agent Memory",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1201,
+      "estimatedTokens": 301,
+      "latencyMs": 107.8789999999999,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/entities/MemGPT.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/sources/Meta-Cognitive Memory Policy Optimization for Long-Horizon LLM Agents.md",
+        "wiki/sources/Generative Agents - Interactive Simulacra of Human Behavior.md",
+        "wiki/concepts/Second Brain.md",
+        "wiki/sources/Voyager — An Open-Ended Embodied Agent.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q02",
+      "query": "LLM Wiki Pattern",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1190,
+      "estimatedTokens": 298,
+      "latencyMs": 70.03039999999964,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/LLM Wiki Maintenance - Drift, Contradictions and Review.md",
+        "wiki/sources/llms-execute-financial-trading-instructions.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/concepts/Knowledge Graph Construction.md",
+        "wiki/sources/OpenHands — LLM Provider Support.md",
+        "wiki/sources/llms-execute-parent-orders.md",
+        "wiki/concepts/Reported LLM alpha is not deployment evidence.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q03",
+      "query": "Implementation Intentions",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1147,
+      "estimatedTokens": 287,
+      "latencyMs": 66.50839999999971,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Goal Setting Theory.md",
+        "wiki/syntheses/Parent-Proposed Goals as a Team Process.md",
+        "wiki/concepts/Psychological Ownership of Goals.md",
+        "wiki/concepts/Habit Formation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q04",
+      "query": "Adaptive Audio",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Audio.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1097,
+      "estimatedTokens": 275,
+      "latencyMs": 83.20759999999973,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Adaptive Audio.md",
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Interactive Audio.md",
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Web Audio Platform.md",
+        "wiki/sources/Web Audio API 1.1 Spec.md",
+        "wiki/sources/MDN — Web Audio Best Practices.md",
+        "wiki/concepts/Audio-First Choosing.md",
+        "wiki/concepts/The Preparatory Function.md",
+        "wiki/concepts/Redbook Audio as a Step Backward.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q05",
+      "query": "STEM Education",
+      "split": "development",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1285,
+      "estimatedTokens": 322,
+      "latencyMs": 88.5313000000001,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/STEM Education.md",
+        "wiki/sources/Tennessee K-5 STEM Standards Framework.md",
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/concepts/Curriculum Narrowing.md",
+        "wiki/sources/Is It Possible for Young Students to Lea.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/sources/Education Week — Social Studies and Science Get Short Shrift in Elementary Schools.md",
+        "wiki/sources/McCulloch and Lovett — Exploring Math with Technology.md",
+        "wiki/sources/Shukla — On Teaching Mathematics to Gifted Students.md",
+        "wiki/concepts/Intelligent Tutoring Systems.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q06",
+      "query": "Game-Based Learning",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1188,
+      "estimatedTokens": 297,
+      "latencyMs": 65.1878999999999,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Game-Based Learning.md",
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/concepts/Gamified Learning.md",
+        "wiki/sources/Landers — Theory of Gamified Learning.md",
+        "wiki/sources/Plass, Homer & Kinzer — Foundations of GBL.md",
+        "wiki/concepts/Teacher Adoption of GBL.md",
+        "wiki/syntheses/Video Games and Learning — Overview.md",
+        "wiki/sources/The influence of game in e learning an e.md",
+        "wiki/sources/Becker — Teaching Teachers DGBL.md",
+        "wiki/concepts/Learning Mechanics and Game Mechanics.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q07",
+      "query": "Second Brain",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Second Brain.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1363,
+      "estimatedTokens": 341,
+      "latencyMs": 66.10150000000021,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Second Brain.md",
+        "wiki/sources/A General Method for Assessing Brain-Computer Interface Performance and its Limitations.md",
+        "wiki/sources/Gruber, Gelman and Ranganath — States of Curiosity Modulate Hippocampus-Dependent Learning.md",
+        "wiki/sources/Gruber and Ranganath — The PACE Framework.md",
+        "wiki/sources/Information Transfer Rate in Brain-Computer Interfaces.md",
+        "wiki/sources/Simons et al — Do Brain-Training Programs Work.md",
+        "wiki/sources/Zettelkasten as a Coping Mechanism.md",
+        "wiki/sources/CBT Components and Cognitive Mechanisms.md",
+        "wiki/sources/A Binaural Auditory Model.md",
+        "wiki/sources/Battista — Cognition-Based Assessment Levels for Fractions.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q08",
+      "query": "Fusion vs Fission",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Fusion vs Fission.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1247,
+      "estimatedTokens": 312,
+      "latencyMs": 79.33269999999993,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/sources/Physics for Kids- Nuclear Energy and Fission.md",
+        "wiki/concepts/Fusion Breakeven and Ignition.md",
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/sources/DOE Explains...Fusion Reactions.md",
+        "wiki/sources/Introduction — Fusion, Forever the Energy of Tomorrow.md",
+        "wiki/concepts/Conditions for Fusion.md",
+        "wiki/sources/In a breakthrough experiment, fusion gave off more energy than it used.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q09",
+      "query": "RAG",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1198,
+      "estimatedTokens": 300,
+      "latencyMs": 61.458000000000084,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/sources/jackwrichards — UnityMCP.md",
+        "wiki/sources/riganything.md",
+        "wiki/authored/hartye-party/guides/hartye-party — Contributing.md",
+        "wiki/sources/Owens — Jazz Brushes and Good Time.md",
+        "wiki/authored/hartye-party/backlog/first-player-should-rotate-between-bouts.md",
+        "wiki/sources/Civil Rights Act (1964).md",
+        "wiki/authored/anikademy/backlog/scratch-pad.md",
+        "wiki/concepts/Arts Education Standards.md",
+        "wiki/sources/The Book of Shaders — Patterns.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q10",
+      "query": "If-then planning",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1218,
+      "estimatedTokens": 305,
+      "latencyMs": 92.70329999999967,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Conditionalizing Sequences.md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Menu Planning vs Inventory Shopping.md",
+        "wiki/authored/aftershift/overview.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/authored/north-star/North Star — Roadmap.md",
+        "wiki/concepts/Informal Before Formal.md",
+        "wiki/sources/Carver's Formulas for Futures Position Sizing.md",
+        "wiki/concepts/Alternative Contracting Methods.md",
+        "wiki/sources/Portfolio Construction Through Handcrafting - The Method.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q11",
+      "query": "Intention–behavior gap",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Intention-Action Gap.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1146,
+      "estimatedTokens": 287,
+      "latencyMs": 80.84969999999976,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/concepts/Mere-Measurement Effect.md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Information Gap Theory of Curiosity.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Habit Formation.md",
+        "wiki/sources/Mere-Measurement Effect (Wikipedia).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q12",
+      "query": "Self regulation",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1200,
+      "estimatedTokens": 300,
+      "latencyMs": 72.9726999999998,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Habit Formation.md",
+        "wiki/sources/CCI Self-Help Workbooks.md",
+        "wiki/concepts/Autonomy Support.md",
+        "wiki/sources/Self-Regulatory BCT Meta-Review.md",
+        "wiki/syntheses/apcademy-government/articles/2.13 Discretionary and Rulemaking Authority.md",
+        "wiki/concepts/Self-Determination Theory.md",
+        "wiki/sources/PAIR Guidebook — Feedback and Controls.md",
+        "wiki/concepts/Self-Monitoring.md",
+        "wiki/sources/Çelik — Parental Autonomy Support and Adolescent Academic Motivation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q13",
+      "query": "LLM-maintained wiki",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1234,
+      "estimatedTokens": 309,
+      "latencyMs": 85.66289999999981,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/LLM Wiki Maintenance - Drift, Contradictions and Review.md",
+        "wiki/sources/OpenHands — LLM Provider Support.md",
+        "wiki/concepts/Knowledge Graph Construction.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/sources/From Human Experts to Machines - LLM-Supported Ontology and KG Construction.md",
+        "wiki/concepts/Maintenance Rot in Machine-Written Knowledge Bases.md",
+        "wiki/sources/claude-obsidian AGENTS.md (repo).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q14",
+      "query": "Agent-readable knowledge base",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1119,
+      "estimatedTokens": 280,
+      "latencyMs": 83.1900999999998,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Agent-Readable Vault.md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/syntheses/Authoring Agent Skills.md",
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/Second Brain.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/concepts/Agent Skills (Open Standard).md",
+        "wiki/concepts/ETH AGENTS.md Study.md",
+        "wiki/sources/Memory in the Age of AI Agents.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q15",
+      "query": "Dynamic music techniques",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1094,
+      "estimatedTokens": 274,
+      "latencyMs": 69.88290000000006,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Percussion Against Pitched Material.md",
+        "wiki/concepts/iMUSE.md",
+        "wiki/concepts/The Stinger.md",
+        "wiki/concepts/The Transition Matrix.md",
+        "wiki/concepts/Anticipatory and Procedural Cues.md",
+        "wiki/sources/Owens — Jazz Brushes and Good Time.md",
+        "wiki/concepts/Generative Music.md",
+        "wiki/concepts/Gameplay-Driven Music.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q16",
+      "query": "STEM versus STEAM",
+      "split": "development",
+      "category": "alias",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM and STEAM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1218,
+      "estimatedTokens": 305,
+      "latencyMs": 76.1848,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/sources/Steam Audio — Spatialization Settings.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/authored/anikademy/reference/learn-more-earth-and-sky.md",
+        "wiki/concepts/STEM Education.md",
+        "wiki/sources/Gacha Chess — Stockfish to Unreal via Pipes.md",
+        "wiki/concepts/Game Feel and Juice.md",
+        "wiki/sources/Tennessee K-5 STEM Standards Framework.md",
+        "wiki/sources/Is It Possible for Young Students to Lea.md",
+        "wiki/authored/aftershift/architecture.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q17",
+      "query": "How can an AI agent remember information across separate sessions?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1198,
+      "estimatedTokens": 300,
+      "latencyMs": 91.69380000000001,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/concepts/AI Coaching.md",
+        "wiki/concepts/Second Brain.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md",
+        "wiki/sources/Choffin et al — DAS3H Modeling Student Learning and Forgetting.md",
+        "wiki/sources/Choffin et al — DAS3H (Learning and Forgetting over Multiple Skills).md",
+        "wiki/sources/Basic Memory - Markdown Knowledge Graph for AI Agents.md",
+        "wiki/sources/PAIR Guidebook — Mental Models.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q18",
+      "query": "Why compile knowledge into a persistent wiki instead of retrieving raw documents every time?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1134,
+      "estimatedTokens": 284,
+      "latencyMs": 3841.1955000000003,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/Maintenance Rot in Machine-Written Knowledge Bases.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/sources/LLM Wiki (Karpathy pattern).md",
+        "wiki/concepts/Knowledge Graph Construction.md",
+        "wiki/concepts/Second Brain.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/sources/LLM Wiki Maintenance - Drift, Contradictions and Review.md",
+        "wiki/concepts/Agent Memory.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q19",
+      "query": "How do I link a situational cue to a specific action toward a goal?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [
+        "Expected passage metric unavailable: search output omits passages.",
+        "Expected evidence metrics unavailable: search output omits provenance."
+      ],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1173,
+      "estimatedTokens": 294,
+      "latencyMs": 98.20039999999972,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/The Preparatory Function.md",
+        "wiki/concepts/Anticipatory and Procedural Cues.md",
+        "wiki/concepts/Goal Setting Theory.md",
+        "wiki/syntheses/Parent-Proposed Goals as a Team Process.md",
+        "wiki/sources/Strengthening Relationships Through Goals.md",
+        "wiki/authored/anikademy/backlog/day-beat-next-prompt.md",
+        "wiki/concepts/Predictive Aim.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/sources/W3C Pointer Events Level 3.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q20",
+      "query": "How do I trace each generated statement back to the evidence that supports it?",
+      "split": "development",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1297,
+      "estimatedTokens": 325,
+      "latencyMs": 92.17259999999987,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Model-Based Data Auditing.md",
+        "wiki/concepts/Source Attribution.md",
+        "wiki/sources/Bai et al — A Survey of Explainable Knowledge Tracing.md",
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/concepts/Correlated indicators are not confirmations.md",
+        "wiki/authored/Tools That Infer State Fail Silently.md",
+        "wiki/concepts/Knowledge Tracing.md",
+        "wiki/sources/Quantifying and Combining Crypto Alphas.md",
+        "wiki/sources/rapid-regression-detection-sequential-testing.md",
+        "wiki/sources/garcia-seuma-measuring-liquidation-cascade-engine.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q21",
+      "query": "What distinguishes learning through gameplay from merely adding rewards?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1211,
+      "estimatedTokens": 303,
+      "latencyMs": 106.1840000000002,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Game-Based Learning.md",
+        "wiki/concepts/Measuring Whether a Game Taught Anything.md",
+        "wiki/concepts/Gamified Learning.md",
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/concepts/Challenge, Flow and Engagement.md",
+        "wiki/syntheses/Video Games and Learning — Overview.md",
+        "wiki/sources/Plass, Homer & Kinzer — Foundations of GBL.md",
+        "wiki/sources/Hamari et al — Challenge and Engagement.md",
+        "wiki/concepts/Why Most Educational Games Are Mediocre.md",
+        "wiki/sources/Landers — Theory of Gamified Learning.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q22",
+      "query": "Why can comparing too many choices overwhelm a young child?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1272,
+      "estimatedTokens": 318,
+      "latencyMs": 78.94729999999981,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/sources/Toddlers Do Not Show Choice Overload.md",
+        "wiki/concepts/Cognitive Load and Choice.md",
+        "wiki/sources/Schupak & Peer — Choice Overload Among Children.md",
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/sources/Maimaran — Choice-Set Size and Children.md",
+        "wiki/sources/Choice Overload Moderators.md",
+        "wiki/sources/Boyer, Levine and Huttenlocher — Where Young Children Go Wrong in Proportional Reasoning.md",
+        "wiki/sources/Aesthetic Preference and Symmetry in Children.md",
+        "wiki/syntheses/Designing a Child's Sound Picker — Overview.md",
+        "wiki/sources/Working Memory Maturation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q23",
+      "query": "Do spacing practice and retrieving answers have the same evidence in mathematics?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Spacing and Retrieval Practice in Mathematics.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1410,
+      "estimatedTokens": 353,
+      "latencyMs": 63.13220000000001,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Spacing and Retrieval Practice in Mathematics.md",
+        "wiki/sources/Murray et al — Spacing and Retrieval Practice for Mathematics.md",
+        "wiki/sources/Ophuis-Cox, Catrysse & Camp — Retrieval Practice for Multiplication Fluency.md",
+        "wiki/sources/Karpicke, Blunt & Smith — Retrieval Practice in Elementary School Children.md",
+        "wiki/sources/Math Anxiety, Task Timing and Task Complexity.md",
+        "wiki/authored/anikademy/reference/learn-more-measure-mountain.md",
+        "wiki/sources/Tokac, Novak and Thompson — Game-Based Learning and Mathematics Achievement.md",
+        "wiki/concepts/Knowledge Tracing.md",
+        "wiki/sources/Boaler — Fluency Without Fear.md",
+        "wiki/sources/Choffin et al — DAS3H Modeling Student Learning and Forgetting.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q24",
+      "query": "Why does achieving fusion ignition not mean a power plant produces net electricity?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Fusion Breakeven and Ignition.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1302,
+      "estimatedTokens": 326,
+      "latencyMs": 95.51050000000032,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Fusion Breakeven and Ignition.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/sources/What is Fusion.md",
+        "wiki/sources/Introduction — Fusion, Forever the Energy of Tomorrow.md",
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/sources/A major ‘fusion breakthrough’ was just officially announced in the US. But what does it actually mean.md",
+        "wiki/sources/In a breakthrough experiment, fusion gave off more energy than it used.md",
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "wiki/concepts/Magnetic Confinement and Tokamaks.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q25",
+      "query": "What did our wiki navigation scaling measurements find?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1334,
+      "estimatedTokens": 334,
+      "latencyMs": 66.10660000000007,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md",
+        "wiki/concepts/Index-Only Navigation Is Untested at This Scale.md",
+        "wiki/concepts/sEMG Input Bandwidth.md",
+        "wiki/sources/Discrete-Selection and Focus Traversal Research.md",
+        "wiki/sources/Clements and Sarama — Learning Trajectories Index.md",
+        "wiki/sources/Information Transfer Rate in Brain-Computer Interfaces.md",
+        "wiki/concepts/Ray-Ban Display Input — Measured on Device.md",
+        "wiki/authored/anikademy/reference/sights-wayfinder.md",
+        "wiki/sources/Thorne — Using a Floating Origin in Large Virtual Worlds.md",
+        "wiki/sources/O'Neil — A Real-Time Procedural Universe, Part Three (Matters of Scale).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q26",
+      "query": "In what order should I teach nuclear fusion concepts to children?",
+      "split": "heldout",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/Fusion for Kids - Concept Ladder.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0,
+        "precisionAt3": 0,
+        "reciprocalRank": 0,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1205,
+      "estimatedTokens": 302,
+      "latencyMs": 91.1876999999995,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "wiki/concepts/Nuclear Science Education.md",
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "wiki/sources/Physics for Kids- Nuclear Energy and Fission.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/concepts/Plasma and Fusion Education.md",
+        "wiki/syntheses/Gamified Fusion Learning Framework.md",
+        "wiki/sources/Interactive P and E Method in Teaching P.md",
+        "wiki/sources/DOE Explains...Fusion Reactions.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q27",
+      "query": "Where should I start exploring procedural graphics techniques?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/Procedural Graphics.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0,
+        "precisionAt3": 0,
+        "reciprocalRank": 0,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1318,
+      "estimatedTokens": 330,
+      "latencyMs": 87.28039999999964,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Procedural generation.md",
+        "wiki/concepts/Procedural content generation.md",
+        "wiki/concepts/Procedural modeling.md",
+        "wiki/sources/Hendrikx et al — Procedural Content Generation for Games.md",
+        "wiki/sources/De Carli et al — A Survey of Procedural Content Generation Techniques.md",
+        "wiki/concepts/Procedural texturing.md",
+        "wiki/sources/Rodrigues et al — Procedural Virtual Worlds.md",
+        "wiki/sources/Hidalgo et al — Procedural Graphics Model and Behavior Generation.md",
+        "wiki/sources/Smelik et al — Interactive Creation of Virtual Worlds Using Procedural Sketching.md",
+        "wiki/concepts/Art-Directed Procedural Generation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q28",
+      "query": "How should a builder navigate Meta Ray-Ban display research and design decisions?",
+      "split": "heldout",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/meta-ray-ban-display.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0,
+        "precisionAt3": 0,
+        "reciprocalRank": 0,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1355,
+      "estimatedTokens": 339,
+      "latencyMs": 69.4350999999997,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/syntheses/Meta Ray-Ban Display Development — Overview.md",
+        "wiki/sources/Developers Are Building Impressive Apps For Meta Ray-Ban Display's HUD & Neural Band.md",
+        "wiki/syntheses/Games on Meta Ray-Ban Display.md",
+        "wiki/sources/Meta Ray-Ban Display Developer Preview- SDK Paths and Platform Gaps.md",
+        "wiki/entities/Meta Ray-Ban Display.md",
+        "wiki/sources/SkarredGhost — Ray-Ban Display Hands-On Impressions.md",
+        "wiki/sources/Road to VR - Ray-Ban Display Hands-On.md",
+        "wiki/sources/Web Apps Test Guide (Ray-Ban Display).md",
+        "wiki/sources/Web Apps Build Guide (Ray-Ban Display).md",
+        "wiki/sources/Meta is bringing third-party apps and games to its display glasses.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q29",
+      "query": "What structure makes an Obsidian knowledge base readable and maintainable by an agent?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1170,
+      "estimatedTokens": 293,
+      "latencyMs": 77.7430000000004,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Agent-Readable Vault.md",
+        "wiki/entities/Obsidian.md",
+        "wiki/sources/Obsidian Second Brain with Claude Code - My Agent-Readable Vault Setup.md",
+        "wiki/sources/kepano obsidian-skills - Agent Skills for Obsidian.md",
+        "wiki/entities/Steph Ango.md",
+        "wiki/sources/claude-obsidian AGENTS.md (repo).md",
+        "wiki/sources/Obsidian Bases Syntax.md",
+        "wiki/sources/The TL;DR of Claude Code Inside Obsidian.md",
+        "wiki/entities/wiki-master.md",
+        "wiki/sources/Obsidian CLI (official reference).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q30",
+      "query": "How do we judge whether an AI generated citation actually supports the statement?",
+      "split": "development",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0,
+        "reciprocalRank": 0.2,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1420,
+      "estimatedTokens": 355,
+      "latencyMs": 65.26140000000123,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Fabricated Citations.md",
+        "wiki/sources/Benefits and Limitations of the Artifici.md",
+        "wiki/sources/Confabulated References in the Age of AI — Contamination of the Biomedical Scientific Literature.md",
+        "wiki/sources/Investigating and Designing for Trust in AI-powered Code Generation Tools.md",
+        "wiki/concepts/Source Attribution.md",
+        "wiki/sources/GhostCite — A Large-Scale Analysis of Citation Validity in the Age of Large Language Models.md",
+        "wiki/sources/Artificial Intelligence Assistant for Ma.md",
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/sources/Artificial intelligence AI learning tool.md",
+        "wiki/sources/Uses Artificial intelligence in Mathemat.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q31",
+      "query": "How do self-regulation, the intention-action gap, and if-then plans fit together?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [
+        "Expected evidence metrics unavailable: search output omits provenance."
+      ],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1132,
+      "estimatedTokens": 283,
+      "latencyMs": 69.03269999999975,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/concepts/Habit Formation.md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Goal Setting Theory.md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Self-Determination Theory.md",
+        "wiki/concepts/Psychological Ownership of Goals.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q32",
+      "query": "How is agent memory related to context engineering and a maintained LLM wiki?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/Context Engineering.md",
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1142,
+      "estimatedTokens": 286,
+      "latencyMs": 79.85279999999875,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/sources/Memory in the Age of AI Agents.md",
+        "wiki/concepts/Context Engineering.md",
+        "wiki/entities/MemGPT.md",
+        "wiki/sources/MemGPT - Towards LLMs as Operating Systems.md",
+        "wiki/entities/Basic Memory.md",
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/LLM Wiki Pattern.md",
+        "wiki/sources/Meta-Cognitive Memory Policy Optimization for Long-Horizon LLM Agents.md",
+        "wiki/sources/Memp — Agent Procedural Memory.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q33",
+      "query": "How does integrated STEM education relate to adding the arts through STEAM?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md",
+        "wiki/concepts/STEM and STEAM Education.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1270,
+      "estimatedTokens": 318,
+      "latencyMs": 78.87129999999888,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/STEM and STEAM Education.md",
+        "wiki/sources/Is It Possible for Young Students to Lea.md",
+        "wiki/concepts/STEM Education.md",
+        "wiki/sources/Gui et al — Digital Game and Game Design in STEM Learning.md",
+        "wiki/sources/Sun, Siklander and Ruokamo — Triggering Interest in Digital Learning Environments.md",
+        "wiki/sources/McCulloch and Lovett — Exploring Math with Technology.md",
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/concepts/Experiential Learning.md",
+        "wiki/syntheses/Video Games and Learning — Overview.md",
+        "wiki/sources/Pluig n Train A Component Based Approach.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q34",
+      "query": "Why is adaptive music sometimes called dynamic even though adaptive audio has a narrower meaning?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Adaptive Audio.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1118,
+      "estimatedTokens": 280,
+      "latencyMs": 86.53200000000106,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Dynamic Audio.md",
+        "wiki/concepts/Adaptive Audio.md",
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Interactive Audio.md",
+        "wiki/concepts/Limited Adaptability of Licensed Music.md",
+        "wiki/concepts/iMUSE.md",
+        "wiki/concepts/Diegetic Game Music.md",
+        "wiki/concepts/Redbook Audio as a Step Backward.md",
+        "wiki/concepts/Mood Tagging and the Loss of the Gesamtkunstwerk.md",
+        "wiki/concepts/Gameplay-Driven Music.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q35",
+      "query": "How do child choice design and cognitive load inform a small sound picker?",
+      "split": "heldout",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1176,
+      "estimatedTokens": 294,
+      "latencyMs": 73.28809999999976,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/syntheses/Designing a Child's Sound Picker — Overview.md",
+        "wiki/concepts/Cognitive Load and Choice.md",
+        "wiki/concepts/Audio-First Choosing.md",
+        "wiki/sources/Choice Overload Moderators.md",
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/sources/Maimaran — Choice-Set Size and Children.md",
+        "wiki/sources/Toddlers Do Not Show Choice Overload.md",
+        "wiki/sources/Schupak & Peer — Choice Overload Among Children.md",
+        "wiki/sources/Working Memory Maturation.md",
+        "wiki/syntheses/Anika's Surface.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q36",
+      "query": "Why does retrieving relevant documents not guarantee correct source attribution?",
+      "split": "development",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/Source Attribution.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0.5,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1361,
+      "estimatedTokens": 341,
+      "latencyMs": 77.2594999999983,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/concepts/Source Attribution.md",
+        "wiki/sources/Cited but Not Verified — Parsing and Evaluating Source Attribution in LLM Deep Research Agents.md",
+        "wiki/concepts/Fabricated Citations.md",
+        "wiki/sources/Attribution, Citation, and Quotation — A Survey of Evidence-based Text Generation with LLMs.md",
+        "wiki/sources/Government in America - Owned Scan.md",
+        "wiki/concepts/A Stale Passage in an Authoritative Source Propagates.md",
+        "wiki/authored/apcademy-government/decisions/null-not-guessed-adr.md",
+        "wiki/authored/book-nom/overview.md",
+        "wiki/authored/Bare-Title Citations Are a Latent Collision.md",
+        "wiki/concepts/Novices Cannot Reason From Sources They Lack Concepts For.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q37",
+      "query": "OCR fidelity decision",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "project": "wiki-master",
+        "type": "authored"
+      },
+      "expectedPages": [
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1297,
+      "estimatedTokens": 325,
+      "latencyMs": 77.259399999999,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md",
+        "wiki/sources/cftc-nano-bitcoin-perp-style-futures.md",
+        "wiki/sources/OECD — Impact of Digital Technologies on Students' Learning.md",
+        "wiki/concepts/Document Image Dewarping.md",
+        "wiki/concepts/Pre-Committed Verdict Criteria.md",
+        "wiki/authored/north-star/North Star — Decision Record.md",
+        "wiki/authored/money-machine/decisions/signals-are-registered-hypotheses-adr.md",
+        "wiki/syntheses/evidence-bearing-on-the-money-machine-go-live-decision.md",
+        "wiki/authored/money-machine/diagrams/fidelity-gradient.md",
+        "wiki/sources/Citizens United v. FEC (2010).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q38",
+      "query": "Implementation Intentions",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "type": "concept",
+        "status": "stub"
+      },
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1147,
+      "estimatedTokens": 287,
+      "latencyMs": 69.3796999999995,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/sources/Gollwitzer — Implementation Intentions (primary).md",
+        "wiki/concepts/Implementation Intentions.md",
+        "wiki/concepts/Goal Setting and Behavior Change.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/sources/MCII Meta-Analysis.md",
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Goal Setting Theory.md",
+        "wiki/syntheses/Parent-Proposed Goals as a Team Process.md",
+        "wiki/concepts/Psychological Ownership of Goals.md",
+        "wiki/concepts/Habit Formation.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q39",
+      "query": "index scaling",
+      "split": "development",
+      "category": "state",
+      "options": {
+        "project": "wiki-master"
+      },
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1193,
+      "estimatedTokens": 299,
+      "latencyMs": 84.0023999999994,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md",
+        "wiki/concepts/Index-Only Navigation Is Untested at This Scale.md",
+        "wiki/sources/crypto-fear-and-greed-index.md",
+        "wiki/concepts/Cross-Sectional vs Time-Series Signals.md",
+        "wiki/sources/capstone-trend-following-2023-2025.md",
+        "wiki/concepts/Hardware Tiering.md",
+        "wiki/sources/barclayhedge-cta-indices.md",
+        "wiki/concepts/Material Price Adjustment Indices.md",
+        "wiki/concepts/Correlated indicators are not confirmations.md",
+        "wiki/sources/txdot-bid-item-index.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q40",
+      "query": "wiki-master roadmap",
+      "split": "development",
+      "category": "state",
+      "options": {},
+      "expectedPages": [
+        "wiki/authored/wiki-master/roadmap.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 0,
+        "precisionAt3": 0,
+        "reciprocalRank": 0,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 1149,
+      "estimatedTokens": 288,
+      "latencyMs": 79.80079999999907,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-unavailable",
+          "message": "Obsidian CLI timed out; controlled baseline disables keyword retrieval explicitly."
+        }
+      ],
+      "tier": "semantic-only",
+      "index": null,
+      "returnedPages": [
+        "wiki/authored/hartye-party/roadmap.md",
+        "wiki/authored/anikademy/roadmap.md",
+        "wiki/authored/north-star/North Star — Roadmap.md",
+        "wiki/authored/anikademy-math/roadmap.md",
+        "wiki/authored/claude-sprites/roadmap.md",
+        "wiki/authored/no-claudes-sky/no-claudes-sky — Roadmap.md",
+        "wiki/authored/apcademy-government/roadmap.md",
+        "wiki/sources/Meta — MRUK Overview (Unreal).md",
+        "wiki/authored/anikademy/Anikademy — Roadmap.md",
+        "wiki/sources/Meta — MRUK Getting Started (Unity).md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    }
+  ],
+  "condition": "Controlled semantic-only baseline at original commit 82059ee; Obsidian CLI unavailable. Original page-mean ranking and unmodified corpus/index. Not an end-to-end hybrid baseline."
+}

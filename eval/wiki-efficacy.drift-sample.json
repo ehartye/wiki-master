@@ -1,0 +1,342 @@
+{
+  "drifted": [],
+  "evaluated": [
+    {
+      "path": "wiki/concepts/2D Animation Generation.md",
+      "sim": 0.8489842389907819,
+      "sampling": {
+        "page": {
+          "total": 1,
+          "sampled": 1
+        },
+        "sources": {
+          "total": 2,
+          "sampled": 2,
+          "documents": [
+            {
+              "path": "raw/clippings/ComfyUI for Game Asset Pipelines- The Indie 2026 Playbook.md",
+              "total": 12,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/Sprite Sheet Diffusion- Generate Game Character for Animation.md",
+              "total": 6,
+              "sampled": 6
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/3D Animation Generation.md",
+      "sim": 0.8621373059520178,
+      "sampling": {
+        "page": {
+          "total": 3,
+          "sampled": 3
+        },
+        "sources": {
+          "total": 2,
+          "sampled": 2,
+          "documents": [
+            {
+              "path": "raw/clippings/SS4D- Native 4D Generative Model via Structured Spacetime Latents.md",
+              "total": 5,
+              "sampled": 5
+            },
+            {
+              "path": "raw/clippings/RigMo- Unifying Rig and Motion Learning for Generative Animation.md",
+              "total": 103,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/3D Generative Models.md",
+      "sim": 0.872697254577256,
+      "sampling": {
+        "page": {
+          "total": 1,
+          "sampled": 1
+        },
+        "sources": {
+          "total": 11,
+          "sampled": 8,
+          "documents": [
+            {
+              "path": "raw/clippings/TRELLIS 2 \u2014 Native and Compact Structured Latents for 3D Generation.md",
+              "total": 159,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/microsoft-TRELLIS.2- Native and Compact Structured Latents for 3D Generation.md",
+              "total": 31,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/Tencent-Hunyuan-Hunyuan3D-2.1- From Images to High-Fidelity 3D Assets with Production-Ready PBR Material.md",
+              "total": 13,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/Hunyuan3D-2.1-LICENSE at main.md",
+              "total": 25,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/3DGen-Bench- Comprehensive Benchmark Suite for 3D Generative Models.md",
+              "total": 166,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/SS4D- Native 4D Generative Model via Structured Spacetime Latents.md",
+              "total": 5,
+              "sampled": 5
+            },
+            {
+              "path": "raw/clippings/DreamCharacter-1- From 3D Generative Foundation Models to Product-Ready Character Generation.md",
+              "total": 7,
+              "sampled": 7
+            },
+            {
+              "path": "raw/clippings/Sketchfab & Objaverse- AI copyright dispute enters third dimension.md",
+              "total": 8,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A change of trend is the best stop loss.md",
+      "sim": 0.8198789601895916,
+      "sampling": {
+        "page": {
+          "total": 1,
+          "sampled": 1
+        },
+        "sources": {
+          "total": 1,
+          "sampled": 1,
+          "documents": [
+            {
+              "path": "raw/clippings/clare-seaton-smith-thomas-trend-following-stop-losses.md",
+              "total": 68,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A Dead Stream Leaves a Live-Looking Frame.md",
+      "sim": 0.8650300688129855,
+      "sampling": {
+        "page": {
+          "total": 5,
+          "sampled": 5
+        },
+        "sources": {
+          "total": 3,
+          "sampled": 3,
+          "documents": [
+            {
+              "path": "raw/clippings/flutter_meta_wearables_dat-agent-cursor-rules-dat-debugging.mdc at main.md",
+              "total": 4,
+              "sampled": 4
+            },
+            {
+              "path": "raw/clippings/flutter_meta_wearables_dat-agent-cursor-rules-dat-streaming.mdc at main.md",
+              "total": 5,
+              "sampled": 5
+            },
+            {
+              "path": "raw/clippings/swae-swae-Integrations-MetaGlasses-MetaGlassesManager.swift at main.md",
+              "total": 22,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A drawdown is not evidence the edge is gone.md",
+      "sim": 0.9110381671348875,
+      "sampling": {
+        "page": {
+          "total": 4,
+          "sampled": 4
+        },
+        "sources": {
+          "total": 3,
+          "sampled": 3,
+          "documents": [
+            {
+              "path": "raw/clippings/Equity Curve Trading Myths Analyzed.md",
+              "total": 33,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/Does Trend-Following Still Work on Stocks.md",
+              "total": 8,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/bailey-lopez-de-prado-pseudo-mathematics-backtest-overfitting.md",
+              "total": 129,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A resting stop-limit can fail to fill.md",
+      "sim": 0.8313772081454825,
+      "sampling": {
+        "page": {
+          "total": 4,
+          "sampled": 4
+        },
+        "sources": {
+          "total": 2,
+          "sampled": 2,
+          "documents": [
+            {
+              "path": "raw/clippings/Crypto Crash Oct 2025- Leverage Meets Liquidity.md",
+              "total": 13,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/cde-rulebook-april-2025.md",
+              "total": 710,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A Stale Passage in an Authoritative Source Propagates.md",
+      "sim": 0.8344834600690535,
+      "sampling": {
+        "page": {
+          "total": 10,
+          "sampled": 8
+        },
+        "sources": {
+          "total": 5,
+          "sampled": 5,
+          "documents": [
+            {
+              "path": "raw/clippings/ap-us-government-politics-ced-fall-2026.md",
+              "total": 532,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/ap-us-government-politics-ced-clarifications.md",
+              "total": 11,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/sauer-handout-required-documents-summaries.md",
+              "total": 14,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/sauer-assignment-federalist-39-analysis.md",
+              "total": 14,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/sauer-handout-15-supreme-court-cases.md",
+              "total": 1,
+              "sampled": 1
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A stop is a bet on serial correlation.md",
+      "sim": 0.9004037678661343,
+      "sampling": {
+        "page": {
+          "total": 5,
+          "sampled": 5
+        },
+        "sources": {
+          "total": 3,
+          "sampled": 3,
+          "documents": [
+            {
+              "path": "raw/clippings/kaminski-lo-when-do-stop-loss-rules-stop-losses.md",
+              "total": 132,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/han-zhou-zhu-taming-momentum-crashes-stop-loss.md",
+              "total": 151,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/clare-seaton-smith-thomas-trend-following-stop-losses.md",
+              "total": 68,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    },
+    {
+      "path": "wiki/concepts/A Swipe Is Not a Held Key.md",
+      "sim": 0.811947833765023,
+      "sampling": {
+        "page": {
+          "total": 3,
+          "sampled": 3
+        },
+        "sources": {
+          "total": 2,
+          "sampled": 2,
+          "documents": [
+            {
+              "path": "raw/clippings/Build.md",
+              "total": 80,
+              "sampled": 8
+            },
+            {
+              "path": "raw/clippings/rollinsio-gradioids- Vector asteroid shooter for Meta Ray-Ban Display glasses (MRBD web app).md",
+              "total": 12,
+              "sampled": 8
+            }
+          ]
+        },
+        "partial": true
+      }
+    }
+  ],
+  "failed": [],
+  "skipped": false,
+  "coverage": false,
+  "counts": {
+    "total": 1081,
+    "eligible": 1075,
+    "ineligible": 6,
+    "evaluated": 10,
+    "failed": 0,
+    "skipped": 1071,
+    "skippedEligible": 1065
+  }
+}

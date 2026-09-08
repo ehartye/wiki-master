@@ -31,7 +31,12 @@ than reimplementing its search-mechanics/health-disclosure logic here.
    raw/ check came back empty, say so in your answer.** A user reading a
    confident synthesis has no way to know the retrieval underneath it was
    degraded or incomplete.
-2. Synthesize an answer that **cites** the pages/sources it rests on. A raw/
+2. Inspect result passages, scope, factual review dates and decision/backlog
+   states (`search.mjs --json` exposes these). Read the canonical page, relevant
+   alternatives and supporting evidence. A proposed ADR or planned feature is
+   not current behavior. For cross-topic questions, follow explained relationship
+   links and verify the inferred connection; do not mistake neighbors for evidence.
+   Synthesize an answer that **cites** the pages/sources it rests on. A raw/
    hit (if `--include-raw` surfaced one) is unvetted evidence, not yet a
    reviewed claim — cite it as such, not as if it were an established
    wiki/ page. To verify a `wiki/` citation actually traces back to real

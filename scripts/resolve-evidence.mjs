@@ -19,7 +19,7 @@
 //   node scripts/search.mjs "topic" --include-raw | node scripts/resolve-evidence.mjs
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { buildGraph, buildNameIndex, evidencePaths } from './lib/graph.mjs';
+import { buildGraph, buildNameIndex, evidenceRoutes } from './lib/graph.mjs';
 
 // search.mjs only ever appends `:<line>` for a chunk-semantic hit (never for
 // a keyword-only or --include-raw hit) — see its own renderResult(). No
@@ -47,11 +47,12 @@ export function resolveEvidence(input, { pageByPath, byName }) {
   const page = pageByPath.get(path);
   if (!page) return { path, status: 'not-found' };
 
-  const evidence = evidencePaths(page, byName, pageByPath);
+  const routes = evidenceRoutes(page, byName, pageByPath);
+  const evidence = routes.map(route => route.path);
   const rawPaths = evidence.filter((p) => p.startsWith('raw/'));
   const sourcePaths = evidence.filter((p) => p.startsWith('wiki/sources/'));
 
-  if (rawPaths.length) return { path, status: 'resolved', rawPaths, sourcePaths };
+  if (rawPaths.length) return { path, status: 'resolved', rawPaths, sourcePaths, routes };
 
   // Only reached with zero raw/ evidence: a legitimate, disclosed absence
   // (wiki/authored/'s sources: []) reads as by-design, never as the same
@@ -85,6 +86,8 @@ export function formatEvidenceReport(result) {
       if (result.sourcePaths?.length) {
         lines.push('  via source page(s):', ...result.sourcePaths.map((p) => `    ${p}`));
       }
+      for (const route of result.routes ?? []) lines.push(`  ${route.kind} citation: ${route.via.join(' -> ')}`);
+      lines.push('  Citation reachability identifies evidence to inspect; it does not establish claim entailment.');
       return lines;
     }
     default:

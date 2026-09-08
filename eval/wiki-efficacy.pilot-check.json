@@ -1,0 +1,95 @@
+{
+  "conceptChecks": [
+    {
+      "path": "wiki/concepts/Adaptive Music Techniques.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "Dynamic music techniques"
+      ],
+      "scope": "Techniques for music that responds to play, using dynamic in Collins’s broad sense; not synonymous with the narrower adaptive-audio category."
+    },
+    {
+      "path": "wiki/concepts/Agent Memory.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "AI agent memory"
+      ],
+      "scope": "An agent persisting and retrieving its own experience or working state across contexts; distinct from a reader-owned wiki and query-time retrieval."
+    },
+    {
+      "path": "wiki/concepts/Agent-Readable Vault.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "Agent-readable knowledge base"
+      ],
+      "scope": "Vault structure and instructions that let an agent navigate and maintain Markdown knowledge predictably."
+    },
+    {
+      "path": "wiki/concepts/Implementation Intentions.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "If-then planning",
+        "If-then plans"
+      ],
+      "scope": "Cue-response plans for carrying out a goal intention when self-regulatory obstacles occur; conditional on the goal and situation."
+    },
+    {
+      "path": "wiki/concepts/Intention-Action Gap.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "Intention–behavior gap",
+        "Intention-behavior gap"
+      ],
+      "scope": "The failure to translate a goal intention into action; a problem to explain, not a planning technique."
+    },
+    {
+      "path": "wiki/concepts/LLM Wiki Pattern.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "LLM-maintained wiki",
+        "LLM wiki"
+      ],
+      "scope": "An LLM incrementally compiling and maintaining a persistent interlinked wiki over source material."
+    },
+    {
+      "path": "wiki/concepts/Retrieval-Augmented Generation.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "RAG"
+      ],
+      "scope": "Retrieving relevant external material into a generation context; distinct from maintaining a persistent knowledge artifact."
+    },
+    {
+      "path": "wiki/concepts/STEM Education.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "Integrated STEM education"
+      ],
+      "scope": "Connections among science, technology, engineering and mathematics, including the Tennessee K–5 process framework."
+    },
+    {
+      "path": "wiki/concepts/STEM and STEAM Education.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "STEM versus STEAM"
+      ],
+      "scope": "Integrated STEM and the addition of arts through STEAM; comparative curriculum framing rather than the Tennessee framework alone."
+    },
+    {
+      "path": "wiki/concepts/Self-Regulation.md",
+      "reviewPreserved": true,
+      "aliases": [
+        "Self regulation"
+      ],
+      "scope": "Processes that govern striving toward a goal after forming the intention; broader than any one planning intervention."
+    }
+  ],
+  "pilotBrokenLinks": [
+    {
+      "source": "wiki/concepts/Retrieval-Augmented Generation.md",
+      "target": "Evidence-based Text Generation"
+    }
+  ],
+  "pilotProvenanceGaps": [],
+  "pilotUnreachable": []
+}

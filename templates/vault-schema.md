@@ -41,6 +41,24 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   accumulating appended "Update (date): ..." paragraphs.
 
 ## Rules
+
+### Identity, relationships and verification
+
+Concepts may carry `aliases: ["equivalent name"]` and a one-sentence `scope:`.
+Search existing titles/aliases and neighboring concepts before creating a new one.
+Different scopes remain distinct pages; aliases do not mean broader or related.
+Use full-path links whenever a basename or alias is ambiguous.
+
+Keep supporting citations in `sources:` and factual prose. Put navigation in
+`## Relationships` or `Related:`, with an explanatory sentence and a small role
+vocabulary: broader, narrower, prerequisite, complements, alternative, contrasts,
+applies-to. Navigation does not make the destination supporting evidence.
+
+`reviewed` records factual verification. `updated` records edits. Mechanical
+changes preserve `reviewed`; missing review means unverified. Index freshness
+is a third, independent state. MOCs route tasks through prerequisites, alternatives,
+complementary topics and evidence; generated project catalogs are separate from
+curated task maps. See `_templates/concept-note.md` and `_templates/task-map.md`.
 - Raw is the source of truth. Every wiki page cites its `raw/` provenance —
   **except** `wiki/authored/`: original, primary content (advisory documentation,
   policy, house style) written directly into the wiki, not derived from a
