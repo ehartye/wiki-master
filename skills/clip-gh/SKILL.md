@@ -1,22 +1,12 @@
 ---
 name: clip-gh
-description: Clip a GitHub repository into the wiki as a bounded set of Markdown clippings — clone it to a temp directory (never into the vault), then write per-file clippings for a small repo, or an automatic bounded digest (manifest + per-module listings + a few anchor-file clips) for a large one, so output never scales 1:1 with file count. Use when a source is a GitHub repository (code, docs, or both) rather than a single page, PDF, or document.
+description: Use when asked to capture a GitHub repository as wiki evidence. Produces bounded Markdown clippings; use wiki-discover for a single web page and wiki-ingest for already captured repository clippings.
 argument-hint: "<owner/repo | github-url> [--ref=<branch>] [--quality=high|medium|low] [--topic=\"<topic>\"] [--max-files=N] [--max-groups=N] [--force-full] | --doctor"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
-> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
-> from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a GitHub repository into the wiki
 
@@ -168,10 +158,10 @@ per-file-mode clipping for a source file renamed or deleted upstream is
 ## Steps
 
 1. **Preflight** (once, or whenever a clip fails unexpectedly):
-   `node ../../scripts/clip-gh.mjs --doctor` — reports whether the `gh` CLI
+   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" --doctor` — reports whether the `gh` CLI
    is installed and authenticated.
 2. **Clip** (this is the only writer to `raw/` for GitHub repos):
-   `node ../../scripts/clip-gh.mjs <owner/repo | github-url> --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>"`
    - Accepts a bare `owner/repo`, a full `https://github.com/owner/repo` URL
      (`.git` suffix optional), or a `git@github.com:owner/repo.git` remote —
      all resolve to the same identity.
@@ -211,8 +201,8 @@ per-file-mode clipping for a source file renamed or deleted upstream is
    summarize into `wiki/sources/`, cross-reference, index, log. Start from
    `_repo-overview.md` for the repo-level summary, then pull in individual
    files (per-file mode) or a curated set of key-module write-ups informed
-   by the listings (digest mode) as evidence for specific claims. The
-   ingest is gated by the user as usual.
+   by the listings (digest mode) as evidence for specific claims. Ingest only when authorized for this scope; reuse explicit authorization
+   already supplied in the session.
 
 ## Guardrails
 
@@ -232,3 +222,12 @@ per-file-mode clipping for a source file renamed or deleted upstream is
   other ingest summary; never written into `raw/` as if they were
   verbatim source content.
 
+
+## Completion
+
+For a standalone clip, open an operation before the clipping helper writes, verify
+its returned paths and extraction diagnostics, log once, commit and verify
+already-authorized sync through the shared operations contract. During discovery,
+use the enclosing operation and report the results to its owner for completion.
+Capturing evidence does not by itself authorize ingestion; reuse explicit
+discover-and-ingest authorization when it is already present.

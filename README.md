@@ -93,6 +93,8 @@ the same workflows.
 
 See [retrieval, identity, relationships and verification](docs/wiki-efficacy.md) for rich agent search, read-only audits, task-map workflows and the 40-question retrieval evaluation.
 
+See [skill reliability](docs/skill-reliability.md) for bounded CLI fallback, shared completion rules and the behavioral regression suite.
+
 ## Configuration (environment variables)
 
 | Var | Default | Meaning |

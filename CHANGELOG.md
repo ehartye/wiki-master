@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.36.0 — 2026-09-08
+
+- Bound Obsidian calls and fall back to known-vault Markdown metadata for freshness reports when the app is unavailable; preserve missing factual reviews and disclose the backend.
+- Share mutation completion and authorized sync rules across skills, recover uncertain writes by inspecting their target, and preserve read-only workflows.
+- Reduce the maintainer core from 444 to 76 lines with focused policy references; clarify triggers and workflow boundaries across all 19 skills.
+- Add independently graded behavioral scenarios, portable lifecycle fixtures and regression tests. Correct the evidence-inspection omission found in the freshness probe; preserve failed runs and evaluation limits.
+
 ## 0.35.0 — 2026-09-08
 
 - Improve agent retrieval with canonical title/alias ranking, indexed task maps, filters, bounded passages and explicit backend/index diagnostics.

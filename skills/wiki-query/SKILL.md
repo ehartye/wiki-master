@@ -1,19 +1,12 @@
 ---
 name: wiki-query
-description: Ask a question against the wiki and get a synthesized, cited answer, with the option to file it back as a new page so knowledge compounds. Use whenever the user wants a narrative answer to a question, not just a list of matching pages — for pure retrieval (find what pages exist on a topic, locate a passage) use /wiki-search instead.
+description: Use when asked to answer a question using the wiki with citations or synthesize what it knows. For matching page lists or locating a passage use wiki-search; filing an answer requires authorization.
 argument-hint: <your question>
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-Load the `wiki-maintainer` skill and follow its **Query** workflow.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 Question: $ARGUMENTS
 
@@ -24,7 +17,7 @@ is `/wiki-search`'s job — load that skill and use it for step 1 below rather
 than reimplementing its search-mechanics/health-disclosure logic here.
 
 1. **Search**: load the `wiki-search` skill and run
-   `node ../../scripts/search.mjs "..."` (add `--include-raw` if the question
+   `node "<absolute-plugin-root>/scripts/search.mjs" "..."` (add `--include-raw` if the question
    is plausibly about something recent enough that it may only exist as an
    unprocessed clipping, not yet a wiki/ page). Read the stderr status
    line(s) `wiki-search` describes — **when the tier is not `hybrid`, or a
@@ -41,16 +34,13 @@ than reimplementing its search-mechanics/health-disclosure logic here.
    reviewed claim — cite it as such, not as if it were an established
    wiki/ page. To verify a `wiki/` citation actually traces back to real
    evidence (rather than a broken or title-drifted link), pipe it into
-   `node ../../scripts/resolve-evidence.mjs` — faster than opening the page
+   `node "<absolute-plugin-root>/scripts/resolve-evidence.mjs"` — faster than opening the page
    and reading its `sources:` frontmatter by hand, and it reports a genuine
    gap plainly rather than you assuming the citation is good.
-3. If the answer is substantive and not already captured, offer to file it as a new
-   `wiki/syntheses/<slug>.md` page (with provenance), then regenerate the catalog
-   (`node ../../scripts/index-gen.mjs`) and write the log entry:
-   `node ../../scripts/log-entry.mjs --op query --title "<question>"` (answer summary on stdin).
-
-   **Only if the user accepts**, bracket that write so it becomes a commit rather than
-   a working-tree change. Open before creating the page —
-   `TOKEN=$(node ../../scripts/op-begin.mjs --op query)` — and close after the log entry:
-   `node ../../scripts/op-commit.mjs --op query --title "<question>" --since $TOKEN`.
-   A query the user does not file back is read-only; never open an operation for it.
+3. If filing is already authorized and the answer adds substantive knowledge,
+   write or update the appropriate synthesis with provenance. Otherwise offer to
+   file a substantive new answer and wait for acceptance; answering alone is
+   read-only. Before creating or editing the page, open a query operation and
+   retain the token. Validate citations, regenerate the catalog, log once, close
+   the operation, and verify already-authorized sync using the directly linked
+   completion contract. Do not open an operation for an answer that is not filed.

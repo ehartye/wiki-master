@@ -12,31 +12,39 @@ export function buildArgs(name, args) {
   return [`vault=${name}`, ...args];
 }
 
-export function obsidian(args, { name = resolveVault().name } = {}) {
+// Reads normally finish in milliseconds. A hung app must not block an agent
+// indefinitely; callers with a known longer operation may supply a finite bound.
+export function obsidian(args, { name = resolveVault().name, timeout = 10_000, execFileSyncImpl = execFileSync } = {}) {
+  if (!Number.isFinite(timeout) || timeout <= 0) throw new Error('Obsidian timeout must be a positive finite number of milliseconds');
   try {
-    return execFileSync('obsidian', buildArgs(name, args), {
+    return execFileSyncImpl('obsidian', buildArgs(name, args), {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
+      timeout,
+      windowsHide: true,
     }).trim();
   } catch (err) {
+    if (err.code === 'ETIMEDOUT') throw new Error(`obsidian ${args[0]} timed out after ${timeout}ms; command outcome may be unknown`, { cause: err });
     const msg = (err.stderr || err.message || '').toString();
-    throw new Error(`obsidian ${args.join(' ')} failed: ${msg}`);
+    throw new Error(`obsidian ${args[0]} failed: ${msg}`, { cause: err });
   }
 }
 
 export function obsidianJson(args, opts) {
   const out = obsidian([...args, 'format=json'], opts);
-  return out ? JSON.parse(out) : null;
+  if (!out) return null;
+  try { return JSON.parse(out); }
+  catch (err) { throw new Error(`obsidian ${args[0]} returned invalid JSON`, { cause: err }); }
 }
 
-export function assertRunning() {
-  const { name } = resolveVault();
+export function assertRunning({ name = resolveVault().name, ...opts } = {}) {
   let vaults;
   try {
-    vaults = obsidian(['vaults'], { name });
-  } catch {
+    vaults = obsidian(['vaults'], { name, ...opts });
+  } catch (err) {
     throw new Error(
-      'Obsidian CLI unavailable. Ensure Obsidian 1.12+ is running and the CLI is enabled (Settings → General → Command line interface).'
+      `Obsidian CLI unavailable: ${err.message}. Ensure Obsidian 1.12+ is running and the CLI is enabled (Settings → General → Command line interface).`,
+      { cause: err }
     );
   }
   if (!vaults.split(/\r?\n/).some((l) => l.includes(name))) {

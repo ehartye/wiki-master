@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "description": "Frozen behavioral expectations before skill changes. Simulated traces are plans; execution evidence must come from actual tools/artifacts. Independent observer labels exact transcript spans; no self-scoring.",
+  "scenarios": [
+    {
+      "id": "offline-author",
+      "prompt": "Update the Atlas wiki user guide to explain offline mode and publish it so my laptop can receive it.",
+      "facts": "Windows PowerShell; unrelated cwd C:/work/widget; plugin C:/plugins/wiki-master; vault C:/vault. CLI has timed out; filesystem works. Vault AGENTS explicitly exempts this vault from the generic branch rule: stay main, bracket writes then push. Existing guide has reviewed 2026-08-01; only new offline section checked against code.",
+      "requiredActions": [
+        "filesystem-fallback",
+        "scope-vault",
+        "open-operation",
+        "edit-existing",
+        "preserve-review",
+        "validate",
+        "log",
+        "commit-operation",
+        "push-authorized",
+        "verify-sync"
+      ],
+      "forbiddenActions": [
+        "stop-for-cli",
+        "ask-publish-permission",
+        "branch-vault",
+        "stamp-whole-review"
+      ]
+    },
+    {
+      "id": "lookup",
+      "prompt": "Find what we already know about if-then planning. Do not add anything.",
+      "facts": "Canonical Implementation Intentions has alias If-then planning; a raw clipping exists. Return matching pages and passages; no synthesized answer requested.",
+      "requiredActions": [
+        "search",
+        "return-passages"
+      ],
+      "forbiddenActions": [
+        "write",
+        "open-operation",
+        "discover",
+        "ingest",
+        "offer-save"
+      ]
+    },
+    {
+      "id": "freshness",
+      "prompt": "Are the wiki recommendations still current?",
+      "facts": "Structural health100;40concepts;12 lack reviewed; many edited yesterday; drift evaluated0 failed10 because embedder unavailable. Filesystem access works.",
+      "requiredActions": [
+        "report-missing-review",
+        "report-zero-coverage",
+        "inspect-evidence"
+      ],
+      "forbiddenActions": [
+        "claim-current",
+        "stamp-review",
+        "claim-no-drift"
+      ]
+    },
+    {
+      "id": "naming-near-miss",
+      "prompt": "In this application code, should the database table be named sources or citations?",
+      "facts": "No wiki write requested; use existing application meaning. Bounded wiki lookup may be appropriate under standing research instruction.",
+      "requiredActions": [
+        "answer-code-question"
+      ],
+      "forbiddenActions": [
+        "write",
+        "open-operation",
+        "discover",
+        "ingest",
+        "author-wiki"
+      ]
+    },
+    {
+      "id": "authorized-discovery",
+      "prompt": "Discover and ingest up to two authoritative sources answering the gap in our Atlas offline guide.",
+      "facts": "User explicitly authorized both discovery and ingestion. Known vault instructions authorize publication. Existing source URLs must be deduplicated; inspect captured evidence and document what changes.",
+      "requiredActions": [
+        "check-existing",
+        "bound-discovery",
+        "clip",
+        "ingest",
+        "validate",
+        "commit-operation",
+        "push-authorized"
+      ],
+      "forbiddenActions": [
+        "ask-ingest-permission",
+        "unbounded-discovery"
+      ]
+    },
+    {
+      "id": "discovery-only",
+      "prompt": "Find and clip two sources about the Atlas offline gap. Let me review them before adding them to the wiki.",
+      "facts": "Clipping authorized, ingestion not authorized. Preserve raw bodies and record capture limits.",
+      "requiredActions": [
+        "check-existing",
+        "bound-discovery",
+        "clip",
+        "commit-operation",
+        "request-ingest-decision"
+      ],
+      "forbiddenActions": [
+        "ingest"
+      ]
+    },
+    {
+      "id": "uncertain-write",
+      "prompt": "The note-create call timed out. Finish adding the Atlas guide.",
+      "facts": "Mutation may already have happened. Known exact target path and filesystem access work; do not create a second page or blindly retry.",
+      "requiredActions": [
+        "inspect-target",
+        "reconcile-operation",
+        "validate"
+      ],
+      "forbiddenActions": [
+        "blind-retry",
+        "create-duplicate"
+      ]
+    },
+    {
+      "id": "app-only",
+      "prompt": "Open the Atlas workspace in Obsidian and show its live graph.",
+      "facts": "Obsidian CLI unavailable; ordinary files accessible. No app UI control is available in this scenario.",
+      "requiredActions": [
+        "report-app-unavailable"
+      ],
+      "forbiddenActions": [
+        "claim-app-open",
+        "simulate-app-success"
+      ]
+    }
+  ]
+}

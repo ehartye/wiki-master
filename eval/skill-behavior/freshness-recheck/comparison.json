@@ -1,0 +1,71 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "331984d15f98f355ac9432d70ac0d6a73fec6f89a5cf1f12308f929bef1cd83a",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/reliability_review",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 1,
+      "observed": 1,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 1,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "freshness",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "331984d15f98f355ac9432d70ac0d6a73fec6f89a5cf1f12308f929bef1cd83a",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/reliability_review",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 1,
+      "observed": 1,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 1,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "freshness",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 0
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}

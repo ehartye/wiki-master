@@ -1,5 +1,8 @@
-import { obsidianJson, assertRunning } from './lib/vault.mjs';
+import { obsidianJson, resolveVault } from './lib/vault.mjs';
 import { pathToFileURL } from 'node:url';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { parseNote } from './lib/note.mjs';
 
 const DAY = 86_400_000;
 const THRESHOLDS = { fresh: 30, aging: 90, stale: 180 }; // days; beyond stale => rotten
@@ -28,20 +31,66 @@ export function computeStale(pages, { today = new Date() } = {}) {
   return { buckets, report, missingReview };
 }
 
-// Reads pages via the native Bases dashboard (stale.base view "all").
-export function main() {
-  assertRunning();
-  const rows = obsidianJson(['base:query', 'file=stale.base', 'view=all']) || [];
-  const pages = rows.map((r) => ({
-    path: r['file.path'] ?? r.path ?? r.file,
-    reviewed: r.reviewed,
-    updated: r.updated,
-    type: r.type,
-  }));
-  const r = computeStale(pages, {});
-  console.log(r.report);
+function filesystemPages(vaultPath) {
+  const root = resolve(vaultPath);
+  const wiki = join(root, 'wiki');
+  const pages = [];
+  try {
+    if (!statSync(root).isDirectory() || !statSync(wiki).isDirectory()) throw new Error('expected a vault directory containing wiki/');
+    const walk = (folder, relative) => {
+      for (const entry of readdirSync(folder, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+        // Do not follow symlinks or traverse excluded material, even if nested.
+        if (entry.isSymbolicLink() || entry.name.startsWith('.') || entry.name === '_templates') continue;
+        const path = `${relative}/${entry.name}`;
+        if (entry.isDirectory()) walk(join(folder, entry.name), path);
+        else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+          const { metadata } = parseNote(readFileSync(join(folder, entry.name), 'utf8'));
+          pages.push({ path, reviewed: metadata.reviewed, updated: metadata.updated, type: metadata.type });
+        }
+      }
+    };
+    walk(wiki, 'wiki');
+    return pages;
+  } catch (err) {
+    throw new Error(`Freshness unavailable: cannot read vault wiki metadata at ${wiki}: ${err.message}`, { cause: err });
+  }
+}
+
+function cliPages(rows) {
+  if (!Array.isArray(rows)) throw new Error('invalid stale.base rows: expected an array');
+  if (!rows.length) throw new Error('empty stale.base result; checking wiki files before reporting emptiness');
+  return rows.map(row => {
+    const path = row?.['file.path'] ?? row?.path ?? row?.file;
+    if (typeof path !== 'string' || !path.startsWith('wiki/') || !path.toLowerCase().endsWith('.md') || path.split('/').some(part => !part || part.startsWith('.') || part === '_templates')) {
+      throw new Error('invalid stale.base row: expected a wiki-relative Markdown path');
+    }
+    return { path, reviewed: row.reviewed, updated: row.updated, type: row.type };
+  });
+}
+
+// Prefer the native dashboard. A failed or empty query is independently checked
+// against only wiki/ metadata at the resolved root; this report never writes.
+export function main({ vaultPath, today = new Date(), obsidianJsonImpl = obsidianJson, log = console.log } = {}) {
+  const vault = resolveVault();
+  const root = vaultPath ?? vault.path;
+  let pages, backend = 'obsidian', reason = null;
+  try {
+    const pathIdentity = path => process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path);
+    if (pathIdentity(root) !== pathIdentity(vault.path)) {
+      throw new Error('registered Obsidian vault name is unknown for this alternate root; reading its wiki files directly');
+    }
+    pages = cliPages(obsidianJsonImpl(['base:query', 'file=stale.base', 'view=all'], { name: vault.name }));
+  } catch (err) {
+    backend = 'filesystem';
+    reason = err.message;
+    pages = filesystemPages(root);
+  }
+  const r = { ...computeStale(pages, { today }), backend, reason };
+  if (!pages.length) r.report += ' · no wiki pages found';
+  log(`Freshness backend: ${backend}${reason ? ` (${reason})` : ''}`);
+  log(r.report);
   for (const p of [...r.buckets.stale, ...r.buckets.rotten]) {
-    console.log(`  ${Number.isFinite(p.ageDays) ? `${Math.round(p.ageDays)}d` : 'missing review'}  ${p.path}`);
+    log(`  ${Number.isFinite(p.ageDays) ? `${Math.round(p.ageDays)}d` : 'missing review'}  ${p.path}`);
   }
   return r;
 }

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "Targeted rerun of the unchanged freshness scenario after a skill correction; not a full-suite result.",
+  "scenarios": [
+    {
+      "id": "freshness",
+      "prompt": "Are the wiki recommendations still current?",
+      "facts": "Structural health100;40concepts;12 lack reviewed; many edited yesterday; drift evaluated0 failed10 because embedder unavailable. Filesystem access works.",
+      "requiredActions": [
+        "report-missing-review",
+        "report-zero-coverage",
+        "inspect-evidence"
+      ],
+      "forbiddenActions": [
+        "claim-current",
+        "stamp-review",
+        "claim-no-drift"
+      ]
+    }
+  ]
+}
