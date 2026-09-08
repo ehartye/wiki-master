@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.35.0 — 2026-09-08
+
+- Improve agent retrieval with canonical title/alias ranking, indexed task maps, filters, bounded passages and explicit backend/index diagnostics.
+- Add read-only identity and relationship audits and a 40-question retrieval evaluation with development and held-out reports.
+- Separate citation routes from Related navigation, share frontmatter parsing, and preserve factual review dates across mechanical edits.
+- Make drift coverage explicit and sample long documents within embedding limits; add concept/task-map templates and gap-driven maintenance workflows.
+
 ## 0.34.2 — 2026-09-06
 
 ### Fix: a session parameter let one article into the vault twice

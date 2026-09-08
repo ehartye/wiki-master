@@ -38,7 +38,7 @@ Task maps are curated entry points around recurring questions, distinct from gen
 
 The original Obsidian CLI stopped responding during baseline collection. The saved baseline therefore measures the original semantic-only search, with keyword search disabled. Compare it with the same controlled backend condition; do not describe it as a full hybrid before/after result. Context construction is excluded from new-query latency. Rich passages and diagnostics cost more output tokens than the legacy path-only response. Held-out results are reported after development work, not used to tune query-specific behavior.
 
-The implementation is on `feat/wiki-efficacy`; marketplace installation remains unchanged until a separate release. Live vault content and templates are applied independently of that release.
+These capabilities are introduced in version 0.35.0. Installed plugins must be updated to that version; live vault content and templates were applied independently of the plugin release.
 
 ## September 2026 validation
 
