@@ -22,7 +22,7 @@ in single-digit milliseconds. A vector database solves a problem this scale does
 - Obsidian 1.12+ with the official command-line interface enabled
   (Settings → General → Command line interface).
 - The vault open in Obsidian (the CLI drives the running app).
-- Node.js ≥18 (for the helper scripts).
+- Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI lock).
 - Optional: [Ollama](https://ollama.com) with an embedding model
   (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
   gracefully if absent.
@@ -65,10 +65,14 @@ plugin folder together: the skills use the sibling `scripts/` and `templates/`.
 
 1. `/wiki-init` — scaffolds the vault and prints one-time setup.
 2. In Obsidian: **Open folder as vault** → the scaffolded path.
-3. Verify: `obsidian vaults` lists the vault.
+3. Verify: `node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults` lists the vault.
 4. Import `templates/webclipper-template.json` into the Obsidian Web Clipper.
 5. Clip web pages (they land in `raw/clippings/`), then `/wiki-ingest` to compile
    them into the wiki. Ask questions with `/wiki-query`, or just search with `/wiki-search`.
+
+Use the [guarded CLI caller](docs/cli-transport-guards.md) for app commands. It
+serializes cooperating sessions and rejects oversized requests before launch.
+Edit ordinary Markdown through the filesystem, preserving the wiki operation lifecycle.
 
 ## Skills
 

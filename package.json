@@ -1,10 +1,10 @@
 {
   "name": "wiki-master",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "node --test",
-    "test:skills": "node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs"
+    "test:skills": "node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs test/cli-transport.test.mjs"
   }
 }

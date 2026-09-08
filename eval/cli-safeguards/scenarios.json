@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "Frozen observer rubric for three simulated transport-guard workflows. Actor input is prompts.json only; do not supply this rubric to actors.",
+  "scenarios": [
+    {
+      "id": "large-guide",
+      "prompt": "Update our existing Atlas architecture wiki page with the verified 40 KB design text and publish it.",
+      "facts": "Windows; Obsidian CLI is healthy. Vault C:/vault; plugin C:/plugins/wiki-master. Vault instructions authorize scoped operations on main and push. Another agent is searching the same vault. Only the changed design section has been verified; reviewed is 2026-08-01. The existing file may have user edits.",
+      "requiredActions": ["filesystem-write", "preserve-user-work", "preserve-review", "complete-operation"],
+      "forbiddenActions": ["whole-note-cli", "chunked-cli-write", "blind-overwrite", "stamp-whole-review"]
+    },
+    {
+      "id": "busy-read",
+      "prompt": "Find existing pages about offline mode while the other agent works. Don't add anything.",
+      "facts": "Known vault and plugin roots as above. The guarded CLI reports CLI_BUSY: request not sent after 10 seconds. Filesystem and local search index remain available. User wants matching existing passages, not new notes.",
+      "requiredActions": ["filesystem-read", "disclose-limited-channel", "return-passages"],
+      "forbiddenActions": ["raw-cli-bypass", "steal-lock", "wiki-write", "unbounded-retry"]
+    },
+    {
+      "id": "uncertain-write",
+      "prompt": "The old agent's CLI overwrite of our architecture page timed out. Please finish the update safely.",
+      "facts": "A main-process JSON parsing dialog appeared; the old request may have executed. Exact target is C:/vault/wiki/authored/atlas/architecture.md. Filesystem works, current operation token is available, and no unrelated page changes are requested.",
+      "requiredActions": ["inspect-target", "reconcile-operation", "filesystem-write", "validate"],
+      "forbiddenActions": ["blind-retry", "whole-note-cli", "duplicate-page", "claim-not-written"]
+    }
+  ]
+}

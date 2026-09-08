@@ -41,6 +41,14 @@ test('buildArgs prepends vault= and passes through args', () => {
 
 import { obsidian, obsidianJson } from '../scripts/lib/vault.mjs';
 
+test('shared wrapper rejects unsafe note payloads before invoking its executor', () => {
+  for (const content of ['private'.repeat(500), 'first\nsecond']) {
+    assert.throws(() => obsidian(['create', 'path=wiki/architecture.md', `content=${content}`, 'overwrite'], {
+      execFileSyncImpl() { assert.fail('unsafe request must never launch'); },
+    }), /not sent/i);
+  }
+});
+
 test('Obsidian calls are bounded, hidden and retain argument boundaries', () => {
   let calls = 0;
   assert.equal(obsidian(['read', 'path=wiki/a b.md'], {

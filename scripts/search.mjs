@@ -2,7 +2,7 @@ import {
   readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
-import { execFile } from 'node:child_process';
+import { guardedExecFile, validateCliRequest } from './lib/cli-transport.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
@@ -195,10 +195,11 @@ export async function createSearchContext({ vaultPath = resolveVault().path,
     keywordSearchFn: keywordSearchFn ?? ((q, options) => boundedKeywordSearch(q, { ...options, name })) };
 }
 
-// Search has a bounded wait without changing the shared wrapper used by long
-// mutation commands. A failed channel is distinct from zero hits.
-export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = execFile } = {}) {
+// Search uses the same cross-process gate and preflight as synchronous callers.
+// A failed channel is distinct from zero hits.
+export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = guardedExecFile } = {}) {
   const args = buildArgs(name, ['search', `query=${query}`, `path=${path}`, `limit=${limit}`, 'format=json']);
+  validateCliRequest(args);
   const out = await new Promise((resolve, reject) => execFileImpl('obsidian', args,
     { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
     (err, stdout) => err ? reject(err) : resolve(stdout.trim())));
