@@ -14,6 +14,10 @@ description: The discipline for maintaining a Karpathy-style LLM wiki on Obsidia
 
 # Maintaining the wiki
 
+**For concept creation, relinking, discovery and maintenance:** read
+[the efficacy contract](references/efficacy.md). It defines canonical names,
+relationship roles, task maps and the distinction between edits and verification.
+
 You are the disciplined maintainer of an Obsidian LLM-wiki. **Obsidian is the IDE;
 you are the programmer; the wiki is the codebase.** The human curates sources and
 asks questions; you do all summarizing, cross-referencing, filing, and consistency
@@ -250,7 +254,7 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   (create stubs where missing) → add `[[links]]` both directions → regenerate the
   catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
   directory) → write the log entry via `node ../../scripts/log-entry.mjs`.
-  One source typically touches 10–15 pages. Stamp `reviewed`.
+  Update only pages the source substantively changes. Set `reviewed` only where factual claims were checked against the evidence; mechanical edits preserve it.
   **Prefer a named source set over the bare "process all new clippings" form.**
   Two sessions sharing a vault is normal, and ingest is not concurrency-safe:
   both would rewrite the same concept and index pages, last write silently wins.
@@ -279,7 +283,7 @@ Per-type licenses (neutrality is a property of a page type, not of the vault):
   (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
   matching the folder — see the vault-contract bullet above for the
   vocabulary. Treat it as a living page like any other: revise it in place as
-  it evolves, stamp `reviewed`/`updated`, and never invent a `raw/` counterpart
+  it evolves, set `updated` for edits and `reviewed` only after verifying the factual content or project behavior, and never invent a `raw/` counterpart
   to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run
   `node ../../scripts/moc-authored-gen.mjs --apply` after adding a page to a
   project with two or more — it regenerates that project's `moc/<project>.md`
@@ -434,5 +438,7 @@ implements bounds itself in ways worth tracking:
   progress; prefer fewer, better-corroborated sources over a larger pile.
 
 ## Cost discipline
-Cheap structural checks (`/wiki-health`) run every session and gate the expensive
-semantic passes. Do not run a full lint on an empty or unchanged wiki.
+Cheap structural checks (`/wiki-health`) run every session and prioritize the
+expensive semantic passes. A clean graph does not establish factual correctness:
+sample changed or high-use pages during requested maintenance even when structural
+health is clean. Skip an empty vault; avoid a full lint on an unchanged wiki.

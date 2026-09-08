@@ -1,10 +1,7 @@
 // Builds and incrementally refreshes the chunk-level semantic index over
-// EVERY document in wiki/ -- unlike search.mjs's page-level embed, which
-// truncates each page to its first 4,000 characters (17% of the live vault
-// never embedded -- see docs/superpowers/specs/2026-08-09-chunk-semantic-
-// index-design.md). Two persisted artifacts under .wiki-master/, shapes
-// defined in lib/vector-index.mjs's file-format comment: chunks.json (the
-// manifest) and vectors.bin + vectors.idx.json (the hash-keyed vector store).
+// wiki/ and moc/. The manifest also stores note identities and metadata for
+// bounded agent retrieval; vector content hashes still allow cheap reuse.
+// Artifacts under .wiki-master/: chunks.json, vectors.bin, vectors.idx.json.
 //
 //   node scripts/index-embed.mjs            # refresh: only changed files
 //   node scripts/index-embed.mjs --rebuild  # re-chunk everything (vectors
@@ -19,7 +16,7 @@
 // NOT via the `obsidian` CLI: building the index must not require Obsidian
 // to be running. raw/ is deliberately excluded (spec section 6: clippings
 // would roughly triple the index; opt-in later) -- enforced by only
-// descending into paths that resolve to wiki/, so raw/ is never even read.
+// descending only into wiki/ and moc/, so raw/ is never even read.
 
 import {
   readFileSync, readdirSync, statSync, existsSync, writeFileSync, renameSync, mkdirSync,
@@ -32,27 +29,25 @@ import { chunkMarkdown } from './lib/chunk.mjs';
 import { hash } from './lib/embed-cache.mjs';
 import { embed as ollamaEmbed, isAvailable, modelPresent } from './lib/embed.mjs';
 import { encodeVectors, decodeVectors, planRefresh, neededHashes, coverage } from './lib/vector-index.mjs';
+import { noteIdentity, METADATA_VERSION, inScope } from './lib/retrieval.mjs';
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';
 const VECTORS_IDX = 'vectors.idx.json';
 
-// Walks the vault ROOT (like buildGraph), but only ever returns files whose
-// vault-relative path starts with "wiki/" -- raw/, log/, moc/, index.md etc.
-// at the vault root are never even descended into for raw/'s sake being
-// large, but the wiki/ prefix check alone is what keeps them all out.
-// Dot-prefixed entries (`.wiki-master/`, `.git/`, `wiki/.hidden/`) are
-// skipped at every level, so nothing under them is ever walked or read.
+// Descend only into wiki/ and moc/. Skip dot directories at every level;
+// raw/, log/, templates and system pages never enter the retrieval index.
 export function walkVault(vaultPath) {
   const files = [];
   (function walk(dir, rel) {
     for (const e of readdirSync(dir)) {
       if (e.startsWith('.')) continue;
+      if (!rel && !['wiki', 'moc'].includes(e)) continue;
       const abs = join(dir, e);
       const r = rel ? `${rel}/${e}` : e;
       const st = statSync(abs);
       if (st.isDirectory()) { walk(abs, r); continue; }
-      if (r.startsWith('wiki/') && isContent(r)) {
+      if (inScope(r) && isContent(r)) {
         files.push({ path: r, abs, mtimeMs: st.mtimeMs, size: st.size });
       }
     }
@@ -113,11 +108,16 @@ async function runPool(items, size, worker) {
 }
 
 // statusReport: coverage only, embeds nothing, writes nothing.
+function metadataRefreshManifest(manifest) {
+  return Object.fromEntries(Object.entries(manifest).map(([path, entry]) => [path,
+    entry.metadataVersion === METADATA_VERSION ? entry : { ...entry, mtimeMs: NaN }]));
+}
+
 export function statusReport({ vaultPath, dir }) {
   const manifest = readManifestFile(dir);
   const vectors = readVectorStore(dir);
   const files = walkVault(vaultPath);
-  const plan = planRefresh(manifest, files);
+  const plan = planRefresh(metadataRefreshManifest(manifest), files);
   const cov = coverage(manifest, Object.keys(vectors));
   return { ...cov, filesChanged: plan.changed.length, filesRemoved: plan.removed.length };
 }
@@ -155,7 +155,7 @@ export async function refreshIndex({
   // identically either way, so it still misses re-embedding via
   // neededHashes. Rebuild buys "distrust the mtime/size shortcut", not
   // "throw away work that content-hashing already proves is still valid".
-  const baseManifest = rebuild ? {} : loadedManifest;
+  const baseManifest = rebuild ? {} : metadataRefreshManifest(loadedManifest);
 
   const files = walkVault(vaultPath);
   const plan = planRefresh(baseManifest, files);
@@ -174,7 +174,8 @@ export async function refreshIndex({
       if (!hashToText.has(h)) hashToText.set(h, c.text);
       return { hash: h, startLine: c.startLine, endLine: c.endLine };
     });
-    finalManifest[f.path] = { mtimeMs: f.mtimeMs, size: f.size, chunks: chunkMetas };
+    finalManifest[f.path] = { mtimeMs: f.mtimeMs, size: f.size, contentHash: hash(text),
+      ...noteIdentity(text, f.path), chunks: chunkMetas };
     filesRead++;
     onProgress({ phase: 'chunk', file: f.path, filesRead, filesTotal: plan.changed.length });
   }

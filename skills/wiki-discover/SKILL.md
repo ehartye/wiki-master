@@ -31,7 +31,10 @@ Gather what the wiki already has so the search hunts for *gaps*, not dupes:
   equivalently grep `^source:` across `raw/clippings/*.md`). This reads the
   clippings themselves, rather than querying an index built from them — the
   shortest path to the fact, and it stays correct while the index is stale.
-- Coverage summary: read `index.md`.
+- Coverage summary: name the unanswered question, run bounded wiki searches, and
+  read the relevant task MOC and leading concept/synthesis pages. Read only the
+  manual Start here section of `index.md` if orientation is needed; do not load
+  the generated catalog. List the known coverage and the specific evidence gap.
 - Sanity-check the set: if the vault has clippings on disk but the known-URL
   set is empty, STOP — the collection step failed; do not proceed to search.
 Pass the known-URL set + a one-line "already covered" summary to every perspective.
@@ -51,7 +54,11 @@ nothing. Lenses:
 - **Contrarian** — critiques, failure modes, dissenting analysis.
 
 Each candidate: `{ title, url, quality_guess: high|medium|low, key_findings,
-why_ingest }`.
+why_ingest, adds_evidence, changes_page }`. `adds_evidence` names the unanswered
+question it helps settle; `changes_page` names an existing or proposed concept
+or synthesis. More material on an already answered question is not automatically
+an improvement. Inspect existing high-use stubs and missing bridges before
+requesting another broad collection run.
 
 ## Phase 2 — independent select + credibility (do NOT let a finder grade itself)
 As the orchestrator (or a separate reviewer), over the pooled candidates:

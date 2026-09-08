@@ -29,7 +29,7 @@ leaves out.
 
 ## How it works
 
-`node ../../scripts/search.mjs "..."` runs a tiered lookup over `wiki/`:
+`node ../../scripts/search.mjs "..."` runs a tiered lookup over `wiki/` and `moc/`:
 Obsidian's own keyword index always runs, and a chunk-level semantic index
 (built by `index-embed.mjs`, Ollama-backed) fuses in via Reciprocal Rank
 Fusion when both a reachable Ollama and a built index are present. Results
@@ -49,15 +49,25 @@ weaker answer, which is why the disclosure exists:
 To diagnose or fix: `node ../../scripts/search.mjs --health` for the full
 report, `--setup` for the exact remediation commands. The usual causes are
 Ollama not running, the embedding model not pulled, or the index not built
-(`node ../../scripts/index-embed.mjs`).
+(`node ../../scripts/index-embed.mjs`). Operational health is not relevance:
+validate the returned page, status and supporting passage against the question.
+
+For agent selection, use `--json --limit=10` to get bounded passages and metadata,
+including project/type/status, factual review dates, provenance targets and index
+freshness. Use `--project=<slug>`, `--type=<type>` or `--status=<state>` when the
+question establishes a scope. Do not hide other domains when exploring complementary
+ideas. Inspect decision/backlog state inside metadata before describing a proposal
+as shipped. Exact titles and equivalent aliases are prioritized; ambiguous names
+still require choosing the intended full path.
 
 **`op-commit` refreshes the index after every bracketed operation**, so
 anything written through an operation is already searchable. What it cannot
 see is an edit made outside one — a hand edit in Obsidian, a `git pull` from
-another machine. The index is chunk-content-hash keyed, so it can be
-incomplete but never wrong: a stale index misses recent edits rather than
-serving outdated text. `--health` reports how many files have changed since
-the last refresh.
+another machine. Hash-keyed vectors alone do not make a stale manifest current.
+Search checks candidate file versions and reads passages from the current file;
+modified semantic hits are excluded until refreshed and removed hits are dropped.
+Read the per-result freshness and diagnostics; a live lexical/identity match can
+still have an outdated embedding. `--health` reports changes since refresh.
 
 ## Reaching raw/ — the actual fix for "don't grep the vault"
 
@@ -111,9 +121,12 @@ not a defect.
    trusting the results — disclose any degradation to the user.
 3. Read from the matched line (`path:line`) outward, not from the top of
    the page — that is the passage that actually matched.
-4. Need the raw source behind a `wiki/` hit? Pipe it into
+4. Need the raw source behind a `wiki/` hit? Pipe the default text output into
    `resolve-evidence.mjs` (above) rather than opening the page and tracing
-   its `sources:` field by hand.
+   its `sources:` field by hand. The evidence route follows citations, not
+   `Related:`/`## Relationships` navigation or lateral concept links. A route
+   establishes provenance, not that the retrieved passage is supported: read
+   the source and verify the specific claim before quoting or synthesizing it.
 5. Return the matching paths/lines to whatever asked for them. If what's
    actually needed is a synthesized, cited answer (and possibly a new page
    filed back), hand off to `/wiki-query` rather than writing that

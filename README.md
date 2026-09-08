@@ -6,8 +6,8 @@ natively on Obsidian: the agent incrementally compiles and maintains a persisten
 densely interlinked markdown wiki over your curated sources.
 
 - The **agent** (Claude Code, GitHub Copilot CLI, or Codex) is the synthesis engine.
-- The **native `obsidian` CLI** does all resolved-semantics work (links, search,
-  typed properties, graph health, versioning).
+- The **native `obsidian` CLI** provides app search, typed properties and versioning.
+  Filesystem helpers share explicit identity and citation rules for audits and retrieval.
 - A small Node helper layer does zero-LLM structural checks.
 - One Ollama-backed script does semantic-drift detection.
 
@@ -84,10 +84,14 @@ the same workflows.
 | `/wiki-query <question>` | Ask a question, get a synthesized answer with citations; optionally file it back as a new page. Calls `/wiki-search` as its first step. |
 | `/wiki-health` | Fast zero-LLM structural report + 0–100 score. |
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
-| `/wiki-stale` | Freshness buckets from `reviewed`/`updated` + semantic drift. |
+| `/wiki-stale` | Factual freshness from `reviewed`, missing-review reporting + bounded semantic drift. |
 | `/wiki-relink` | Add inferred links, materialize frequently-referenced entities, build MOCs. |
 | `/wiki-author [what]` | Author original `wiki/authored/` content (docs, guides, ADRs, backlog items) — canonical per-kind placement, no re-deriving convention per project. |
 | `/wiki-purge <topic> [--seeds a.md,b.md]` | Remove a topic for good — pages, evidence and source URLs move to a git-tracked `.recycle/` bin and the removal is committed so it reaches every machine. `--reconcile` re-bins anything that comes back; `--restore <id>` undoes it. |
+
+## Long-term wiki efficacy
+
+See [retrieval, identity, relationships and verification](docs/wiki-efficacy.md) for rich agent search, read-only audits, task-map workflows and the 40-question retrieval evaluation.
 
 ## Configuration (environment variables)
 

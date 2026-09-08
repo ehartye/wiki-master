@@ -1,0 +1,849 @@
+{
+  "version": 1,
+  "datasetHash": "3c477c963dd557b28038357c169922239f2f727fcf67e63d83e6c5f29cf9161b",
+  "split": "heldout",
+  "status": "complete",
+  "coverage": {
+    "total": 40,
+    "selected": 10,
+    "evaluated": 10,
+    "failed": 0,
+    "expectedFilesChecked": true,
+    "missingExpectedPages": 0,
+    "missingExpectedData": 0,
+    "passageExpected": 0,
+    "passageEvaluated": 0,
+    "evidenceExpected": 0,
+    "evidenceEvaluated": 0
+  },
+  "summary": {
+    "pageRecallAt10": 1,
+    "precisionAt3": 0.29999999999999993,
+    "reciprocalRank": 0.7208333333333334,
+    "passageHitRate": null,
+    "evidenceRecall": null,
+    "evidenceCorrectness": null,
+    "latencyMs": 162.34805,
+    "outputCharacters": 191524,
+    "estimatedTokens": 47884
+  },
+  "byCategory": {
+    "complement": {
+      "selected": 1,
+      "evaluated": 1,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.6666666666666666,
+      "reciprocalRank": 0.5,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 151.96160000000054,
+      "outputCharacters": 16663,
+      "estimatedTokens": 4166
+    },
+    "exact": {
+      "selected": 3,
+      "evaluated": 3,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.3333333333333333,
+      "reciprocalRank": 1,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 163.58343333333337,
+      "outputCharacters": 54943,
+      "estimatedTokens": 13737
+    },
+    "paraphrase": {
+      "selected": 4,
+      "evaluated": 4,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.25,
+      "reciprocalRank": 0.6458333333333333,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 170.45792499999993,
+      "outputCharacters": 76898,
+      "estimatedTokens": 19225
+    },
+    "task": {
+      "selected": 2,
+      "evaluated": 2,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.16666666666666666,
+      "reciprocalRank": 0.5625,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 149.46844999999985,
+      "outputCharacters": 43020,
+      "estimatedTokens": 10756
+    }
+  },
+  "bySplit": {
+    "heldout": {
+      "selected": 10,
+      "evaluated": 10,
+      "pageRecallAt10": 1,
+      "precisionAt3": 0.29999999999999993,
+      "reciprocalRank": 0.7208333333333334,
+      "passageHitRate": null,
+      "evidenceRecall": null,
+      "evidenceCorrectness": null,
+      "latencyMs": 162.34805,
+      "outputCharacters": 191524,
+      "estimatedTokens": 47884
+    }
+  },
+  "cost": {
+    "tokenEstimateMethod": "ceil(outputCharacters / 4); estimate, not tokenizer usage",
+    "latencyScope": "Search invocation only; reusable context construction and evaluation excluded."
+  },
+  "definitions": {
+    "precisionAt3": "Expected relevant pages among first three unique results, divided by 3.",
+    "passageHitRate": "Expected literal substrings found in returned passages for the expected page (case-insensitive).",
+    "evidenceCorrectness": "Expected evidence hits / (expected + forbidden evidence hits); other paths are unjudged. No entailment judgment.",
+    "evidenceResolution": "Returned provenance resolved through source/raw citation routes when a vault is supplied. Legacy outputs without provenance are unavailable.",
+    "aggregation": "Macro means over evaluated non-null metrics; inspect coverage, missing ground truth and per-question failures."
+  },
+  "questions": [
+    {
+      "id": "q06",
+      "query": "Game-Based Learning",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 18494,
+      "estimatedTokens": 4624,
+      "latencyMs": 162.9670000000001,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 246 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Game-Based Learning.md",
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/sources/The influence of game in e learning an e.md",
+        "wiki/concepts/Learning Mechanics and Game Mechanics.md",
+        "wiki/concepts/Gamified Learning.md",
+        "wiki/sources/Design of Mobile Game Based Learning App.md",
+        "wiki/concepts/Effect Sizes in Game-Based Learning.md",
+        "wiki/sources/Alotaibi — Game-Based Learning in Early Childhood Education.md",
+        "wiki/concepts/Educational Game Authoring.md",
+        "wiki/sources/Landers — Theory of Gamified Learning.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q07",
+      "query": "Second Brain",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Second Brain.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 20177,
+      "estimatedTokens": 5045,
+      "latencyMs": 164.95079999999962,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 104 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Second Brain.md",
+        "wiki/sources/A General Method for Assessing Brain-Computer Interface Performance and its Limitations.md",
+        "wiki/sources/Information Transfer Rate in Brain-Computer Interfaces.md",
+        "wiki/sources/Simons et al — Do Brain-Training Programs Work.md",
+        "wiki/sources/Obsidian Second Brain with Claude Code - My Agent-Readable Vault Setup.md",
+        "wiki/sources/IEEE Spectrum — Meta's Wristband Translates Brain Signals Into Computer Commands.md",
+        "wiki/sources/Gruber, Gelman and Ranganath — States of Curiosity Modulate Hippocampus-Dependent Learning.md",
+        "wiki/sources/Zettelkasten as a Coping Mechanism.md",
+        "wiki/sources/Woodbury — Your Brain on Numbo Jumbo.md",
+        "wiki/entities/Meta Neural Band.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q08",
+      "query": "Fusion vs Fission",
+      "split": "heldout",
+      "category": "exact",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Fusion vs Fission.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16272,
+      "estimatedTokens": 4068,
+      "latencyMs": 162.83250000000044,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 127 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "wiki/sources/Physics for Kids- Nuclear Energy and Fission.md",
+        "wiki/sources/DOE Explains...Fusion Reactions.md",
+        "moc/Fusion for Kids - Concept Ladder.md",
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "wiki/sources/Introduction — Fusion, Forever the Energy of Tomorrow.md",
+        "wiki/concepts/Fusion Breakeven and Ignition.md",
+        "wiki/concepts/Fusion in Stars How the Sun Makes Energy.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q21",
+      "query": "What distinguishes learning through gameplay from merely adding rewards?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 0.3333333333333333,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17767,
+      "estimatedTokens": 4442,
+      "latencyMs": 164.41490000000067,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 231 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Learning Through Game Making.md",
+        "wiki/concepts/Gamified Learning.md",
+        "wiki/concepts/Game-Based Learning.md",
+        "moc/Learning and Goal-Directed Behavior.md",
+        "wiki/concepts/Learning Mechanics and Game Mechanics.md",
+        "wiki/sources/Fabricatore & López — Sustainability Learning Through Gaming.md",
+        "wiki/sources/Huang et al — Gamification and Student Learning Outcomes.md",
+        "wiki/syntheses/Video Games and Learning — Overview.md",
+        "wiki/sources/Learning from Games Seven Principles.md",
+        "wiki/concepts/Gameplay Patterns for Gamification.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q22",
+      "query": "Why can comparing too many choices overwhelm a young child?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0,
+        "reciprocalRank": 0.25,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 19608,
+      "estimatedTokens": 4902,
+      "latencyMs": 181.54649999999947,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 124 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/syntheses/Designing a Child's Sound Picker — Overview.md",
+        "wiki/sources/Boyer, Levine and Huttenlocher — Where Young Children Go Wrong in Proportional Reasoning.md",
+        "wiki/concepts/Cognitive Load and Choice.md",
+        "wiki/sources/Toddlers Do Not Show Choice Overload.md",
+        "wiki/concepts/Mechanically-Meaningful Creator Choices.md",
+        "wiki/sources/Maimaran — Choice-Set Size and Children.md",
+        "wiki/sources/Aesthetic Preference and Symmetry in Children.md",
+        "wiki/sources/Choice Overload Moderators.md",
+        "wiki/concepts/Multiplicative Reasoning.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q23",
+      "query": "Do spacing practice and retrieving answers have the same evidence in mathematics?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Spacing and Retrieval Practice in Mathematics.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 21660,
+      "estimatedTokens": 5415,
+      "latencyMs": 182.41589999999997,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 221 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Spacing and Retrieval Practice in Mathematics.md",
+        "wiki/sources/Murray et al — Spacing and Retrieval Practice for Mathematics.md",
+        "wiki/sources/Karpicke, Blunt & Smith — Retrieval Practice in Elementary School Children.md",
+        "wiki/sources/Tokac, Novak and Thompson — Game-Based Learning and Mathematics Achievement.md",
+        "wiki/sources/Ophuis-Cox, Catrysse & Camp — Retrieval Practice for Multiplication Fluency.md",
+        "wiki/sources/Smith and Stein — 5 Practices for Orchestrating Productive Mathematics Discussions.md",
+        "wiki/sources/Carpenter et al — Children's Mathematics (CGI).md",
+        "wiki/sources/Lee (ed.) — Rigor, Relevance, and Relationships (PBL in Mathematics).md",
+        "wiki/sources/Beast Academy — Curriculum Design Evidence.md",
+        "wiki/sources/Illustrative Mathematics — Design Principles.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q24",
+      "query": "Why does achieving fusion ignition not mean a power plant produces net electricity?",
+      "split": "heldout",
+      "category": "paraphrase",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Fusion Breakeven and Ignition.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 17863,
+      "estimatedTokens": 4466,
+      "latencyMs": 153.45439999999962,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 204 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Fusion Breakeven and Ignition.md",
+        "wiki/sources/A major ‘fusion breakthrough’ was just officially announced in the US. But what does it actually mean.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/sources/DOE National Laboratory Makes History by Achieving Fusion Ignition.md",
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "wiki/sources/Introduction — Fusion, Forever the Energy of Tomorrow.md",
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/syntheses/Gamified Fusion Learning Framework.md",
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "moc/Fusion for Kids - Concept Ladder.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q26",
+      "query": "In what order should I teach nuclear fusion concepts to children?",
+      "split": "heldout",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/Fusion for Kids - Concept Ladder.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0,
+        "reciprocalRank": 0.125,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16978,
+      "estimatedTokens": 4245,
+      "latencyMs": 134.8801999999996,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 997 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/concepts/Misconceptions in Nuclear and Fusion Science.md",
+        "wiki/concepts/Nuclear Science Education.md",
+        "wiki/concepts/Fusion vs Fission.md",
+        "wiki/concepts/Fusion Promise vs Reality.md",
+        "wiki/sources/16-Year-Old Student Builds Nuclear Fusion Reactor.md",
+        "wiki/concepts/Plasma and Fusion Education.md",
+        "wiki/syntheses/Fusion Concept Progression Grades 3-8.md",
+        "moc/Fusion for Kids - Concept Ladder.md",
+        "wiki/concepts/Conditions for Fusion.md",
+        "wiki/syntheses/Gamified Fusion Learning Framework.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q28",
+      "query": "How should a builder navigate Meta Ray-Ban display research and design decisions?",
+      "split": "heldout",
+      "category": "task",
+      "options": {},
+      "expectedPages": [
+        "moc/meta-ray-ban-display.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.3333333333333333,
+        "reciprocalRank": 1,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 26042,
+      "estimatedTokens": 6511,
+      "latencyMs": 164.0567000000001,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 316 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "moc/meta-ray-ban-display.md",
+        "wiki/syntheses/Meta Ray-Ban Display Development — Overview.md",
+        "wiki/sources/Developers Are Building Impressive Apps For Meta Ray-Ban Display's HUD & Neural Band.md",
+        "wiki/sources/Meta Ray-Ban Display Developer Preview- SDK Paths and Platform Gaps.md",
+        "wiki/entities/Meta Ray-Ban Display.md",
+        "wiki/sources/Meta Ray-Ban Display Review- First Generation Heads-Up Mobile Computing.md",
+        "wiki/syntheses/Games on Meta Ray-Ban Display.md",
+        "wiki/syntheses/ray-ban-display-game-design-practices.md",
+        "wiki/sources/Road to VR - Ray-Ban Display Hands-On.md",
+        "wiki/sources/CES 2026- Meta Ray-Ban Display Teleprompter, Neural Handwriting, Industry & Research Collaborations, & More.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    },
+    {
+      "id": "q35",
+      "query": "How do child choice design and cognitive load inform a small sound picker?",
+      "split": "heldout",
+      "category": "complement",
+      "options": {},
+      "expectedPages": [
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ],
+      "missingExpectedPages": [],
+      "missingExpectedData": [],
+      "diagnostics": [],
+      "metrics": {
+        "pageRecallAt10": 1,
+        "precisionAt3": 0.6666666666666666,
+        "reciprocalRank": 0.5,
+        "passageHitRate": null,
+        "evidenceRecall": null,
+        "evidenceCorrectness": null
+      },
+      "outputCharacters": 16663,
+      "estimatedTokens": 4166,
+      "latencyMs": 151.96160000000054,
+      "searchDiagnostics": [
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "wiki",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "keyword-failed",
+          "scope": "moc",
+          "message": "Keyword backend disabled for controlled baseline comparison; live Obsidian CLI times out."
+        },
+        {
+          "code": "candidate-limit",
+          "message": "Validated first 100 of 197 candidates."
+        }
+      ],
+      "tier": "semantic+identity",
+      "index": {
+        "available": true,
+        "metadataComplete": true,
+        "freshness": "candidate-validated",
+        "checked": 100,
+        "modified": 0,
+        "removed": 0
+      },
+      "returnedPages": [
+        "wiki/syntheses/Designing a Child's Sound Picker — Overview.md",
+        "wiki/concepts/Cognitive Load and Choice.md",
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/sources/Choice Overload Moderators.md",
+        "wiki/sources/Maimaran — Choice-Set Size and Children.md",
+        "wiki/sources/Schupak & Peer — Choice Overload Among Children.md",
+        "wiki/sources/Toddlers Do Not Show Choice Overload.md",
+        "wiki/sources/NN-g — UX Design for Children.md",
+        "wiki/sources/Garcia & Reiss — AI in Sound Design.md",
+        "wiki/sources/ScratchJr — Design in Practice.md"
+      ],
+      "forbiddenEvidenceHits": [],
+      "status": "evaluated"
+    }
+  ],
+  "condition": {
+    "backend": "Semantic plus local identity/lexical ranking; Obsidian keyword backend disabled",
+    "comparison": "Same keyword-disabled condition as original semantic-only baseline. Corpus includes approved pilot and indexed MOCs.",
+    "date": "2026-09-08",
+    "latencyCaveat": "Reusable context construction excluded; original baseline includes old per-query index load."
+  }
+}

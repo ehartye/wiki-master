@@ -1,6 +1,6 @@
 ---
 name: wiki-stale
-description: Freshness report — buckets wiki pages by how long since they were reviewed/updated, plus semantic drift.
+description: Report stale or unverified wiki knowledge when asked what needs factual review or whether guidance is current.
 ---
 
 > **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
@@ -21,6 +21,10 @@ Report which wiki pages are going stale.
 
 Steps:
 1. Run `../../scripts/stale.mjs` (path relative to this skill's directory) with node.
-2. Then run `../../scripts/drift.mjs`.
-3. Summarize the stale/rotten pages and any drifted pages. Offer to re-review the
-   worst offenders (which would run an ingest-style refresh and stamp `reviewed`).
+2. Run `../../scripts/drift.mjs --coverage`, then a bounded sample with
+   `../../scripts/drift.mjs --limit=10`.
+3. Report stale and missing-review pages separately, plus drift evaluation
+   coverage and failures. `reviewed` measures factual verification; `updated`
+   measures edits and never makes old claims fresh. Prioritize review by use and
+   volatility. Re-review claims against evidence before stamping `reviewed`;
+   refreshing embeddings or adding links does not qualify.

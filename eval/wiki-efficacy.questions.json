@@ -1,0 +1,397 @@
+{
+  "version": 1,
+  "description": "Frozen before implementation/vault edits on 2026-09-07. Expected pages were inspected. Ten held-out question wordings are excluded from retrieval tuning. The targeted pilot edits affect development concepts; this is a local regression set, not a general benchmark. Passage/evidence metrics apply only to labeled cases.",
+  "questions": [
+    {
+      "id": "q01",
+      "category": "exact",
+      "split": "development",
+      "query": "Agent Memory",
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ]
+    },
+    {
+      "id": "q02",
+      "category": "exact",
+      "split": "development",
+      "query": "LLM Wiki Pattern",
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ]
+    },
+    {
+      "id": "q03",
+      "category": "exact",
+      "split": "development",
+      "query": "Implementation Intentions",
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ]
+    },
+    {
+      "id": "q04",
+      "category": "exact",
+      "split": "development",
+      "query": "Adaptive Audio",
+      "expectedPages": [
+        "wiki/concepts/Adaptive Audio.md"
+      ]
+    },
+    {
+      "id": "q05",
+      "category": "exact",
+      "split": "development",
+      "query": "STEM Education",
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md"
+      ]
+    },
+    {
+      "id": "q06",
+      "category": "exact",
+      "split": "heldout",
+      "query": "Game-Based Learning",
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ]
+    },
+    {
+      "id": "q07",
+      "category": "exact",
+      "split": "heldout",
+      "query": "Second Brain",
+      "expectedPages": [
+        "wiki/concepts/Second Brain.md"
+      ]
+    },
+    {
+      "id": "q08",
+      "category": "exact",
+      "split": "heldout",
+      "query": "Fusion vs Fission",
+      "expectedPages": [
+        "wiki/concepts/Fusion vs Fission.md"
+      ]
+    },
+    {
+      "id": "q09",
+      "category": "alias",
+      "split": "development",
+      "query": "RAG",
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md"
+      ]
+    },
+    {
+      "id": "q10",
+      "category": "alias",
+      "split": "development",
+      "query": "If-then planning",
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ]
+    },
+    {
+      "id": "q11",
+      "category": "alias",
+      "split": "development",
+      "query": "Intention–behavior gap",
+      "expectedPages": [
+        "wiki/concepts/Intention-Action Gap.md"
+      ]
+    },
+    {
+      "id": "q12",
+      "category": "alias",
+      "split": "development",
+      "query": "Self regulation",
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md"
+      ]
+    },
+    {
+      "id": "q13",
+      "category": "alias",
+      "split": "development",
+      "query": "LLM-maintained wiki",
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ]
+    },
+    {
+      "id": "q14",
+      "category": "alias",
+      "split": "development",
+      "query": "Agent-readable knowledge base",
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ]
+    },
+    {
+      "id": "q15",
+      "category": "alias",
+      "split": "development",
+      "query": "Dynamic music techniques",
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md"
+      ]
+    },
+    {
+      "id": "q16",
+      "category": "alias",
+      "split": "development",
+      "query": "STEM versus STEAM",
+      "expectedPages": [
+        "wiki/concepts/STEM and STEAM Education.md"
+      ]
+    },
+    {
+      "id": "q17",
+      "category": "paraphrase",
+      "split": "development",
+      "query": "How can an AI agent remember information across separate sessions?",
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md"
+      ]
+    },
+    {
+      "id": "q18",
+      "category": "paraphrase",
+      "split": "development",
+      "query": "Why compile knowledge into a persistent wiki instead of retrieving raw documents every time?",
+      "expectedPages": [
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ]
+    },
+    {
+      "id": "q19",
+      "category": "paraphrase",
+      "split": "development",
+      "query": "How do I link a situational cue to a specific action toward a goal?",
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "expectedPassages": [
+        {
+          "path": "wiki/concepts/Implementation Intentions.md",
+          "text": "situational cue"
+        }
+      ],
+      "expectedEvidence": [
+        "raw/clippings/gollwitzer-implementation-intentions.md"
+      ]
+    },
+    {
+      "id": "q20",
+      "category": "paraphrase",
+      "split": "development",
+      "query": "How do I trace each generated statement back to the evidence that supports it?",
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ]
+    },
+    {
+      "id": "q21",
+      "category": "paraphrase",
+      "split": "heldout",
+      "query": "What distinguishes learning through gameplay from merely adding rewards?",
+      "expectedPages": [
+        "wiki/concepts/Game-Based Learning.md"
+      ]
+    },
+    {
+      "id": "q22",
+      "category": "paraphrase",
+      "split": "heldout",
+      "query": "Why can comparing too many choices overwhelm a young child?",
+      "expectedPages": [
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ]
+    },
+    {
+      "id": "q23",
+      "category": "paraphrase",
+      "split": "heldout",
+      "query": "Do spacing practice and retrieving answers have the same evidence in mathematics?",
+      "expectedPages": [
+        "wiki/concepts/Spacing and Retrieval Practice in Mathematics.md"
+      ]
+    },
+    {
+      "id": "q24",
+      "category": "paraphrase",
+      "split": "heldout",
+      "query": "Why does achieving fusion ignition not mean a power plant produces net electricity?",
+      "expectedPages": [
+        "wiki/concepts/Fusion Breakeven and Ignition.md"
+      ]
+    },
+    {
+      "id": "q25",
+      "category": "task",
+      "split": "development",
+      "query": "What did our wiki navigation scaling measurements find?",
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ]
+    },
+    {
+      "id": "q26",
+      "category": "task",
+      "split": "heldout",
+      "query": "In what order should I teach nuclear fusion concepts to children?",
+      "expectedPages": [
+        "moc/Fusion for Kids - Concept Ladder.md"
+      ]
+    },
+    {
+      "id": "q27",
+      "category": "task",
+      "split": "development",
+      "query": "Where should I start exploring procedural graphics techniques?",
+      "expectedPages": [
+        "moc/Procedural Graphics.md"
+      ]
+    },
+    {
+      "id": "q28",
+      "category": "task",
+      "split": "heldout",
+      "query": "How should a builder navigate Meta Ray-Ban display research and design decisions?",
+      "expectedPages": [
+        "moc/meta-ray-ban-display.md"
+      ]
+    },
+    {
+      "id": "q29",
+      "category": "task",
+      "split": "development",
+      "query": "What structure makes an Obsidian knowledge base readable and maintainable by an agent?",
+      "expectedPages": [
+        "wiki/concepts/Agent-Readable Vault.md"
+      ]
+    },
+    {
+      "id": "q30",
+      "category": "task",
+      "split": "development",
+      "query": "How do we judge whether an AI generated citation actually supports the statement?",
+      "expectedPages": [
+        "wiki/concepts/Source Attribution.md"
+      ]
+    },
+    {
+      "id": "q31",
+      "category": "complement",
+      "split": "development",
+      "query": "How do self-regulation, the intention-action gap, and if-then plans fit together?",
+      "expectedPages": [
+        "wiki/concepts/Self-Regulation.md",
+        "wiki/concepts/Intention-Action Gap.md",
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "expectedEvidence": [
+        "raw/clippings/gollwitzer-implementation-intentions.md"
+      ]
+    },
+    {
+      "id": "q32",
+      "category": "complement",
+      "split": "development",
+      "query": "How is agent memory related to context engineering and a maintained LLM wiki?",
+      "expectedPages": [
+        "wiki/concepts/Agent Memory.md",
+        "wiki/concepts/Context Engineering.md",
+        "wiki/concepts/LLM Wiki Pattern.md"
+      ]
+    },
+    {
+      "id": "q33",
+      "category": "complement",
+      "split": "development",
+      "query": "How does integrated STEM education relate to adding the arts through STEAM?",
+      "expectedPages": [
+        "wiki/concepts/STEM Education.md",
+        "wiki/concepts/STEM and STEAM Education.md"
+      ]
+    },
+    {
+      "id": "q34",
+      "category": "complement",
+      "split": "development",
+      "query": "Why is adaptive music sometimes called dynamic even though adaptive audio has a narrower meaning?",
+      "expectedPages": [
+        "wiki/concepts/Adaptive Music Techniques.md",
+        "wiki/concepts/Adaptive Audio.md"
+      ]
+    },
+    {
+      "id": "q35",
+      "category": "complement",
+      "split": "heldout",
+      "query": "How do child choice design and cognitive load inform a small sound picker?",
+      "expectedPages": [
+        "wiki/concepts/Child Choice Design.md",
+        "wiki/concepts/Cognitive Load and Choice.md"
+      ]
+    },
+    {
+      "id": "q36",
+      "category": "complement",
+      "split": "development",
+      "query": "Why does retrieving relevant documents not guarantee correct source attribution?",
+      "expectedPages": [
+        "wiki/concepts/Retrieval-Augmented Generation.md",
+        "wiki/concepts/Source Attribution.md"
+      ]
+    },
+    {
+      "id": "q37",
+      "category": "state",
+      "split": "development",
+      "query": "OCR fidelity decision",
+      "expectedPages": [
+        "wiki/authored/wiki-master/decisions/ocr-fidelity-adr.md"
+      ],
+      "options": {
+        "project": "wiki-master",
+        "type": "authored"
+      }
+    },
+    {
+      "id": "q38",
+      "category": "state",
+      "split": "development",
+      "query": "Implementation Intentions",
+      "expectedPages": [
+        "wiki/concepts/Implementation Intentions.md"
+      ],
+      "options": {
+        "type": "concept",
+        "status": "stub"
+      }
+    },
+    {
+      "id": "q39",
+      "category": "state",
+      "split": "development",
+      "query": "index scaling",
+      "expectedPages": [
+        "wiki/authored/wiki-master/notes/index-scaling.md"
+      ],
+      "options": {
+        "project": "wiki-master"
+      }
+    },
+    {
+      "id": "q40",
+      "category": "state",
+      "split": "development",
+      "query": "wiki-master roadmap",
+      "expectedPages": [
+        "wiki/authored/wiki-master/roadmap.md"
+      ]
+    }
+  ]
+}
