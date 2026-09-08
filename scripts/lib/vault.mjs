@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { join, basename } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { serializedExecFileSync, validateCliRequest } from './cli-transport.mjs';
 
 export function resolveVault() {
   const path = process.env.WIKI_MASTER_VAULT || join(homedir(), '.wiki-master-vault');
@@ -14,19 +14,23 @@ export function buildArgs(name, args) {
 
 // Reads normally finish in milliseconds. A hung app must not block an agent
 // indefinitely; callers with a known longer operation may supply a finite bound.
-export function obsidian(args, { name = resolveVault().name, timeout = 10_000, execFileSyncImpl = execFileSync } = {}) {
+export function obsidian(args, { name = resolveVault().name, timeout = 10_000, waitTimeout = 10_000, execFileSyncImpl = serializedExecFileSync } = {}) {
   if (!Number.isFinite(timeout) || timeout <= 0) throw new Error('Obsidian timeout must be a positive finite number of milliseconds');
+  if (!Array.isArray(args) || !args.length) throw new Error('A CLI command is required; request not sent');
+  const argv = buildArgs(name, args);
+  validateCliRequest(argv);
   try {
-    return execFileSyncImpl('obsidian', buildArgs(name, args), {
+    return execFileSyncImpl('obsidian', argv, {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
       timeout,
+      waitTimeout,
       windowsHide: true,
     }).trim();
   } catch (err) {
-    if (err.code === 'ETIMEDOUT') throw new Error(`obsidian ${args[0]} timed out after ${timeout}ms; command outcome may be unknown`, { cause: err });
+    if (err.code === 'ETIMEDOUT' && !err.message.startsWith('CLI guard worker')) throw Object.assign(new Error(`obsidian ${args[0]} timed out after ${timeout}ms; command outcome may be unknown`, { cause: err }), { code: err.code });
     const msg = (err.stderr || err.message || '').toString();
-    throw new Error(`obsidian ${args[0]} failed: ${msg}`, { cause: err });
+    throw Object.assign(new Error(`obsidian ${args[0]} failed: ${msg}`, { cause: err }), { code: err.code });
   }
 }
 

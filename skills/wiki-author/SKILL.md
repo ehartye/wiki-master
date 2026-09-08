@@ -20,8 +20,9 @@ Steps:
 3. Use `_templates/authored-note.md`, `_templates/authored-decision.md`, or
    `_templates/authored-backlog-item.md` as appropriate. Set `type: authored`,
    `sources: []`, honest `ai-generated`, and matching `project:`/`kind:` metadata.
-   Write through the CLI or supported exact-path filesystem fallback. A stopped
-   Obsidian app does not prevent ordinary Markdown authoring. After an uncertain
+   Write ordinary Markdown through exact-path filesystem edits, even when the
+   Obsidian app is healthy; never send a whole note body through CLI `content=`.
+   A stopped app does not prevent authoring. After an uncertain
    CLI write, inspect the target before retrying.
 4. Revise living content in place; never stack dated update paragraphs. Keep
    architecture as-built, roadmaps current, ADR consequences balanced and

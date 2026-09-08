@@ -23,7 +23,8 @@ pages, so coordinate overlapping targets rather than processing the global backl
 in parallel. Update only pages substantively changed by the evidence.
 
 For each source:
-1. Read the exact clipping via CLI or the supported filesystem fallback. Discuss
+1. Read the exact clipping through the guarded CLI or filesystem. Write derived
+   Markdown through exact-path filesystem edits, never a whole CLI `content=` payload. Discuss
    the key takeaways with the user.
 2. Write/update `wiki/sources/<slug>.md`: a summary with `sources: ["[[<raw link>]]"]`,
    `type: source`, `ai-generated: true`, and typed `created`/`updated`/`reviewed`.

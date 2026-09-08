@@ -21,6 +21,8 @@ The user requested this specification and implementation after a desktop error s
 
 ## Scope and verification
 
+Node.js 20.8 or newer is required for the Linux abstract-socket reservation. A forcibly killed owner releases its OS reservation, but an orphaned CLI child or an app-side mutation may still be running; inspect the target before resuming writes. In one Node process, await async CLI work before entering the synchronous adapter: blocking that process's event loop can prevent its own async gate from releasing until the sync call returns `CLI_BUSY`.
+
 Implement in a new feature worktree; no release, merge or installed-cache edits in this task. Keep vault data migration, Obsidian/plugin upgrades, automatic note rewriting and global interception out of scope.
 
 Tests must reject large/escaped/multibyte/multiline requests before a fake executor runs; accept small spaced arguments; show separate processes and sync/async callers never overlap; show lock-wait timeout never invokes the command; release after command failure/timeout and process termination; preserve search diagnostics. Use fake CLI programs and temporary artifacts, never a large live request. Run existing targeted suites and full tests, distinguishing the known Windows triage startup baseline from regressions. Independently review the transport and run paired skill probes with a frozen rubric hidden from actors. Update the wiki with the actual implemented/unreleased state.

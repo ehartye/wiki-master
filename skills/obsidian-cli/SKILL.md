@@ -1,6 +1,6 @@
 ---
 name: obsidian-cli
-description: Use when a wiki operation needs native Obsidian commands, typed properties, app state, or live Bases queries. Provides CLI syntax; ordinary Markdown access can use the supported filesystem fallback when the app is unavailable.
+description: Use when a wiki operation needs native Obsidian commands, typed properties, app state, or live Bases queries. Use the guarded caller for app commands and filesystem edits for ordinary Markdown writing.
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -16,8 +16,14 @@ its **filesystem path** from `WIKI_MASTER_VAULT`, defaulting to `~/.wiki-master-
 `node "<absolute-plugin-root>/scripts/health.mjs"` and friends need no path argument). Start there rather than
 searching the disk for the vault.
 `file=` resolves by name (like wikilinks); `path=` is an exact vault-relative path.
-Prefer the `scripts/lib/vault.mjs` wrapper from Node; use raw commands when acting
-directly with a bounded timeout. `obsidian vault info=path` can confirm the root
+Invoke commands through `node "<absolute-plugin-root>/scripts/obsidian.mjs" <command> ...`
+or the `scripts/lib/vault.mjs` API. Never bypass it with native CLI calls or run
+parallel native commands. The shared lock has a bounded wait; busy means not sent.
+Oversized or physically multiline requests are rejected before launch. Ordinary
+Markdown bodies go through filesystem editing, even when the CLI works. Do not
+chunk a rejected note into repeated CLI writes. Inspect the exact target first if
+an earlier write's outcome is uncertain. See the directly linked access contract.
+The guarded `vault info=path` command can confirm the root
 when the app responds; the known configured/default root supports filesystem access
 without that probe.
 
@@ -47,7 +53,7 @@ Probe lazily, never upfront. Run nothing in advance: any command that returns
 results has already proven the backend alive — from then on, trust empties too.
 Only when a command returns empty **and** that emptiness is about to drive a
 decision (report "not ingested", declare no backlinks, skip a page) run
-`obsidian search query="the" total` — a live backend prints a number, which
+`node "<absolute-plugin-root>/scripts/obsidian.mjs" search query="the" total` — a live backend prints a number, which
 means the empty was real; trust it and every later empty without re-probing.
 An empty canary means the backend is dead. A session whose commands all return
 hits never probes at all.
@@ -66,29 +72,29 @@ a reason to distrust a result.
 - **`format=` is a parameter, not a flag**, and its default varies per command —
   `search` defaults to `text`, `backlinks`/`tags`/`properties` to `tsv`,
   `base:query` to `json`. Never assume JSON; ask for it.
-- **`obsidian help` outranks the docs.** Obsidian's own skill says it "is always
+- **`node "<absolute-plugin-root>/scripts/obsidian.mjs" help` outranks the docs.** Obsidian's own skill says it "is always
   up to date" — so when the published reference and the binary disagree, the
-  binary wins. Check `obsidian help <command>` before concluding a flag is gone.
+  binary wins. Check `node "<absolute-plugin-root>/scripts/obsidian.mjs" help <command>` before concluding a flag is gone.
 - Prior art worth comparing against: kepano (Obsidian's CEO) publishes a
   first-party `obsidian-cli` Agent Skill. Where it and this skill agree — `total`
   for counts, `file=` vs `path=`, vault-first ordering — the agreement is
   independent corroboration, not inheritance.
 
 ## Read / search
-- `obsidian read path=wiki/concepts/alpha.md`
-- `obsidian search query="tag:clippings neural" path=wiki limit=10 format=json`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" read path=wiki/concepts/alpha.md`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" search query="tag:clippings neural" path=wiki limit=10 format=json`
 - Scope to `path=wiki` by default — `raw/` holds immutable source dumps (one
   clipping can be a 219k-word thesis) and belongs in results only when asked.
-- Probe cost before fetching: `obsidian search query="..." total` (bytes: ~4).
+- Probe cost before fetching: `node "<absolute-plugin-root>/scripts/obsidian.mjs" search query="..." total` (bytes: ~4).
 - **Never default to `search:context`** — it returns every matching line from
   every file (measured 1.5MB where `search limit=10` returned 497 bytes), and
   `limit=` bounds files, not lines, so it cannot save you. Escalate to
   `search:context` only with both `path=` and a narrow query.
 
 ## Links & graph
-- `obsidian backlinks file=alpha counts` — who links here
-- `obsidian links file=alpha` — outgoing links
-- `obsidian unresolved verbose format=json` — broken links WITH source files.
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" backlinks file=alpha counts` — who links here
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" links file=alpha` — outgoing links
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" unresolved verbose format=json` — broken links WITH source files.
   The bare form returns targets only; `verbose` is the difference between a
   defect you can act on and a string you can't attribute. Several subcommands
   have lossy defaults with a `verbose` escape — prefer `format=json verbose`.
@@ -98,25 +104,26 @@ a reason to distrust a result.
   source-side exclusion. health.mjs builds the graph from the filesystem.
 
 ## Typed properties (frontmatter)
-- `obsidian property:set name=reviewed value=2026-07-15 type=date path=wiki/concepts/alpha.md`
-- `obsidian property:read name=reviewed path=...`
-- `obsidian properties path=...` — list a note's properties
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" property:set name=reviewed value=2026-07-15 type=date path=wiki/concepts/alpha.md`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" property:read name=reviewed path=...`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" properties path=...` — list a note's properties
 
 ## Create / edit / move
-- `obsidian create path=wiki/sources/foo.md content="..."`
-- `obsidian append path=... content="..."`
-- `obsidian move file=foo to=wiki/entities`
+- Create, replace or append ordinary Markdown through exact-path filesystem edits
+  under the known root, using the shared operation lifecycle. Preserve current
+  content and raw evidence. Do not send substantial text through the CLI.
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" move file=foo to=wiki/entities`
 
 ## Tags, tasks, templates, bases
-- `obsidian tags counts` · `obsidian tag name=neural verbose`
-- `obsidian base:query file=stale.base view=all format=json`
-- `obsidian template:insert name=source-note`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" tags counts` · `node "<absolute-plugin-root>/scripts/obsidian.mjs" tag name=neural verbose`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" base:query file=stale.base view=all format=json`
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" template:insert name=source-note`
 
 ## Escape hatches
-- `obsidian command id=<id>` — run any Obsidian command (`obsidian commands` to list)
-- `obsidian eval code="<js>"` — arbitrary JS in app context (last resort).
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" command id=<id>` — run any Obsidian command (`node "<absolute-plugin-root>/scripts/obsidian.mjs" commands` to list)
+- `node "<absolute-plugin-root>/scripts/obsidian.mjs" eval code="<js>"` — arbitrary JS in app context (last resort).
   **This is remote code execution against the vault**, and it sits in the same
-  namespace as the read-only subcommands: a blanket `obsidian *` permission grant
+  namespace as the read-only subcommands: a blanket `node "<absolute-plugin-root>/scripts/obsidian.mjs" *` permission grant
   covers it. It belongs in its own permission decision, not folded in with
   `search` and `read`. The same applies to `dev:cdp` and `dev:debug`.
 

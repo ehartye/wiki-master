@@ -17,6 +17,6 @@ Initialize the wiki vault.
    requiring a running app. Log and close the operation; sync only if authorized
    and configured. Report a non-git vault as local-only.
 3. Relay the one-time app setup steps (open the folder as a vault, verify with
-   `obsidian vaults`, import the Web Clipper template). Report app registration
+   `node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults`, import the Web Clipper template). Report app registration
    separately from completed filesystem initialization; do not claim a health
    report proved the CLI can reach Obsidian.

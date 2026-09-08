@@ -42,7 +42,7 @@ export function main() {
   console.log(`Scaffolded vault at: ${path}`);
   console.log(`\nOne-time setup:`);
   console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
-  console.log(`  2. Verify: obsidian vaults   (should list "${name}")`);
+  console.log(`  2. Verify: node "${fileURLToPath(new URL('./obsidian.mjs', import.meta.url))}" vaults   (should list "${name}")`);
   console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
   if (!defuddleAvailable()) {
     console.log(`\n  Note: /wiki-discover needs the Defuddle CLI. Install: npm i -g defuddle`);

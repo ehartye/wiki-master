@@ -1,0 +1,115 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "35b8f14ce11e161f8c4aade876d5100860aff9e117a5fc6bdca3cd7a05addcd6",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/transport_review",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 3,
+      "observed": 3,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 3,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "large-guide",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "busy-read",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-write",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "35b8f14ce11e161f8c4aade876d5100860aff9e117a5fc6bdca3cd7a05addcd6",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/transport_review",
+      "independent": true
+    },
+    "status": "fail",
+    "coverage": {
+      "expected": 3,
+      "observed": 3,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 1,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "large-guide",
+        "status": "fail",
+        "missingActions": [
+          "complete-operation"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.75,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "busy-read",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-write",
+        "status": "fail",
+        "missingActions": [
+          "filesystem-write"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.75,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 2
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}

@@ -123,6 +123,7 @@ test('keyword backend failure reports degraded coverage while exact lookup still
 
 test('bounded keyword adapter passes timeout and distinguishes zero hits from failures', async () => {
   assert.equal(typeof retrieval.boundedKeywordSearch, 'function');
+  await assert.rejects(retrieval.boundedKeywordSearch('x'.repeat(3000), { execFileImpl() { assert.fail('unsafe search must not launch'); } }), /not sent/i);
   let opts;
   const execFileImpl = (cmd, args, options, callback) => { opts = options; callback(null, 'No matches found.'); };
   assert.deepEqual(await retrieval.boundedKeywordSearch('q', { execFileImpl }), []);
