@@ -1,0 +1,220 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "e4a620a68f80dc33a92ded5285bf278b68c1615128aea067d9f81275156d53bc",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/reliability_review",
+      "independent": true
+    },
+    "status": "fail",
+    "coverage": {
+      "expected": 8,
+      "observed": 8,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 7,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "offline-author",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "lookup",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "freshness",
+        "status": "fail",
+        "missingActions": [
+          "inspect-evidence"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.6666666666666666,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "naming-near-miss",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "authorized-discovery",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "discovery-only",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-write",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "app-only",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "e4a620a68f80dc33a92ded5285bf278b68c1615128aea067d9f81275156d53bc",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "/root/reliability_review",
+      "independent": true
+    },
+    "status": "fail",
+    "coverage": {
+      "expected": 8,
+      "observed": 8,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 5,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "offline-author",
+        "status": "fail",
+        "missingActions": [
+          "log",
+          "commit-operation"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.8,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "lookup",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "freshness",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "naming-near-miss",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "authorized-discovery",
+        "status": "fail",
+        "missingActions": [
+          "commit-operation"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.8571428571428571,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "discovery-only",
+        "status": "fail",
+        "missingActions": [
+          "commit-operation"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.8,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-write",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "app-only",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 2
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}

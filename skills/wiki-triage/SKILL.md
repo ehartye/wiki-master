@@ -1,22 +1,12 @@
 ---
 name: wiki-triage
-description: Put links that need a human decision in front of the user — clip failures, fidelity flags, declines nearing expiry, and the ingest backlog — in a browser surface they can disposition. Use whenever a run produces sources the pipeline could not resolve on its own, or when the user asks what needs their attention.
+description: Use when asked what wiki sources need human attention, or when clipping failures, fidelity flags, expiring declines, or ingest decisions need review. Presents the disposition queue; automatic source research belongs to wiki-discover.
 argument-hint: "[blank to show everything, or a kind: failed | thin | fidelity | expiring | backlog]"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location, the provenance/`raw/`-immutability
-> guardrails, and the shared metrics (the ingest backlog is one) these steps assume.
-> Skip the load if you arrived here mid-run from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [maintenance](../wiki-maintainer/references/maintenance.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 ## What this is for
 Some links cannot be resolved by the pipeline: a 403, a paywalled SPA, an extraction that
@@ -26,7 +16,7 @@ eyes on a link belongs here**, not in console output.
 
 ## Show the queue
 ```bash
-node ../../scripts/triage.mjs
+node "<absolute-plugin-root>/scripts/triage.mjs"
 ```
 Prints one line of JSON: `{"type":"triage-ready","link":"http://localhost:PORT/?t=…","url":…}`
 with counts. **Give the user `link`, not `url`.** Every route is behind a session token, and
@@ -40,7 +30,7 @@ refreshes the open page rather than starting a second server. It idles out after
 
 ### Triaging from another machine
 ```bash
-node ../../scripts/triage.mjs --remote
+node "<absolute-plugin-root>/scripts/triage.mjs" --remote
 ```
 Default is loopback-only. `--remote` binds every interface and advertises a reachable
 address instead of `0.0.0.0`, which no browser will open. Everything else is unchanged:
@@ -80,17 +70,21 @@ Dispositions append to `<vault>/.wiki-master/triage.jsonl` as
 `{"t":"disposition","url":…,"kind":…,"disposition":…}`. Fold the log to get current state:
 
 ```js
-import { loadIssueLog, openIssues } from '../../scripts/lib/triage.mjs';
+import { pathToFileURL } from 'node:url';
+const { loadIssueLog, openIssues } = await import(pathToFileURL('<absolute-plugin-root>/scripts/lib/triage.mjs').href);
 const stillOpen = openIssues(loadIssueLog(vaultPath));
 ```
 
-Then act on what the user chose:
+Then act on what the user chose. Starting the UI alone needs no content operation.
+Before applying a disposition that changes tracked content or pipeline state, open
+or reuse an operation; validate, log, commit and verify already-authorized sync
+through the completion contract. Handoffs such as ingest own their transaction:
 
 | disposition | what you do |
 |---|---|
 | `clipped-by-hand` | confirm the clipping exists in `raw/clippings/`; if not, say so |
 | `retry` | re-run `clip.mjs` for that URL — a transient failure may have cleared |
-| `declined` | `node ../../scripts/clip.mjs "<url>" --decline="<reason>"` |
+| `declined` | `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<reason>"` |
 | `reconsider` | the decline is expiring and they want it re-evaluated — treat as a discovery candidate |
 | `keep-declined` | re-record the decline to reset its TTL |
 | `acceptable` | fidelity is good enough; no action beyond noting it |
@@ -103,7 +97,8 @@ Then act on what the user chose:
 When a run surfaces a link only the user can settle, queue it rather than burying it in prose:
 
 ```js
-import { recordIssue } from '../../scripts/lib/triage.mjs';
+import { pathToFileURL } from 'node:url';
+const { recordIssue } = await import(pathToFileURL('<absolute-plugin-root>/scripts/lib/triage.mjs').href);
 recordIssue(vaultPath, { url, kind: 'attention', reason: 'why this needs a human', topic });
 ```
 

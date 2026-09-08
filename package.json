@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:skills": "node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs"
   }
 }

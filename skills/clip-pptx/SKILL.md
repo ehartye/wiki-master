@@ -1,22 +1,12 @@
 ---
 name: clip-pptx
-description: Clip a PowerPoint deck (.pptx, local file) into the wiki as a Markdown clipping — extract its slide text, tables, and speaker notes with a bundled python-pptx helper and store the MD representation, never the binary deck, so provenance resolves to real notes. Use when a source is a slide deck that /wiki-discover's HTML clipper (Defuddle) cannot handle and clip-docx/clip-xlsx do not apply.
+description: Use when asked to clip a PowerPoint deck (.pptx) into the wiki as Markdown evidence. For creating or editing slides use a presentation skill; for PDFs use clip-pdf.
 argument-hint: "<path/to/file.pptx> [--source=\"<url-or-path>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
-> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
-> from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a PowerPoint deck into the wiki
 
@@ -69,7 +59,7 @@ attempting extraction and reporting a confusing downstream error.
    python-pptx` (naming the interpreter that will run the helper — installing into
    a different one is the classic silent failure) and stop; do not fabricate content.
 2. **Clip** (this is the only writer to `raw/` for PowerPoint decks):
-   `node ../../scripts/clip-pptx.mjs "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin. Omit for a purely local file and the file
      path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -85,8 +75,7 @@ attempting extraction and reporting a confusing downstream error.
    layout, images, and chart *rendering* — table cell text is preserved, but a
    chart's visual is not.
 4. **Hand off to `/wiki-ingest`** exactly as with any other clipping — summarize
-   into `wiki/sources/`, cross-reference, index, log. The ingest is gated by the
-   user as usual.
+   into `wiki/sources/`, cross-reference, index, log. Ingestion requires authorization for this scope; reuse explicit session authorization.
 
 ## Guardrails
 
@@ -100,3 +89,12 @@ attempting extraction and reporting a confusing downstream error.
   verify quotes against the deck before they land on a wiki page (guardrail #5).
 - Legacy `.ppt` is unsupported — convert to `.pptx` first; do not attempt a
   workaround extraction.
+
+## Completion
+
+For a standalone clip, open an operation before the clipping helper writes, verify
+its returned paths and extraction diagnostics, log once, commit and verify
+already-authorized sync through the shared operations contract. During discovery,
+use the enclosing operation and report the results to its owner for completion.
+Capturing evidence does not by itself authorize ingestion; reuse explicit
+discover-and-ingest authorization when it is already present.

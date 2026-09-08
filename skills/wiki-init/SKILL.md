@@ -1,21 +1,22 @@
 ---
 name: wiki-init
-description: Scaffold a fresh wiki-master vault (folders, index/log, schema, Bases dashboard, templates) and print the one-time setup steps.
+description: Use when asked to initialize or scaffold a new wiki-master vault. Existing-vault health checks belong to wiki-health; this is not a migration or repair workflow.
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 Initialize the wiki vault.
 
-1. Run `../../scripts/init.mjs` (path relative to this skill's directory) with node.
-2. Relay the printed one-time setup steps to the user (open as vault, verify with
-   `obsidian vaults`, import the Web Clipper template).
-3. Once the user confirms the vault is open in Obsidian, run `/wiki-health` to
-   confirm the CLI can reach it.
+1. Verify this is the intended new vault root. Open an operation before
+   scaffolding, using the fresh-vault exception in the completion contract.
+   Run `node "<absolute-plugin-root>/scripts/init.mjs"`.
+2. Verify the expected folders, schema, templates and catalog exist. Run
+   `node "<absolute-plugin-root>/scripts/health.mjs"`; it checks files without
+   requiring a running app. Log and close the operation; sync only if authorized
+   and configured. Report a non-git vault as local-only.
+3. Relay the one-time app setup steps (open the folder as a vault, verify with
+   `obsidian vaults`, import the Web Clipper template). Report app registration
+   separately from completed filesystem initialization; do not claim a health
+   report proved the CLI can reach Obsidian.

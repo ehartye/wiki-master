@@ -1,22 +1,12 @@
 ---
 name: clip-docx
-description: Clip a Word document (.docx/.doc, local file or downloaded paper) into the wiki as a Markdown clipping — extract its text with pandoc and store the MD representation, never the binary document, so provenance resolves to real notes. Use when a source is a Word file that /wiki-discover's HTML clipper (Defuddle) cannot handle and clip-pdf does not apply.
+description: Use when asked to clip a Word document (.docx or .doc) into the wiki as Markdown evidence. For PDFs use clip-pdf; for original wiki documentation use wiki-author.
 argument-hint: "<path/to/file.docx> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
-> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
-> from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a Word document into the wiki
 
@@ -55,7 +45,7 @@ It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
    tell the user to install pandoc (https://pandoc.org/installing.html) and stop;
    do not fabricate content.
 2. **Clip** (this is the only writer to `raw/` for Word docs):
-   `node ../../scripts/clip-docx.mjs "<path/to/file.docx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-docx.mjs" "<path/to/file.docx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local file and the file path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -77,8 +67,7 @@ It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
    that the extracted text is real prose. pandoc output is plain text — light and
    lossy on tables/figures.
 4. **Hand off to `/wiki-ingest`** exactly as with any other clipping — summarize
-   into `wiki/sources/`, cross-reference, index, log. The ingest is gated by the
-   user as usual.
+   into `wiki/sources/`, cross-reference, index, log. Ingestion requires authorization for this scope; reuse explicit session authorization.
 
 ## Guardrails
 
@@ -89,3 +78,12 @@ It deliberately mirrors `clip-pdf` but **omits the PDF-only machinery**:
 - **Fidelity, not truth**: a faithful extraction of a wrong paper is still wrong;
   pandoc can also drop table/figure structure — verify quotes against the document
   before they land on a wiki page (guardrail #5).
+
+## Completion
+
+For a standalone clip, open an operation before the clipping helper writes, verify
+its returned paths and extraction diagnostics, log once, commit and verify
+already-authorized sync through the shared operations contract. During discovery,
+use the enclosing operation and report the results to its owner for completion.
+Capturing evidence does not by itself authorize ingestion; reuse explicit
+discover-and-ingest authorization when it is already present.

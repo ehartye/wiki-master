@@ -1,16 +1,11 @@
 ---
 name: obsidian-cli
-description: Reference for driving the native Obsidian command-line interface (v1.12+). Use whenever a wiki-master operation needs to read, search, link, tag, or edit notes in the vault via the `obsidian` CLI.
+description: Use when a wiki operation needs native Obsidian commands, typed properties, app state, or live Bases queries. Provides CLI syntax; ordinary Markdown access can use the supported filesystem fallback when the app is unavailable.
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md).
+Select the calling workflow before mutations; CLI syntax alone does not authorize writes.
 
 # Driving the Obsidian CLI
 
@@ -18,12 +13,13 @@ The vault is targeted by name: `obsidian vault=<name> <command> ...`. wiki-maste
 resolves `<name>` from `WIKI_MASTER_VAULT_NAME` or the vault folder's basename, and
 its **filesystem path** from `WIKI_MASTER_VAULT`, defaulting to `~/.wiki-master-vault`
 (this convention lives in `scripts/lib/vault.mjs` — the bundled scripts use it, so
-`node scripts/health.mjs` and friends need no path argument). Start there rather than
+`node "<absolute-plugin-root>/scripts/health.mjs"` and friends need no path argument). Start there rather than
 searching the disk for the vault.
 `file=` resolves by name (like wikilinks); `path=` is an exact vault-relative path.
 Prefer the `scripts/lib/vault.mjs` wrapper from Node; use raw commands when acting
-directly. `obsidian vault info=path` prints the vault's filesystem root — get it
-once so `Read`/`Grep` can work on real paths.
+directly with a bounded timeout. `obsidian vault info=path` can confirm the root
+when the app responds; the known configured/default root supports filesystem access
+without that probe.
 
 ## Windows invocation — REQUIRED
 **Never run `obsidian` from the Bash tool.** The two binaries are Obsidian's own
@@ -124,6 +120,8 @@ a reason to distrust a result.
   covers it. It belongs in its own permission decision, not folded in with
   `search` and `read`. The same applies to `dev:cdp` and `dev:debug`.
 
-If a command fails, surface the running-guard message from
-`scripts/lib/vault.mjs` (`assertRunning`) — it fails loudly, so a command that
-returns is a command that ran.
+If a command fails, report its diagnostic and follow the directly linked access
+policy. The wrapper defaults to a 10-second timeout and never retries. After a
+timed-out mutation, inspect the exact target: the write may have run even though
+the response was lost. `assertRunning` is for app-only actions, not a gate on
+supported filesystem reads, reports or ordinary Markdown edits.

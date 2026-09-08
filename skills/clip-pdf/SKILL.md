@@ -1,22 +1,12 @@
 ---
 name: clip-pdf
-description: Clip a PDF (local file or downloaded paper) into the wiki as a Markdown clipping — extract its text and store the MD representation, never the binary PDF, so provenance resolves to real notes. Use when a source is a PDF that /wiki-discover's HTML clipper (Defuddle) cannot handle.
+description: Use when asked to save or clip a local or downloaded PDF into the wiki as Markdown evidence. For Word documents use clip-docx; for existing clippings use wiki-ingest.
 argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
-> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
-> from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a PDF into the wiki
 
@@ -103,7 +93,7 @@ Extraction is tuned for academic PDFs:
 
 ## Steps
 
-1. **Preflight** (once): `node ../../scripts/clip-pdf.mjs --doctor`. It probes every
+1. **Preflight** (once): `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" --doctor`. It probes every
    external tool and prints what each missing one costs you; it is silent-and-OK only
    when all four are present. The clipper also prints this banner on **every** run
    when something is missing, so a degraded toolchain cannot go unnoticed. A missing
@@ -111,7 +101,7 @@ Extraction is tuned for academic PDFs:
    degradations: no `-table` loses table row pairings, and no `pdftoppm`/`tesseract`
    means scanned PDFs cannot be read at all.
 2. **Clip** (this is the only writer to `raw/`):
-   `node ../../scripts/clip-pdf.mjs "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local PDF and the file path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -132,8 +122,7 @@ Extraction is tuned for academic PDFs:
    that the extracted text is real prose, not garbled ligatures. `pdftotext`
    output is plain text — light and lossy on tables/figures.
 4. **Hand off to `/wiki-ingest`** exactly as with any other clipping — summarize
-   into `wiki/sources/`, cross-reference, index, log. The ingest is gated by the
-   user as usual. **If the clipping carries `fidelity: degraded`, do not quote its
+   into `wiki/sources/`, cross-reference, index, log. Ingestion requires authorization for this scope; reuse explicit session authorization. **If the clipping carries `fidelity: degraded`, do not quote its
    equations/symbols verbatim** — paraphrase them with attribution and verify every
    quoted span against the original PDF (guardrail #5). Note the fidelity ceiling
    on the resulting source page so a reader knows.
@@ -157,7 +146,7 @@ of it is quotable, yet it reads as ordinary prose and is stamped only
 right until you have looked at the output.**
 
 ```bash
-node ../../scripts/clip-pdf.mjs "<file.pdf>" --mode=reading-order --source="<url>"
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --mode=reading-order --source="<url>"
 ```
 
 - `auto` (default) — the detector chooses.
@@ -194,3 +183,12 @@ followed by a whole value column, it is a table — use `table`.
 - **Fidelity, not truth**: a faithful extraction of a wrong paper is still wrong;
   `pdftotext` can also mangle multi-column layouts — verify quotes against the PDF
   before they land on a wiki page (guardrail #5).
+
+## Completion
+
+For a standalone clip, open an operation before the clipping helper writes, verify
+its returned paths and extraction diagnostics, log once, commit and verify
+already-authorized sync through the shared operations contract. During discovery,
+use the enclosing operation and report the results to its owner for completion.
+Capturing evidence does not by itself authorize ingestion; reuse explicit
+discover-and-ingest authorization when it is already present.

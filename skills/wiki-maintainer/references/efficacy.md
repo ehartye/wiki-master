@@ -4,7 +4,7 @@ Use this contract when creating concepts, linking topics, discovering sources or
 
 ## Concept identity
 
-Before creating a concept, search its intended title, common alternative wording, and the nearest existing concepts. Choose explicitly: extend the canonical page, add an equivalent alias, or create a distinct concept with a scope boundary. Run `node scripts/identity-audit.mjs --json` from the plugin root when ambiguity is suspected. Never merge based on embedding similarity alone.
+Before creating a concept, search its intended title, common alternative wording, and the nearest existing concepts. Choose explicitly: extend the canonical page, add an equivalent alias, or create a distinct concept with a scope boundary. Run `node "<absolute-plugin-root>/scripts/identity-audit.mjs" --json` from the plugin root when ambiguity is suspected. Never merge based on embedding similarity alone.
 
 Use `aliases: ["equivalent phrase"]` and a one-sentence `scope:` on concept pages. Aliases name the same concept; broader, narrower and complementary concepts remain separate pages. Use full-path wikilinks for ambiguous names. A source page and a concept may legitimately share a basename; a warning is a review queue, not permission to rename everything.
 
@@ -14,7 +14,7 @@ Keep citations in `sources:` and in the prose they support. Citation targets poi
 
 Put navigation in `## Relationships` or `Related:`. Use a small role vocabulary: **broader**, **narrower**, **prerequisite**, **complements**, **alternative**, **contrasts**, **applies-to**. Each link needs a sentence explaining the relationship and its limits. For example: `Complements [[wiki/concepts/Intention-Action Gap.md|Intention–Action Gap]]: this intervention addresses a gap between intending and acting under the conditions described above.` Do not turn similar wording into a causal claim. Clearly label cross-source interpretations as synthesis; retain their supporting citations outside the navigation section.
 
-Run `node scripts/relationships.mjs --limit=10 --json` to generate candidates. Shared sources and semantic neighbors are reasons to inspect, never proof of a relationship. Review both pages and their evidence; accept only links with a useful explanation. Reuse existing user authorization for the requested relink scope. Do not grow links merely to improve a graph score.
+Run `node "<absolute-plugin-root>/scripts/relationships.mjs" --limit=10 --json` to generate candidates. Shared sources and semantic neighbors are reasons to inspect, never proof of a relationship. Review both pages and their evidence; accept only links with a useful explanation. Reuse existing user authorization for the requested relink scope. Do not grow links merely to improve a graph score.
 
 ## Task maps and discovery
 

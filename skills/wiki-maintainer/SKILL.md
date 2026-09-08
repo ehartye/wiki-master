@@ -1,444 +1,76 @@
 ---
 name: wiki-maintainer
-description: The discipline for maintaining a Karpathy-style LLM wiki on Obsidian. Use for any wiki-master operation (ingest, query, lint, relink) — it defines the vault contract, workflows, and guardrails that keep the wiki trustworthy.
+description: Use for wiki-master work when reading, answering from, or maintaining the knowledge vault. Defines shared evidence and vault rules; select the task-specific skill for search, authoring, ingest, or maintenance. Ordinary application code work is not a wiki operation unless it uses or updates the vault.
 ---
-
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
 
 # Maintaining the wiki
 
-**For concept creation, relinking, discovery and maintenance:** read
-[the efficacy contract](references/efficacy.md). It defines canonical names,
-relationship roles, task maps and the distinction between edits and verification.
+Read this short core once per session. Obsidian is the wiki's IDE; Markdown is
+its portable knowledge store. A failed app connection does not block supported
+filesystem work. Load the directly linked references required by your operation,
+not every reference for a simple lookup.
 
-You are the disciplined maintainer of an Obsidian LLM-wiki. **Obsidian is the IDE;
-you are the programmer; the wiki is the codebase.** The human curates sources and
-asks questions; you do all summarizing, cross-referencing, filing, and consistency
-bookkeeping. Use the `obsidian-cli` skill for all vault access.
+## Location and access
 
-## Non-negotiable guardrails
-1. **`raw/` bodies are immutable.** Read raw sources; never edit their content —
-   it is the evidence every wiki page cites. Frontmatter is pipeline state and
-   may be updated by wiki-master tooling only.
-2. **Provenance on every claim.** Each wiki page you write carries `sources: ["[[...]]"]`
-   linking back to the `raw/` notes it derives from, plus `ai-generated: true`.
-   **Exception: `wiki/authored/`** — original content with no `raw/` counterpart
-   (advisory documentation, policy, house style) declares this explicitly via
-   `sources: []`, never by omission. `ai-generated` still records actual
-   authorship (`true` if you drafted it, `false` if the human did) — the
-   disclosure is about provenance, not about who wrote the words.
-3. **Cite when you answer.** Query answers reference the pages/sources they rest on.
-4. **Flag, don't invent.** If sources contradict or are silent, say so — never
-   paper over a gap with plausible text.
-5. **Clippings win.** Briefs, discovery summaries, corrections files, and your
-   own memory of a source are *claims, not authority*: verify every quote,
-   figure, and attribution against the clipping in `raw/` before it lands on a
-   page, and when they disagree the clipping prevails — including when the
-   instruction is the user's. Every layer between the source and the page is a
-   lossy compressor whose errors read exactly like facts; authority flows
-   outward from the one artifact that cannot drift.
-   Scope edges, which matter as much as the rule:
-   - It guarantees **fidelity, not truth** — a faithful clipping of a wrong page
-     is still wrong; quality tiers and cross-clipping corroboration handle
-     credibility.
-   - A **degraded capture** (bad OCR, partial extraction) wins as evidence of
-     what the vault *holds*, not of what the author typed — don't trust it at
-     character level.
-   - A clipping's **silence proves "not supported here," never "false"** —
-     record unsourced claims as unsourced (visibly, on the page) rather than
-     asserting or deleting them. The vault cannot cite what it does not hold.
+The vault is `WIKI_MASTER_VAULT`, default `~/.wiki-master-vault`; its Obsidian
+name is `WIKI_MASTER_VAULT_NAME`, default the folder basename. Bundled helpers
+resolve this through `scripts/lib/vault.mjs`. Start at this known root; do not
+search the disk. Read the vault's own `AGENTS.md` and schema before changing it.
 
-## Vault contract
-- **Where the vault lives:** `$WIKI_MASTER_VAULT`, default `~/.wiki-master-vault`
-  (`$WIKI_MASTER_VAULT_NAME` / folder basename is the Obsidian vault name). The
-  bundled `scripts/` resolve this via `scripts/lib/vault.mjs`, so `node
-  scripts/health.mjs` and friends need no path argument. Start there rather than
-  searching the disk; for ad-hoc `Read`/`Grep`, `obsidian vault info=path` prints
-  the filesystem root.
-- `raw/` (+ `raw/clippings/`): immutable sources. `wiki/{sources,entities,concepts,syntheses,authored}`:
-  pages you own. `moc/`: navigational hubs. `index.md`: catalog. `log/`: one file per operation (view via `log.base`).
-- **`.recycle/`** holds purged content — pages, clippings, and a `manifest.json` per
-  purge. **Never read it, never cite it, never count it.** A page in the bin is not
-  evidence, not a source, and not backlog. The exclusion is structural rather than a
-  convention you must remember: `graph.mjs`'s walk skips leading-dot entries, every
-  other reader filters on an anchored `wiki/` prefix, and Obsidian's indexer ignores
-  dot-folders (measured, not assumed). `/wiki-purge` owns it; nothing else writes
-  there, and nothing ever empties it.
-- Wiki page frontmatter (set via `property:set`, typed):
-  `type` (source|entity|concept|synthesis|authored), `created`, `updated`, `reviewed`,
-  `status` (stub|draft|maintained), `sources: ["[[...]]"]`, `ai-generated: true`.
-- **`wiki/authored/`** is where original, primary content lives — advisory
-  documentation, policy, house style, or any other work you're writing directly
-  into the vault rather than deriving from a captured source. It is not a
-  special case of the pipeline: it declares `sources: []` (the vault's existing
-  disclosure for "rests on no external artifact," extended here as the default
-  for the whole category) and is otherwise a wiki page like any other — living,
-  revisable, never needing a `raw/` counterpart.
+Read [access and host commands](references/access.md) before accessing the vault.
+Use quoted absolute helper paths resolved from this installed skill directory
+(two parents up is the plugin root), never from the user's current workspace.
+Sibling skill names refer to their workflows; load `../<name>/SKILL.md` directly
+when the host has no skill loader. Treat `$ARGUMENTS` as the user's request when
+not substituted by the host.
 
-  **When this page belongs to a multi-doc project**, it lives at
-  `wiki/authored/<project>/[<subproject>/]<file>.md` — a real folder, not just a
-  frontmatter tag, so the file actually stops being a sibling of 30+ unrelated
-  pages. Every doc-kind has one canonical location, so the same request always
-  resolves the same way, for every project, without re-deriving convention from
-  whatever a prior session happened to name things:
+## Invariants
 
-  | You hear | It lives at |
-  |---|---|
-  | "update the product documentation" / "the overview" | `<project>/overview.md` |
-  | "document the architecture" | `<project>/architecture.md` |
-  | "add/update the roadmap" | `<project>/roadmap.md` — **mostly generated**, see below |
-  | "write a user guide" | `<project>/guides/user.md` |
-  | "write a developer guide" | `<project>/guides/developer.md` |
-  | "write an administrator guide" | `<project>/guides/administrator.md` |
-  | "get me a diagram [for X]" | `<project>/diagrams/<x-slug>.md` |
-  | "write up a reference doc on X" | `<project>/reference/<x-slug>.md` |
-  | "record a decision about X" (ADR) | `<project>/decisions/<x-slug>-adr.md` |
-  | "make a note about X" | `<project>/notes/<x-slug>.md` |
-  | "add an item to the backlog" | `<project>/backlog/<item-slug>.md` — see below |
+1. **Raw bodies are immutable.** Only clipping tools create `raw/` evidence;
+   only pipeline tooling updates its frontmatter. Never move raw files to mark
+   ingestion state. Never read, cite or count `.recycle/`; only purge owns it.
+2. **Claims carry provenance.** Derived pages declare `sources: ["[[...]]"]`
+   pointing to exact source/raw paths, and honest `ai-generated` authorship.
+   Original `wiki/authored/` work explicitly declares `sources: []`.
+3. **Verify against captured evidence.** Clippings outrank paraphrases or memory
+   for what the vault holds, not for universal truth. Degraded captures cannot
+   establish exact quotes; absence of support is not proof a claim is false.
+   Cite answers; disclose contradictions and uncertainty rather than inventing.
+4. **Keep three dates distinct.** `updated` means edited; `reviewed` means factual
+   claims checked against evidence or current project behavior; index freshness
+   means indexed content matches files. Mechanical edits preserve `reviewed`.
+5. **Preserve scope and user work.** Reuse existing session authorization. Reads
+   do not open operations, log, commit or refresh indexes. Before the first
+   authorized write, follow [operation completion](references/operations.md).
+   Never stage the whole vault. Purge retains its explicit plan approval.
 
-  Set `project:` (a slug, one `/` deep at most for a sub-project, e.g.
-  `sparta-suite/migrator`) and `kind:` — one of `overview | architecture |
-  reference | guide | diagram | decision | roadmap | note | backlog-item` —
-  matching the folder you placed it in; both are optional and can be omitted
-  for a genuinely standalone, project-less note. Use `_templates/authored-note.md`
-  to start a page (`_templates/authored-decision.md` for an ADR,
-  `_templates/authored-backlog-item.md` for a backlog item — see below).
-  `kind: decision` additionally carries `decision-status: proposed | accepted |
-  superseded | deprecated` (Nygard's ADR vocabulary) — keep it in sync with
-  whatever the page's own `## Status` section says in prose. **Existing files
-  are not renamed to fit this table** — only new ones follow it going forward;
-  a bare canonical leaf name (`overview.md`) repeated across every project would
-  be a guaranteed cross-project wikilink collision (this vault has already been
-  bitten by exactly that bare-name-collision class twice — see `graph.mjs`'s own
-  changelog history), so existing filenames stay as they are, just moved into
-  their project's folder.
+## Layout and navigation
 
-  Because `overview.md` / `architecture.md` / `roadmap.md` are deliberately
-  reused bare names across projects (each project gets its own), a bare
-  `[[roadmap]]` link is ambiguous the moment a **second** project acquires one —
-  it resolves to whichever one Obsidian's name index happens to pick, silently,
-  with no error. **Any reference to one of these files from *outside* its own
-  project must use the piped form naming the full path** —
-  `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]` — the same
-  convention this vault already uses for other ambiguous bare titles (e.g.
-  citing `21 CFR Part 11`'s source page). A link from *within* the same
-  project's own pages can stay bare.
+- `raw/clippings/`: evidence; `wiki/{sources,entities,concepts,syntheses,authored}/`:
+  maintained pages; `moc/`: navigational maps; `log/`: one file per operation.
+- Wiki frontmatter: `type` (source/entity/concept/synthesis/authored), `created`,
+  `updated`, `reviewed`, `status` (stub/draft/maintained), `sources`, `ai-generated`.
+- Use `[[wikilinks]]`; `![[embeds]]` are transclusion, not relationship edges.
+  Write unwrapped logical lines; never split a wikilink across a line break.
+- `index.md`'s generated catalog is derived: regenerate with `index-gen.mjs`;
+  never hand-edit its fence or read-modify-write the file. Manual framing outside
+  the fence is preserved. Prefer bounded search and relevant MOCs over loading
+  the whole generated catalog.
+- Treat search diagnostics as evidence about coverage, not relevance. A stale
+  index can omit useful pages; read current passages and disclose weaker channels.
+  Zero evaluated drift pages cannot establish that the wiki has no drift.
 
-  **The backlog is a folder of small items, never one growing document.** A
-  tracked item is its own file, `<project>/backlog/<item-slug>.md`
-  (`kind: backlog-item`, `backlog-status: planned | in-progress | shipped |
-  blocked | dropped`). "Add an item" = create exactly one new small file.
-  "Update an item" = edit exactly that one file's `backlog-status:` and body —
-  **never append a new dated "Update (date): ..." paragraph on top of the old
-  ones; edit the item's own text in place.** `git log`/`git blame` is the
-  changelog now, not a stack of callouts inside the body. `<project>/roadmap.md`
-  itself becomes a thin, mostly-generated index over `backlog/*.md` (run
-  `node ../../scripts/backlog-gen.mjs --apply` after adding/updating an item) —
-  the same fenced-region contract `index.md` already uses: hand-written framing
-  prose stays outside the fence, the itemized, always-current list lives inside
-  it. This is a direct instruction, not a hope: appending one more update is
-  always the lowest-friction move available in the moment for whatever task
-  brought you to the file, and nothing else reliably stops it — a monolithic
-  roadmap this vault actually had (`sparta-migrator-roadmap.md`, 1,261 lines
-  before this pattern existed) is the concrete proof this format is meant to
-  prevent recurring.
+## Load only the relevant policy
 
-  `node scripts/health.mjs`'s `monolith candidates` line (a `wiki/authored/`
-  page over ~3,000 words with several stacked dated-update callouts) is a
-  secondary safety net for anything that still grows despite the format above —
-  report it, don't silently keep appending.
-- Links are `[[wikilinks]]`. `![[embeds]]` are transclusion only — not relationship edges.
-- Clippings from `/wiki-discover` carry `quality: high|medium|low` (AI credibility
-  rating). Treat `low` sources with extra skepticism when ingesting; `/wiki-lint`
-  may flag claims that rest only on `low`-quality provenance.
+| Operation | Direct references to read |
+|---|---|
+| Source claims, quotes, synthesis, editorial changes | [Evidence and page-type licenses](references/evidence.md) |
+| Original project docs, guides, ADRs, backlog | [Canonical placement and living documentation](references/authoring.md) |
+| Concepts, relinking, task maps, discovery, factual review | [Identity, relationships and verification](references/efficacy.md) |
+| Ingest backlog, lint, structural repairs, migration | [Metrics, repairs and pattern limits](references/maintenance.md) |
+| Domain workflow details when needed | [Workflow reference](references/workflows.md) |
+| Any vault mutation | [Completion, logging, commits and authorized sync](references/operations.md) |
 
-## Search degrades silently — read the status line
-Search never errors out; it falls back to a weaker channel and still returns plausible
-results. `scripts/search.mjs` therefore prints a status line to stderr on every query,
-and it is not decoration:
-- `(hybrid · N chunks)` — Obsidian keyword + chunk-level semantic, RRF-fused.
-- `(lexical — <what is off> · run --health)` — keyword only. Report this to the user
-  before presenting an answer built on it.
-
-Semantic retrieval reads a chunk index under `.wiki-master/`, built by
-`scripts/index-embed.mjs` and keyed by chunk-content hash — so it can be **incomplete,
-never wrong**: an edited chunk misses and is re-embedded on the next refresh. `op-commit`
-refreshes it after every bracketed operation, so an operation that follows the contract
-below leaves the index current; `--health` reports how many files have changed since the
-last refresh, which is what a hand edit outside an operation will show up as. Results are
-`path:line`, pointing at the passage that matched.
-
-## Every mutating operation commits itself
-An operation that changes the vault owns the commit that records it. Open with
-`node ../../scripts/op-begin.mjs --op <op>` (capture the token it prints), close with
-`node ../../scripts/op-commit.mjs --op <op> --title "<title>" --since $TOKEN`. It
-commits exactly what the operation touched — computed as the dirty set now minus the
-dirty set when it opened — so the user's in-progress writing is never swept into a
-commit labelled as your work, and the operation is revertable as one unit.
-
-This is not a convenience. A change sitting in a working tree is not a change any
-other machine can see, and a pull with uncommitted changes present is exactly the
-state that silently undoes them. obsidian-git's timer is a safety net for hand edits
-made in Obsidian itself; it is not the mechanism, because it cannot know where an
-operation begins or ends. Never `git add -A` in a vault.
-
-`op-commit` never pushes — that is outward-facing and belongs to an explicit
-confirmation. It reports how many commits are unpushed so the gap stays visible.
-
-## The log
-Every operation writes ONE new file under `log/`, via the shared script:
-`node ../../scripts/log-entry.mjs --op <op> --title "<title>"` with the entry
-narrative piped on stdin. It creates `log/YYYY-MM-DD-HHmmss-<op>-<slug>.md` with
-`date`/`op`/`title` frontmatter and a `## [YYYY-MM-DD] <op> | <title>` heading
-(still grep-parseable — grep the `log/` folder). Ops: ingest, discover, query,
-lint, relink. Never write a shared aggregate file: one entry = one uniquely-named
-file, so two machines can never collide (this replaces the old append-only `log.md`,
-whose cross-machine lost-update race is now structurally impossible). Browse the
-log via `log.base`.
-
-## The catalog
-`index.md` is a **derived artifact**: the catalog between its
-`%% BEGIN/END GENERATED CATALOG %%` fence is regenerated in full from the pages
-by `scripts/index-gen.mjs` and committed by atomic rename. Never hand-edit
-inside the fence; never read-modify-write index.md. Prose outside the fence
-(e.g. "Start here") is preserved verbatim and is the only part worth editing.
-
-## Style: viewpoints whole, conclusions after, breadcrumbs always
-Narrative is licensed; dismissal is not. Three house rules govern every page:
-
-1. **Opposing viewpoints appear in their entirety** — in their own strongest
-   terms, attributed to their holders — before any conclusion engages them.
-   A viewpoint the page ends up arguing against gets the same care as one it
-   endorses; weight follows the evidence the vault holds, and no viewpoint is
-   waved off by tone (loaded verbs, scare quotes, "supposedly"). When sources
-   conflict, keep the claims separate and attributed — never resolve them into
-   one synthesized voice that erases the disagreement.
-2. **Viewpoints first, conclusions after — and conclusions declare themselves.**
-   Every analytic sentence is one of: *inherited* (a source says it — cite it),
-   *extended* (built on a source — cite it, mark what's added), or *original*
-   (the wiki's own inference — say so explicitly, never state it in the
-   page's neutral voice). Joining source A to source B to imply C is an
-   *original* claim even when A and B are both cited.
-3. **The breadcrumb trail is non-negotiable.** Every viewpoint and every
-   conclusion must be walkable back to `raw/`: `sources:` frontmatter, inline
-   `[[wikilinks]]` to the source pages, and quotes verified per guardrail #5.
-   A conclusion whose trail dead-ends is a defect, however good it reads.
-
-Per-type licenses (neutrality is a property of a page type, not of the vault):
-- `raw/` — fidelity only; the evidence layer (guardrail #1, #5).
-- `wiki/entities/` — **describe and only describe.** Convert opinions to
-  attributed facts about who holds them; convert evaluations to the measurable
-  facts beneath them. When tempted to interpret, link to a concept or
-  synthesis instead.
-- `wiki/concepts/` — claims with grounding. Assertive titles are allowed; the
-  title's pressure is the point, and the body must support the claim under
-  rules 1–3.
-- `wiki/syntheses/` — the licensed narrative layer: weigh, judge, conclude —
-  bounded by rules 1–3, and labeled as the wiki's synthesis.
-- `wiki/authored/` — the vault's own first-party voice: advisory documentation,
-  policy, house style, or other original work with no `raw/` evidence behind it
-  by design. Same full narrative license as syntheses; state recommendations
-  directly. Rule 3 (breadcrumb to `raw/`) does not apply — there is deliberately
-  nothing to trail, declared via `sources: []` rather than left silent.
-
-## Workflows
-- **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
-  (summary + `sources: ["[[raw link]]"]`) → update the entities/concepts it touches
-  (create stubs where missing) → add `[[links]]` both directions → regenerate the
-  catalog (`node ../../scripts/index-gen.mjs`, resolved relative to this skill's own
-  directory) → write the log entry via `node ../../scripts/log-entry.mjs`.
-  Update only pages the source substantively changes. Set `reviewed` only where factual claims were checked against the evidence; mechanical edits preserve it.
-  **Prefer a named source set over the bare "process all new clippings" form.**
-  Two sessions sharing a vault is normal, and ingest is not concurrency-safe:
-  both would rewrite the same concept and index pages, last write silently wins.
-  Scoping to what you clipped keeps sessions out of each other's work.
-  **When a source discusses a concept that already has a page, revise that page
-  rather than adding a parallel one** — accumulating per-concept is what makes the
-  wiki compound instead of sprawl.
-- **Search** (`/wiki-search`): pure retrieval — find matching `wiki/` pages
-  (and, with `--include-raw`, `raw/` clippings too) and return citation-ready
-  `path:line` results. No synthesis, no writes; use this whenever you just
-  need to locate something, not answer a question.
-- **Query** (`/wiki-query`): calls `/wiki-search` → synthesize with citations →
-  offer to file the answer back as a new `wiki/syntheses/` page so it compounds.
-- **Lint** (`/wiki-lint`): run `/wiki-health` first (cheap); then read the flagged
-  pages and look for contradictions, stale claims, missing concept pages, and
-  missing cross-references; run drift. Report; apply only safe fixes or propose the rest.
-- **Relink** (`/wiki-relink`): add inferred `[[links]]`; materialize entities
-  referenced ≥3× but unwritten; build/refresh MOCs. Prefer real wikilinks so they
-  become part of Obsidian's index.
-- **Authoring** (`wiki/authored/`; dedicated skill `/wiki-author`): write these
-  directly — there is no source to ingest from. Place the file per the
-  canonical table above; use `_templates/authored-note.md`
-  (`_templates/authored-decision.md` for an ADR,
-  `_templates/authored-backlog-item.md` for a backlog item), set
-  `type: authored` and `sources: []`, and record `ai-generated` honestly
-  (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
-  matching the folder — see the vault-contract bullet above for the
-  vocabulary. Treat it as a living page like any other: revise it in place as
-  it evolves, set `updated` for edits and `reviewed` only after verifying the factual content or project behavior, and never invent a `raw/` counterpart
-  to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run
-  `node ../../scripts/moc-authored-gen.mjs --apply` after adding a page to a
-  project with two or more — it regenerates that project's `moc/<project>.md`
-  hub from `project:`/`kind:`, the same fenced-region contract `index.md`
-  itself uses, so the hub can never silently fall out of sync with the files.
-  For a backlog item specifically, also run
-  `node ../../scripts/backlog-gen.mjs --apply` — it regenerates
-  `<project>/roadmap.md`'s itemized list from `backlog/*.md`, the same fence
-  contract, so the roadmap view can never drift from what the items actually
-  say.
-
-## Keeping project documentation honest
-
-The table above settles *where* a document goes. These settle whether it is still
-worth reading a month later — each one is a failure that actually happens, not a
-style preference.
-
-- **`architecture.md` is as-built, not as-planned.** The moment it describes
-  something that does not exist, a reader cannot tell which half is true. Anything
-  intended rather than shipped belongs in `roadmap.md` or a backlog item.
-- **`roadmap.md` records state, not history.** It is the page most likely to be
-  silently stale, and the failure is specific: it keeps listing as "next" three
-  things that shipped a fortnight ago. **Update it in the same operation as the
-  work** — a roadmap updated later is a roadmap updated never.
-- **An ADR states context, decision, consequences — good AND bad — and status.**
-  *A consequences section that lists only benefits is a sales pitch, not a record.*
-  The reason to revisit a decision is always in the half that gets left out, so an
-  ADR without costs has thrown away the only part that will matter.
-- **Label a retrospective ADR as reconstructed.** Most projects start by writing up
-  decisions already taken; that is legitimate and lossy. Reasoning recovered from
-  code and commit history is not the reasoning that was used, and saying so is the
-  difference between a record and a plausible story.
-- **Record the failures.** Stalls, refuted hypotheses, and measurements that
-  contradicted a confident diagnosis are the highest-value content in a project
-  set, because they are precisely what nobody remembers and everybody repeats. If a
-  fix was wrong twice before it was right, all three attempts belong on the page.
-- **Distinguish "not built" from "built and broken".** From outside they look
-  identical and only one of them is a bug. A reader who cannot tell will either
-  re-implement something that exists or file a bug against something that does not.
-- **The wiki owns intent; the repo owns behaviour.** When they disagree, the code
-  wins on what happens and the wiki wins on what was meant — and the disagreement
-  itself is worth writing down, because it is usually where the next defect is.
-
-## "Has this been ingested?" — a content-hash join, not a guess
-A raw clipping is **ingested iff its `source-hash` is recorded in some
-`wiki/sources/` page's `source-hashes`**. Hash equality is the contract — immune to
-the `-<hash7>` filename suffix and the citation-format drift that made
-link-resolution manufacture phantom backlog. Facts the metric reports:
-
-| metric | means | still owes work? |
-|---|---|---|
-| `unparsedSources` | nothing in the wiki cites it at all | yes |
-| `unsummarizedSources` | no `wiki/sources` page records its hash | **yes — this is the backlog** |
-| `missingHash` | a `.md` clipping carrying no `source-hash` | data defect — repair (re-clip) |
-| `backfillPending` | source pages that cite raw but recorded no hash | migrate — see below |
-| `provenanceGaps` | a `wiki/sources` page citing no `raw/` file | yes — scored as a defect |
-
-Report `unsummarizedSources` when asked what still needs ingesting — obtain it
-with `node scripts/health.mjs --backlog`, which prints just these ingest lines led
-by the not-ingested count (the full `health.mjs` report carries the same lines at
-the bottom). Do **not** re-derive the backlog by searching `tag:clippings` and
-hand-diffing `wiki/sources/` — that fuzzy link-resolution is the drift this
-content-hash join exists to replace. Only `.md`
-clippings are ingestable units — a binary original (`.pdf/.xlsx/.zip`) is never a
-summary target and is not backlog.
-
-**Migrating a vault (agents, any machine).** A vault written before this scheme has
-source pages without `source-hashes`; a transitional fallback keeps them credited by
-link resolution so nothing regresses, but `backfillPending > 0` means the migration
-has not run here. Repair it from the plugin root: `node scripts/backfill-source-hashes.mjs`
-(dry-run) then `--apply`. It is idempotent and guesses nothing — ambiguous/unresolved
-citations are logged for review. If the vault is git-synced, running it once and
-committing repairs every machine.
-
-**Repairing title-shaped citations (`provenanceGaps > 0`).** A separate, older drift:
-ingest wrote `sources: ["[[<the source's title>]]"]`, but the clipper had already
-slugified that title into the filename (`/`, `:`, `#` → `-`, 120-char cap). Any title
-carrying one of those characters or running long cites a file that does not exist —
-the page is a `provenanceGap` and its clipping reads as unparsed, though the ingest
-was correct. Repair from the plugin root: `node scripts/repair-provenance-links.mjs`
-(dry-run) then `--apply`. It joins on `source-hash`, never on the title (the title is
-what drifted), and reports anything it cannot pin to exactly one clipping instead of
-guessing. Always cite a clipping by its **path**, `[[raw/clippings/<file>.md]]`.
-
-**Repairing hard-wrapped wikilinks (`health.mjs` defects marked "hard-wrapped
-wikilink").** Hand- or LLM-authored prose that gets word-wrapped at some column width
-can break a `[[Target]]` straddling the wrap point into `[[Target\ncontinued]]` —
-Obsidian wikilinks cannot span a line break, so this can never resolve and is always a
-defect, never a healthy deferred forward-link (`classifyBrokenLinks` never lets a
-wrapped target hide there, whether or not a suggestion resolves). **Prevention that
-actually holds**: write vault content as unwrapped logical lines — never hard-wrap a
-paragraph, and never let one contain a `[[wikilink]]` split across a line break — the
-same discipline `clip-docx`'s `--wrap=none` already enforces mechanically on the docx
-path. A written reminder alone is not the safeguard: `/wiki-relink`'s own `op-commit`
-step reports any wrapped link introduced by the files it just committed, and
-`node scripts/health.mjs` always scores one as a defect, so either catches a recurrence
-even if the writing habit doesn't. Repair existing ones from the plugin root:
-`node scripts/repair-wrapped-links.mjs` (dry-run) then `--apply`. The fix is a lossless
-whitespace-collapse (undoing the wrap, never guessing content); the one shape it cannot
-safely resolve alone — a hyphen glued to the word right before the break, e.g.
-`[[Diagno-\nstics]]`, indistinguishable by character shape from a title that
-legitimately ends a line in a trailing hyphen (`[[Wizards-\n  Definition...]]`, a real
-title) — is checked against the real page index (not edit-distance guessing) and only
-fixed when exactly one reading resolves; left untouched and reported otherwise. See
-`scripts/lib/dewrap-links.mjs`.
-
-**Repairing invalid `sources:`/`source-hashes:` ordering.** A now-fixed bug in
-`insertSourceHashes` could insert `source-hashes:` between a block-list `sources:`
-key and its own `- [[...]]` item instead of after it — invalid YAML that a real
-parser rejects outright, so Obsidian reports "No frontmatter found" on the page
-(every property, not just `sources`) even though wiki-master's own regex-based
-scripts tolerate it and never flagged it as a defect. Repair from the plugin root:
-`node scripts/repair-sources-order.mjs` (dry-run) then `--apply`. Pure string
-surgery — it recognizes and reorders only that exact shape and is a no-op on
-anything else — idempotent and safe to re-run.
-
-**Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
-whose authored pages predate this convention has none of it set. Repair from the
-plugin root: `node scripts/backfill-authored-metadata.mjs` (dry-run) then `--apply`
-— deterministic, filename- and content-shape-driven classification (never a guess:
-a field it cannot resolve confidently is left unset rather than labeled wrong), and
-idempotent, so it is safe to re-run as new authored pages arrive without metadata
-of their own yet.
-
-**Never move files to record ingestion state.** `raw/` immutability is the
-load-bearing invariant. The hash key lives *in* the markdown — each page's
-`source-hashes`, co-located with the summary that owns it — a single source of truth
-that merges cleanly across machines. Derive the backlog at read time from that key,
-like `index.md`; never copy ingestion state into the filesystem layout, where it can
-drift and where two concurrent sessions race on the move.
-
-## Known limits of the pattern
-Stated so they are not rediscovered as surprises. The pattern this vault
-implements bounds itself in ways worth tracking:
-- **Index-only navigation is untested past the scale the source reports.** The
-  source pattern says it "works surprisingly well at moderate scale (~100 sources,
-  ~hundreds of pages)" — a claim about where it works, **not a ceiling**. It names
-  no threshold and no failure mode. Separately, under an *Optional* heading, it
-  says "as the wiki grows you want proper search" and suggests `qmd`, attaching no
-  number; the two passages are not joined in the source, so do not present ~100 as
-  the trigger for adopting search tooling. What is fair to say: a vault far past
-  that figure is outside the range the source reports, entry may have shifted from
-  reading `index.md` to `obsidian search` without anyone noticing, and **nobody has
-  measured whether that costs anything**. Say that, and say it is untested — do not
-  upgrade it into a bound the source never stated.
-- **Cheap maintenance is not correct maintenance.** The pattern's justification is
-  that upkeep cost approaches zero, which addresses effort, not accuracy. It
-  specifies no verification tier — that is what `/wiki-lint`, quote-lint, and the
-  clipping-wins guardrail exist to supply.
-- **Frictionless collection is not free.** Automated discovery plus automated
-  ingest removes the cost that used to limit what got kept. Volume is not
-  progress; prefer fewer, better-corroborated sources over a larger pile.
-
-## Cost discipline
-Cheap structural checks (`/wiki-health`) run every session and prioritize the
-expensive semantic passes. A clean graph does not establish factual correctness:
-sample changed or high-use pages during requested maintenance even when structural
-health is clean. Skip an empty vault; avoid a full lint on an unchanged wiki.
+Run cheap structural checks during substantive maintenance. A clean graph does
+not establish factual correctness: sample changed or high-use pages when reviewing
+knowledge. Skip an empty vault and avoid a full lint of an unchanged wiki.

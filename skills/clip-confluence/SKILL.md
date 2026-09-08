@@ -1,22 +1,12 @@
 ---
 name: clip-confluence
-description: Clip a Confluence page into the wiki as a Markdown clipping — fetch it via the (separately installed) confluencer plugin's authenticated API and store confluencer's own Markdown, never a PDF export or a re-fetch. Use when a source is a Confluence Cloud page that /wiki-discover's HTML clipper (Defuddle) cannot reach because it requires authentication.
+description: Use when asked to save or clip an authenticated Confluence Cloud page into the wiki. Uses the optional confluencer integration; ordinary public web pages belong to wiki-discover, and existing clippings belong to wiki-ingest.
 argument-hint: "<confluence-url-or-page-id> [--quality=high|medium|low] [--topic=\"<topic>\"] | --doctor"
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location and the provenance/`raw/`-immutability
-> and clipping guardrails these steps assume. Skip the load if you arrived here mid-run
-> from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a Confluence page into the wiki
 
@@ -80,7 +70,7 @@ other's exact path at authoring time), or an explicit
 `WIKI_MASTER_CONFLUENCER_SCRIPTS` env var override for a dev checkout or
 non-standard install.
 
-- **Preflight, any time:** `node ../../scripts/clip-confluence.mjs --doctor`
+- **Preflight, any time:** `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" --doctor`
   reports whether `confluencer` was found, and if so, hands off to **its own**
   `doctor.mjs` for the auth/config/connectivity check — wiki-master has no
   business diagnosing another plugin's credentials, only routing to the tool
@@ -103,9 +93,9 @@ and hashing the same way it would for any other source type.
 ## Steps
 
 1. **Preflight** (once, or whenever a clip fails unexpectedly):
-   `node ../../scripts/clip-confluence.mjs --doctor`.
+   `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" --doctor`.
 2. **Clip** (this is the only writer to `raw/` for Confluence pages):
-   `node ../../scripts/clip-confluence.mjs "<url-or-page-id>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<url-or-page-id>" --quality=<tier> --topic="<topic>"`
    - Accepts anything `page.mjs` itself accepts as a positional argument: a
      canonical URL, a tiny link (`/wiki/x/…`), a legacy `viewpage.action` URL,
      or a bare numeric page ID. If you only have an exact title + space, first
@@ -129,8 +119,7 @@ and hashing the same way it would for any other source type.
    sanity-check the body against what `page.mjs` would show you directly via
    the `confluence` skill.
 4. **Hand off to `/wiki-ingest`** exactly as with any other clipping —
-   summarize into `wiki/sources/`, cross-reference, index, log. The ingest is
-   gated by the user as usual.
+   summarize into `wiki/sources/`, cross-reference, index, log. Ingestion requires authorization for this scope; reuse explicit session authorization.
 
 ## Known limitation: re-clipping an updated page
 
@@ -156,3 +145,12 @@ a real workflow.
 - **Fidelity, not truth**: a faithful clip of a wrong or outdated page is still
   wrong — confirm you clipped the page you meant, and note the `Version` you
   clipped when citing it, since the live page may have moved on.
+
+## Completion
+
+For a standalone clip, open an operation before the clipping helper writes, verify
+its returned paths and extraction diagnostics, log once, commit and verify
+already-authorized sync through the shared operations contract. During discovery,
+use the enclosing operation and report the results to its owner for completion.
+Capturing evidence does not by itself authorize ingestion; reuse explicit
+discover-and-ingest authorization when it is already present.

@@ -1,21 +1,11 @@
 ---
 name: wiki-purge
-description: Remove a topic from the wiki for good — move its pages, its evidence, and its source URLs into a git-tracked recycle bin, commit the removal so it reaches every machine, and re-bin anything that comes back.
+description: Use when explicitly asked to purge or permanently remove a topic from the wiki and its evidence. Requires a reviewed removal plan; broken-link repair belongs to wiki-relink, not purge.
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location, the provenance guardrails,
-> and the `.recycle/` contract these steps assume. Skip the load if you arrived here
-> already holding them.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Purging a topic
 
@@ -55,12 +45,12 @@ history is canonical — not one to make inside a purge.
 ## Steps
 
 1. **Reconcile first.**
-   `node ../../scripts/purge.mjs --reconcile`
+   `node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile`
    Sweeps anything an earlier purge lost, on this machine. Cheap and silent on a
    clean vault. It commits whatever it moves.
 
 2. **Plan.**
-   `node ../../scripts/purge.mjs --plan "<topic>"`
+   `node "<absolute-plugin-root>/scripts/purge.mjs" --plan "<topic>"`
    Moves nothing. Prints the seeds it matched, every file it would bin, and two
    lists that need a human decision:
    - **COLLATERAL** — pages that survive but link into the purge set. Their
@@ -93,16 +83,17 @@ history is canonical — not one to make inside a purge.
    linked.
 
 4. **Apply** — with the same `--seeds` you approved, if you pinned any.
-   `node ../../scripts/purge.mjs --apply "<topic>" [--seeds "..."]`
+   `node "<absolute-plugin-root>/scripts/purge.mjs" --apply "<topic>" [--seeds "..."]`
    Writes the manifest, moves the files, records declines, writes the log entry, and
    commits — staging only what the purge touched, never the user's unrelated work.
    Then:
-   - repair references on every COLLATERAL page (the log entry lists them);
-   - regenerate the catalog: `node ../../scripts/index-gen.mjs`;
-   - commit the repairs **by name**, never `git add -A` — that sweeps the user's
-     in-progress writing into a commit labelled as this purge:
-     `git -C <vault> add -- index.md <each collateral page>` then
-     `git -C <vault> commit -m "purge: repair references"`.
+   - open an ordinary relink operation before repairing references on every
+     COLLATERAL page (the log entry lists them);
+   - regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`;
+   - validate, log and close that repair operation through the shared contract,
+     preserving already-dirty files. Never `git add -A`. The purge transaction
+     itself already owns its commit and must not be wrapped in a competing one.
+     Defer publication of both commits until the explicit push approval in step 5.
 
 5. **Ask before pushing.** A push publishes the removal to every machine. Ask
    plainly — "push this purge to origin?" — and run `git -C <vault> push` only on a
@@ -110,7 +101,7 @@ history is canonical — not one to make inside a purge.
    machine and will not reach the others.
 
 6. **Verify — on the broken-link count, not the score.**
-   `node ../../scripts/health.mjs`, and compare the **broken links**
+   `node "<absolute-plugin-root>/scripts/health.mjs"`, and compare the **broken links**
    line against a run from before the purge. It must not have grown.
 
    Do **not** verify with the score. Measured on the end-to-end fixture: an
@@ -140,7 +131,7 @@ half-purge stays uncommitted and gets reported back as the user's own work.
 
 ## Restoring
 
-`node ../../scripts/purge.mjs --restore <purge-id>` puts everything
+`node "<absolute-plugin-root>/scripts/purge.mjs" --restore <purge-id>` puts everything
 back and commits.
 
 - It never overwrites a file already at the original path — that is newer work, and

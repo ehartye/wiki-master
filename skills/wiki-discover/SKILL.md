@@ -1,22 +1,12 @@
 ---
 name: wiki-discover
-description: Autonomously discover web sources on a topic — perspective researchers find + credibility-rank sources, clip the best into raw/clippings/, then confirm before ingesting.
+description: Use when asked to find sources for the wiki, research an evidence gap, or discover new material on a topic. Existing wiki lookup belongs to wiki-search; already captured sources belong to wiki-ingest.
 argument-hint: <topic>
 ---
 
-> **Host portability (Claude Code, Copilot CLI, Codex):** Resolve bundled
-> `scripts/` and `templates/` paths from this skill's installed directory:
-> `../../` is the plugin root. Use quoted absolute paths when running helpers;
-> do not resolve them from the current workspace or depend on plugin-root shell
-> variables. For sibling skills, read `../<skill-name>/SKILL.md` if the host has
-> no skill-loading tool. References such as `/wiki-health` mean that skill's
-> workflow; in Codex, select the skill or ask for it by name. Treat `$ARGUMENTS`
-> as the user's request when the host does not substitute it.
-
-> **First, context (lazy):** if the `wiki-maintainer` skill isn't already loaded in
-> this session, load it — it carries the vault location, the provenance/`raw/`-immutability
-> guardrails, and the shared metrics these steps assume. Skip the load if you arrived
-> here mid-run from a wiki-master skill that already pulled it in.
+Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
+Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [operations](../wiki-maintainer/references/operations.md).
+Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Discovering sources for the wiki
 
@@ -74,19 +64,21 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    - −1 vendor-primary / promotional / single-blogger opinion
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
 3. Keep the top sources (favor `high`/`medium`; a few `low` are fine if on-topic).
-4. **Record every reject** so it is never re-litigated:
-   `node ../../scripts/clip.mjs "<url>" --decline="<one-line reason>"`.
+4. **Before the first decline or clip write**, open a discover operation with
+   `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op discover` and retain its
+   token using the host-specific completion example. Reuse that operation below.
+   **Record every reject** so it is never re-litigated:
+   `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<one-line reason>"`.
    "Seen, considered, declined" must have a representation — an unrecorded reject
    is indistinguishable from "never seen" and comes back every run. Declines
    expire after 180 days (TTL), so a changed world gets one re-evaluation.
 
 ## Phase 3 — clip the survivors (the only writes)
-Open the operation before the first clip:
-`TOKEN=$(node ../../scripts/op-begin.mjs --op discover)` — records what was already
-uncommitted, so the commit in Phase 4 holds the clippings and not the user's own work.
+Use the operation opened before the first decline or clip. If no decline was
+recorded, open it now before clipping; never overwrite a saved token.
 
 For each kept candidate:
-`node ../../scripts/clip.mjs "<url>" --quality=<tier> --topic="<topic>"`
+`node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`
 
 **Pass `--topic` on every clip in the run, and use the same string for all of
 them** — it is what lets `/wiki-triage` group this run's leftovers together
@@ -101,9 +93,9 @@ file or a spreadsheet does not go through `clip.mjs` — it goes through
 `/clip-docx` skills), and **every one of those takes `--topic` too**:
 
 ```bash
-node ../../scripts/clip-pdf.mjs  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>"
-node ../../scripts/clip-docx.mjs "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>"
-node ../../scripts/clip-xlsx.mjs "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs"  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-docx.mjs" "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
 ```
 
 **A Confluence Cloud URL is HTML but also does not go through `clip.mjs`** — it
@@ -113,7 +105,7 @@ as thin content / gets auto-declined. Route it to `/clip-confluence` instead
 dependency this one clipper alone takes on; see its skill for why):
 
 ```bash
-node ../../scripts/clip-confluence.mjs "<confluence-url-or-page-id>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<confluence-url-or-page-id>" --quality=<tier> --topic="<topic>"
 ```
 
 Forgetting it on the binary paths is the failure mode this run is most likely to
@@ -137,24 +129,26 @@ disposition each one (retry, decline, clipped-by-hand). Queue anything else that
 needs their judgement yourself with `recordIssue(vaultPath, { url, kind:
 'attention', reason })`.
 
-## Phase 4 — confirm gate, then hand off
-Show the user the ranked list (title, url, quality, why) and which clips succeeded
-/ were skipped (blocked, duplicate, thin, failed). If anything was queued for
-triage, say so and offer `/wiki-triage`. Ask whether to ingest.
-- **On confirm:** run `/wiki-ingest` (which processes the new clippings), then
-  write the log entry by piping a one-line summary to
-  `node ../../scripts/log-entry.mjs --op discover --title "<topic> → N clipped, M ingested"`.
-- **On decline:** leave the clippings in `raw/clippings/` for manual review.
+## Phase 4 — finish capture, then hand off
+Show the ranked list (title, url, quality, why), which clips succeeded, and which
+were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
+`/wiki-triage` and report their counts.
 
-Either way, close the operation:
-`node ../../scripts/op-commit.mjs --op discover --title "<topic> → N clipped, M ingested" --since $TOKEN`
-Clippings are evidence other pages will cite; leaving them uncommitted means a later
-ingest cites a file the user's other machines do not have. Close it on decline too —
-the clippings exist either way.
+**Finish the capture operation before any decision pause.** Validate returned
+clipping paths, write one discovery log entry naming the clipped/declined/failed
+counts, and close with:
+`node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token>`.
+Verify the commit and complete already-authorized sync through the shared
+contract. If no writes occurred, report that and do not manufacture a log/commit.
+Clippings must not remain dirty while waiting for an ingestion decision.
 
-`/wiki-ingest` brackets itself, and the two nest correctly: its `op-begin` sees these
-clippings as already-dirty and leaves them alone, and once it commits, its pages drop
-out of the dirty set so this commit holds only the clippings and the log entry.
+Then use the existing authorization for this exact source set:
+- **Discover-and-ingest already authorized:** run `/wiki-ingest` on the named
+  successful clippings immediately. It owns a fresh operation and its own log.
+  No second confirmation is needed.
+- **Only discovery authorized:** ask whether to ingest and wait. The capture is
+  already committed; if accepted, ingest the named set in a fresh operation.
+- **Ingestion declined:** retain the committed clippings for manual review.
 
 ## Guardrails
 - The perspective passes never write the vault; `clip.mjs` is the sole writer to `raw/`.
@@ -162,4 +156,5 @@ out of the dirty set so this commit holds only the clippings and the log entry.
   source-of-truth. Frontmatter is pipeline state and may be updated by wiki-master
   tooling only (never by hand, never the body).
 - Prefer primary/authoritative sources over open-publishing platforms.
-- The user confirms before anything is ingested — this skill owns that gate (Phase 4).
+- Ingestion requires authorization for this scope; existing explicit authorization
+  satisfies Phase 4. Do not add another confirmation to an approved discover-and-ingest run.
