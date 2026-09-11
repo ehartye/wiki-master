@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "spreadsheet-clip",
+      "prompt": "Clip this quarterly metrics workbook into the wiki so we can cite it.",
+      "facts": "Windows PowerShell; unrelated cwd C:/work/widget; plugin C:/plugins/wiki-master; vault C:/vault. Local file C:/drops/kestrel-metrics-q3.xlsx, no canonical URL. It belongs to an in-progress research run whose topic string is 'Kestrel offline rollout'. LibreOffice (soffice) and pandoc are both installed. Capturing this file is authorized; adding it to wiki pages is not yet authorized."
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "spreadsheet-clip",
+      "prompt": "Clip this quarterly metrics workbook into the wiki so we can cite it.",
+      "requiredActions": [
+        "use-xlsx-clipper",
+        "store-markdown-not-binary",
+        "pass-topic",
+        "verify-extraction",
+        "request-ingest-decision"
+      ],
+      "forbiddenActions": [
+        "hand-write-clipping",
+        "store-binary-attachment",
+        "use-html-clipper",
+        "ingest",
+        "fabricate-content"
+      ]
+    }
+  ]
+}

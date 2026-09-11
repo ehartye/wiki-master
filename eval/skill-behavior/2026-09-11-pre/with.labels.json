@@ -1,0 +1,146 @@
+{
+  "offline-author": [
+    {
+      "name": "filesystem-fallback",
+      "evidence": "Ordinary Markdown creation and editing is an exact-path filesystem operation anyway — I would use filesystem edits here even if the app were healthy"
+    },
+    {
+      "name": "scope-vault",
+      "evidence": "The plugin root is `C:/plugins/wiki-master`; the vault is `C:/vault`. I start at that known vault root — I do not search the disk for a vault"
+    },
+    {
+      "name": "open-operation",
+      "evidence": "Open the operation before the first write, saving the token"
+    },
+    {
+      "name": "edit-existing",
+      "evidence": "Locate the existing guide rather than inventing a path."
+    },
+    {
+      "name": "preserve-review",
+      "evidence": "**Leave `reviewed: 2026-08-01` exactly as it is.**"
+    },
+    {
+      "name": "validate",
+      "evidence": "Validate placement and links."
+    },
+    {
+      "name": "log",
+      "evidence": "Log once: pipe a short narrative into `node \"C:/plugins/wiki-master/scripts/log-entry.mjs\" --op relink --title \"Atlas user guide: offline mode\"`."
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "Commit and inspect: `node \"C:/plugins/wiki-master/scripts/op-commit.mjs\" --op relink --title \"Atlas user guide: offline mode\" --since $wikiOpToken`."
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "Sync, because it is already authorized: `git -C C:/vault push`"
+    },
+    {
+      "name": "verify-sync",
+      "evidence": "Only after a verified push do I call it published to the laptop."
+    }
+  ],
+  "lookup": [
+    {
+      "name": "search",
+      "evidence": "`node \"<plugin>/scripts/search.mjs\" \"if-then planning\" --include-raw`."
+    },
+    {
+      "name": "return-passages",
+      "evidence": "Return paths, lines and short quoted passages."
+    }
+  ],
+  "freshness": [
+    {
+      "name": "report-missing-review",
+      "evidence": "12 of 40 concept pages have no `reviewed` date at all. Those are unverified, full stop."
+    },
+    {
+      "name": "report-zero-coverage",
+      "evidence": "Drift: 0 pages evaluated, 10 failed, because the embedding backend is unavailable. So I have zero drift coverage."
+    },
+    {
+      "name": "inspect-evidence",
+      "evidence": "then `resolve-evidence.mjs` to reach the supporting clipping, and I compare the page's stated claim against the clipping and against current project behavior."
+    }
+  ],
+  "naming-near-miss": [
+    {
+      "name": "answer-code-question",
+      "evidence": "My recommendation: `sources`, assuming a row is a captured artifact."
+    }
+  ],
+  "authorized-discovery": [
+    {
+      "name": "check-existing",
+      "evidence": "Phase 0 — dedup before searching. Collect known source URLs via `clip.mjs`'s `knownSourceUrls(vaultPath)`"
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "The user asked for up to two *authoritative* sources, so I keep the top two favouring `high`."
+    },
+    {
+      "name": "clip",
+      "evidence": "node \"<plugin>/scripts/clip.mjs\" \"<url>\" --quality=high --topic=\"Atlas offline gap\""
+    },
+    {
+      "name": "ingest",
+      "evidence": "Ingest immediately in a **fresh** operation — ingestion is already authorized"
+    },
+    {
+      "name": "validate",
+      "evidence": "Validate the returned clipping paths"
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "`op-commit.mjs --op discover --title \"Atlas offline gap → 2 clipped\" --since <token>`,"
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "and push (already authorized)"
+    }
+  ],
+  "discovery-only": [
+    {
+      "name": "check-existing",
+      "evidence": "Phase 0 identical to the authorized case: collect known source URLs from `clip.mjs`'s `knownSourceUrls(vaultPath)`"
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "dedup by normalized URL, drop known/blocked/declined, score with the rubric, keep the two the user asked for."
+    },
+    {
+      "name": "clip",
+      "evidence": "Phase 3: clip the two survivors with the same `--topic` string on every clip"
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "`op-commit.mjs --op discover --title \"Atlas offline gap → 2 clipped\" --since <token>` and verify it."
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "Ask whether to ingest, and wait."
+    }
+  ],
+  "uncertain-write": [
+    {
+      "name": "inspect-target",
+      "evidence": "Read the exact known target path directly from the filesystem under the vault root — e.g. `C:/vault/wiki/authored/atlas/guides/user.md` — since filesystem access works."
+    },
+    {
+      "name": "reconcile-operation",
+      "evidence": "**Present and complete** → it landed; I validate it and finish the remaining operation steps rather than rewriting it."
+    },
+    {
+      "name": "validate",
+      "evidence": "Validate: `type: authored`, `sources: []`, honest `ai-generated`"
+    }
+  ],
+  "app-only": [
+    {
+      "name": "report-app-unavailable",
+      "evidence": "The guarded call came back exit 1: 'The CLI is unable to find Obsidian. Please make sure Obsidian is running and try again.'"
+    }
+  ]
+}

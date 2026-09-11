@@ -1,0 +1,21 @@
+# Installed skill catalog (names and descriptions only)
+
+- **clip-confluence** — Use when asked to save or clip an authenticated Confluence Cloud page into the wiki. Uses the optional confluencer integration; ordinary public web pages belong to wiki-discover, and existing clippings belong to wiki-ingest.
+- **clip-docx** — Use when asked to clip a Word document (.docx or .doc) into the wiki as Markdown evidence. For PDFs use clip-pdf; for original wiki documentation use wiki-author.
+- **clip-gh** — Use when asked to capture a GitHub repository as wiki evidence. Produces bounded Markdown clippings; use wiki-discover for a single web page and wiki-ingest for already captured repository clippings.
+- **clip-pdf** — Use when asked to save or clip a local or downloaded PDF into the wiki as Markdown evidence. For Word documents use clip-docx; for existing clippings use wiki-ingest.
+- **clip-pptx** — Use when asked to clip a PowerPoint deck (.pptx) into the wiki as Markdown evidence. For creating or editing slides use a presentation skill; for PDFs use clip-pdf.
+- **obsidian-cli** — Use when a wiki operation needs native Obsidian commands, typed properties, app state, or live Bases queries. Use the guarded caller for app commands and filesystem edits for ordinary Markdown writing.
+- **wiki-author** — Use when asked to write or update wiki project documentation, architecture, a guide, an ADR, or a backlog item. Places original content canonically; captured external sources belong to wiki-ingest, not authoring.
+- **wiki-discover** — Use when asked to find sources for the wiki, research an evidence gap, or discover new material on a topic. Existing wiki lookup belongs to wiki-search; already captured sources belong to wiki-ingest.
+- **wiki-health** — Use when asked to check wiki structure, find broken links or orphans, or report the health score and ingest backlog. Read-only structural reporting; factual review belongs to wiki-lint and repairs to wiki-relink.
+- **wiki-ingest** — Use when asked to ingest a clipping, compile captured sources, or process the wiki ingest backlog. Summarizes existing raw evidence; use wiki-discover or a clip skill when the source has not been captured.
+- **wiki-init** — Use when asked to initialize or scaffold a new wiki-master vault. Existing-vault health checks belong to wiki-health; this is not a migration or repair workflow.
+- **wiki-lint** — Use when asked to review wiki consistency, contradictions, unsupported quotes, or stale claims and apply safe maintenance fixes. For a structural report only use wiki-health; for freshness reporting only use wiki-stale.
+- **wiki-maintainer** — Use for wiki-master work when reading, answering from, or maintaining the knowledge vault. Defines shared evidence and vault rules; select the task-specific skill for search, authoring, ingest, or maintenance. Ordinary application code work is not a wiki operation unless it uses or updates the vault.
+- **wiki-purge** — Use when explicitly asked to purge or permanently remove a topic from the wiki and its evidence. Requires a reviewed removal plan; broken-link repair belongs to wiki-relink, not purge.
+- **wiki-query** — Use when asked to answer a question using the wiki with citations or synthesize what it knows. For matching page lists or locating a passage use wiki-search; filing an answer requires authorization.
+- **wiki-relink** — Use when asked to connect overlapping or complementary wiki concepts, repair links, or build task maps. For a report without changes use wiki-health; new external evidence belongs to wiki-discover.
+- **wiki-search** — Use when asked to find wiki pages, locate a passage, or inspect raw evidence with citation-ready paths and lines. Pure retrieval; use wiki-query for a synthesized answer and wiki-discover for new external sources.
+- **wiki-stale** — Use when asked what wiki knowledge needs factual review or whether guidance is current. Read-only freshness reporting; a recent edit is not verification, and applying factual fixes belongs to wiki-lint.
+- **wiki-triage** — Use when asked what wiki sources need human attention, or when clipping failures, fidelity flags, expiring declines, or ingest decisions need review. Presents the disposition queue; automatic source research belongs to wiki-discover.

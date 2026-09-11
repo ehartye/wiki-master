@@ -1,0 +1,165 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "ae1c454da371d6df1097d7236bd9179ba39e71c0a530e17ac5dea220e853f970",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "C:/Program Files/Git/independent/skill_audit_observer_b",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 5,
+      "observed": 5,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 5,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "spreadsheet-clip",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "purge-orphan-lineage",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "triage-queue",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "unsupported-claim-query",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "relink-scope",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "ae1c454da371d6df1097d7236bd9179ba39e71c0a530e17ac5dea220e853f970",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "C:/Program Files/Git/independent/skill_audit_observer_b",
+      "independent": true
+    },
+    "status": "fail",
+    "coverage": {
+      "expected": 5,
+      "observed": 5,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 1,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "spreadsheet-clip",
+        "status": "fail",
+        "missingActions": [
+          "use-xlsx-clipper",
+          "store-markdown-not-binary"
+        ],
+        "forbiddenActions": [
+          "hand-write-clipping",
+          "store-binary-attachment"
+        ],
+        "requiredActionRecall": 0.6,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "purge-orphan-lineage",
+        "status": "fail",
+        "missingActions": [
+          "review-seeds"
+        ],
+        "forbiddenActions": [
+          "delete-files-directly"
+        ],
+        "requiredActionRecall": 0.8333333333333334,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "triage-queue",
+        "status": "fail",
+        "missingActions": [
+          "hand-over-tokened-link"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.75,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "unsupported-claim-query",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "relink-scope",
+        "status": "fail",
+        "missingActions": [
+          "open-operation"
+        ],
+        "forbiddenActions": [],
+        "requiredActionRecall": 0.75,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 4
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}
