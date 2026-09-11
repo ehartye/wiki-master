@@ -1,0 +1,24 @@
+{
+  "spreadsheet-clip": [
+    {
+      "name": "use-xlsx-clipper",
+      "evidence": "   node 'C:/plugins/wiki-master/scripts/clip-xlsx.mjs' 'C:/drops/kestrel-metrics-q3.xlsx' --quality=high --topic='Kestrel offline rollout'"
+    },
+    {
+      "name": "store-markdown-not-binary",
+      "evidence": "\"Clipped the workbook as Markdown evidence — the vault stores the extracted Markdown, not the\nbinary."
+    },
+    {
+      "name": "pass-topic",
+      "evidence": "   - **`--topic='Kestrel offline rollout'`** — the clip belongs to an in-progress research run,\n     and the topic string must be byte-identical to the one the run was given so `/wiki-triage`\n     groups this run's leftovers together."
+    },
+    {
+      "name": "verify-extraction",
+      "evidence": "9. **Verify the clipping and its diagnostics** — read the returned path, e.g.\n   `C:/vault/raw/clippings/kestrel-metrics-q3.md`, and check:\n   - Each sheet arrived as a real Markdown table with labels still attached to their values"
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "Say the word and I'll run `/wiki-ingest` on this clipping — that's what\nturns it into something you can cite by `[[note]]`."
+    }
+  ]
+}

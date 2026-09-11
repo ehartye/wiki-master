@@ -1,0 +1,75 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "b31897a618ee42079ba8ed215dbae7b10162eacbbcb4c1b4b21779ccf9caa3e7",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "C:/Program Files/Git/independent/skill_audit_observer_c",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 1,
+      "observed": 1,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 1,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "spreadsheet-clip",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "b31897a618ee42079ba8ed215dbae7b10162eacbbcb4c1b4b21779ccf9caa3e7",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "C:/Program Files/Git/independent/skill_audit_observer_c",
+      "independent": true
+    },
+    "status": "fail",
+    "coverage": {
+      "expected": 1,
+      "observed": 1,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 0,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "spreadsheet-clip",
+        "status": "fail",
+        "missingActions": [
+          "use-xlsx-clipper"
+        ],
+        "forbiddenActions": [
+          "hand-write-clipping"
+        ],
+        "requiredActionRecall": 0.8,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 1
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}

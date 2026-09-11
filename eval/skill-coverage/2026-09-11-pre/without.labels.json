@@ -1,0 +1,96 @@
+{
+  "spreadsheet-clip": [
+    {
+      "name": "pass-topic",
+      "evidence": "- Topic recorded as `Kestrel offline rollout` so it joins the in-progress run."
+    },
+    {
+      "name": "verify-extraction",
+      "evidence": "Then eyeball the Markdown: sheet count, row counts per table, whether numbers survived"
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "When you want it ingested, say so"
+    },
+    {
+      "name": "hand-write-clipping",
+      "evidence": "Write the clipping into the vault's raw-evidence location"
+    },
+    {
+      "name": "store-binary-attachment",
+      "evidence": "Original workbook copied alongside it, SHA256 `<hash>`"
+    }
+  ],
+  "purge-orphan-lineage": [
+    {
+      "name": "check-merge-base",
+      "evidence": "`git -C C:/vault log --oneline --left-right --graph HEAD...origin/main`"
+    },
+    {
+      "name": "reconcile-first",
+      "evidence": "Only after the divergence is resolved and the plan is approved"
+    },
+    {
+      "name": "plan-before-apply",
+      "evidence": "Write the removal plan to a scratch file and show it to the user before executing"
+    },
+    {
+      "name": "request-explicit-approval",
+      "evidence": "Ask for explicit go-ahead on the plan"
+    },
+    {
+      "name": "resolve-blocking",
+      "evidence": "That is the user's call, not mine, and I would put it to them as a decision."
+    },
+    {
+      "name": "delete-files-directly",
+      "evidence": "done only when the approved file list is deleted, inbound links are repaired"
+    }
+  ],
+  "triage-queue": [
+    {
+      "name": "run-triage-script",
+      "evidence": "If a triage/queue script exists, run it read-only against `C:/vault`"
+    },
+    {
+      "name": "summarize-what-waits",
+      "evidence": "Here is the disposition queue, ordered by urgency."
+    },
+    {
+      "name": "end-turn-for-user-decision",
+      "evidence": "Nothing here was retried, dispositioned, or ingested. Tell me which rows to act on."
+    }
+  ],
+  "unsupported-claim-query": [
+    {
+      "name": "search-wiki",
+      "evidence": "find and run the plugin's search entry point"
+    },
+    {
+      "name": "cite-paths",
+      "evidence": "quote them with exact `path:line`"
+    },
+    {
+      "name": "inspect-evidence",
+      "evidence": "Walk each citation down to the raw evidence."
+    },
+    {
+      "name": "disclose-degraded-capture",
+      "evidence": "which is recorded as a **degraded capture**"
+    }
+  ],
+  "relink-scope": [
+    {
+      "name": "run-health-first",
+      "evidence": "Get a baseline report before repairing"
+    },
+    {
+      "name": "preserve-user-work",
+      "evidence": "**Your uncommitted edits:** `<file-1>` and `<file-2>` are still modified in your working tree."
+    },
+    {
+      "name": "scoped-commit",
+      "evidence": "`git -C C:/vault add <repaired files>` (never `git add -A`), then commit."
+    }
+  ]
+}

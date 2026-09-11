@@ -1,0 +1,138 @@
+{
+  "offline-author": [
+    {
+      "name": "filesystem-fallback",
+      "evidence": "switch to plain filesystem reads/writes, which the scenario confirms work"
+    },
+    {
+      "name": "scope-vault",
+      "evidence": "Every path I touch will be absolute under `C:/vault` or `C:/plugins/wiki-master`, and every git command will carry `-C C:/vault` so I never accidentally commit the widget repo."
+    },
+    {
+      "name": "open-operation",
+      "evidence": "Snapshot the vault's git state before writing, so the \"bracket\" is real: `git -C C:/vault status --porcelain`"
+    },
+    {
+      "name": "edit-existing",
+      "evidence": "Write the new \"Offline mode\" section into the existing guide with an ordinary file edit"
+    },
+    {
+      "name": "preserve-review",
+      "evidence": "I leave `reviewed: 2026-08-01` in place and note the scoped verification next to the new section"
+    },
+    {
+      "name": "validate",
+      "evidence": "Re-read the edited file and diff it: `git -C C:/vault diff -- <guide path>`. Confirm the diff contains only my section plus the scoped verification note"
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "`git -C C:/vault commit -m \"docs(atlas): document offline mode in the user guide\"`,"
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "`git -C C:/vault push`. Stay on `main` per the vault exemption."
+    },
+    {
+      "name": "verify-sync",
+      "evidence": "Verify the push actually landed instead of asserting it: `git -C C:/vault status -sb` shows no ahead-count"
+    }
+  ],
+  "lookup": [
+    {
+      "name": "search",
+      "evidence": "`Select-String -Path C:/vault -Include *.md -Recurse -Pattern 'if[- ]?then planning'`"
+    },
+    {
+      "name": "return-passages",
+      "evidence": "For each hit, capture a citation-ready reference: absolute path, line number, and the quoted line."
+    },
+    {
+      "name": "offer-save",
+      "evidence": "If you ever want that folded in, say the word; I left it alone as instructed."
+    }
+  ],
+  "freshness": [
+    {
+      "name": "report-missing-review",
+      "evidence": "**12 have no `reviewed` property at all** — freshness is unknown for these, not good."
+    },
+    {
+      "name": "report-zero-coverage",
+      "evidence": "The drift evaluation reported **0 evaluated, 10 failed**. Cause: the embedding model is unavailable (`<exact error>`)."
+    }
+  ],
+  "naming-near-miss": [
+    {
+      "name": "answer-code-question",
+      "evidence": "**`sources`** — assuming a row is a captured document (one row per PDF/page/repo you pulled in), which is what the current schema looks like."
+    }
+  ],
+  "authorized-discovery": [
+    {
+      "name": "check-existing",
+      "evidence": "Build the dedup set *first*, so I do not re-capture something already held. Extract every URL already in the vault:"
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "Two is a hard ceiling — I will not \"helpfully\" bring back five."
+    },
+    {
+      "name": "clip",
+      "evidence": "Capture the top two as raw clippings using the appropriate plugin capture path for each type (web page, PDF, repo)"
+    },
+    {
+      "name": "ingest",
+      "evidence": "Compile each verified clipping into the wiki: add the supported claims to the Atlas offline guide (or a concept page, per vault layout), each with a citation back to the clipping path and line range."
+    },
+    {
+      "name": "validate",
+      "evidence": "Inspect what was actually captured before trusting it — open each clipping and check for truncation, a paywall interstitial, a cookie wall, or a JS-shell page with no content."
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "Then commit and push per the vault's publication rule, verifying `origin/main` moved."
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "Pushed to `main`; `origin/main` is at `<sha>`."
+    }
+  ],
+  "discovery-only": [
+    {
+      "name": "check-existing",
+      "evidence": "Dedup against existing evidence first — normalized URL/DOI sweep over `C:/vault` — so I do not hand back two sources that are already captured."
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "Find two authoritative candidates answering that gap, preferring primary documentation or specifications over secondary commentary."
+    },
+    {
+      "name": "clip",
+      "evidence": "Capture each with the plugin's capture tooling for its type (after inspecting `C:/plugins/wiki-master` for the available scripts), writing **raw, full-body** clippings."
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "Hand back both clipping paths with a one-line neutral description of each and the specific limits, and ask for the go-ahead before compiling."
+    }
+  ],
+  "uncertain-write": [
+    {
+      "name": "inspect-target",
+      "evidence": "Check whether the file exists, using the filesystem, which works: `Test-Path C:/vault/guides/atlas-guide.md`."
+    },
+    {
+      "name": "reconcile-operation",
+      "evidence": "**File present but truncated / empty / missing frontmatter:** the mutation landed partially. I repair that same file in place — never create a second page, never append a `-1` suffix."
+    },
+    {
+      "name": "validate",
+      "evidence": "Whatever the branch, verify by reading the final file and diffing: `git -C C:/vault diff -- <path>`, confirming exactly one Atlas guide page exists"
+    }
+  ],
+  "app-only": [
+    {
+      "name": "report-app-unavailable",
+      "evidence": "The **Obsidian CLI is unavailable** here, so I have no way to tell Obsidian to open the Atlas workspace."
+    }
+  ]
+}

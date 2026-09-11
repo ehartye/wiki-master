@@ -1,0 +1,24 @@
+{
+  "spreadsheet-clip": [
+    {
+      "name": "store-markdown-not-binary",
+      "evidence": "    Body: the cleaned per-sheet Markdown tables from step 8."
+    },
+    {
+      "name": "pass-topic",
+      "evidence": "    - topic: `Kestrel offline rollout` — the exact topic string of the in-progress research\n      run, verbatim, so the run picks it up"
+    },
+    {
+      "name": "verify-extraction",
+      "evidence": "12. **Verify before claiming done:** re-read the written file from disk, confirm the\n    frontmatter parses as YAML, confirm the tables render (no ragged pipe counts), confirm\n    the sheet count matches `workbook.xml`"
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "**Not done, needs your go-ahead:** ingesting this into the wiki."
+    },
+    {
+      "name": "hand-write-clipping",
+      "evidence": "10. **Write the clipping into the vault's clippings directory,** named to match the\n    conventions found in step 5 (e.g. `C:/vault/clippings/kestrel-metrics-q3-xlsx.md`), with\n    frontmatter mirroring an existing clipping and carrying at minimum:"
+    }
+  ]
+}

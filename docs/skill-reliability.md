@@ -35,6 +35,39 @@ The grader measures required action coverage and forbidden actions, reports miss
 
 The original Yoda audit responses are preserved in `eval/skill-behavior/baseline/`. They used four earlier prompts, so they are qualitative provenance and are not numerically compared with the new eight-scenario suite.
 
+## Skill audit on 2026-09-11
+
+A structural audit of the library plus three independently graded paired runs. Inspection
+results: all skill `name` fields match their directories, every description is far under
+the 1,536-character listing cap, references are exactly one level deep with no broken
+links, every referenced helper resolves, no `$N`/`$ARGUMENTS` placeholder sits inside a
+fenced code block, and no invisible Unicode codepoints were found. Reading a skill cannot
+certify it is safe; provenance here is the repository's own history.
+
+The [frozen-eight pair](../eval/skill-behavior/2026-09-11-pre/grading.md) records 8/8 with
+skill bodies and 4/8 without, the first full eight-scenario run since the freshness
+correction, which it shows holding. The [new five-scenario coverage
+pair](../eval/skill-coverage/2026-09-11-pre/grading.md) covers the spreadsheet clip path,
+purge, triage, query and relink — skills the frozen eight never exercised — and records 5/5
+with bodies against 1/5 without, with three forbidden actions in the without arm: a
+hand-written clipping, a binary stored into the vault, and direct file deletion in place of
+a recoverable purge transaction.
+
+That pair also recorded a coverage defect in the library itself. `scripts/clip-xlsx.mjs`
+shipped, maintained and separately tested, with no `skills/clip-xlsx/`. Metadata is the only
+tier loaded for every installed skill, so the clipper had no trigger and was reachable only
+from inside `wiki-discover`, whose body names its script. The skill now exists, and a
+contract test requires every document-format clipper to have one. The [targeted
+recheck](../eval/skill-coverage/recheck-spreadsheet/grading.md) confirms the route is now
+selected from metadata rather than deduced, with `wiki-discover` deliberately withheld.
+
+Known limits of all three pairs: single samples in simulation mode, no executed vault, Git
+or converter work, and **no measurement of activation**. Both conditions receive skill
+bodies from the harness rather than a live loader choosing from a user's phrasing, so
+nothing here establishes that a real request would load the right skill. Description
+quality, trigger competition between skills, and the unconditional reference loading in each
+spoke's preamble remain unmeasured by this method.
+
 ## Verification on 2026-09-08
 
 The focused suite passes all 31 tests. The complete Windows run reports 1,025 passed, two failed and one skipped. Both failures are the previously reproduced triage-auth server startup problem (`server never wrote server-info`); they are outside this change. This is not a claim that the full suite is green.

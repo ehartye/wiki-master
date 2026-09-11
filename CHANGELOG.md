@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add the `clip-xlsx` skill so the bundled spreadsheet clipper can be triggered. `scripts/clip-xlsx.mjs` shipped and was tested but had no skill, leaving the capability reachable only from inside `wiki-discover`. A contract test now requires every document-format clipper to have a skill.
+- Add a five-scenario coverage evaluation for the spreadsheet clip path, purge, triage, query and relink, and record three independently graded paired runs with their failures preserved.
+- List the user-invocable clip family, `/wiki-discover` and `/wiki-triage` in the README skill table, which previously documented ten of twenty skills.
+
 ## 0.36.0 — 2026-09-08
 
 - Bound Obsidian calls and fall back to known-vault Markdown metadata for freshness reports when the app is unavailable; preserve missing factual reviews and disclose the backend.

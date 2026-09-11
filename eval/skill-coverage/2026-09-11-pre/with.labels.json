@@ -1,0 +1,104 @@
+{
+  "spreadsheet-clip": [
+    {
+      "name": "use-xlsx-clipper",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/clip-xlsx.mjs\" \"C:/drops/kestrel-metrics-q3.xlsx\" --quality=<tier> --topic=\"Kestrel offline rollout\"`"
+    },
+    {
+      "name": "store-markdown-not-binary",
+      "evidence": "The stored artifact is the extracted Markdown, not the `.xlsx` — that keeps it"
+    },
+    {
+      "name": "pass-topic",
+      "evidence": "**`--topic=\"Kestrel offline rollout\"` is passed verbatim**"
+    },
+    {
+      "name": "verify-extraction",
+      "evidence": "**Verify the clipping landed**: read `C:/vault/raw/clippings/<slug>.md`"
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "Want me to run `/wiki-ingest` on it to create"
+    }
+  ],
+  "purge-orphan-lineage": [
+    {
+      "name": "check-merge-base",
+      "evidence": "git -C C:/vault merge-base HEAD origin/main"
+    },
+    {
+      "name": "reconcile-first",
+      "evidence": "Reconciling the two lineages is a decision about which history is canonical"
+    },
+    {
+      "name": "plan-before-apply",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/purge.mjs\" --plan \"Project Kestrel\"`"
+    },
+    {
+      "name": "review-seeds",
+      "evidence": "**Read the seed list first, before reading the plan.**"
+    },
+    {
+      "name": "request-explicit-approval",
+      "evidence": "the file counts by layer and wait for an explicit yes."
+    },
+    {
+      "name": "resolve-blocking",
+      "evidence": "- **3 pages cite Kestrel sources and nothing else.** `--apply` refuses while those"
+    }
+  ],
+  "triage-queue": [
+    {
+      "name": "run-triage-script",
+      "evidence": "node 'C:/plugins/wiki-master/scripts/triage.mjs'"
+    },
+    {
+      "name": "hand-over-tokened-link",
+      "evidence": "**I hand the user `link`, never `url`.**"
+    },
+    {
+      "name": "summarize-what-waits",
+      "evidence": "Waiting on you, by research topic:"
+    },
+    {
+      "name": "end-turn-for-user-decision",
+      "evidence": "have ended my turn without changing anything."
+    }
+  ],
+  "unsupported-claim-query": [
+    {
+      "name": "search-wiki",
+      "evidence": "node \"C:/plugins/wiki-master/scripts/search.mjs\" \"Kestrel offline sync guarantees\" --json --limit=10 --include-raw"
+    },
+    {
+      "name": "cite-paths",
+      "evidence": "- `wiki/concepts/Kestrel Offline Sync.md:34` — states the guarantee, cites"
+    },
+    {
+      "name": "inspect-evidence",
+      "evidence": "Open page A's raw clipping and check its frontmatter."
+    },
+    {
+      "name": "disclose-degraded-capture",
+      "evidence": "The first page's evidence is real but is a **degraded capture**"
+    }
+  ],
+  "relink-scope": [
+    {
+      "name": "run-health-first",
+      "evidence": "Record the **broken-links count** now, before any repair"
+    },
+    {
+      "name": "open-operation",
+      "evidence": "**Open the operation before the first write**"
+    },
+    {
+      "name": "preserve-user-work",
+      "evidence": "**Your uncommitted work is untouched.**"
+    },
+    {
+      "name": "scoped-commit",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/op-commit.mjs\" --op relink --title \"Repair broken links\" --since $tok`"
+    }
+  ]
+}
