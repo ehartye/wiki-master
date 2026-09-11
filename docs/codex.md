@@ -1,7 +1,7 @@
 # Codex setup
 
 Wiki Master includes a native `.codex-plugin/plugin.json` manifest pointing to
-the same 19 skills used by Claude Code and Copilot CLI. The Node helpers and
+the same 20 skills used by Claude Code and Copilot CLI. The Node helpers and
 vault format are shared. See the [official plugin packaging guide](https://developers.openai.com/plugins/build/plugins)
 for Codex's manifest and personal marketplace conventions.
 

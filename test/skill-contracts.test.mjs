@@ -9,8 +9,8 @@ const skills = readdirSync(join(root, 'skills')).filter(name => existsSync(join(
 const read = name => readFileSync(join(root, 'skills', name, 'SKILL.md'), 'utf8');
 const links = text => [...text.matchAll(/\[[^\]]+\]\(([^)]+\.md)(?:#[^)]*)?\)/g)].map(match => match[1]);
 
-test('all nineteen portable skill descriptions identify triggers and resolve direct references', () => {
-  assert.equal(skills.length, 19);
+test('all twenty portable skill descriptions identify triggers and resolve direct references', () => {
+  assert.equal(skills.length, 20);
   for (const name of skills) {
     const text = read(name);
     assert.equal(text.match(/^name: (.+)$/m)?.[1], name);
@@ -58,5 +58,23 @@ test('operation examples expose both shells without mixed token syntax or relati
     for (const [, script] of block.matchAll(/scripts\/([\w-]+\.mjs)/g)) {
       assert.ok(existsSync(join(root, 'scripts', script)), `example helper exists: ${script}`);
     }
+  }
+});
+
+// A clipper script is a user-facing entry point: the user names a file format and
+// expects a route for it. The skill is that route's only trigger — metadata is the
+// one tier loaded for every installed skill, so a clipper with no SKILL.md is
+// reachable only from inside another skill that happens to name its script.
+// `clip.mjs` is wiki-discover's internal HTML path and `clip-and-repoint.mjs` is a
+// maintenance helper; neither is a format the user asks for by name.
+test('every document-format clipper has a skill that can trigger it', () => {
+  const internal = new Set(['clip.mjs', 'clip-and-repoint.mjs']);
+  const clippers = readdirSync(join(root, 'scripts'))
+    .filter(f => /^clip-.*\.mjs$/.test(f) && !internal.has(f));
+  assert.ok(clippers.length >= 6, 'expected the shipped clipper set');
+  for (const file of clippers) {
+    const name = file.replace(/\.mjs$/, '');
+    assert.ok(existsSync(join(root, 'skills', name, 'SKILL.md')),
+      `${file} ships with no skills/${name}/SKILL.md, so nothing can trigger it`);
   }
 });
