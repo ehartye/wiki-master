@@ -1,0 +1,146 @@
+{
+  "offline-author": [
+    {
+      "name": "filesystem-fallback",
+      "evidence": "The Obsidian CLI has timed out. That does **not** block this work: ordinary Markdown creation and editing use exact-path filesystem edits *even when the CLI is healthy*, so a stopped app changes nothing here."
+    },
+    {
+      "name": "scope-vault",
+      "evidence": "Explicitly do **not** resolve `scripts/` relative to the unrelated cwd `C:/work/widget`; a relative `scripts/` path there is not the plugin. Set `$env:WIKI_MASTER_VAULT = 'C:/vault'` inside the try/finally shown above."
+    },
+    {
+      "name": "open-operation",
+      "evidence": "Then open the operation and save the token: `$wikiOpToken = node 'C:/plugins/wiki-master/scripts/op-begin.mjs' --op relink`"
+    },
+    {
+      "name": "edit-existing",
+      "evidence": "Edit the guide in place through filesystem writes. Never send the note body through CLI `content=`, and never chunk a rejected note into repeated CLI writes."
+    },
+    {
+      "name": "preserve-review",
+      "evidence": "Set `updated: 2026-09-11`. **Preserve `reviewed: 2026-08-01`.** Only the new offline section was checked against code"
+    },
+    {
+      "name": "validate",
+      "evidence": "Validate placement and links. Any link out of `atlas` to another project's bare-named page uses the piped full-path form,"
+    },
+    {
+      "name": "log",
+      "evidence": "Log exactly once by piping a narrative into `node 'C:/plugins/wiki-master/scripts/log-entry.mjs' --op relink --title 'Atlas user guide: offline mode'`."
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "Close: `node 'C:/plugins/wiki-master/scripts/op-commit.mjs' --op relink --title 'Atlas user guide: offline mode' --since $wikiOpToken`."
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "\"Publish it so my laptop can receive it\" plus the vault AGENTS instruction is existing authorization for sync. `op-commit` never pushes, so run `git -C C:/vault push`"
+    },
+    {
+      "name": "verify-sync",
+      "evidence": "run `git -C C:/vault push` and verify the result and upstream state."
+    }
+  ],
+  "lookup": [
+    {
+      "name": "search",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/search.mjs\" \"if-then planning\" --json --limit=10`."
+    },
+    {
+      "name": "return-passages",
+      "evidence": "Return the matching paths and lines. I do **not** synthesize a narrative answer and I do not file anything"
+    }
+  ],
+  "freshness": [
+    {
+      "name": "report-missing-review",
+      "evidence": "12 of 40 concept pages have no `reviewed` date at all. Those are unverified, not current — nobody has checked their claims against evidence."
+    },
+    {
+      "name": "report-zero-coverage",
+      "evidence": "`drift.mjs --coverage`: **0 pages evaluated, 10 failed** — the embedder is unavailable. I can't say the wiki has no drift; I can only say drift was not measured."
+    },
+    {
+      "name": "inspect-evidence",
+      "evidence": "read the matched passages, then `node \".../resolve-evidence.mjs\"` on the hits to reach the clippings, and check each recommendation's claim against its actual evidence. Clippings outrank my memory of a source."
+    }
+  ],
+  "naming-near-miss": [
+    {
+      "name": "answer-code-question",
+      "evidence": "\"`sources` — assuming each row is one document/URL, which is what the existing code implies."
+    }
+  ],
+  "authorized-discovery": [
+    {
+      "name": "check-existing",
+      "evidence": "**Phase 0 — dedup before searching.** Collect known source URLs via `clip.mjs`'s `knownSourceUrls('C:/vault')` (equivalently, grep `^source:` across `C:/vault/raw/clippings/*.md`)."
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "each runs 2–3 varied searches, pre-skips blocklisted domains, fetches promising hits, and **returns** ranked candidates"
+    },
+    {
+      "name": "clip",
+      "evidence": "**Phase 3 — clip the survivors**, reusing that operation: `node '.../clip.mjs' \"<url>\" --quality=<tier> --topic=\"<topic exactly as the user gave it>\"`."
+    },
+    {
+      "name": "ingest",
+      "evidence": "**Ingest immediately — no second confirmation**, because discover-and-ingest was explicitly authorized. Open a *fresh* operation: `$itok = node '.../op-begin.mjs' --op ingest`."
+    },
+    {
+      "name": "validate",
+      "evidence": "**Phase 4 — finish the capture before any pause.** Validate the returned clipping paths on disk, write one discovery log entry naming the clipped/declined/failed counts"
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "`node '.../op-commit.mjs' --op discover --title \"<topic> → N clipped\" --since $tok`. Verify the commit."
+    },
+    {
+      "name": "push-authorized",
+      "evidence": "Vault instructions authorize publication, so `git -C C:/vault push` and verify upstream."
+    }
+  ],
+  "discovery-only": [
+    {
+      "name": "check-existing",
+      "evidence": "Phase 0 known-URL dedup from `raw/clippings/*.md` with the empty-set STOP check"
+    },
+    {
+      "name": "bound-discovery",
+      "evidence": "named gap plus bounded coverage read (manual \"Start here\" only, never the generated catalog); five read-only perspective agents in parallel that return candidates and write nothing; independent dedup/blocklist/decline-log filtering and rubric scoring as the orchestrator"
+    },
+    {
+      "name": "clip",
+      "evidence": "then clip the two survivors with the **same `--topic` string** on every call, routing PDFs to `clip-pdf.mjs`, Word to `clip-docx.mjs`, spreadsheets to `clip-xlsx.mjs` and Confluence URLs to `clip-confluence.mjs`, each with `--source=`, `--quality=` and `--topic=`."
+    },
+    {
+      "name": "commit-operation",
+      "evidence": "Validate the returned clipping paths, write one discovery log entry naming clipped/declined/failed counts, and close with `op-commit.mjs --op discover --title \"<topic> → 2 clipped\" --since $tok`."
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "**Stop here and ask.** Only discovery was authorized, so I present the ranked list and the captured paths for review and wait."
+    }
+  ],
+  "uncertain-write": [
+    {
+      "name": "inspect-target",
+      "evidence": "**Inspect the exact target first.** The path is known, and filesystem access works: - `Test-Path 'C:/vault/wiki/authored/atlas/guides/user.md'`, and read it if it exists"
+    },
+    {
+      "name": "reconcile-operation",
+      "evidence": "Note a real interaction before opening the operation: `op-begin` snapshots already-dirty paths and `op-commit` **excludes** them, so if the timed-out write already left the target file dirty, opening an operation now would leave that file out of my commit."
+    },
+    {
+      "name": "validate",
+      "evidence": "Validate: `type: authored`, `sources: []` declared explicitly, honest `ai-generated`, `project: atlas`, `kind: guide`, canonical placement, and cross-project links in the piped full-path form."
+    }
+  ],
+  "app-only": [
+    {
+      "name": "report-app-unavailable",
+      "evidence": "\"I can't do either of those — both are app actions, and the Obsidian CLI isn't available in this session."
+    }
+  ]
+}

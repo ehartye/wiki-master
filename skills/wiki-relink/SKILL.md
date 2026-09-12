@@ -4,7 +4,8 @@ description: Use when asked to connect overlapping or complementary wiki concept
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [maintenance](../wiki-maintainer/references/maintenance.md), [operations](../wiki-maintainer/references/operations.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [efficacy](../wiki-maintainer/references/efficacy.md), [operations](../wiki-maintainer/references/operations.md).
+Load the rest only when this run reaches it — [evidence](../wiki-maintainer/references/evidence.md) before a relationship claim rests on a cited source; [maintenance](../wiki-maintainer/references/maintenance.md) when repairing wrapped links, citation shapes or ordering.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 0. For an authorized repair run, open before the first write: `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink` — records

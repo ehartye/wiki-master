@@ -5,7 +5,8 @@ argument-hint: "<path/to/file.xlsx> [--source=\"<url>\"] [--quality=high|medium|
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [operations](../wiki-maintainer/references/operations.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [operations](../wiki-maintainer/references/operations.md).
+Load the rest only when this run reaches it — [evidence](../wiki-maintainer/references/evidence.md) before a quote or figure from this capture lands on a wiki page, or when reporting a fidelity limit.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 # Clipping a spreadsheet into the wiki

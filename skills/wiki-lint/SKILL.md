@@ -4,7 +4,8 @@ description: Use when asked to review wiki consistency, contradictions, unsuppor
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [maintenance](../wiki-maintainer/references/maintenance.md), [operations](../wiki-maintainer/references/operations.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [operations](../wiki-maintainer/references/operations.md).
+Load the rest only when this run reaches it — [maintenance](../wiki-maintainer/references/maintenance.md) when a structural repair, migration or backfill is actually indicated.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 1. Run `/wiki-health` first: `node "<absolute-plugin-root>/scripts/health.mjs"`. Stop for an empty
