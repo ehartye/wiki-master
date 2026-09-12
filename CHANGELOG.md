@@ -1,11 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.38.0 — 2026-09-11
 
 - Add the `clip-xlsx` skill so the bundled spreadsheet clipper can be triggered. `scripts/clip-xlsx.mjs` shipped and was tested but had no skill, leaving the capability reachable only from inside `wiki-discover`. A contract test now requires every document-format clipper to have a skill.
-- Add a five-scenario coverage evaluation for the spreadsheet clip path, purge, triage, query and relink, and record three independently graded paired runs with their failures preserved.
+- Load shared references conditionally in twelve spoke skills instead of unconditionally, cutting cold-start instruction load by roughly a third on the heaviest workflows. `wiki-stale` is deliberately unchanged to preserve the evidence inspection corrected in 0.36.0.
+- Add a five-scenario coverage evaluation for the spreadsheet clip path, purge, triage, query and relink — twelve skills previously had no paired-run evidence, including the one irreversible skill. Record four independently graded runs with their failures preserved.
 - List the user-invocable clip family, `/wiki-discover` and `/wiki-triage` in the README skill table, which previously documented ten of twenty skills.
-- Load shared references conditionally in twelve spoke skills instead of unconditionally, cutting cold-start instruction load by roughly a third on the heaviest workflows. Verified by re-running both behavioral suites with no change in outcome.
+
+## 0.37.0 — 2026-09-08
+
+Reconstructed from the release's own artifacts: `docs/cli-transport-guards.md`, its design and plan under `docs/superpowers/`, `eval/cli-safeguards/`, and the commit contents. The release shipped without a changelog entry.
+
+- Guard the Obsidian CLI transport across agent sessions. Reject physical CR/LF, NUL and estimated JSON request envelopes over 2,048 UTF-8 bytes before launch, with diagnostics that name the command and size without echoing the body. This is a conservative policy, not a measured Obsidian wire limit, and it does not repair the app parser that motivated it.
+- Serialize cooperating callers for the same OS user across processes, vaults, plugin versions and worktrees — a named pipe on Windows, an abstract socket on Linux, a deterministic reserved loopback port elsewhere. An unrelated listener fails closed; no lock file, service or stale-lock stealing is involved.
+- Bound the gate wait at 10 seconds by default, separately from the CLI's own execution timeout, and hold it until the child closes. No command is retried automatically: `CLI_REQUEST`, `CLI_BUSY` and `CLI_LOCK` mean the request was not sent, and a timeout leaves a mutation's outcome unknown until the exact target is inspected.
+- Route app commands through the bundled `scripts/obsidian.mjs` proxy and `guardedExecFile()` in the new `scripts/lib/cli-transport.mjs`; prefer exact-path filesystem edits for ordinary Markdown even when the app responds. Raw `obsidian` calls and older plugin copies bypass the guard.
+- Add transport tests using fake child processes, and paired skill probes in `eval/cli-safeguards/` measuring simulated intended actions rather than executed production reliability.
 
 ## 0.36.0 — 2026-09-08
 
