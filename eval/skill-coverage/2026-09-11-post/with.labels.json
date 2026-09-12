@@ -1,0 +1,104 @@
+{
+  "spreadsheet-clip": [
+    {
+      "name": "use-xlsx-clipper",
+      "evidence": "node \"C:/plugins/wiki-master/scripts/clip-xlsx.mjs\" \"C:/drops/kestrel-metrics-q3.xlsx\" --quality=high --topic=\"Kestrel offline rollout\""
+    },
+    {
+      "name": "store-markdown-not-binary",
+      "evidence": "`C:/drops/kestrel-metrics-q3.xlsx` \u2192 `raw/clippings/kestrel-metrics-q3.md` (LibreOffice \u2192\npandoc, `--wrap=none`)."
+    },
+    {
+      "name": "pass-topic",
+      "evidence": "**`--topic=\"Kestrel offline rollout\"` is the load-bearing flag.** Topic is recorded\n     going forward only and no tool can retro-fit it"
+    },
+    {
+      "name": "verify-extraction",
+      "evidence": "**Verify the capture rather than trusting the exit code.** Read the returned\n   `raw/clippings/<slug>.md` and confirm each sheet came through as a real table with its\n   labels still attached to its values."
+    },
+    {
+      "name": "request-ingest-decision",
+      "evidence": "I stopped before ingest. You authorized capturing this file, not adding it to wiki pages \u2014\nsay the word and I'll run `/wiki-ingest` on it to produce a `wiki/sources/` summary."
+    }
+  ],
+  "purge-orphan-lineage": [
+    {
+      "name": "check-merge-base",
+      "evidence": "git -C C:/vault merge-base HEAD origin/main"
+    },
+    {
+      "name": "reconcile-first",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/purge.mjs\" --reconcile` \u2014 sweeps anything an\n   earlier purge lost on this machine; cheap and silent on a clean vault; owns its commit."
+    },
+    {
+      "name": "plan-before-apply",
+      "evidence": "`node \"C:/plugins/wiki-master/scripts/purge.mjs\" --plan \"Project Kestrel\"` \u2014 moves\n   nothing."
+    },
+    {
+      "name": "review-seeds",
+      "evidence": "**Read the seed list first, before reading the plan.** Ranking has no notion of \"relevant\n   enough\""
+    },
+    {
+      "name": "request-explicit-approval",
+      "evidence": "Then read the plan back grouped by layer with counts, naming the blocking and collateral\n   pages specifically, and get an explicit yes."
+    },
+    {
+      "name": "resolve-blocking",
+      "evidence": "I put that\n     choice to the user as a choice, named page by page; purge will not decide it silently\n     in either direction and neither will I."
+    }
+  ],
+  "triage-queue": [
+    {
+      "name": "run-triage-script",
+      "evidence": "node \"C:/plugins/wiki-master/scripts/triage.mjs\""
+    },
+    {
+      "name": "hand-over-tokened-link",
+      "evidence": "hand the user **`link`**, never `url`. Every route sits behind a session\n   token and only `link` carries it"
+    },
+    {
+      "name": "summarize-what-waits",
+      "evidence": "What's waiting, by research topic first, since that's usually how you want to work through it:\n\n- **Kestrel offline rollout** \u2014 N failed clips (the 403s), 1 fidelity flag"
+    },
+    {
+      "name": "end-turn-for-user-decision",
+      "evidence": "Disposition what you want in the browser and\ntell me when you're done; I'll read your choices back and act on them then."
+    }
+  ],
+  "unsupported-claim-query": [
+    {
+      "name": "search-wiki",
+      "evidence": "node \"C:/plugins/wiki-master/scripts/search.mjs\" \"Kestrel offline sync guarantees\" --include-raw --json --limit=10"
+    },
+    {
+      "name": "cite-paths",
+      "evidence": "- `wiki/concepts/<Kestrel Offline Sync>.md:NN` \u2014 states the guarantee as <\u2026>.\n- `wiki/syntheses/<\u2026>.md:NN` \u2014 states it as <\u2026>."
+    },
+    {
+      "name": "inspect-evidence",
+      "evidence": "**Verify the citation trail rather than assuming it.** Pipe the hits through\n   `node \"C:/plugins/wiki-master/scripts/resolve-evidence.mjs\"`."
+    },
+    {
+      "name": "disclose-degraded-capture",
+      "evidence": "The first page's only evidence is `raw/clippings/<\u2026>.md`, which was recorded as a\n  **degraded capture**. That clipping is genuine evidence the vault holds this source, but a\n  degraded capture can't be trusted at character level"
+    }
+  ],
+  "relink-scope": [
+    {
+      "name": "run-health-first",
+      "evidence": "**Report the defects.** `node \"C:/plugins/wiki-master/scripts/health.mjs\"` for unresolved\n   links and orphans"
+    },
+    {
+      "name": "open-operation",
+      "evidence": "**Open the operation before the first write**, saving the token:\n   `node \"C:/plugins/wiki-master/scripts/op-begin.mjs\" --op relink`"
+    },
+    {
+      "name": "preserve-user-work",
+      "evidence": "so if a broken link turns out to live *inside* one of\n   those two dirty pages, I leave that one alone and report it rather than editing underneath\n   the user. Never `git add -A` in a vault."
+    },
+    {
+      "name": "scoped-commit",
+      "evidence": "Then **inspect what it actually committed** \u2014 specifically that the user's two files are not\n   in it"
+    }
+  ]
+}

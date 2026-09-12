@@ -5,7 +5,8 @@ argument-hint: <your question>
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md), [efficacy](../wiki-maintainer/references/efficacy.md), [operations](../wiki-maintainer/references/operations.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [evidence](../wiki-maintainer/references/evidence.md).
+Load the rest only when this run reaches it — [efficacy](../wiki-maintainer/references/efficacy.md) when the question spans topics and you must verify a relationship link; [operations](../wiki-maintainer/references/operations.md) only if filing the answer is authorized — an unfiled answer opens no operation.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 Question: $ARGUMENTS

@@ -5,7 +5,8 @@ argument-hint: "<your search terms> [--include-raw]"
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [evidence](../wiki-maintainer/references/evidence.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault.
+Load the rest only when this run reaches it — [evidence](../wiki-maintainer/references/evidence.md) before quoting a passage rather than citing where it sits.
 This entry point is read-only; do not open an operation, write a log, or refresh the index.
 
 # Searching the wiki

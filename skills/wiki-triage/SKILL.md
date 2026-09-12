@@ -5,7 +5,8 @@ argument-hint: "[blank to show everything, or a kind: failed | thin | fidelity |
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
-Read directly for this operation: [access](../wiki-maintainer/references/access.md), [maintenance](../wiki-maintainer/references/maintenance.md), [operations](../wiki-maintainer/references/operations.md).
+Read [access and host commands](../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [maintenance](../wiki-maintainer/references/maintenance.md).
+Load the rest only when this run reaches it — [operations](../wiki-maintainer/references/operations.md) only when you apply reclips or otherwise write; presenting the queue writes nothing.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
 
 ## What this is for

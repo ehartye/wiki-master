@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "scenarioHash": "ae1c454da371d6df1097d7236bd9179ba39e71c0a530e17ac5dea220e853f970",
+  "condition": "with",
+  "mode": "simulation",
+  "observer": {
+    "id": "C:/Program Files/Git/independent/skill_audit_observer_e",
+    "independent": true
+  },
+  "status": "pass",
+  "coverage": {
+    "expected": 5,
+    "observed": 5,
+    "missing": 0,
+    "incomplete": 0
+  },
+  "missingScenarios": [],
+  "passedScenarios": 5,
+  "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+  "runs": [
+    {
+      "id": "spreadsheet-clip",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": []
+    },
+    {
+      "id": "purge-orphan-lineage",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": []
+    },
+    {
+      "id": "triage-queue",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": []
+    },
+    {
+      "id": "unsupported-claim-query",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": []
+    },
+    {
+      "id": "relink-scope",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": []
+    }
+  ]
+}

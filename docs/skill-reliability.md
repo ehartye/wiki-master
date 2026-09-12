@@ -68,6 +68,34 @@ nothing here establishes that a real request would load the right skill. Descrip
 quality, trigger competition between skills, and the unconditional reference loading in each
 spoke's preamble remain unmeasured by this method.
 
+## Conditional reference loading on 2026-09-11
+
+Twelve spoke skills opened by instructing an unconditional read of three to five shared
+references, overriding the core's own rule to load only what the operation needs. Each of
+those references now carries the condition under which it is read; `access.md` stays
+unconditional because every skill touches the vault, and the seven skills whose references
+all genuinely fire were left on the unconditional wording so the difference stays meaningful.
+
+Cold-start instruction load on the common path, in words (skill body + core + references
+actually read): `wiki-ingest` 5,445 to 3,573, `wiki-relink` 5,204 to 3,259, `wiki-query`
+3,988 to 2,543, `wiki-lint` 5,151 to 3,946, each clipper down by 740, `wiki-search` 3,214 to
+2,474. `wiki-stale` was deliberately left unchanged to protect the evidence-inspection
+behavior corrected in 0.36.0.
+
+The [post-change verification](../eval/skill-coverage/2026-09-11-post/grading.md) re-ran both
+suites' with-condition and records 8/8 and 5/5 with zero forbidden actions — unchanged from
+before the edit. Actors were given read access to every reference and told to follow the
+preamble conditions honestly; across thirteen scenarios one conditional reference was read
+because its condition fired, seven were skipped with the condition quoted, and none was read
+speculatively. The without condition loads no skill bodies and is unaffected by this change
+by construction, so it was not re-run.
+
+Two limits worth carrying forward. Per-session savings are smaller than the per-invocation
+figures suggest, because references accumulate across scenarios in one session exactly as the
+core itself does. And `references/workflows.md` is reachable only from the core's routing
+table under the trigger "when needed"; no spoke links it and it went unread across all
+thirteen scenarios.
+
 ## Verification on 2026-09-08
 
 The focused suite passes all 31 tests. The complete Windows run reports 1,025 passed, two failed and one skipped. Both failures are the previously reproduced triage-auth server startup problem (`server never wrote server-info`); they are outside this change. This is not a claim that the full suite is green.
