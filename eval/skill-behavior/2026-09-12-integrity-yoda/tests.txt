@@ -1,0 +1,27 @@
+✔ a required action does not conceal a forbidden write (2.4021ms)
+✔ missing scenarios and truncated traces are incomplete, not successful (0.2834ms)
+✔ unobserved actions and self-grades cannot masquerade as independent evidence (1.7307ms)
+✔ rejects duplicate/unknown scenarios, mismatched suite, and unsupported modes (0.4284ms)
+✔ comparison preserves failures, omissions and matched conditions (0.397ms)
+✔ execution mode requires independently captured tool/artifact evidence (0.3363ms)
+✔ CLI reports incomplete coverage with exit 2, writes a report and rejects malformed combinations (187.9438ms)
+✔ all twenty-one portable skill descriptions identify triggers and resolve direct references (11.0816ms)
+✔ shared core is bounded and each operation can reach access policy directly (2.5899ms)
+✔ writing routes share completion policy while read-only entry points do not open operations (2.4577ms)
+✔ operation examples expose both shells without mixed token syntax or relative helper execution (3.6487ms)
+✔ every document-format clipper has a skill that can trigger it (0.9369ms)
+warning: in the working copy of 'wiki/authored/atlas/guides/user.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'index.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'log/2026-09-12-224411-relink-explain-atlas-offline-mode.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'index.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'log/2026-09-12-224411-relink-explain-atlas-offline-mode.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'wiki/authored/atlas/guides/user.md', LF will be replaced by CRLF the next time Git touches it
+✔ offline authored workflow commits only its edit and publishes to its configured local remote from unrelated cwd (2350.7996ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2497.6163

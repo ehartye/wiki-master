@@ -86,7 +86,8 @@ the same workflows.
 | `/wiki-ingest [source]` | Read a source → summary page + cross-references + index/log. Blank = process new clippings. |
 | `/wiki-search <terms> [--include-raw]` | Pure retrieval — matching `wiki/` pages (optionally `raw/` clippings too) as citation-ready `path:line` results. Chunk-level semantic + keyword, RRF-fused. No synthesis, no writes. |
 | `/wiki-query <question>` | Ask a question, get a synthesized answer with citations; optionally file it back as a new page. Calls `/wiki-search` as its first step. |
-| `/wiki-health` | Fast zero-LLM structural report + 0–100 score. |
+| `/wiki-health` | Deterministic integrity defect count and worklist; intentional forward links are unscored. |
+| `/wiki-repair` | Resolve integrity defects against evidence and verify progress by issue ID. |
 | `/wiki-lint` | Periodic deep pass: contradictions, stale claims, missing links, drift. |
 | `/wiki-stale` | Factual freshness from `reviewed`, missing-review reporting + bounded semantic drift. |
 | `/wiki-relink` | Add inferred links, materialize frequently-referenced entities, build MOCs. |

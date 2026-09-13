@@ -1,6 +1,6 @@
 ---
 name: wiki-relink
-description: Use when asked to connect overlapping or complementary wiki concepts, repair links, or build task maps. For a report without changes use wiki-health; new external evidence belongs to wiki-discover.
+description: Use when asked to connect overlapping or complementary wiki concepts, develop intentional forward links, or build task maps. Integrity defect repair belongs to wiki-repair; reporting to wiki-health; new evidence to wiki-discover.
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -10,19 +10,14 @@ Before the first authorized write, follow the shared operations completion contr
 
 0. For an authorized repair run, open before the first write: `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink` — records
    what was already uncommitted, so step 5 commits your work and not the user's.
-1. Find unresolved links and orphans with `node "<absolute-plugin-root>/scripts/health.mjs"`;
+1. Read unscored forward links with `node "<absolute-plugin-root>/scripts/health.mjs" --json`.
+   For orphan/dead-end navigation opportunities, use the helper's `--legacy` report;
+   its score and fuzzy suggestions are not repair obligations. Route integrity defects
+   to [wiki-repair](../wiki-repair/SKILL.md) when repair is authorized.
    Obsidian's `orphans` includes catalog links and can hide stranded pages.
    Run `node "<absolute-plugin-root>/scripts/identity-audit.mjs" --limit=20 --json` to separate
    ambiguous identities from concepts that merely need connections.
    For a preview-only request, stop after the reports without opening an operation.
-   Run `node "<absolute-plugin-root>/scripts/repair-wrapped-links.mjs"` first in dry-run mode;
-   apply scoped, authorized repairs with `--apply` before substantive relinking — a hard-wrapped
-   wikilink (`[[Title\ncontinued]]`, from a paragraph that got word-wrapped across a
-   line break) can never resolve and is not a real orphan/unresolved-link decision to
-   make, just a mechanical fix; clearing it first keeps the rest of this workflow
-   focused on links that actually need a judgment call. It reports anything it cannot
-   safely fix (an ambiguous hyphen-adjacent wrap) for manual review — see
-   `scripts/lib/dewrap-links.mjs`.
 2. Before creating a page for a frequently mentioned entity, search candidate
    names and equivalent aliases; reuse the canonical page when it already exists.
    Do not merge related concepts merely because names or embeddings are similar.

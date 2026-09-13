@@ -1,6 +1,9 @@
 import { pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
+import { scanIntegrity, integrityReport } from './lib/integrity.mjs';
+export { scanIntegrity };
 
 // Health reads the vault filesystem directly — no Obsidian CLI. The CLI's
 // orphan/deadend verdicts are computed WITH structural files' links included
@@ -114,10 +117,17 @@ export function backlogReport({ unparsedSources = [], unsummarizedSources = [], 
   );
 }
 
-export function main() {
+export function main(args = process.argv.slice(2)) {
+  const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, legacy: { type: 'boolean' }, backlog: { type: 'boolean' } } });
+  if (Object.values(values).filter(Boolean).length > 1) throw new Error('Choose one of --json, --legacy or --backlog');
   const { path: vaultPath } = resolveVault();
+  if (!values.legacy && !values.backlog) {
+    const result = scanIntegrity(vaultPath);
+    console.log(values.json ? JSON.stringify(result, null, 2) : integrityReport(result));
+    return result;
+  }
   const metrics = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
-  if (process.argv.includes('--backlog')) {
+  if (values.backlog) {
     console.log(backlogReport(metrics));
     return metrics;
   }

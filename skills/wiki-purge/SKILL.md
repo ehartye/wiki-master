@@ -1,6 +1,6 @@
 ---
 name: wiki-purge
-description: Use when explicitly asked to purge or permanently remove a topic from the wiki and its evidence. Requires a reviewed removal plan; broken-link repair belongs to wiki-relink, not purge.
+description: Use when explicitly asked to purge or permanently remove a topic from the wiki and its evidence. Requires a reviewed removal plan; broken-link repair belongs to wiki-repair, not purge.
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -45,6 +45,8 @@ history is canonical — not one to make inside a purge.
 ## Steps
 
 1. **Reconcile first.**
+   Save a baseline with `node "<absolute-plugin-root>/scripts/health.mjs" --legacy`
+   before any purge mutation; retain its **broken links** count for step 6.
    `node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile`
    Sweeps anything an earlier purge lost, on this machine. Cheap and silent on a
    clean vault. It commits whatever it moves.
@@ -101,8 +103,10 @@ history is canonical — not one to make inside a purge.
    machine and will not reach the others.
 
 6. **Verify — on the broken-link count, not the score.**
-   `node "<absolute-plugin-root>/scripts/health.mjs"`, and compare the **broken links**
-   line against a run from before the purge. It must not have grown.
+   `node "<absolute-plugin-root>/scripts/health.mjs" --legacy`, and compare the
+   **broken links** line against the saved baseline. It must not have grown.
+   The default integrity report cannot replace this check: it leaves unresolved
+   navigation links unscored and does not know which targets this purge removed.
 
    Do **not** verify with the score. Measured on the end-to-end fixture: an
    unrepaired purge moved the score *up*, 92 → 94. Purging an orphaned page removes

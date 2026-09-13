@@ -1,6 +1,6 @@
 ---
 name: wiki-health
-description: Use when asked to check wiki structure, find broken links or orphans, or report the health score and ingest backlog. Read-only structural reporting; factual review belongs to wiki-lint and repairs to wiki-relink.
+description: Use when asked to check wiki integrity, list structural defects, or report wiki health and ingest backlog. Read-only reporting; resolving defects belongs to wiki-repair and factual review to wiki-lint.
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -11,5 +11,12 @@ Run the deterministic health check and report the result to the user.
 
 Steps:
 1. Run `node "<absolute-plugin-root>/scripts/health.mjs"` using the absolute installed path.
-2. Present the score and each category. If broken links or orphans exist, offer to
-   run `/wiki-relink` to fix them. Do not modify any files in this skill.
+2. Present `Open integrity defects` with scanned-page coverage. For issue IDs,
+   locations, evidence and verification conditions, run the same helper with
+   `--json`. Distinguish unscored forward links from defects; age and similarity
+   do not prove an accidental break. An empty scan is not a healthy-wiki verdict.
+3. Use `--backlog` for ingest reporting. The old capped score and topology counts
+   are available with `--legacy` for historical comparison only; do not use them
+   as a repair target. Zero integrity defects does not establish factual accuracy.
+4. Route authorized repair work to [wiki-repair](../wiki-repair/SKILL.md).
+   Do not modify any files in this reporting skill.

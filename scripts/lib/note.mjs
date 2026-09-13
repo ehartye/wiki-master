@@ -2,7 +2,7 @@
 // This intentionally does not implement nested YAML objects or executable tags.
 export function normalizeIdentity(value) { return String(value ?? '').trim().toLowerCase(); }
 
-function withoutComment(value) {
+export function withoutComment(value) {
   let quote = null;
   for (let i = 0; i < value.length; i++) {
     const c = value[i];

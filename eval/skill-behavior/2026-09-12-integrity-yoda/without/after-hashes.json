@@ -1,0 +1,114 @@
+{
+  "health": [
+    {
+      "path": ".gitignore",
+      "hash": "D435E433EE28A29DDA76FCF322786991BE44EF1407470CF33431D9B9CEF01419"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "807304DEBBF4514B398CF17E3EE750BBA55DF9026DDD9F31D811C04D34FE4381"
+    },
+    {
+      "path": "vault-schema.md",
+      "hash": "BE2D0A54DCA5BCF8BFFCEE44A8CB137EB8A9788C94C4B5F35DB4B1AAB9DEA627"
+    },
+    {
+      "path": "wiki\\authored\\Guide.md",
+      "hash": "984E4FDC47BCD7902F1F36D6C98EB5A476E117B476A3CD63D261F2CCF6E771FD"
+    }
+  ],
+  "relink": [
+    {
+      "path": ".gitignore",
+      "hash": "D435E433EE28A29DDA76FCF322786991BE44EF1407470CF33431D9B9CEF01419"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "807304DEBBF4514B398CF17E3EE750BBA55DF9026DDD9F31D811C04D34FE4381"
+    },
+    {
+      "path": "vault-schema.md",
+      "hash": "BE2D0A54DCA5BCF8BFFCEE44A8CB137EB8A9788C94C4B5F35DB4B1AAB9DEA627"
+    },
+    {
+      "path": "raw\\clippings\\catalog.md",
+      "hash": "936FFD5A1EDD5C2BA0EEF8D54A0AB0507C12090DB16E7C0EC6ADF4A3BE908712"
+    },
+    {
+      "path": "wiki\\concepts\\Alpha.md",
+      "hash": "3487DA8E370132078CF69CBF96D016295F33944423681A507D86DB20A49012FE"
+    },
+    {
+      "path": "wiki\\concepts\\Beta.md",
+      "hash": "7C5BDC63666B5FE0EB3666FD8D67B4AD2B024654BB4BABD7AC6DBF960BAC0CBC"
+    }
+  ],
+  "lint": [
+    {
+      "path": ".gitignore",
+      "hash": "D435E433EE28A29DDA76FCF322786991BE44EF1407470CF33431D9B9CEF01419"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "807304DEBBF4514B398CF17E3EE750BBA55DF9026DDD9F31D811C04D34FE4381"
+    },
+    {
+      "path": "vault-schema.md",
+      "hash": "BE2D0A54DCA5BCF8BFFCEE44A8CB137EB8A9788C94C4B5F35DB4B1AAB9DEA627"
+    },
+    {
+      "path": "raw\\clippings\\study.md",
+      "hash": "203CEDCDA8F51F8E1EB19A0118983CF8A70C4CBF9377BBC9EE221D652703CBDD"
+    },
+    {
+      "path": "wiki\\concepts\\Retrieval.md",
+      "hash": "5FBFC4FEDBC40B44B52A7520D35675BB436C37FC37185C1E230203B4D0037072"
+    }
+  ],
+  "repair": [
+    {
+      "path": ".gitignore",
+      "hash": "D435E433EE28A29DDA76FCF322786991BE44EF1407470CF33431D9B9CEF01419"
+    },
+    {
+      "path": "AGENTS.md",
+      "hash": "807304DEBBF4514B398CF17E3EE750BBA55DF9026DDD9F31D811C04D34FE4381"
+    },
+    {
+      "path": "vault-schema.md",
+      "hash": "BE2D0A54DCA5BCF8BFFCEE44A8CB137EB8A9788C94C4B5F35DB4B1AAB9DEA627"
+    },
+    {
+      "path": "raw\\clippings\\study-evidence.md",
+      "hash": "FDBA1B7EB7D72EA859E3F45936027BBD253DCAC566DA962A9D72A74DA18021B6"
+    },
+    {
+      "path": "wiki\\authored\\Federalist No. 10.md",
+      "hash": "12A889C1DDFF6CD6EE62FCF940BBC78B8D5A8E4533F754BE7722F1166D715151"
+    },
+    {
+      "path": "wiki\\authored\\Government.md",
+      "hash": "FD0E0E8AEEEC4F663DDA2D841026FB49E1956B4EA08CAE4685DA26A4DF928DC6"
+    },
+    {
+      "path": "wiki\\authored\\Human draft.md",
+      "hash": "E3692ECF793AAAD52D37249F581D005068824513E8C385BF8124744A83DFB908"
+    },
+    {
+      "path": "wiki\\authored\\Real Page.md",
+      "hash": "020C69329701AC26A3C0C15766DF1003ED324C4FAD0B77894C37026DD967E278"
+    },
+    {
+      "path": "wiki\\authored\\Unrelated.md",
+      "hash": "1990497932C78079628D32AF73190366DB0CF1801FE5C0F9A72902D5BF2F8661"
+    },
+    {
+      "path": "wiki\\concepts\\Methods.md",
+      "hash": "234D6FD408E892C8B98EC01A8F8A19B15BCEF45CE38CFD9D3A2C55D8A8C89713"
+    },
+    {
+      "path": "wiki\\sources\\Study.md",
+      "hash": "94C7F3B22C85F800A115C26262613D950C3738FE43A537194A32B98A485D96C1"
+    }
+  ]
+}
