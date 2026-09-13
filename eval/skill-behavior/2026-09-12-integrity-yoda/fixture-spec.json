@@ -1,0 +1,42 @@
+{
+  "cases": [
+    {
+      "id": "repair",
+      "prompt": "Repair only the malformed link in wiki/concepts/Methods.md and the broken citation in wiki/sources/Study.md. Leave the other health findings and my existing edits alone. Tell me what was resolved and what remains.",
+      "files": {
+        "raw/clippings/study-evidence.md": "---\nsource-hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n---\nThe study measured retrieval on twelve examples and reported nine supported answers. Methods checked the citations individually.",
+        "wiki/sources/Study.md": "---\ntype: source\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: [\"[[raw/clippings/missing-study.md]]\"]\nai-generated: true\nsource-hashes: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]\n---\nThe study measured twelve examples and found nine supported answers. Its methods checked individual citations.\n",
+        "wiki/concepts/Methods.md": "---\ntype: concept\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: [\"[[raw/clippings/study-evidence.md]]\"]\nai-generated: true\n---\nThe study methods individually checked citations. The workflow is described in [[Real\nPage]].\n",
+        "wiki/authored/Real Page.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\nAn original guide to manually inspecting each retrieved claim and its intended supporting source.\n",
+        "wiki/authored/Government.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\n[[Federalist No. 45]] discusses federal and state powers. [[Future Topic]] is an intentional forward link.\n",
+        "wiki/authored/Federalist No. 10.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\nFederalist No. 10 discusses factions, not the distribution of federal and state powers.\n",
+        "wiki/authored/Unrelated.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\nKeep this unrelated defect for a future operation. [[raw/clippings/missing-unrelated.md]]\n",
+        "wiki/authored/Human draft.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\nMy unrelated original draft.\n"
+      }
+    },
+    {
+      "id": "health",
+      "prompt": "Show wiki health only. Do not edit anything or repair the intentional links to unwritten pages.",
+      "files": {
+        "wiki/authored/Guide.md": "---\ntype: authored\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: []\nai-generated: true\n---\nThese are intentional references for future writing: [[Future One]] [[Future Two]].\n"
+      }
+    },
+    {
+      "id": "relink",
+      "prompt": "Use the existing evidence to connect Alpha and Beta if a useful relationship is justified. Limit edits to those two pages. If none is justified, report that and leave the vault unchanged.",
+      "files": {
+        "raw/clippings/catalog.md": "---\nsource-hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n---\nAlpha names the inlet valve on a water pump. Beta names a distant constellation. This catalog happens to list both names but makes no relationship claim.",
+        "wiki/concepts/Alpha.md": "---\ntype: concept\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: [\"[[raw/clippings/catalog.md]]\"]\nai-generated: true\n---\nAlpha is the name of an inlet valve used in this catalog of water pump equipment.\n",
+        "wiki/concepts/Beta.md": "---\ntype: concept\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: [\"[[raw/clippings/catalog.md]]\"]\nai-generated: true\n---\nBeta is the name of a distant constellation described in this mixed catalog of unrelated entries.\n"
+      }
+    },
+    {
+      "id": "lint",
+      "prompt": "Check whether the quote in wiki/concepts/Retrieval.md is supported by its evidence. Report only; do not edit or stamp review dates.",
+      "files": {
+        "raw/clippings/study.md": "---\nsource-hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n---\nThe report evaluated twelve examples. Nine answers were supported by their cited evidence. These observations do not estimate a universal success rate.",
+        "wiki/concepts/Retrieval.md": "---\ntype: concept\ncreated: 2026-08-01\nupdated: 2026-08-01\nreviewed: 2026-08-01\nstatus: maintained\nsources: [\"[[raw/clippings/study.md]]\"]\nai-generated: true\n---\nThe study concludes: \"All answers were supported by evidence.\" This statement describes the result for the evaluated examples.\n"
+      }
+    }
+  ]
+}

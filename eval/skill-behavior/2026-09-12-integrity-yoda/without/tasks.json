@@ -1,0 +1,26 @@
+[
+  {
+    "id": "repair",
+    "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\repair",
+    "prompt": "Repair only the malformed link in wiki/concepts/Methods.md and the broken citation in wiki/sources/Study.md. Leave the other health findings and my existing edits alone. Tell me what was resolved and what remains.",
+    "baseline": "91ae8743215a7c18d9268f96a55a447e15d4103d"
+  },
+  {
+    "id": "health",
+    "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\health",
+    "prompt": "Show wiki health only. Do not edit anything or repair the intentional links to unwritten pages.",
+    "baseline": "27ffa78768de2ce45c97a762f1b22bac1f7c03fc"
+  },
+  {
+    "id": "relink",
+    "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\relink",
+    "prompt": "Use the existing evidence to connect Alpha and Beta if a useful relationship is justified. Limit edits to those two pages. If none is justified, report that and leave the vault unchanged.",
+    "baseline": "1f4f6375751493bee306a0e66259905f64e29a0b"
+  },
+  {
+    "id": "lint",
+    "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\lint",
+    "prompt": "Check whether the quote in wiki/concepts/Retrieval.md is supported by its evidence. Report only; do not edit or stamp review dates.",
+    "baseline": "74a3621b9f095838f9dce0f1a292bed6a753b332"
+  }
+]

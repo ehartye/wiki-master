@@ -1,5 +1,8 @@
 # Wiki repair validation
 
+Follow-up: the [Yoda audit](2026-09-12-wiki-integrity-yoda.md) adds paired actual
+fixture execution. The original simulation below is preserved as historical evidence.
+
 ## Behavioral probe
 
 Two independent fresh agents received the same bounded fixture and request to

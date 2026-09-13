@@ -1,0 +1,181 @@
+{
+  "commands": [
+    {
+      "case": "repair",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "result": {
+        "chunk_id": "0eb0c9",
+        "wall_time_seconds": 0.6601164,
+        "exit_code": 0,
+        "original_token_count": 691,
+        "output": "{\n  \"version\": 1,\n  \"status\": \"defects\",\n  \"defectCount\": 3,\n  \"issues\": [\n    {\n      \"id\": \"b66a74589fa8b0444be3\",\n      \"rule\": \"unresolved-citation\",\n      \"source\": \"wiki/authored/Unrelated.md\",\n      \"target\": \"raw/clippings/missing-unrelated.md\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[raw/clippings/missing-unrelated.md]]\",\n      \"verification\": \"Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.\",\n      \"channel\": \"body\"\n    },\n    {\n      \"id\": \"0d070228c5e912a1fb8a\",\n      \"rule\": \"malformed-link\",\n      \"source\": \"wiki/concepts/Methods.md\",\n      \"target\": \"Real\\nPage\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Real\\nPage]]\",\n      \"verification\": \"Read the surrounding prose and correct the intended wikilink syntax; rerun health and verify meaning is preserved.\",\n      \"channel\": \"body\"\n    },\n    {\n      \"id\": \"70e0bb59de50d9805e5b\",\n      \"rule\": \"unresolved-citation\",\n      \"source\": \"wiki/sources/Study.md\",\n      \"target\": \"raw/clippings/missing-study.md\",\n      \"line\": 7,\n      \"lines\": [\n        7\n      ],\n      \"evidence\": \"[[raw/clippings/missing-study.md]]\",\n      \"verification\": \"Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.\",\n      \"channel\": \"sources\"\n    }\n  ],\n  \"forwardLinks\": [\n    {\n      \"id\": \"14e1114edcc5f83ebd2e\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Federalist No. 45\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Federalist No. 45]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"501e1164cf261baf6e9f\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Future Topic\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Topic]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 8,\n    \"provenanceEligible\": 2,\n    \"stubs\": 2,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n"
+      }
+    },
+    {
+      "case": "relink",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "result": {
+        "chunk_id": "38980d",
+        "wall_time_seconds": 1.053556,
+        "exit_code": 0,
+        "original_token_count": 168,
+        "output": "{\n  \"version\": 1,\n  \"status\": \"clear\",\n  \"defectCount\": 0,\n  \"issues\": [],\n  \"forwardLinks\": [],\n  \"coverage\": {\n    \"contentPages\": 3,\n    \"provenanceEligible\": 2,\n    \"stubs\": 0,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n"
+      }
+    },
+    {
+      "case": "health",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+      "result": {
+        "chunk_id": "1d4b43",
+        "wall_time_seconds": 1.4846718,
+        "exit_code": 0,
+        "original_token_count": 85,
+        "output": "Open integrity defects: 0 (target 0)\nScanned 2 content pages; 0 require evidence; 0 stubs.\nUnresolved navigation: 2 (unscored; preserve intentional forward links).\nStructural integrity only; factual truth and completeness require separate review.\nUse --json for the full worklist, --backlog for ingest, --legacy for the historical score.\n"
+      }
+    },
+    {
+      "case": "lint",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+      "result": {
+        "chunk_id": "083aa9",
+        "wall_time_seconds": 1.8569672000000002,
+        "exit_code": 0,
+        "original_token_count": 85,
+        "output": "Open integrity defects: 0 (target 0)\nScanned 2 content pages; 1 require evidence; 0 stubs.\nUnresolved navigation: 0 (unscored; preserve intentional forward links).\nStructural integrity only; factual truth and completeness require separate review.\nUse --json for the full worklist, --backlog for ingest, --legacy for the historical score.\n"
+      }
+    },
+    {
+      "case": "relink",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --legacy",
+      "result": {
+        "chunk_id": "585bcc",
+        "wall_time_seconds": 1.8314556,
+        "exit_code": 0,
+        "original_token_count": 129,
+        "output": "Wiki health: 88/100 (scanned from filesystem)\n  broken links: 0 (defect 0 · stale 0 · deferred 0)\n  orphans:      3\n  dead-ends:    3\n  hub-stubs:    0\n  monolith candidates: 0\n  declared stubs (not scored): 0\n  provenance gaps: 0\n  unreachable provenance: 0\n  declared no provenance (not scored): 0\n  unparsed raw sources (nothing cites them): 0\n  not ingested (no summary records their hash): 1\n    raw/clippings/catalog.md\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n"
+      }
+    },
+    {
+      "case": "health",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "result": {
+        "chunk_id": "ec255b",
+        "wall_time_seconds": 1.8098691,
+        "exit_code": 0,
+        "original_token_count": 356,
+        "output": "{\n  \"version\": 1,\n  \"status\": \"clear\",\n  \"defectCount\": 0,\n  \"issues\": [],\n  \"forwardLinks\": [\n    {\n      \"id\": \"0be69ec259c8ee146136\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future One\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future One]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"16e7eafb506bec77cd40\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future Two\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Two]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 2,\n    \"provenanceEligible\": 0,\n    \"stubs\": 0,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n"
+      }
+    },
+    {
+      "case": "lint",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/drift.mjs' --coverage --json",
+      "result": {
+        "chunk_id": "80cbf7",
+        "wall_time_seconds": 1.8158557,
+        "exit_code": 0,
+        "original_token_count": 65,
+        "output": "{\"drifted\":[],\"evaluated\":[],\"failed\":[],\"skipped\":true,\"coverage\":true,\"skippedPages\":[{\"path\":\"wiki/concepts/Retrieval.md\",\"reason\":\"coverage only\"}],\"counts\":{\"total\":1,\"eligible\":1,\"ineligible\":0,\"evaluated\":0,\"failed\":0,\"skipped\":1,\"skippedEligible\":1}}\n"
+      }
+    },
+    {
+      "case": "relink",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/identity-audit.mjs' --limit=20 --json",
+      "result": {
+        "chunk_id": "313854",
+        "wall_time_seconds": 1.8317033999999999,
+        "exit_code": 0,
+        "original_token_count": 23,
+        "output": "{\n  \"scanned\": 3,\n  \"total\": 0,\n  \"truncated\": 0,\n  \"findings\": [],\n  \"readOnly\": true\n}\n"
+      }
+    },
+    {
+      "case": "lint",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/lint.mjs' ",
+      "result": {
+        "chunk_id": "ab344d",
+        "wall_time_seconds": 1.7300282,
+        "exit_code": 0,
+        "original_token_count": 50,
+        "output": "Content lint (warn-only — flags for review, never scored)\n\nUnverifiable quotes: 1\n  wiki/concepts/Retrieval.md\n    \"All answers were supported by evidence....\" (checked 1 sources)\n\nStyle flags: 0\n"
+      }
+    },
+    {
+      "case": "relink",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/relationships.mjs' --limit=10 --json",
+      "result": {
+        "chunk_id": "d04fa4",
+        "wall_time_seconds": 1.6286065,
+        "exit_code": 0,
+        "original_token_count": 195,
+        "output": "{\n  \"readOnly\": true,\n  \"scanned\": 2,\n  \"total\": 1,\n  \"truncated\": 0,\n  \"candidates\": [\n    {\n      \"from\": \"wiki/concepts/Alpha.md\",\n      \"to\": \"wiki/concepts/Beta.md\",\n      \"score\": 0.5,\n      \"proposedRole\": \"related\",\n      \"verification\": \"unverified\",\n      \"reasons\": [\n        {\n          \"kind\": \"shared-source\",\n          \"identity\": \"hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n          \"paths\": [\n            \"raw/clippings/catalog.md\"\n          ]\n        }\n      ]\n    }\n  ],\n  \"identityReview\": [],\n  \"identityFindingsTotal\": 0,\n  \"disclaimer\": \"Candidates are unverified. Shared evidence or similarity does not establish claim entailment, identity, or a complementary relationship. Human review must choose a role and explanation.\"\n}\n"
+      }
+    },
+    {
+      "case": "repair",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/op-begin.mjs' --op relink",
+      "result": {
+        "chunk_id": "14b097",
+        "wall_time_seconds": 1.9306554,
+        "exit_code": 0,
+        "original_token_count": 5,
+        "output": "2c320629db7fe595\n"
+      }
+    },
+    {
+      "case": "repair",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "result": {
+        "chunk_id": "7eb5bd",
+        "wall_time_seconds": 1.8480733,
+        "exit_code": 0,
+        "original_token_count": 478,
+        "output": "{\n  \"version\": 1,\n  \"status\": \"defects\",\n  \"defectCount\": 1,\n  \"issues\": [\n    {\n      \"id\": \"b66a74589fa8b0444be3\",\n      \"rule\": \"unresolved-citation\",\n      \"source\": \"wiki/authored/Unrelated.md\",\n      \"target\": \"raw/clippings/missing-unrelated.md\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[raw/clippings/missing-unrelated.md]]\",\n      \"verification\": \"Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.\",\n      \"channel\": \"body\"\n    }\n  ],\n  \"forwardLinks\": [\n    {\n      \"id\": \"14e1114edcc5f83ebd2e\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Federalist No. 45\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Federalist No. 45]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"501e1164cf261baf6e9f\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Future Topic\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Topic]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 8,\n    \"provenanceEligible\": 2,\n    \"stubs\": 2,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n"
+      }
+    },
+    {
+      "case": "repair",
+      "cmd": "git -C 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff --check; git -C 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff; Get-Content -LiteralPath 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/.wiki-master/ops/2c320629db7fe595.json'",
+      "result": {
+        "chunk_id": "b8e7a6",
+        "wall_time_seconds": 1.8739354000000001,
+        "exit_code": 0,
+        "original_token_count": 372,
+        "output": "diff --git a/wiki/authored/Human draft.md b/wiki/authored/Human draft.md\nindex 5036497..34c604f 100644\n--- a/wiki/authored/Human draft.md\t\n+++ b/wiki/authored/Human draft.md\t\n@@ -8,3 +8,5 @@ sources: []\n ai-generated: true\n ---\n My unrelated original draft.\n+\n+Uncommitted human addition: preserve me.\ndiff --git a/wiki/concepts/Methods.md b/wiki/concepts/Methods.md\nindex 7e42e32..267de54 100644\n--- a/wiki/concepts/Methods.md\n+++ b/wiki/concepts/Methods.md\n@@ -1,11 +1,10 @@\n ---\n type: concept\n created: 2026-08-01\n-updated: 2026-08-01\n+updated: 2026-09-12\n reviewed: 2026-08-01\n status: maintained\n sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n ---\n-The study methods individually checked citations. The workflow is described in [[Real\n-Page]].\n+The study methods individually checked citations. The workflow is described in [[Real Page]].\ndiff --git a/wiki/sources/Study.md b/wiki/sources/Study.md\nindex 6f63515..0351742 100644\n--- a/wiki/sources/Study.md\n+++ b/wiki/sources/Study.md\n@@ -1,10 +1,10 @@\n ---\n type: source\n created: 2026-08-01\n-updated: 2026-08-01\n+updated: 2026-09-12\n reviewed: 2026-08-01\n status: maintained\n-sources: [\"[[raw/clippings/missing-study.md]]\"]\n+sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n source-hashes: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]\n ---\n{\r\n  \"op\": \"relink\",\r\n  \"startedAt\": \"2026-09-13T02:38:11.204Z\",\r\n  \"dirty\": [\r\n    \"wiki/authored/Human draft.md\"\r\n  ]\r\n}\r\n"
+      }
+    },
+    {
+      "case": "repair",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; 'Repaired only the requested Methods malformed wikilink and Study citation. Real Page is the unique existing target and describes citation inspection. Study source-hashes uniquely matches raw/clippings/study-evidence.md, whose text supports twelve examples, nine supported answers and individually checked citations. Health: 3 to 1 defects across 8 scanned content pages. Resolved 0d070228c5e912a1fb8a and 70e0bb59de50d9805e5b; remaining b66a74589fa8b0444be3 is outside requested scope. No new defects. Both unscored forward links and existing Human draft edits preserved; reviewed dates preserved. No catalog membership or titles changed; no existing catalog needs regeneration. No semantic index is present. No push authorized or attempted.' | node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/log-entry.mjs' --op relink --title 'Repair requested Methods link and Study citation'",
+      "result": {
+        "chunk_id": "f6f602",
+        "wall_time_seconds": 1.8042468,
+        "exit_code": 0,
+        "original_token_count": 21,
+        "output": "log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\n"
+      }
+    },
+    {
+      "case": "repair",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/op-commit.mjs' --op relink --title 'Repair requested Methods link and Study citation' --since 2c320629db7fe595",
+      "result": {
+        "chunk_id": "a556cf",
+        "wall_time_seconds": 2.3439797,
+        "exit_code": 0,
+        "original_token_count": 119,
+        "output": "fatal: no upstream configured for branch 'main'\ncommitted 2e4856e: 3 file(s)\n  log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\n  wiki/concepts/Methods.md\n  wiki/sources/Study.md\nleft alone (already dirty before this operation, not part of it): 1 file(s)\n  wiki/authored/Human draft.md\nno semantic index yet — a first build takes minutes, so it is not started automatically. Run `node scripts/index-embed.mjs` once to enable semantic search.\n"
+      }
+    },
+    {
+      "case": "all",
+      "cmd": "$auditRoot = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with'; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output \"CASE: $caseName\"; git -C \"$auditRoot/$caseName\" status --short --untracked-files=all; git -C \"$auditRoot/$caseName\" rev-parse HEAD; git -C \"$auditRoot/$caseName\" diff --check; git -C \"$auditRoot/$caseName\" diff -- raw; Get-ChildItem -LiteralPath \"$auditRoot/$caseName\" -Force | Select-Object Name }; git -C \"$auditRoot/repair\" show --stat --oneline HEAD; git -C \"$auditRoot/repair\" diff -- 'wiki/authored/Human draft.md'; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f HEAD --name-only; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f -- raw",
+      "result": {
+        "chunk_id": "8e0743",
+        "wall_time_seconds": 2.6985641,
+        "exit_code": 0,
+        "original_token_count": 323,
+        "output": "CASE: repair\r\n M \"wiki/authored/Human draft.md\"\n2e4856e0331f8b0619af5cfa745929969daf576f\n\r\nf1192714535a92719bd024e614b735c19d7f3acd\n1ff1e887ea655f19f70ffbdb6e44cbe3345a8a53\nName\r\n----\r\n.git\r\n.wiki-master\r\nlog\r\nraw\r\nwiki\r\n.gitignore\r\nAGENTS.md\r\nvault-schema.md\r\nCASE: health\r\n.git\r\nwiki\r\n.gitignore\r\nAGENTS.md\r\nvault-schema.md\r\nCASE: relink\r\n.git\r\nraw\r\nwiki\r\n.gitignore\r\nAGENTS.md\r\nvault-schema.md\r\nCASE: lint\r\n8c832de5961d2578ad3178e85af390701514f9a7\n.git\r\nraw\r\nwiki\r\n.gitignore\r\nAGENTS.md\r\nvault-schema.md\r\n2e4856e relink: Repair requested Methods link and Study citation\n ...841-relink-repair-requested-methods-link-and-study-citation.md | 8 ++++++++\n wiki/concepts/Methods.md                                          | 5 ++---\n wiki/sources/Study.md                                             | 4 ++--\n 3 files changed, 12 insertions(+), 5 deletions(-)\ndiff --git a/wiki/authored/Human draft.md b/wiki/authored/Human draft.md\nindex 5036497..34c604f 100644\n--- a/wiki/authored/Human draft.md\t\n+++ b/wiki/authored/Human draft.md\t\n@@ -8,3 +8,5 @@ sources: []\n ai-generated: true\n ---\n My unrelated original draft.\n+\n+Uncommitted human addition: preserve me.\nlog/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\nwiki/concepts/Methods.md\nwiki/sources/Study.md\n\r\n"
+      }
+    }
+  ],
+  "appliedEdit": "Methods: collapsed [[Real\\nPage]] to [[Real Page]]; Study: changed sources from raw/clippings/missing-study.md to raw/clippings/study-evidence.md; updated on both changed to 2026-09-12; reviewed retained 2026-08-01."
+}

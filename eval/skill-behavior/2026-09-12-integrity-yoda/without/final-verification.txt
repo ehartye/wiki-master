@@ -1,0 +1,75 @@
+**********************
+PowerShell transcript start
+Start time: 20260912224002
+Username: NEO-LAPPY\ehart
+RunAs User: NEO-LAPPY\ehart
+Configuration Name: 
+Machine: NEO-LAPPY (Microsoft Windows NT 10.0.26200.0)
+Host Application: C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\pwsh.dll -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
+$runRoot = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without'; Start-Transcript -LiteralPath "$runRoot/final-verification.txt"; Get-Content -LiteralPath "$runRoot/report.md" -TotalCount 23; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output "STATUS $caseName"; git -C "$runRoot/$caseName" status --short }; $before = Get-Content -LiteralPath "$runRoot/before-hashes.json" -Raw | ConvertFrom-Json -AsHashtable; foreach ($caseName in @('repair','health','relink','lint')) { $differences = @(); foreach ($record in $before[$caseName]) { $filePath = Join-Path "$runRoot/$caseName" $record.path; if ((Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash -ne $record.hash) { $differences += $record.path } }; [pscustomobject]@{ vault = $caseName; changedFiles = $differences } | ConvertTo-Json }; Stop-Transcript
+Process ID: 34424
+PSVersion: 7.6.6
+PSEdition: Core
+GitCommitId: 7.6.6
+OS: Microsoft Windows 10.0.26200
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Transcript started, output file is C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without/final-verification.txt
+# Without-skill execution report
+
+Executed all four tasks from tasks.json in their named isolated vaults. No SKILL.md files, network services, Obsidian commands, live vaults, repository edits, pushes, or subagents were used. Each helper invocation explicitly set WIKI_MASTER_VAULT to its fixture. Fixture AGENTS.md and vault-schema.md were read.
+
+## Artifacts
+
+- tasks.json: task prompts and initial commit IDs.
+- commands-01.txt: initial task read, inventory, and script listing transcript.
+- commands.json: subsequent actual commands and complete returned outputs, including evidence reads, helper results, edits, and verification.
+- before-hashes.json and after-hashes.json: SHA-256 inventories excluding Git internals.
+- repair-final.md, health-final.md, relink-final.md, lint-final.md: user-facing final responses reproduced verbatim below.
+
+## Shell transcript discrepancy
+
+The initial commands-01.txt contains `Ask Codex to do anything` at the four rg inventory positions, while the tool-returned output for that invocation displayed fixture file paths. The transcript is preserved unchanged. Get-Command resolves rg to C:/Users/ehart/.codex/packages/standalone/releases/0.154.0-x86_64-pc-windows-msvc/codex-path/rg.exe (an application, not a PowerShell alias); the cause of the discrepant display was not established. No further rg calls or intentional nested AI-client launches were made. Independent Get-Content/Get-ChildItem reads established all task evidence, and ordinary Node and Git commands performed and verified the actual work. Their returned outputs contain no such UI text. Get-Command resolves Node and Git to their normal installed executables. diagnostic-commands.json records this follow-up, including one PowerShell parser error that was corrected and rerun. The initial transcript is not relied on as proof that the inventory succeeded.
+
+## Actual changes and verification
+
+Only repair/wiki/concepts/Methods.md and repair/wiki/sources/Study.md changed. The exact link replacement and citation replacement are recorded in commands.json. git diff --check passed. Before/after health issue IDs show 0d070228c5e912a1fb8a and 70e0bb59de50d9805e5b resolved; unrelated issue b66a74589fa8b0444be3 remains. Both unresolved navigation findings remain.
+
+The repair commit is dcb282a. Only the two authorized pages were staged and committed. The pre-existing Human draft.md addition remains uncommitted and unchanged. Reviewed dates and all raw evidence were preserved. Hash inventories show no changes in health, relink, or lint.
+
+The relink candidate came solely from shared source identity; reading the raw catalog did not establish a relationship. The lint source directly contradicted the universal quote. Drift was run with --coverage only, producing eligible 1, evaluated 0, skipped 1; no semantic service or index was present and no factual verdict was inferred from drift.
+STATUS repair
+›⠁Ask Codex to do anything              ⠁                             ⠄             ⠁⠐
+STATUS health
+›⠁Ask Codex to do anything              ⠁                             ⠄             ⠁⠐
+STATUS relink
+›⠁Ask Codex to do anything              ⠁                             ⠄             ⠁⠐
+STATUS lint
+›⠁Ask Codex to do anything                                            ⠄             ⠁⠐
+{
+  "vault": "repair",
+  "changedFiles": [
+    "wiki\\concepts\\Methods.md",
+    "wiki\\sources\\Study.md"
+  ]
+}
+{
+  "vault": "health",
+  "changedFiles": []
+}
+{
+  "vault": "relink",
+  "changedFiles": []
+}
+{
+  "vault": "lint",
+  "changedFiles": []
+}
+**********************
+PowerShell transcript end
+End time: 20260912224002
+**********************

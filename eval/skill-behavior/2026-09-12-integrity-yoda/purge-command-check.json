@@ -1,0 +1,15 @@
+{
+  "fixture": "C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health",
+  "commands": [
+    {
+      "command": "node scripts/health.mjs",
+      "stdout": "Open integrity defects: 0 (target 0)\nScanned 2 content pages; 0 require evidence; 0 stubs.\nUnresolved navigation: 2 (unscored; preserve intentional forward links).\nStructural integrity only; factual truth and completeness require separate review.\nUse --json for the full worklist, --backlog for ingest, --legacy for the historical score.\n",
+      "hasBrokenLinksLine": false
+    },
+    {
+      "command": "node scripts/health.mjs --legacy",
+      "stdout": "Wiki health: 92/100 (scanned from filesystem)\n  broken links: 2 (defect 0 · stale 0 · deferred 2)\n  deferred (healthy forward-links):\n    Future One  <- wiki/authored/Guide.md\n    Future Two  <- wiki/authored/Guide.md\n  orphans:      2\n  dead-ends:    2\n  hub-stubs:    0\n  monolith candidates: 0\n  declared stubs (not scored): 0\n  provenance gaps: 0\n  unreachable provenance: 0\n  declared no provenance (not scored): 1\n    wiki/authored/Guide.md\n  unparsed raw sources (nothing cites them): 0\n  not ingested (no summary records their hash): 0\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n",
+      "hasBrokenLinksLine": true
+    }
+  ]
+}

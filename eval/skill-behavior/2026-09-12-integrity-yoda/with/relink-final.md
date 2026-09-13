@@ -1,0 +1,3 @@
+No useful relationship between Alpha and Beta is justified by the existing evidence. The [catalog](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink/raw/clippings/catalog.md:4) identifies Alpha as a water-pump inlet valve and Beta as a constellation, and explicitly makes no relationship claim.
+
+Rejected the single shared-source candidate; sharing a catalog does not establish a meaningful connection. Identity review found no ambiguity. The vault is unchanged, with no operation, log, commit, or index refresh. Semantic matching was unavailable; both pages and their sole cited source were inspected directly.

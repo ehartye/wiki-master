@@ -1,0 +1,973 @@
+{
+  "method": "Independent read-only Git plumbing and actual file comparisons against fixture-spec and named baseline commits; artifact read inspection. No live vault, network or subagents.",
+  "conditions": {
+    "with": {
+      "repair": {
+        "baseline": "aca1282a3e04f1b2be809770f66c6db19779c15f",
+        "head": "2e4856e0331f8b0619af5cfa745929969daf576f",
+        "branch": "main",
+        "status": " M \"wiki/authored/Human draft.md\"\n",
+        "commit_paths_since_baseline": [
+          "log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md",
+          "wiki/concepts/Methods.md",
+          "wiki/sources/Study.md"
+        ],
+        "worktree_diff_since_baseline": "diff --git a/log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md b/log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\nnew file mode 100644\nindex 0000000..8eae9ce\n--- /dev/null\n+++ b/log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\n@@ -0,0 +1,8 @@\n+---\n+date: 2026-09-12\n+op: relink\n+title: \"Repair requested Methods link and Study citation\"\n+---\n+## [2026-09-12] relink | Repair requested Methods link and Study citation\n+\n+Repaired only the requested Methods malformed wikilink and Study citation. Real Page is the unique existing target and describes citation inspection. Study source-hashes uniquely matches raw/clippings/study-evidence.md, whose text supports twelve examples, nine supported answers and individually checked citations. Health: 3 to 1 defects across 8 scanned content pages. Resolved 0d070228c5e912a1fb8a and 70e0bb59de50d9805e5b; remaining b66a74589fa8b0444be3 is outside requested scope. No new defects. Both unscored forward links and existing Human draft edits preserved; reviewed dates preserved. No catalog membership or titles changed; no existing catalog needs regeneration. No semantic index is present. No push authorized or attempted.\ndiff --git a/wiki/authored/Human draft.md b/wiki/authored/Human draft.md\nindex 5036497..34c604f 100644\n--- a/wiki/authored/Human draft.md\t\n+++ b/wiki/authored/Human draft.md\t\n@@ -8,3 +8,5 @@ sources: []\n ai-generated: true\n ---\n My unrelated original draft.\n+\n+Uncommitted human addition: preserve me.\ndiff --git a/wiki/concepts/Methods.md b/wiki/concepts/Methods.md\nindex 7e42e32..267de54 100644\n--- a/wiki/concepts/Methods.md\n+++ b/wiki/concepts/Methods.md\n@@ -1,11 +1,10 @@\n ---\n type: concept\n created: 2026-08-01\n-updated: 2026-08-01\n+updated: 2026-09-12\n reviewed: 2026-08-01\n status: maintained\n sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n ---\n-The study methods individually checked citations. The workflow is described in [[Real\n-Page]].\n+The study methods individually checked citations. The workflow is described in [[Real Page]].\ndiff --git a/wiki/sources/Study.md b/wiki/sources/Study.md\nindex 6f63515..0351742 100644\n--- a/wiki/sources/Study.md\n+++ b/wiki/sources/Study.md\n@@ -1,10 +1,10 @@\n ---\n type: source\n created: 2026-08-01\n-updated: 2026-08-01\n+updated: 2026-09-12\n reviewed: 2026-08-01\n status: maintained\n-sources: [\"[[raw/clippings/missing-study.md]]\"]\n+sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n source-hashes: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]\n ---\n",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [
+          "log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md"
+        ],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/study-evidence.md": {
+            "equals_expected": true,
+            "sha256": "fdba1b7eb7d72ea859e3f45936027bbd253dcac566da962a9d72a74da18021b6",
+            "reviewed": []
+          },
+          "wiki/sources/Study.md": {
+            "equals_expected": true,
+            "sha256": "07b21d712f3293487c17411d1dde63698d360a7f87dc50bba98407bb793a59b2",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/concepts/Methods.md": {
+            "equals_expected": true,
+            "sha256": "47dc51833f6ee9de10120f9766ea6317975074a16ecc8d6ed1534b59fa167bfd",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Real Page.md": {
+            "equals_expected": true,
+            "sha256": "020c69329701ac26a3c0c15766df1003ed324c4fad0b77894c37026dd967e278",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Government.md": {
+            "equals_expected": true,
+            "sha256": "fd0e0e8aeeec4f663dda2d841026fb49e1956b4ea08cae4685da26a4df928dc6",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Federalist No. 10.md": {
+            "equals_expected": true,
+            "sha256": "12a889c1ddff6cd6ee62fcf940bbc78b8d5a8e4533f754be7722f1166d715151",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Unrelated.md": {
+            "equals_expected": true,
+            "sha256": "1990497932c78079628d32af73190366db0cf1801fe5c0f9a72902d5bf2f8661",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Human draft.md": {
+            "equals_expected": true,
+            "sha256": "e3692ecf793aaad52d37249f581d005068824513e8c385bf8124744a83dfb908",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md",
+          "log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md"
+        ]
+      },
+      "health": {
+        "baseline": "f1192714535a92719bd024e614b735c19d7f3acd",
+        "head": "f1192714535a92719bd024e614b735c19d7f3acd",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "wiki/authored/Guide.md": {
+            "equals_expected": true,
+            "sha256": "984e4fdc47bcd7902f1f36d6c98eb5a476e117b476a3cd63d261f2ccf6e771fd",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      },
+      "relink": {
+        "baseline": "1ff1e887ea655f19f70ffbdb6e44cbe3345a8a53",
+        "head": "1ff1e887ea655f19f70ffbdb6e44cbe3345a8a53",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/catalog.md": {
+            "equals_expected": true,
+            "sha256": "936ffd5a1edd5c2ba0eef8d54a0ab0507c12090db16e7c0ec6adf4a3be908712",
+            "reviewed": []
+          },
+          "wiki/concepts/Alpha.md": {
+            "equals_expected": true,
+            "sha256": "3487da8e370132078cf69cbf96d016295f33944423681a507d86db20a49012fe",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/concepts/Beta.md": {
+            "equals_expected": true,
+            "sha256": "7c5bdc63666b5fe0eb3666fd8d67b4ad2b024654bb4babd7ac6dbf960bac0cbc",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      },
+      "lint": {
+        "baseline": "8c832de5961d2578ad3178e85af390701514f9a7",
+        "head": "8c832de5961d2578ad3178e85af390701514f9a7",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/study.md": {
+            "equals_expected": true,
+            "sha256": "203cedcda8f51f8e1eb19a0118983cf8a70c4cbf9377bbc9ee221d652703cbdd",
+            "reviewed": []
+          },
+          "wiki/concepts/Retrieval.md": {
+            "equals_expected": true,
+            "sha256": "5fbfc4fedbc40b44b52a7520d35675bb436c37fc37185c1e230203b4d0037072",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      }
+    },
+    "without": {
+      "repair": {
+        "baseline": "91ae8743215a7c18d9268f96a55a447e15d4103d",
+        "head": "dcb282a0f7750704a0ef935a70bca6de27278d86",
+        "branch": "main",
+        "status": " M \"wiki/authored/Human draft.md\"\n",
+        "commit_paths_since_baseline": [
+          "wiki/concepts/Methods.md",
+          "wiki/sources/Study.md"
+        ],
+        "worktree_diff_since_baseline": "diff --git a/wiki/authored/Human draft.md b/wiki/authored/Human draft.md\nindex 5036497..34c604f 100644\n--- a/wiki/authored/Human draft.md\t\n+++ b/wiki/authored/Human draft.md\t\n@@ -8,3 +8,5 @@ sources: []\n ai-generated: true\n ---\n My unrelated original draft.\n+\n+Uncommitted human addition: preserve me.\ndiff --git a/wiki/concepts/Methods.md b/wiki/concepts/Methods.md\nindex 7e42e32..7a5b184 100644\n--- a/wiki/concepts/Methods.md\n+++ b/wiki/concepts/Methods.md\n@@ -7,5 +7,4 @@ status: maintained\n sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n ---\n-The study methods individually checked citations. The workflow is described in [[Real\n-Page]].\n+The study methods individually checked citations. The workflow is described in [[Real Page]].\ndiff --git a/wiki/sources/Study.md b/wiki/sources/Study.md\nindex 6f63515..32a6ddd 100644\n--- a/wiki/sources/Study.md\n+++ b/wiki/sources/Study.md\n@@ -4,7 +4,7 @@ created: 2026-08-01\n updated: 2026-08-01\n reviewed: 2026-08-01\n status: maintained\n-sources: [\"[[raw/clippings/missing-study.md]]\"]\n+sources: [\"[[raw/clippings/study-evidence.md]]\"]\n ai-generated: true\n source-hashes: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]\n ---\n",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/study-evidence.md": {
+            "equals_expected": true,
+            "sha256": "fdba1b7eb7d72ea859e3f45936027bbd253dcac566da962a9d72a74da18021b6",
+            "reviewed": []
+          },
+          "wiki/sources/Study.md": {
+            "equals_expected": true,
+            "sha256": "94c7f3b22c85f800a115c26262613d950c3738fe43a537194a32b98a485d96c1",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/concepts/Methods.md": {
+            "equals_expected": true,
+            "sha256": "234d6fd408e892c8b98ec01a8f8a19b15bcef45ce38cfd9d3a2c55d8a8c89713",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Real Page.md": {
+            "equals_expected": true,
+            "sha256": "020c69329701ac26a3c0c15766df1003ed324c4fad0b77894c37026dd967e278",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Government.md": {
+            "equals_expected": true,
+            "sha256": "fd0e0e8aeeec4f663dda2d841026fb49e1956b4ea08cae4685da26a4df928dc6",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Federalist No. 10.md": {
+            "equals_expected": true,
+            "sha256": "12a889c1ddff6cd6ee62fcf940bbc78b8d5a8e4533f754be7722f1166d715151",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Unrelated.md": {
+            "equals_expected": true,
+            "sha256": "1990497932c78079628d32af73190366db0cf1801fe5c0f9a72902d5bf2f8661",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/authored/Human draft.md": {
+            "equals_expected": true,
+            "sha256": "e3692ecf793aaad52d37249f581d005068824513e8c385bf8124744a83dfb908",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      },
+      "health": {
+        "baseline": "27ffa78768de2ce45c97a762f1b22bac1f7c03fc",
+        "head": "27ffa78768de2ce45c97a762f1b22bac1f7c03fc",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "wiki/authored/Guide.md": {
+            "equals_expected": true,
+            "sha256": "984e4fdc47bcd7902f1f36d6c98eb5a476e117b476a3cd63d261f2ccf6e771fd",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      },
+      "relink": {
+        "baseline": "1f4f6375751493bee306a0e66259905f64e29a0b",
+        "head": "1f4f6375751493bee306a0e66259905f64e29a0b",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/catalog.md": {
+            "equals_expected": true,
+            "sha256": "936ffd5a1edd5c2ba0eef8d54a0ab0507c12090db16e7c0ec6adf4a3be908712",
+            "reviewed": []
+          },
+          "wiki/concepts/Alpha.md": {
+            "equals_expected": true,
+            "sha256": "3487da8e370132078cf69cbf96d016295f33944423681a507d86db20a49012fe",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          },
+          "wiki/concepts/Beta.md": {
+            "equals_expected": true,
+            "sha256": "7c5bdc63666b5fe0eb3666fd8d67b4ad2b024654bb4babd7ac6dbf960bac0cbc",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      },
+      "lint": {
+        "baseline": "74a3621b9f095838f9dce0f1a292bed6a753b332",
+        "head": "74a3621b9f095838f9dce0f1a292bed6a753b332",
+        "branch": "main",
+        "status": "",
+        "commit_paths_since_baseline": [],
+        "worktree_diff_since_baseline": "",
+        "raw_diff_since_baseline": "",
+        "diff_check": "",
+        "staged_paths": [],
+        "log_files": [],
+        "pending_ops": [],
+        "file_checks": {
+          "raw/clippings/study.md": {
+            "equals_expected": true,
+            "sha256": "203cedcda8f51f8e1eb19a0118983cf8a70c4cbf9377bbc9ee221d652703cbdd",
+            "reviewed": []
+          },
+          "wiki/concepts/Retrieval.md": {
+            "equals_expected": true,
+            "sha256": "5fbfc4fedbc40b44b52a7520d35675bb436c37fc37185c1e230203b4d0037072",
+            "reviewed": [
+              "2026-08-01"
+            ]
+          }
+        },
+        "extra_non_git_files": [
+          ".gitignore",
+          "AGENTS.md",
+          "vault-schema.md"
+        ]
+      }
+    }
+  },
+  "loaded_skill_headers": [
+    "C:/Users/ehart/repos/wiki-master-integrity/skills/wiki-maintainer/SKILL.md",
+    "C:/Users/ehart/repos/wiki-master-integrity/skills/wiki-repair/SKILL.md",
+    "C:/Users/ehart/repos/wiki-master-integrity/skills/wiki-health/SKILL.md",
+    "C:/Users/ehart/repos/wiki-master-integrity/skills/wiki-relink/SKILL.md",
+    "C:/Users/ehart/repos/wiki-master-integrity/skills/wiki-lint/SKILL.md"
+  ],
+  "raw_evidence_read_artifacts": {
+    "with": {
+      "relink": true,
+      "lint": true,
+      "repair": true
+    },
+    "without": {
+      "relink": true,
+      "lint": true,
+      "repair": true
+    }
+  },
+  "recorded_command_exit_codes": {
+    "with": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "without": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "independent_helper_reruns": {
+    "with": {
+      "repair-health.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\with\\repair",
+        "exit_code": 0,
+        "stdout": "{\n  \"version\": 1,\n  \"status\": \"defects\",\n  \"defectCount\": 1,\n  \"issues\": [\n    {\n      \"id\": \"b66a74589fa8b0444be3\",\n      \"rule\": \"unresolved-citation\",\n      \"source\": \"wiki/authored/Unrelated.md\",\n      \"target\": \"raw/clippings/missing-unrelated.md\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[raw/clippings/missing-unrelated.md]]\",\n      \"verification\": \"Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.\",\n      \"channel\": \"body\"\n    }\n  ],\n  \"forwardLinks\": [\n    {\n      \"id\": \"14e1114edcc5f83ebd2e\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Federalist No. 45\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Federalist No. 45]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"501e1164cf261baf6e9f\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Future Topic\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Topic]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 8,\n    \"provenanceEligible\": 2,\n    \"stubs\": 2,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n",
+        "stderr": "",
+        "parsed": {
+          "version": 1,
+          "status": "defects",
+          "defectCount": 1,
+          "issues": [
+            {
+              "id": "b66a74589fa8b0444be3",
+              "rule": "unresolved-citation",
+              "source": "wiki/authored/Unrelated.md",
+              "target": "raw/clippings/missing-unrelated.md",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[raw/clippings/missing-unrelated.md]]",
+              "verification": "Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.",
+              "channel": "body"
+            }
+          ],
+          "forwardLinks": [
+            {
+              "id": "14e1114edcc5f83ebd2e",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Government.md",
+              "target": "Federalist No. 45",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Federalist No. 45]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            },
+            {
+              "id": "501e1164cf261baf6e9f",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Government.md",
+              "target": "Future Topic",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future Topic]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            }
+          ],
+          "coverage": {
+            "contentPages": 8,
+            "provenanceEligible": 2,
+            "stubs": 2,
+            "checks": [
+              "malformed-link",
+              "unresolved-citation",
+              "ambiguous-link",
+              "missing-evidence"
+            ],
+            "notChecked": [
+              "factual correctness",
+              "external URLs",
+              "heading/block anchors",
+              "historical moves/deletions",
+              "Markdown-style links"
+            ],
+            "exclusions": [
+              "raw bodies",
+              "templates",
+              "logs",
+              "system files",
+              "dot directories",
+              "code examples",
+              "comments",
+              "embeds"
+            ]
+          }
+        }
+      },
+      "health-health.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\with\\health",
+        "exit_code": 0,
+        "stdout": "{\n  \"version\": 1,\n  \"status\": \"clear\",\n  \"defectCount\": 0,\n  \"issues\": [],\n  \"forwardLinks\": [\n    {\n      \"id\": \"0be69ec259c8ee146136\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future One\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future One]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"16e7eafb506bec77cd40\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future Two\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Two]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 2,\n    \"provenanceEligible\": 0,\n    \"stubs\": 0,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n",
+        "stderr": "",
+        "parsed": {
+          "version": 1,
+          "status": "clear",
+          "defectCount": 0,
+          "issues": [],
+          "forwardLinks": [
+            {
+              "id": "0be69ec259c8ee146136",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Guide.md",
+              "target": "Future One",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future One]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            },
+            {
+              "id": "16e7eafb506bec77cd40",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Guide.md",
+              "target": "Future Two",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future Two]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            }
+          ],
+          "coverage": {
+            "contentPages": 2,
+            "provenanceEligible": 0,
+            "stubs": 0,
+            "checks": [
+              "malformed-link",
+              "unresolved-citation",
+              "ambiguous-link",
+              "missing-evidence"
+            ],
+            "notChecked": [
+              "factual correctness",
+              "external URLs",
+              "heading/block anchors",
+              "historical moves/deletions",
+              "Markdown-style links"
+            ],
+            "exclusions": [
+              "raw bodies",
+              "templates",
+              "logs",
+              "system files",
+              "dot directories",
+              "code examples",
+              "comments",
+              "embeds"
+            ]
+          }
+        }
+      },
+      "relink-relationships.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/relationships.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\with\\relink",
+        "exit_code": 0,
+        "stdout": "{\n  \"readOnly\": true,\n  \"scanned\": 2,\n  \"total\": 1,\n  \"truncated\": 0,\n  \"candidates\": [\n    {\n      \"from\": \"wiki/concepts/Alpha.md\",\n      \"to\": \"wiki/concepts/Beta.md\",\n      \"score\": 0.5,\n      \"proposedRole\": \"related\",\n      \"verification\": \"unverified\",\n      \"reasons\": [\n        {\n          \"kind\": \"shared-source\",\n          \"identity\": \"hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n          \"paths\": [\n            \"raw/clippings/catalog.md\"\n          ]\n        }\n      ]\n    }\n  ],\n  \"identityReview\": [],\n  \"identityFindingsTotal\": 0,\n  \"disclaimer\": \"Candidates are unverified. Shared evidence or similarity does not establish claim entailment, identity, or a complementary relationship. Human review must choose a role and explanation.\"\n}\n",
+        "stderr": "",
+        "parsed": {
+          "readOnly": true,
+          "scanned": 2,
+          "total": 1,
+          "truncated": 0,
+          "candidates": [
+            {
+              "from": "wiki/concepts/Alpha.md",
+              "to": "wiki/concepts/Beta.md",
+              "score": 0.5,
+              "proposedRole": "related",
+              "verification": "unverified",
+              "reasons": [
+                {
+                  "kind": "shared-source",
+                  "identity": "hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "paths": [
+                    "raw/clippings/catalog.md"
+                  ]
+                }
+              ]
+            }
+          ],
+          "identityReview": [],
+          "identityFindingsTotal": 0,
+          "disclaimer": "Candidates are unverified. Shared evidence or similarity does not establish claim entailment, identity, or a complementary relationship. Human review must choose a role and explanation."
+        }
+      },
+      "lint-lint.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/lint.mjs"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\with\\lint",
+        "exit_code": 0,
+        "stdout": "Content lint (warn-only \u2014 flags for review, never scored)\n\nUnverifiable quotes: 1\n  wiki/concepts/Retrieval.md\n    \"All answers were supported by evidence....\" (checked 1 sources)\n\nStyle flags: 0\n",
+        "stderr": ""
+      },
+      "lint-drift.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/drift.mjs",
+          "--coverage",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\with\\lint",
+        "exit_code": 0,
+        "stdout": "{\"drifted\":[],\"evaluated\":[],\"failed\":[],\"skipped\":true,\"coverage\":true,\"skippedPages\":[{\"path\":\"wiki/concepts/Retrieval.md\",\"reason\":\"coverage only\"}],\"counts\":{\"total\":1,\"eligible\":1,\"ineligible\":0,\"evaluated\":0,\"failed\":0,\"skipped\":1,\"skippedEligible\":1}}\n",
+        "stderr": "",
+        "parsed": {
+          "drifted": [],
+          "evaluated": [],
+          "failed": [],
+          "skipped": true,
+          "coverage": true,
+          "skippedPages": [
+            {
+              "path": "wiki/concepts/Retrieval.md",
+              "reason": "coverage only"
+            }
+          ],
+          "counts": {
+            "total": 1,
+            "eligible": 1,
+            "ineligible": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "skipped": 1,
+            "skippedEligible": 1
+          }
+        }
+      }
+    },
+    "without": {
+      "repair-health.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\repair",
+        "exit_code": 0,
+        "stdout": "{\n  \"version\": 1,\n  \"status\": \"defects\",\n  \"defectCount\": 1,\n  \"issues\": [\n    {\n      \"id\": \"b66a74589fa8b0444be3\",\n      \"rule\": \"unresolved-citation\",\n      \"source\": \"wiki/authored/Unrelated.md\",\n      \"target\": \"raw/clippings/missing-unrelated.md\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[raw/clippings/missing-unrelated.md]]\",\n      \"verification\": \"Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.\",\n      \"channel\": \"body\"\n    }\n  ],\n  \"forwardLinks\": [\n    {\n      \"id\": \"14e1114edcc5f83ebd2e\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Federalist No. 45\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Federalist No. 45]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"501e1164cf261baf6e9f\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Government.md\",\n      \"target\": \"Future Topic\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Topic]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 8,\n    \"provenanceEligible\": 2,\n    \"stubs\": 2,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n",
+        "stderr": "",
+        "parsed": {
+          "version": 1,
+          "status": "defects",
+          "defectCount": 1,
+          "issues": [
+            {
+              "id": "b66a74589fa8b0444be3",
+              "rule": "unresolved-citation",
+              "source": "wiki/authored/Unrelated.md",
+              "target": "raw/clippings/missing-unrelated.md",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[raw/clippings/missing-unrelated.md]]",
+              "verification": "Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.",
+              "channel": "body"
+            }
+          ],
+          "forwardLinks": [
+            {
+              "id": "14e1114edcc5f83ebd2e",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Government.md",
+              "target": "Federalist No. 45",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Federalist No. 45]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            },
+            {
+              "id": "501e1164cf261baf6e9f",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Government.md",
+              "target": "Future Topic",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future Topic]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            }
+          ],
+          "coverage": {
+            "contentPages": 8,
+            "provenanceEligible": 2,
+            "stubs": 2,
+            "checks": [
+              "malformed-link",
+              "unresolved-citation",
+              "ambiguous-link",
+              "missing-evidence"
+            ],
+            "notChecked": [
+              "factual correctness",
+              "external URLs",
+              "heading/block anchors",
+              "historical moves/deletions",
+              "Markdown-style links"
+            ],
+            "exclusions": [
+              "raw bodies",
+              "templates",
+              "logs",
+              "system files",
+              "dot directories",
+              "code examples",
+              "comments",
+              "embeds"
+            ]
+          }
+        }
+      },
+      "health-health.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\health",
+        "exit_code": 0,
+        "stdout": "{\n  \"version\": 1,\n  \"status\": \"clear\",\n  \"defectCount\": 0,\n  \"issues\": [],\n  \"forwardLinks\": [\n    {\n      \"id\": \"0be69ec259c8ee146136\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future One\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future One]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    },\n    {\n      \"id\": \"16e7eafb506bec77cd40\",\n      \"rule\": \"unresolved-navigation\",\n      \"source\": \"wiki/authored/Guide.md\",\n      \"target\": \"Future Two\",\n      \"line\": 10,\n      \"lines\": [\n        10\n      ],\n      \"evidence\": \"[[Future Two]]\",\n      \"disposition\": \"Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.\"\n    }\n  ],\n  \"coverage\": {\n    \"contentPages\": 2,\n    \"provenanceEligible\": 0,\n    \"stubs\": 0,\n    \"checks\": [\n      \"malformed-link\",\n      \"unresolved-citation\",\n      \"ambiguous-link\",\n      \"missing-evidence\"\n    ],\n    \"notChecked\": [\n      \"factual correctness\",\n      \"external URLs\",\n      \"heading/block anchors\",\n      \"historical moves/deletions\",\n      \"Markdown-style links\"\n    ],\n    \"exclusions\": [\n      \"raw bodies\",\n      \"templates\",\n      \"logs\",\n      \"system files\",\n      \"dot directories\",\n      \"code examples\",\n      \"comments\",\n      \"embeds\"\n    ]\n  }\n}\n",
+        "stderr": "",
+        "parsed": {
+          "version": 1,
+          "status": "clear",
+          "defectCount": 0,
+          "issues": [],
+          "forwardLinks": [
+            {
+              "id": "0be69ec259c8ee146136",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Guide.md",
+              "target": "Future One",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future One]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            },
+            {
+              "id": "16e7eafb506bec77cd40",
+              "rule": "unresolved-navigation",
+              "source": "wiki/authored/Guide.md",
+              "target": "Future Two",
+              "line": 10,
+              "lines": [
+                10
+              ],
+              "evidence": "[[Future Two]]",
+              "disposition": "Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage."
+            }
+          ],
+          "coverage": {
+            "contentPages": 2,
+            "provenanceEligible": 0,
+            "stubs": 0,
+            "checks": [
+              "malformed-link",
+              "unresolved-citation",
+              "ambiguous-link",
+              "missing-evidence"
+            ],
+            "notChecked": [
+              "factual correctness",
+              "external URLs",
+              "heading/block anchors",
+              "historical moves/deletions",
+              "Markdown-style links"
+            ],
+            "exclusions": [
+              "raw bodies",
+              "templates",
+              "logs",
+              "system files",
+              "dot directories",
+              "code examples",
+              "comments",
+              "embeds"
+            ]
+          }
+        }
+      },
+      "relink-relationships.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/relationships.mjs",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\relink",
+        "exit_code": 0,
+        "stdout": "{\n  \"readOnly\": true,\n  \"scanned\": 2,\n  \"total\": 1,\n  \"truncated\": 0,\n  \"candidates\": [\n    {\n      \"from\": \"wiki/concepts/Alpha.md\",\n      \"to\": \"wiki/concepts/Beta.md\",\n      \"score\": 0.5,\n      \"proposedRole\": \"related\",\n      \"verification\": \"unverified\",\n      \"reasons\": [\n        {\n          \"kind\": \"shared-source\",\n          \"identity\": \"hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n          \"paths\": [\n            \"raw/clippings/catalog.md\"\n          ]\n        }\n      ]\n    }\n  ],\n  \"identityReview\": [],\n  \"identityFindingsTotal\": 0,\n  \"disclaimer\": \"Candidates are unverified. Shared evidence or similarity does not establish claim entailment, identity, or a complementary relationship. Human review must choose a role and explanation.\"\n}\n",
+        "stderr": "",
+        "parsed": {
+          "readOnly": true,
+          "scanned": 2,
+          "total": 1,
+          "truncated": 0,
+          "candidates": [
+            {
+              "from": "wiki/concepts/Alpha.md",
+              "to": "wiki/concepts/Beta.md",
+              "score": 0.5,
+              "proposedRole": "related",
+              "verification": "unverified",
+              "reasons": [
+                {
+                  "kind": "shared-source",
+                  "identity": "hash:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "paths": [
+                    "raw/clippings/catalog.md"
+                  ]
+                }
+              ]
+            }
+          ],
+          "identityReview": [],
+          "identityFindingsTotal": 0,
+          "disclaimer": "Candidates are unverified. Shared evidence or similarity does not establish claim entailment, identity, or a complementary relationship. Human review must choose a role and explanation."
+        }
+      },
+      "lint-lint.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/lint.mjs"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\lint",
+        "exit_code": 0,
+        "stdout": "Content lint (warn-only \u2014 flags for review, never scored)\n\nUnverifiable quotes: 1\n  wiki/concepts/Retrieval.md\n    \"All answers were supported by evidence....\" (checked 1 sources)\n\nStyle flags: 0\n",
+        "stderr": ""
+      },
+      "lint-drift.mjs": {
+        "argv": [
+          "node",
+          "C:/Users/ehart/repos/wiki-master-integrity/scripts/drift.mjs",
+          "--coverage",
+          "--json"
+        ],
+        "vault": "C:\\Users\\ehart\\AppData\\Local\\Temp\\wiki-yoda-integrity-3ETQxE\\without\\lint",
+        "exit_code": 0,
+        "stdout": "{\"drifted\":[],\"evaluated\":[],\"failed\":[],\"skipped\":true,\"coverage\":true,\"skippedPages\":[{\"path\":\"wiki/concepts/Retrieval.md\",\"reason\":\"coverage only\"}],\"counts\":{\"total\":1,\"eligible\":1,\"ineligible\":0,\"evaluated\":0,\"failed\":0,\"skipped\":1,\"skippedEligible\":1}}\n",
+        "stderr": "",
+        "parsed": {
+          "drifted": [],
+          "evaluated": [],
+          "failed": [],
+          "skipped": true,
+          "coverage": true,
+          "skippedPages": [
+            {
+              "path": "wiki/concepts/Retrieval.md",
+              "reason": "coverage only"
+            }
+          ],
+          "counts": {
+            "total": 1,
+            "eligible": 1,
+            "ineligible": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "skipped": 1,
+            "skippedEligible": 1
+          }
+        }
+      }
+    }
+  },
+  "grader_diagnostic_retries": [
+    "Initial evidence collector failed with KeyError: 'output' while reading nested refs result; corrected the artifact accessor.",
+    "Second attempt failed with UnicodeDecodeError from Windows cp1252 default; reran with python -X utf8. Both failures occurred before evidence output was written and made no fixture changes."
+  ],
+  "post_rerun_unchanged": {
+    "with/repair": true,
+    "with/health": true,
+    "with/relink": true,
+    "with/lint": true,
+    "without/repair": true,
+    "without/health": true,
+    "without/relink": true,
+    "without/lint": true
+  },
+  "lifecycle": {
+    "with_repair": {
+      "grade": "pass",
+      "begin_record_index": 10,
+      "before_write_evidence": "Recorded operation snapshot contains only wiki/authored/Human draft.md in dirty; neither target is included. Next health output and recorded diff show both repaired targets. This is artifact-supported ordering, not an external event trace.",
+      "log_entry_command_count": 1,
+      "op_commit_command_count": 1,
+      "token": "2c320629db7fe595",
+      "pending_operations": 0
+    },
+    "without_repair": {
+      "grade": "not applicable",
+      "reason": "Baseline was not instructed to follow skill operation lifecycle; scoped Git commit and user work preservation independently pass."
+    }
+  },
+  "grades": {
+    "with": {
+      "repair": "pass",
+      "health": "pass",
+      "relink": "pass",
+      "lint": "pass"
+    },
+    "without": {
+      "repair": "pass",
+      "health": "pass",
+      "relink": "pass",
+      "lint": "pass"
+    },
+    "core_success_delta": 0,
+    "conclusion": "Equal core success, 4/4 each; no demonstrated positive core outcome delta."
+  },
+  "routing": {
+    "observed": "Actor manually selected supplied catalog entries and read actual SKILL.md files; bootstrap outputs verify the five loaded skill headers.",
+    "native_host_trigger": "not tested",
+    "selected": {
+      "repair": [
+        "wiki-maintainer",
+        "wiki-repair"
+      ],
+      "health": [
+        "wiki-maintainer",
+        "wiki-health"
+      ],
+      "relink": [
+        "wiki-maintainer",
+        "wiki-relink"
+      ],
+      "lint": [
+        "wiki-maintainer",
+        "wiki-lint",
+        "wiki-health"
+      ]
+    }
+  },
+  "limitations": [
+    "Four tasks per condition run by one actor per condition with shared sequential context; not four independent replications.",
+    "Different actor contexts and no randomized crossover; cannot attribute differences solely to skill text.",
+    "Both arms had helpers and helper source access; baseline is without SKILL.md instructions, not without tooling.",
+    "Manual catalog routing is not native host trigger evaluation.",
+    "Baseline rg transcript and reported tool display disagree; reason unresolved; initial rg inventory not used as evidence. Corrected baseline PowerShell parser error retained.",
+    "No semantic/network evaluation; zero drift pages evaluated does not establish factual correctness.",
+    "No core task failures observed; procedural differences must not be presented as a core benefit."
+  ],
+  "diagnostic_excerpts": {
+    "baseline_parser": "ParserError: \r\nLine |\r\n   2 |  \u2026  anything'); outputLength = $entry.result.output.Length } } | Convert \u2026\r\n     |                                                                ~\r\n     | An empty pipe element is not allowed.\r\n",
+    "baseline_rg": "\u203a\u2801Ask Codex to do anything   \u2808                                             \u2802         \u2810",
+    "with_no_upstream": "fatal: no upstream configured for branch 'main'\ncommitted 2e4856e: 3 file(s)\n  log/2026-09-12-223841-relink-repair-requested-methods-link-and-study-citation.md\n  wiki/concepts/Methods.md\n  wiki/sources/Study.md\nleft alone (already dirty before this operation, not part of it): 1 file(s)\n  wiki/authored/Human draft.md\nno semantic index yet \u2014 a first build takes minutes, so it is not started automatically. Run `node scripts/index-embed.mjs` once to enable semantic search.\n"
+  }
+}
