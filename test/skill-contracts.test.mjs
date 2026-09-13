@@ -9,8 +9,8 @@ const skills = readdirSync(join(root, 'skills')).filter(name => existsSync(join(
 const read = name => readFileSync(join(root, 'skills', name, 'SKILL.md'), 'utf8');
 const links = text => [...text.matchAll(/\[[^\]]+\]\(([^)]+\.md)(?:#[^)]*)?\)/g)].map(match => match[1]);
 
-test('all twenty portable skill descriptions identify triggers and resolve direct references', () => {
-  assert.equal(skills.length, 20);
+test('all twenty-one portable skill descriptions identify triggers and resolve direct references', () => {
+  assert.equal(skills.length, 21);
   for (const name of skills) {
     const text = read(name);
     assert.equal(text.match(/^name: (.+)$/m)?.[1], name);

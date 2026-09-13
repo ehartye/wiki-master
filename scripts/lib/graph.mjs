@@ -101,10 +101,11 @@ export function wikilinks(text) {
 
 // Related sections are navigation, including nested subsections. Resume at
 // the next peer/ancestor heading so later legitimate citations remain usable.
-export function citationBody(body) {
+export function citationBody(body, { preserveLines = false } = {}) {
   let relatedDepth = null;
   let relatedList = false;
-  return body.split(/\r?\n/).filter(line => {
+  const lines = body.split(/\r?\n/);
+  const included = lines.map(line => {
     const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/);
     if (heading) {
       relatedList = false;
@@ -122,7 +123,9 @@ export function citationBody(body) {
       relatedList = false;
     }
     return relatedDepth === null;
-  }).join('\n');
+  });
+  return lines.map((line, i) => included[i] ? line : preserveLines ? line.replace(/./g, ' ') : null)
+    .filter(line => line !== null).join('\n');
 }
 
 // Parse a `source-hashes:` frontmatter list — YAML flow (`["h1","h2"]`) or block

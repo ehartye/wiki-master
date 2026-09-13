@@ -11,6 +11,8 @@ Before the first authorized write, follow the shared operations completion contr
 1. Run `/wiki-health` first: `node "<absolute-plugin-root>/scripts/health.mjs"`. Stop for an empty
    wiki. A clean graph does not skip semantic review: sample changed or high-use
    pages for stale claims, contradictory evidence and missing useful connections.
+   Route structural integrity findings to [wiki-repair](../wiki-repair/SKILL.md)
+   within the authorized scope; keep unresolved navigation outside defect counts.
    Keep the sample bounded and report its size. Open an operation only before
    making edits:
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op lint` — records what was already

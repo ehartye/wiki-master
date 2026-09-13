@@ -1,5 +1,22 @@
 # Maintenance metrics, repairs and limits
 
+## Integrity worklist
+
+`health.mjs` now leads with the uncapped open integrity defect count. Use `--json`
+for versioned issues with stable IDs, exact locations, evidence and verification
+conditions. Intentional forward links, orphan/dead-end opportunities and stubs do
+not increase that count. A required citation that fails remains a defect even on
+a stub. Original authored pages may declare `sources: []`; substantive derived
+pages still require evidence. Unresolved navigation, age and fuzzy suggestions
+are never proof of an accidental break. The old capped score is available only
+through `--legacy`, for historical/topology reporting rather than repair targets.
+
+Use [wiki-repair](../../wiki-repair/SKILL.md) for authorized integrity repairs.
+Compare resolved, remaining and new issue IDs after each batch. `--backlog` keeps
+the ingest contract below. The checker is structural and reports its unchecked
+areas; zero defects is not factual verification. See `docs/wiki-integrity.md` in
+the plugin root for the full contract and coverage limits.
+
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
 `wiki/sources/` page's `source-hashes`**. Hash equality is the contract — immune to
