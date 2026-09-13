@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.39.0 — 2026-09-13
+
+- Make the default wiki health metric an uncapped count of actionable integrity defects. Intentional links to unwritten pages remain separate and unscored, regardless of age or fuzzy name matches. Preserve the historical report behind `--legacy` and ingest reporting behind `--backlog`.
+- Add a JSON worklist with stable issue IDs, locations, evidence and verification conditions for malformed wikilinks, ambiguous targets, unresolved citations and missing evidence routes. Structural integrity does not establish factual truth or check external URLs, Markdown-style links, anchors or historical moves/deletions.
+- Add `wiki-repair` for scoped, evidence-supported repairs and before/after issue comparison. Keep read-only health, relationship development and factual review in their respective skills. Purge now explicitly saves and compares the legacy broken-link count.
+- Add scanner regression coverage and preserve a Yoda audit of all 21 skills with four paired execution cases. Both conditions completed all four correctly; the observed skill benefit was lifecycle discipline and reporting, not greater repair accuracy.
+
 ## 0.38.0 — 2026-09-11
 
 - Add the `clip-xlsx` skill so the bundled spreadsheet clipper can be triggered. `scripts/clip-xlsx.mjs` shipped and was tested but had no skill, leaving the capability reachable only from inside `wiki-discover`. A contract test now requires every document-format clipper to have a skill.
