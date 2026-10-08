@@ -20,7 +20,7 @@ export function planSourceHashBackfill({ pages }) {
   const clipByPath = new Map();
   const byTitle = new Map(); // de-suffixed clipping name -> [paths]
   for (const p of pages) {
-    if (!(p.path.startsWith('raw/') && p.path.endsWith('.md'))) continue;
+    if (!(p.path.startsWith('raw/') && !p.path.startsWith('raw/figures/') && p.path.endsWith('.md'))) continue;
     clipByPath.set(p.path, p);
     const key = deSuffix(p.name);
     if (!byTitle.has(key)) byTitle.set(key, []);

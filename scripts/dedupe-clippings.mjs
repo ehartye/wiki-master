@@ -24,7 +24,7 @@ for (const p of graph.pages) {
   }
 }
 
-const clippings = graph.pages.filter((p) => p.path.startsWith('raw/') && p.path.endsWith('.md'));
+const clippings = graph.pages.filter((p) => p.path.startsWith('raw/') && !p.path.startsWith('raw/figures/') && p.path.endsWith('.md'));
 const { remove, refused } = planClippingDedupe(clippings, (p) => cited.has(p));
 
 if (apply) for (const f of remove) unlinkSync(join(vault, f));

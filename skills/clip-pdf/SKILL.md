@@ -1,7 +1,7 @@
 ---
 name: clip-pdf
 description: Use when asked to save or clip a local or downloaded PDF into the wiki as Markdown evidence. For Word documents use clip-docx; for existing clippings use wiki-ingest.
-argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"]"
+argument-hint: "<path/to/file.pdf> [--source=\"<url>\"] [--quality=high|medium|low] [--topic=\"<topic>\"] [--figures[=auto|all|3,5-7]]"
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -113,6 +113,8 @@ Extraction is tuned for academic PDFs:
      only for a one-off clip with no research run behind it — an invented topic
      is worse than none, because it files the row under a heading the user has
      already worked through.
+   - `--figures[=auto|all|3,5-7]` also renders figure pages (see **Preserving figures**).
+     Pass it whenever the PDF's value is in graphs, diagrams or photos.
    - `--mode=auto|reading-order|table` overrides the reading-mode detector for a
      document it gets wrong. See **Overriding the reading mode** below.
    - A `thin` result means the PDF is scanned/encrypted and OCR also failed — a
@@ -134,6 +136,63 @@ Extraction is tuned for academic PDFs:
    - **`extraction: table-flattened`** means the rows were **lost** and could not be
      recovered on this machine. Do not assert any pairing from such a clipping;
      install the Xpdf tools and re-clip instead.
+
+## Preserving figures (`--figures`)
+
+Text extraction loses every figure, and in a PDF a graph is usually **vector
+drawing**, not an embedded image, so `pdfimages` alone misses it. `--figures`
+therefore renders **whole pages** with `pdftoppm -r 200 -png` and stores them in the
+vault's figure convention.
+
+```bash
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --source="<url>" --figures            # auto
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=all | --figures=3,5-7 --figures-max=60
+# figures for a clipping that already exists, from a PDF you supply:
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only --clipping raw/clippings/<name>.md
+```
+
+- **Pages chosen.** `auto` (the bare-flag default) selects a page when either holds:
+  1. **Raster:** `pdfimages -list` shows an `image` row (not `smask`/`mask`) at least
+     100x100 px and 0.75 in on the page, not a logo object repeated on half the pages.
+  2. **Vector:** `pdftocairo -svg` shows at least 30 drawing elements outside glyph
+     definitions AND the page is text-light (no text layer, or under 80 % of the
+     document's median non-space characters per page), or at least 600 drawing
+     elements regardless of text. A document whose text is outlined (no text layer
+     at all) selects every drawn page. Raster pages skip the slower SVG probe.
+
+  It is deterministic and approximate: box-and-arrow diagrams on text pages are
+  caught by the 30-element floor, but a ruled table can be a false positive and a
+  figure drawn with very few strokes can be missed. Use `--figures=all` or a page
+  list when the choice matters. `all` renders every page; a list renders exactly those.
+- **Cap.** At most 40 pages per run (`--figures-max=N` to raise); a truncation is
+  reported. Pages are not cropped: sidecars say `crop: full`.
+- **Output.** `raw/figures/<clipping-slug>-p<N>.png` plus `<same>.md` with frontmatter
+  `source`, `page`, `crop: full`, `dpi: 200`, `sha256`, `captured`,
+  `clipping: "[[raw/clippings/<file>.md]]"`, `ai-generated: false`, then `# Title, page N`
+  and a one-line machine description naming the candidates detected (`raster`,
+  `vector`, or "none detected" for a page chosen by request).
+- **Clipping frontmatter.** `figures: ["raw/figures/<slug>-p3.md", ...]` is added to the
+  clipping's FRONTMATTER, after `source-hash`. The body is never edited. Only this tool
+  writes it; it is pipeline state like `fidelity`.
+- **Idempotent.** A page whose PNG hash already matches is left alone; a PNG identical
+  to any existing figure is skipped as a duplicate; a sidecar with `crop` other than
+  `full` (a hand-cropped figure) is never overwritten.
+- **`--figures-only`** needs `--clipping <path>` (vault-relative, absolute or relative).
+  It checks the PDF first: `source-hash` hashes the clipping's extracted text, so the
+  PDF is re-extracted the way the clipping was and the hashes compared. A mismatch is
+  refused (`--allow-pdf-mismatch` overrides); a clipping with no `source-hash` or one
+  made by OCR cannot be checked and only warns.
+- **Tools.** poppler `pdftoppm` (required), `pdfimages`, `pdftocairo`, `pdfinfo`; found
+  on PATH or in the winget poppler folder. Missing tools never fail the clip: the run
+  prints what is missing and how to install it (`--doctor` lists it), and `auto`
+  degrades to whichever probe is available.
+- **Operation bracket.** Figure PNG/sidecars and the clipping's frontmatter edit are
+  ordinary vault writes inside the same `op-begin`/`op-commit` as the clip; op-commit
+  commits whatever became dirty, so nothing extra is needed. `health.mjs` treats
+  `raw/figures/` as assets, not clippings, so they never count toward the ingest backlog
+  or as missing a `source-hash`.
+- A render is a faithful page, not an interpretation. Describe what a figure shows only
+  from looking at it (see wiki-ingest).
 
 ## Overriding the reading mode
 
@@ -178,7 +237,9 @@ followed by a whole value column, it is a table — use `table`.
 ## Guardrails
 
 - **Never edit the body of anything under `raw/`** — clipped text is immutable
-  source-of-truth (guardrail #1). Frontmatter is pipeline state, tooling-only.
+  source-of-truth (guardrail #1). Frontmatter is pipeline state, tooling-only
+  (`fidelity`, `figures`).
+- Figures are rendered pages, never crops or redrawings; do not hand-edit `raw/figures/`.
 - `clip-pdf.mjs` is the **sole writer** to `raw/` for PDFs — the model never writes
   the clipping by hand (that would bypass dedup, decline, and hashing).
 - **Fidelity, not truth**: a faithful extraction of a wrong paper is still wrong;

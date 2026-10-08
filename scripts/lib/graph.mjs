@@ -64,6 +64,15 @@ export function evidenceRoutes(page, byName, pages) {
   return found;
 }
 
+// raw/figures/ holds page renders (`<clipping>-p<N>.png` plus a `.md` sidecar)
+// derived from a clipping by clip-pdf. They are evidence ASSETS, not sources to
+// summarize: a sidecar has no `source-hash`, so counting it as a clipping would
+// report it as missing a hash and as never-ingested forever. Every "all raw .md
+// are clippings" scan must skip them.
+export function isFigureAsset(path) {
+  return path.startsWith('raw/figures/');
+}
+
 export function isContent(path) {
   if (!path.endsWith('.md')) return false;
   if (SYSTEM_FILES.has(path)) return false;
@@ -515,7 +524,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
   // parsed but NOT ingested, and it still needs work. Reporting only the first
   // number hid exactly that case.
   const unparsedSources = pages
-    .filter((p) => p.path.startsWith('raw/') && inbound.get(p.path) === 0)
+    .filter((p) => p.path.startsWith('raw/') && !isFigureAsset(p.path) && inbound.get(p.path) === 0)
     .map((p) => p.path);
 
   const isSourcePage = (path) => path.startsWith('wiki/sources/');
@@ -558,7 +567,7 @@ export function computeGraphMetrics({ pages }, opts = {}) {
       if (target) legacyCited.add(target);
     }
   }
-  const clippings = pages.filter((p) => p.path.startsWith('raw/') && p.path.endsWith('.md'));
+  const clippings = pages.filter((p) => p.path.startsWith('raw/') && !isFigureAsset(p.path) && p.path.endsWith('.md'));
   // A clipping with no `source-hash` cannot be hash-joined — a data defect
   // surfaced for repair, not itself a verdict about ingestion.
   const missingHash = clippings.filter((p) => !p.sourceHash).map((p) => p.path);
