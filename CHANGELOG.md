@@ -1,12 +1,5 @@
 # Changelog
 
-## 0.40.0 — 2026-10-07
-
-- Add `clip-pdf --figures[=auto|all|<pages>]` to keep the figures that text extraction loses. It renders whole pages at 200 dpi with poppler `pdftoppm` into `raw/figures/<clipping>-p<N>.png` with a `.md` sidecar (`source`, `page`, `crop: full`, `dpi`, `sha256`, `captured`, `clipping`). `auto` selects pages with embedded rasters (`pdfimages -list`, ignoring masks, icons and repeated logos) or vector drawing (`pdftocairo -svg` element counts against text density), because most PDF graphs are vector and invisible to `pdfimages`. Capped at 40 pages (`--figures-max`). Pages are not cropped; the heuristic is approximate (ruled tables can be false positives, sparse diagrams can be missed).
-- Add `clip-pdf --figures-only --clipping <path>` to render figures for an existing clipping from a PDF you supply, verifying it by re-extracting the text and comparing `source-hash` (refusing a mismatch unless `--allow-pdf-mismatch`). Only the clipping's frontmatter `figures:` list is written; bodies stay immutable. Rendering is idempotent, de-duplicates against existing figure hashes and never overwrites a hand-cropped figure.
-- Treat `raw/figures/` as assets in health, repair-missing-hash, dedupe, backfill and quote-provenance scans, so figure sidecars no longer read as clippings missing a `source-hash` or as ingest backlog. `wiki-ingest` now tells the ingester to look at listed figures and embed them on source pages.
-- Poppler tools are found on PATH or in the winget package folder; missing tools produce a non-fatal message, and `--doctor` reports them.
-
 ## 0.39.0 — 2026-09-13
 
 - Make the default wiki health metric an uncapped count of actionable integrity defects. Intentional links to unwritten pages remain separate and unscored, regardless of age or fuzzy name matches. Preserve the historical report behind `--legacy` and ingest reporting behind `--backlog`.
