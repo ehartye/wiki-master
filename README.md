@@ -95,7 +95,7 @@ the same workflows.
 | `/wiki-purge <topic> [--seeds a.md,b.md]` | Remove a topic for good — pages, evidence and source URLs move to a git-tracked `.recycle/` bin and the removal is committed so it reaches every machine. `--reconcile` re-bins anything that comes back; `--restore <id>` undoes it. |
 | `/wiki-discover <topic>` | Find web sources for a topic, credibility-rank them, clip the survivors and hand off to `/wiki-ingest`. Read-only research until clipping. |
 | `/wiki-triage [kind]` | Review what needs your eyes — failed clips, fidelity flags, expiring declines, ingest backlog — in a browser queue grouped by research topic. |
-| `/clip-pdf <file.pdf>` | Capture a local or downloaded PDF as Markdown evidence. |
+| `/clip-pdf <file.pdf>` | Capture a local or downloaded PDF as Markdown evidence; `--figures` also renders figure pages to `raw/figures/`. |
 | `/clip-docx <file.docx>` | Capture a Word document as Markdown evidence. |
 | `/clip-xlsx <file.xlsx>` | Capture a spreadsheet or workbook as Markdown evidence. |
 | `/clip-pptx <file.pptx>` | Capture a PowerPoint deck — bullets, tables and speaker notes per slide — as Markdown evidence. |

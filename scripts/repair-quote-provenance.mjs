@@ -23,7 +23,7 @@ const pages = new Map(graph.pages.map((p) => [p.path, p]));
 
 const body = (p) => readFileSync(join(vault, p), 'utf8').replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
 const clippings = graph.pages
-  .filter((p) => p.path.startsWith('raw/') && p.path.endsWith('.md'))
+  .filter((p) => p.path.startsWith('raw/') && !p.path.startsWith('raw/figures/') && p.path.endsWith('.md'))
   .map((p) => [p.path, normalize(body(p.path))]);
 
 // Which wiki/sources page covers a clipping? Concepts cite source pages, not raw.

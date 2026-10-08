@@ -16,7 +16,7 @@ const apply = process.argv.includes('--apply');
 const { path: vault } = resolveVault();
 
 const targets = buildGraph(vault).pages.filter(
-  (p) => p.path.startsWith('raw/') && p.path.endsWith('.md') && !p.sourceHash
+  (p) => p.path.startsWith('raw/') && !p.path.startsWith('raw/figures/') && p.path.endsWith('.md') && !p.sourceHash
 );
 
 const stamped = [];

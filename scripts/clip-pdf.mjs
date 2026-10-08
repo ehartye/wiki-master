@@ -1,5 +1,5 @@
-import { existsSync, writeFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, writeFileSync, readFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -10,6 +10,10 @@ import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import {
+  parseFigureArgs, renderFigures, resolveFigureTools, setClippingFigures, figureSummary,
+  frontmatterOf, fmScalar, POPPLER_HINT,
+} from './lib/pdf-figures.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -311,22 +315,108 @@ export function thinOutcome({ ocrAvailable } = {}) {
   };
 }
 
+// Which clipping does this PDF belong to? `source-hash` in a clipping is the hash
+// of the EXTRACTED TEXT (see pdfClipContent), never of the PDF binary, so the
+// honest check is to extract the supplied PDF the way the clipping was extracted
+// and compare. A binary-hash equality is accepted too, for clippings that record
+// one. 'no-hash' and 'unverifiable' (OCR text cannot be reproduced cheaply) are
+// warnings; 'mismatch' is refused by the caller unless overridden.
+export function verifyPdfForClipping(pdfPath, clippingText, { extract = pdfToText } = {}) {
+  const fm = frontmatterOf(clippingText);
+  const recorded = fmScalar(fm, 'source-hash')?.toLowerCase();
+  if (!recorded) return { status: 'no-hash', detail: 'the clipping records no source-hash' };
+  if (createHash('sha256').update(readFileSync(pdfPath)).digest('hex') === recorded) return { status: 'match-binary' };
+  const extraction = fmScalar(fm, 'extraction');
+  if (extraction === 'ocr') return { status: 'unverifiable', detail: "the clipping was OCR'd; its text hash cannot be reproduced cheaply" };
+  let text;
+  try { text = extract(pdfPath, extraction === 'table-aware' ? ['-table'] : []); }
+  catch { return { status: 'unverifiable', detail: 'pdftotext could not re-extract this PDF' }; }
+  const got = pdfClipContent({ title: fmScalar(fm, 'title') || 'x', source: 'x', text }).hash;
+  return got === recorded
+    ? { status: 'match-text' }
+    : { status: 'mismatch', detail: `re-extracting this PDF gives text hash ${got.slice(0, 12)}..., the clipping records ${recorded.slice(0, 12)}...` };
+}
+
+// Vault-relative `raw/clippings/<name>.md`, from an absolute, cwd-relative or
+// already vault-relative argument. Figures belong to exactly one clipping, so the
+// path must be a clipping inside this vault.
+export function resolveClippingArg(arg, vaultPath) {
+  const candidates = [isAbsolute(arg) ? arg : resolve(process.cwd(), arg), resolve(vaultPath, arg)];
+  for (const c of candidates) {
+    if (!existsSync(c)) continue;
+    const rel = relative(vaultPath, c).split(sep).join('/');
+    if (rel.startsWith('raw/clippings/') && rel.endsWith('.md')) return { rel, abs: c };
+  }
+  return null;
+}
+
+// Render figures for a clipping and record them in the clipping's FRONTMATTER.
+// The body is never touched (raw/ is immutable; source-hash covers the body).
+export function addFiguresToClipping({ pdfPath, vaultPath, clippingRel, fig, source, title }) {
+  const abs = join(vaultPath, clippingRel);
+  const r = renderFigures({ pdfPath, vaultPath, clippingPath: clippingRel, title, source, selection: fig });
+  console.log(figureSummary(r));
+  if (r.status === 'skipped') console.error(`WARNING: ${r.message}`);
+  if (r.figures?.length) {
+    const before = readFileSync(abs, 'utf8');
+    const after = setClippingFigures(before, r.figures);
+    if (after !== before) { writeFileSync(abs, after); console.log(`updated frontmatter figures: ${clippingRel} (${r.figures.length})`); }
+  }
+  return r;
+}
+
+function runFiguresOnly(pdfPath, fig, vaultPath) {
+  if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
+  const found = resolveClippingArg(fig.clipping, vaultPath);
+  if (!found) {
+    console.error(`--clipping must name an existing clipping inside the vault (raw/clippings/<name>.md): ${fig.clipping}`);
+    process.exit(2);
+  }
+  const text = readFileSync(found.abs, 'utf8');
+  const v = verifyPdfForClipping(pdfPath, text);
+  let verified = v.status;
+  if (v.status === 'mismatch') {
+    if (!fig.allowMismatch) {
+      console.error(`ERROR: this PDF does not match the clipping ${found.rel}: ${v.detail}.`);
+      console.error('Figures from the wrong document would be attached to it. If the PDF is a different build of the same document, re-run with --allow-pdf-mismatch.');
+      process.exit(1);
+    }
+    verified = 'mismatch-allowed';
+    console.error(`WARNING: PDF does not match the clipping (${v.detail}); continuing because of --allow-pdf-mismatch.`);
+  } else if (v.status === 'no-hash' || v.status === 'unverifiable') {
+    console.error(`WARNING: cannot verify the PDF against ${found.rel}: ${v.detail}.`);
+  }
+  const fm = frontmatterOf(text);
+  const title = fmScalar(fm, 'title') || titleFromPdf(pdfPath);
+  const source = fmScalar(fm, 'source') || pdfPath;
+  const r = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: found.rel, fig, source, title });
+  return { status: 'figures', clipping: found.rel, verified, figures: r.figures || [], render: r };
+}
+
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
     console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low]');
     console.error('                          [--mode=auto|reading-order|table] [--ocr] [--ocr-lang=eng]');
     console.error('                          [--topic="<research topic>"] [--decline="reason"] [--doctor]');
+    console.error('                          [--figures[=auto|all|3,5-7]] [--figures-max=N]');
+    console.error('       clip-pdf.mjs <file.pdf> --figures-only --clipping <raw/clippings/x.md> [--figures=...]');
     console.error('');
     console.error('  --mode   reading mode. auto (default) lets the tabular detector choose;');
     console.error('           reading-order and table override it when it gets a document wrong.');
     console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
     console.error('           without it, /wiki-triage can never group this clipping by run.');
+    console.error('  --figures render figure pages to raw/figures (poppler pdftoppm). auto = pages with embedded');
+    console.error('           rasters or vector drawings; all = every page; or a page list. Cap 40 (--figures-max).');
+    console.error('  --figures-only  add figures to an EXISTING clipping from the PDF you supply (frontmatter only).');
     console.error('  --doctor report which external tools are installed, then exit.');
     process.exit(2);
   }
   let readingMode;
   try { readingMode = parseMode(argv); }
+  catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+  let fig;
+  try { fig = parseFigureArgs(argv); }
   catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
 
   // Yell about the toolchain BEFORE doing any work, on every run. A missing tool
@@ -336,6 +426,9 @@ export function main(argv) {
   const deps = toolchainReport();
   if (argv.includes('--doctor')) {
     console.log(deps.ok ? 'clip-pdf toolchain: OK (pdftotext +table, pdftoppm, tesseract)' : deps.lines.join('\n'));
+    const ft = resolveFigureTools();
+    const missingFig = ['pdftoppm', 'pdfimages', 'pdftocairo', 'pdfinfo'].filter((n) => !ft[n]);
+    console.log(missingFig.length ? `figures (--figures): missing ${missingFig.join(', ')}. ${POPPLER_HINT}` : 'figures (--figures): OK (pdftoppm, pdfimages, pdftocairo, pdfinfo)');
     return { status: 'doctor', ok: deps.ok, missing: deps.missing };
   }
   if (!deps.ok) {
@@ -358,6 +451,8 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+
+  if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -447,6 +542,7 @@ export function main(argv) {
   const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
   if (already) {
     console.log(`exists (same content): ${already}`);
+    if (fig.enabled) console.log(`figures not rendered for an existing clipping; to add them: clip-pdf.mjs "${pdfPath}" --figures-only --clipping "${already}"`);
     return { status: 'duplicate', file: already };
   }
 
@@ -464,7 +560,13 @@ export function main(argv) {
     : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'
     : 'text';
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${how}${clip.fidelity !== 'high' ? `, fidelity=${clip.fidelity}` : ''})`);
-  return { status: 'clipped', slug, file };
+  let figures;
+  if (fig.enabled) {
+    // The clipping is already safely on disk; a figure failure must not undo it.
+    try { figures = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: `raw/clippings/${slug}.md`, fig, source, title }); }
+    catch (e) { console.error(`WARNING: figures failed (clipping kept): ${e.message}`); }
+  }
+  return { status: 'clipped', slug, file, figures };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));

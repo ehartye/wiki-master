@@ -50,6 +50,15 @@ For each source:
    citation drift; the `sources: ["[[…]]"]` wikilink stays for navigation.
    To repair vaults that already drifted this way:
    `node "<absolute-plugin-root>/scripts/repair-provenance-links.mjs"` (dry run) then `--apply`.
+   **Figures.** If the clipping's frontmatter lists `figures:`, open each sidecar
+   (`raw/figures/<slug>-p<N>.md`) and **look at the PNG with the Read tool** before
+   writing. Embed the ones that carry evidence on the source page as
+   `![[raw/figures/<slug>-p<N>.png]]` next to the claim they support, with a sentence
+   saying what the figure shows (axes, series, trend) taken from what you see, not from
+   the machine description. A page render is a whole page: say which part matters.
+   Quote numbers read off a chart as approximate and attribute them. If the PDF has
+   figures but no `figures:`, tell the user `clip-pdf.mjs --figures-only` can add them.
+   Never edit or add to `raw/figures/`.
 3. Before creating a concept, search the proposed title, equivalent wording and
    nearby passages. Extend the canonical page, add a genuinely equivalent alias,
    or explain the new concept's distinct scope. Use `_templates/concept-note.md`;
