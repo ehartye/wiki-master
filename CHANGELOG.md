@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.41.0 — 2026-10-08
+
+- Allow Reddit discussions and Medium articles through the source-domain filter. Keep their claims, quotes and dependent inferences in separate `Reddit discussion (anecdotal)` and `Medium articles` sections in discovery reports, derived wiki pages and query answers, including when reusing existing summaries. Independently supported facts remain in the main sections with their higher-quality citations. Source credibility is still assessed individually; raw captures remain unchanged.
+- A live Reddit capture recovered a post and four comments with individual permalinks through the existing clipper. Complete-thread coverage is not guaranteed; this release adds no dedicated Reddit or Medium extractor.
+
 ## 0.40.0 — 2026-10-08
 
 - Add `clip-pdf --figures[=auto|all|<pages>]` to keep the figures that text extraction loses. It renders whole pages at 200 dpi with poppler `pdftoppm` into `raw/figures/<clipping>-p<N>.png` with a `.md` sidecar (`source`, `page`, `crop: full`, `dpi`, `sha256`, `captured`, `clipping`). `auto` selects pages with embedded rasters (`pdfimages -list`, ignoring masks, icons and repeated logos) or vector drawing (`pdftocairo -svg` element counts against text density), because most PDF graphs are vector and invisible to `pdfimages`. Capped at 40 pages (`--figures-max`). Pages are not cropped; the heuristic is approximate (ruled tables can be false positives, sparse diagrams can be missed).

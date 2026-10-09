@@ -4,8 +4,8 @@ import { domainOf, isBlocked } from '../scripts/lib/blocklist.mjs';
 
 const list = new Set(['example.com', 'spam.net']);
 
-test('default policy permits Reddit discussions while retaining other blocked domains', () => {
-  for (const host of ['reddit.com', 'www.reddit.com', 'old.reddit.com', 'redd.it']) {
+test('default policy permits Reddit and Medium while retaining other blocked domains', () => {
+  for (const host of ['reddit.com', 'www.reddit.com', 'old.reddit.com', 'redd.it', 'medium.com', 'www.medium.com', 'example.medium.com']) {
     assert.equal(isBlocked(`https://${host}/r/example/comments/abc/thread/`), false, host);
   }
   assert.equal(isBlocked('https://www.naturalnews.com/article'), true);

@@ -11,9 +11,10 @@ Before the first authorized write, follow the shared operations completion contr
 
 Question: $ARGUMENTS
 
-Apply the [Reddit evidence policy](../wiki-maintainer/references/evidence.md#reddit-discussion)
+Apply the [Reddit and Medium evidence policy](../wiki-maintainer/references/evidence.md#reddit-and-medium)
 to the answer and any filed synthesis: keep Reddit-derived content under
-`## Reddit discussion (anecdotal)`, even when retrieved through a wiki summary.
+`## Reddit discussion (anecdotal)` and Medium-derived content under
+`## Medium articles`, even when retrieved through wiki summaries.
 
 This skill does two things pure retrieval does not: it **synthesizes** an
 answer (not just a list of matching pages) and it can **file that answer

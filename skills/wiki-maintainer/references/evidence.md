@@ -32,28 +32,32 @@
      record unsourced claims as unsourced (visibly, on the page) rather than
      asserting or deleting them. The vault cannot cite what it does not hold.
 
-## Reddit discussion
+## Reddit and Medium
 
-Reddit posts and comments are eligible sources, but their material must remain
-separate from higher-quality evidence in every derived page and query answer.
-Use the exact heading `## Reddit discussion (anecdotal)` for Reddit-derived
-claims, quotes, reported experiences and any inference that relies on them.
+Reddit posts and comments, and articles on medium.com or its subdomains, are
+eligible sources. Keep their material in separate labeled sections in every
+derived page and query answer: `## Reddit discussion (anecdotal)` for Reddit
+and `## Medium articles` for Medium. Put platform-derived claims, quotes,
+reported experiences and any inference that relies on them in the corresponding
+section; do not blend the two platforms together or with higher-quality evidence.
 This applies to source summaries, concepts, entities and syntheses, including
-material reused through another wiki page. Even a Reddit-only summary needs
-the heading. Raw clippings retain the captured content without rewriting.
+material reused through another wiki page. Even a summary of a single platform
+source needs its heading. Raw clippings retain the captured content without rewriting.
 
-Attribute statements to the post or commenters and cite the captured evidence;
+Attribute statements to their authors and cite the captured evidence. For Reddit,
 do not turn a few comments into consensus, prevalence or established facts.
 Disclose missing comments or reply context when the capture is incomplete;
 do not claim a full thread was captured without verifying it. Upvotes do not
 establish credibility.
 
-Keep Reddit citations and Reddit-dependent conclusions out of the main factual
+Keep Reddit and Medium citations and dependent conclusions out of the main factual
 sections, opening summary and recommendations. A fact independently supported
 by higher-quality evidence may appear there with those independent citations;
-any Reddit comparison stays in the labeled section. Retain all provenance in
-`sources:` frontmatter. This policy concerns posts and comments, not Reddit's
-official documentation or policy pages outside discussion threads.
+any platform comparison stays in its labeled section. Retain all provenance in
+`sources:` frontmatter. Assess individual sources using the existing credibility
+rubric; allowing capture does not automatically upgrade their credibility.
+Official platform documentation and policy pages outside discussion threads or
+Medium articles do not require these labels.
 
 ## Style: viewpoints whole, conclusions after, breadcrumbs always
 Narrative is licensed; dismissal is not. Three house rules govern every page:

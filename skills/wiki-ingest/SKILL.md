@@ -23,9 +23,10 @@ Prefer a named clipping set; two concurrent ingests can overwrite shared concept
 pages, so coordinate overlapping targets rather than processing the global backlog
 in parallel. Update only pages substantively changed by the evidence.
 
-Apply the [Reddit evidence policy](../wiki-maintainer/references/evidence.md#reddit-discussion)
-to every page you write: Reddit-derived content belongs only under
-`## Reddit discussion (anecdotal)`, including when updating a mixed-source page.
+Apply the [Reddit and Medium evidence policy](../wiki-maintainer/references/evidence.md#reddit-and-medium)
+to every page you write: Reddit-derived content belongs under
+`## Reddit discussion (anecdotal)` and Medium-derived content under
+`## Medium articles`, including when updating a mixed-source page.
 
 For each source:
 1. Read the exact clipping through the guarded CLI or filesystem. Write derived
