@@ -43,6 +43,11 @@ not substituted by the host.
    do not open operations, log, commit or refresh indexes. Before the first
    authorized write, follow [operation completion](references/operations.md).
    Never stage the whole vault. Purge retains its explicit plan approval.
+6. **Keep Reddit and Medium separate.** In derived pages and query answers,
+   place Reddit-derived material under `## Reddit discussion (anecdotal)` and
+   Medium-derived material under `## Medium articles`. Preserve these sections
+   when reusing wiki summaries. Follow the
+   [Reddit and Medium evidence policy](references/evidence.md#reddit-and-medium).
 
 ## Layout and navigation
 
