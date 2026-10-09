@@ -64,6 +64,10 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    - −1 vendor-primary / promotional / single-blogger opinion
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
 3. Keep the top sources (favor `high`/`medium`; a few `low` are fine if on-topic).
+   Reddit posts and comments are eligible; assess the specific source rather
+   than treating votes as credibility. In the ranked report, group these under
+   `## Reddit discussion (anecdotal)` and carry that separation into ingestion
+   per the [Reddit evidence policy](../wiki-maintainer/references/evidence.md#reddit-discussion).
 4. **Before the first decline or clip write**, open a discover operation with
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op discover` and retain its
    token using the host-specific completion example. Reuse that operation below.

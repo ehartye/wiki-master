@@ -43,6 +43,10 @@ not substituted by the host.
    do not open operations, log, commit or refresh indexes. Before the first
    authorized write, follow [operation completion](references/operations.md).
    Never stage the whole vault. Purge retains its explicit plan approval.
+6. **Keep Reddit discussion separate.** In derived pages and query answers,
+   place Reddit-derived material only under `## Reddit discussion (anecdotal)`;
+   preserve this separation when reusing a wiki summary. Follow the
+   [Reddit evidence policy](references/evidence.md#reddit-discussion).
 
 ## Layout and navigation
 

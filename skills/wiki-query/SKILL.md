@@ -11,6 +11,10 @@ Before the first authorized write, follow the shared operations completion contr
 
 Question: $ARGUMENTS
 
+Apply the [Reddit evidence policy](../wiki-maintainer/references/evidence.md#reddit-discussion)
+to the answer and any filed synthesis: keep Reddit-derived content under
+`## Reddit discussion (anecdotal)`, even when retrieved through a wiki summary.
+
 This skill does two things pure retrieval does not: it **synthesizes** an
 answer (not just a list of matching pages) and it can **file that answer
 back** into the wiki so the next question benefits from it. Retrieval itself
