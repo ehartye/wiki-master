@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.41.1 — 2026-10-12
+
+- Add optional `op-commit --paths-file <JSON>` for an exact vault-relative file ledger. It narrows the operation’s newly dirty delta, preserving files dirty at opening and excluding other writers’ new changes even when staged. Invalid or unreadable scopes leave the token retryable. Unscoped behavior is unchanged; this does not isolate concurrent edits to the same file.
+
 ## 0.41.0 — 2026-10-08
 
 - Allow Reddit discussions and Medium articles through the source-domain filter. Keep their claims, quotes and dependent inferences in separate `Reddit discussion (anecdotal)` and `Medium articles` sections in discovery reports, derived wiki pages and query answers, including when reusing existing summaries. Independently supported facts remain in the main sections with their higher-quality citations. Source credibility is still assessed individually; raw captures remain unchanged.
