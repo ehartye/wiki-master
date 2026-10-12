@@ -60,7 +60,14 @@ function scanForWrappedLinks(vaultPath, paths) {
 // or not there was anything to commit — an op that ran and found nothing to
 // do, or ran against a vault that isn't a git repo, still finished; it should
 // not leave scratch state behind for the next run to trip over.
-export function commitOp(vaultPath, { op, title, token }) {
+export function commitOp(vaultPath, { op, title, token, paths: onlyPaths }) {
+  // Dirty-set subtraction cannot identify new edits made by another concurrent writer.
+  // An explicit file ledger narrows that delta without claiming ownership of pre-dirty paths.
+  if (onlyPaths !== undefined && (!Array.isArray(onlyPaths) || !onlyPaths.length || onlyPaths.some(p =>
+    typeof p !== 'string' || !p || p.includes('\\') || p.includes('\0') || /^[A-Za-z]:/.test(p) ||
+    p.split('/').some(part => !part || part === '.' || part === '..')))) {
+    return { ok: false, reason: 'explicit operation scope requires a nonempty array of vault-relative file paths using / separators' };
+  }
   // The token is joined straight into a path, and `unlinkSync` runs on it at the
   // end — so a token carrying `../` would both read and DELETE a file outside
   // .wiki-master/ops/. op-begin only ever emits hex, but this is invoked from
@@ -89,7 +96,10 @@ export function commitOp(vaultPath, { op, title, token }) {
     };
   } else {
     const after = dirtySet(statusPorcelain(vaultPath));
-    const paths = deltaPaths(before, after);
+    const delta = deltaPaths(before, after);
+    const scope = onlyPaths === undefined ? null : new Set(onlyPaths);
+    const paths = scope ? delta.filter(path => scope.has(path)) : delta;
+    const excludedPaths = scope ? delta.filter(path => !scope.has(path)) : [];
     // No `if (paths.length)` guard here, deliberately: commitPaths already
     // returns { committed: false, reason: 'nothing to commit' } on an empty
     // array before it runs a single git command (lib/git.mjs), so a local
@@ -102,6 +112,7 @@ export function commitOp(vaultPath, { op, title, token }) {
       sha: result.sha,
       reason: result.reason,
       paths,
+      excludedPaths,
       before: [...before].sort(),
       unpushed: result.committed ? unpushedCount(vaultPath) : null,
     };
@@ -173,12 +184,24 @@ export async function main(argv, refreshDeps) {
   const title = get('--title');
   const token = get('--since');
   if (!op || !title || !token) {
-    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token>');
+    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>]');
     process.exitCode = 1;
     return;
   }
+  let paths;
+  if (argv.includes('--paths-file')) {
+    const file = get('--paths-file');
+    try {
+      if (!file || file.startsWith('--')) throw new Error('missing JSON file argument');
+      paths = JSON.parse(readFileSync(file, 'utf8'));
+    } catch (error) {
+      console.error(`op-commit: cannot read explicit --paths-file scope: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
   const { path: vaultPath } = resolveVault();
-  const r = commitOp(vaultPath, { op, title, token });
+  const r = commitOp(vaultPath, { op, title, token, paths });
 
   if (!r.ok) {
     console.error(`op-commit: ${r.reason}`);
@@ -199,6 +222,10 @@ export async function main(argv, refreshDeps) {
   if (r.before.length) {
     console.log(`left alone (already dirty before this operation, not part of it): ${r.before.length} file(s)`);
     for (const p of r.before) console.log(`  ${p}`);
+  }
+  if (r.excludedPaths?.length) {
+    console.log(`left alone (outside explicit operation scope): ${r.excludedPaths.length} file(s)`);
+    for (const path of r.excludedPaths) console.log(`  ${path}`);
   }
   if (typeof r.unpushed === 'number' && r.unpushed > 0) {
     console.log(`${r.unpushed} commit(s) unpushed. Run \`git push\` from the vault to sync.`);

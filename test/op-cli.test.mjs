@@ -69,6 +69,69 @@ function committedFiles(dir) {
     .split(/\r?\n/).filter(Boolean);
 }
 
+test('explicit operation paths exclude a concurrent writer created and staged after opening', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    writeFileSync(join(dir, 'theirs.md'), 'concurrent note\n');
+    execFileSync('git', ['add', 'theirs.md'], { cwd: dir });
+    const scope = join(dir, '.wiki-master', 'scope.json');
+    writeFileSync(scope, JSON.stringify(['ours.md']));
+    const r = await run(commitMain, dir, ['--op', 'relink', '--title', 'ours only', '--since', token, '--paths-file', scope]);
+    assert.equal(r.exitCode, undefined);
+    assert.deepEqual(committedFiles(dir), ['ours.md']);
+    assert.match(execFileSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }), /^A  theirs\.md$/m);
+    assert.ok(r.logs.some(line => line.includes('outside explicit operation scope')));
+    assert.ok(r.logs.includes('  theirs.md'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('explicit scope does not take ownership of paths dirty before opening', async () => {
+  const dir = tempRepo();
+  try {
+    writeFileSync(join(dir, 'theirs.md'), 'already in progress\n');
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    const result = commitOp(dir, { op: 'relink', title: 'ours', token, paths: ['ours.md', 'theirs.md'] });
+    assert.equal(result.ok, true);
+    assert.deepEqual(committedFiles(dir), ['ours.md']);
+    assert.deepEqual(result.before, ['theirs.md']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('malformed explicit scope refuses before staging or consuming the token', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    for (const paths of [[], ['../ours.md'], ['/ours.md'], ['C:/ours.md'], ['wiki/'], ['wiki\\ours.md'], ['wiki/./ours.md'], [false], 'ours.md']) {
+      const result = commitOp(dir, { op: 'relink', title: 'malformed', token, paths });
+      assert.equal(result.ok, false, JSON.stringify(paths));
+      assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')));
+      assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim(), head);
+      assert.equal(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: dir, encoding: 'utf8' }), '');
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('unreadable or malformed CLI scope leaves the operation available to retry', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    const scope = join(dir, '.wiki-master', 'scope.json');
+    for (const content of [undefined, '{broken json', 'null']) {
+      if (content !== undefined) writeFileSync(scope, content);
+      const r = await run(commitMain, dir, ['--op', 'relink', '--title', 'retry', '--since', token, '--paths-file', scope]);
+      assert.equal(r.exitCode, 1);
+      assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')));
+      assert.equal(execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: dir, encoding: 'utf8' }), '');
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // Test 1: the core claim.
 test('an op commits exactly the files it touched', async () => {
   const dir = tempRepo();

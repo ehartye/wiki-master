@@ -13,6 +13,13 @@ and preview work do not open operations, log, commit or refresh indexes.
    It snapshots already-dirty paths; `op-commit` excludes them. It does not isolate
    simultaneous edits to the same file. Coordinate overlapping targets; preserve
    pre-existing changes and report exclusions instead of sweeping them into a commit.
+   With concurrent writers, maintain an explicit ledger of the exact vault-relative
+   files this operation owns, including its log and generated catalogs when safe.
+   Pass a JSON array of those paths using `op-commit.mjs --paths-file <file>`;
+   keep the manifest under `.wiki-master/` or outside the vault. This narrows the
+   newly dirty delta and reports other new paths as outside scope. It does not
+   override pre-dirty exclusions or isolate simultaneous edits to the same file.
+   Without explicit scope, subtraction alone can include another writer's new edits.
    An existing enclosing operation may own delegated clips and triage bookkeeping;
    record who closes it rather than opening a second operation unnecessarily.
 3. **Edit and validate.** Check the requested behavior/content, valid frontmatter,
