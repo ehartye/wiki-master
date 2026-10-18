@@ -26,7 +26,7 @@ function validate(dataset, split) {
     for (const field of ['expectedEvidence', 'forbiddenEvidence']) if (q[field] !== undefined && (!Array.isArray(q[field]) || !q[field].every(p => validPath(p) && isEvidencePath(p)))) throw new Error(`${q.id}: ${field} must contain source/raw paths`);
     if (q.expectedEvidence?.some(p => q.forbiddenEvidence?.includes(p))) throw new Error(`${q.id}: expected and forbidden evidence overlap`);
     if (q.expectedPassages !== undefined && (!Array.isArray(q.expectedPassages) || !q.expectedPassages.every(p => validPath(p.path) && typeof p.text === 'string' && p.text.trim()))) throw new Error(`${q.id}: expectedPassages must contain {path,text}`);
-    if (q.options !== undefined && (!q.options || typeof q.options !== 'object' || Array.isArray(q.options) || Object.entries(q.options).some(([k, v]) => !['project', 'type', 'status', 'includeRaw'].includes(k) || (k === 'includeRaw' ? typeof v !== 'boolean' : typeof v !== 'string')))) throw new Error(`${q.id}: invalid search options`);
+    if (q.options !== undefined && (!q.options || typeof q.options !== 'object' || Array.isArray(q.options) || Object.entries(q.options).some(([k, v]) => !['project', 'type', 'status', 'includeRaw', 'includeMoc'].includes(k) || (['includeRaw', 'includeMoc'].includes(k) ? typeof v !== 'boolean' : typeof v !== 'string')))) throw new Error(`${q.id}: invalid search options`);
   }
   const selected = dataset.questions.filter(q => split === 'all' || q.split === split);
   if (!selected.length) throw new Error(`No questions selected for split ${split}`);

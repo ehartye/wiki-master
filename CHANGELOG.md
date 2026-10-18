@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.42.0 — 2026-10-18
+
+- Fix `search.mjs` Obsidian keyword timeouts. Search fired up to five full-text CLI calls at once; the transport guard serialized them, so one slow call (a cold `wiki/` search measured 29s against the 10s limit; `raw/` did not finish in 90s) became one timeout plus several "CLI busy" failures and an empty keyword channel. Keyword calls now run one at a time. The query as typed runs first, and the `OR` rewrite of its terms runs only when that returned fewer than `--limit` hits and did not fail. A failed call is reported as `keyword-failed` and skips the rewrite for that scope.
+- Add `--include-moc`. `moc/` is no longer a default Obsidian keyword scope; MOC pages are still found by name and by the semantic index. Pass `--include-moc` to also run the keyword search over `moc/`. `evaluate-retrieval` accepts `includeMoc` in question options.
+- Measured on the live vault with the 40-question set (`eval/wiki-efficacy.questions.json`): page recall@10 0.9375, precision@3 0.333 and reciprocal rank 0.811 are identical before and after; `keyword-failed` diagnostics fell from 61 to 16 across the 40 questions. One question still lost its keyword channel to the unchanged 10s timeout on a cold `wiki/` call.
+- Not changed: the 10s default CLI timeout, so a cold first search can still time out, and `--include-raw`, which stays slow through Obsidian.
+
 ## 0.41.1 — 2026-10-12
 
 - Add optional `op-commit --paths-file <JSON>` for an exact vault-relative file ledger. It narrows the operation’s newly dirty delta, preserving files dirty at opening and excluding other writers’ new changes even when staged. Invalid or unreadable scopes leave the token retryable. Unscoped behavior is unchanged; this does not isolate concurrent edits to the same file.
