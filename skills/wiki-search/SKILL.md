@@ -1,7 +1,7 @@
 ---
 name: wiki-search
 description: Use when asked to find wiki pages, locate a passage, or inspect raw evidence with citation-ready paths and lines. Pure retrieval; use wiki-query for a synthesized answer and wiki-discover for new external sources.
-argument-hint: "<your search terms> [--include-raw]"
+argument-hint: "<your search terms> [--include-raw] [--include-moc]"
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -20,7 +20,7 @@ leaves out.
 
 ## How it works
 
-`node "<absolute-plugin-root>/scripts/search.mjs" "..."` runs a tiered lookup over `wiki/` and `moc/`:
+`node "<absolute-plugin-root>/scripts/search.mjs" "..."` runs a tiered lookup over `wiki/` and `moc/` (MOCs match by name and semantic index; add `--include-moc` to also run Obsidian keyword search over `moc/`):
 The helper attempts Obsidian keyword lookup with a bounded timeout; a chunk-level semantic index
 (built by `index-embed.mjs`, Ollama-backed) fuses in via Reciprocal Rank
 Fusion when both a reachable Ollama and a built index are present. Results

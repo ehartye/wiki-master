@@ -224,7 +224,7 @@ function validateOptions(query, options) {
 // files is read, once each, to verify current identities, filters and passages.
 // A reusable context keeps vectors resident across evaluation questions.
 export async function main(query, options = {}) {
-  const { limit = 10, includeRaw = false } = options;
+  const { limit = 10, includeRaw = false, includeMoc = false } = options;
   validateOptions(query, { ...options, limit });
   const context = options.context ?? await createSearchContext({ vaultPath: options.vaultPath });
   const { vaultPath, index, ollamaUp, semanticRun, keywordSearchFn } = context;
@@ -237,19 +237,32 @@ export async function main(query, options = {}) {
     scopeMatch: matchesFilters(entry.metadata ?? {}, options) }))
     .filter(x => x.score > 0).sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.path.localeCompare(b.path));
   const keywordPaths = new Set();
-  const queries = [...new Set([query, terms(query).slice(0, 8).join(' OR ')])].filter(Boolean);
-  const keywordRequests = ['wiki', 'moc'].flatMap(scope => queries.map(q => ({ q, scope })));
-  if (includeRaw) keywordRequests.push({ q: query, scope: 'raw' });
-  const keywordRuns = await Promise.allSettled(keywordRequests.map(({ q, scope }) => keywordSearchFn(q, { limit: poolLimit, path: scope })));
+  // Obsidian treats spaces as AND, so the query as typed is the precise call and the OR rewrite
+  // of its terms is the recall net. The net runs only when the precise call came back short, and a
+  // failed call skips it. Calls are sequential: the CLI gate serializes them anyway, and a call
+  // queued behind a slow one burns its own 10s wait. moc/ and raw/ are opt-in for the same reason;
+  // a cold full-text call can take 30s+ and raw/ does not finish at all.
+  const orQuery = terms(query).slice(0, 8).join(' OR ');
+  const keywordScopes = ['wiki', ...(includeMoc ? ['moc'] : []), ...(includeRaw ? ['raw'] : [])];
   const rawPaths = [];
-  keywordRuns.forEach((run, i) => {
-    if (run.status === 'rejected') diagnostics.push({ code: 'keyword-failed', scope: keywordRequests[i].scope, message: String(run.reason?.message ?? run.reason).slice(0, 300) });
-    else for (const path of run.value) {
-      if (keywordRequests[i].scope === 'raw' && inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path);
-      else if (inScope(path)) keywordPaths.add(path);
+  let keywordAvailable = false;
+  for (const scope of keywordScopes) {
+    const scoped = new Set();
+    for (const q of scope === 'raw' ? [query] : [...new Set([query, orQuery])].filter(Boolean)) {
+      if (q !== query && scoped.size >= limit) break;
+      try {
+        for (const path of await keywordSearchFn(q, { limit: poolLimit, path: scope })) {
+          if (scope === 'raw' ? inScope(path, true) && path.startsWith('raw/') : inScope(path)) scoped.add(path);
+        }
+        if (scope !== 'raw') keywordAvailable = true;
+      } catch (err) {
+        diagnostics.push({ code: 'keyword-failed', scope, message: String(err?.message ?? err).slice(0, 300) });
+        break;
+      }
     }
-  });
-  const keywordAvailable = keywordRuns.some((run, i) => keywordRequests[i].scope !== 'raw' && run.status === 'fulfilled');
+    if (scope === 'raw') rawPaths.push(...scoped);
+    else for (const path of scoped) keywordPaths.add(path);
+  }
   let tier = keywordAvailable ? 'lexical' : 'identity-only';
   let semanticHits = [];
   if (ollamaUp && index.available) {
@@ -444,12 +457,13 @@ async function runSetupCommand() {
 }
 
 export function parseArgs(argv) {
-  const options = { json: false, limit: 10, includeRaw: false };
+  const options = { json: false, limit: 10, includeRaw: false, includeMoc: false };
   const words = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') options.json = true;
     else if (arg === '--include-raw') options.includeRaw = true;
+    else if (arg === '--include-moc') options.includeMoc = true;
     else if (arg.startsWith('--')) {
       const [name, ...rest] = arg.slice(2).split('=');
       if (!['limit', 'project', 'type', 'status'].includes(name)) throw new Error(`unknown option: --${name}`);
@@ -475,7 +489,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       await runQuery(query, options);
     } catch (err) {
       console.error(`search: ${err.message}`);
-      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
+      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] [--include-moc] | --health | --setup');
       process.exitCode = 1;
     }
   }
