@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { evaluateRetrieval } from '../scripts/evaluate-retrieval.mjs';
+import { evaluateRetrieval, main as evaluateMain } from '../scripts/evaluate-retrieval.mjs';
 
 const dataset = { version: 1, questions: [
   { id: 'q1', query: 'process', split: 'development', category: 'known-item', expectedPages: ['wiki/concepts/a.md'], expectedPassages: [{ path: 'wiki/concepts/a.md', text: 'regulate action' }], expectedEvidence: ['raw/clippings/paper.md'], forbiddenEvidence: ['raw/clippings/wrong.md'], options: { status: 'accepted' } },
@@ -107,4 +107,37 @@ test('returned forbidden citations remain errors when their canonical file does 
     assert.deepEqual(r.questions[0].unresolvedEvidence, ['raw/clippings/fabricated.md']);
     assert.deepEqual(r.questions[0].returnedEvidence, [], 'an absent citation has no resolved evidence route');
   } finally { rmSync(vaultRoot, { recursive: true, force: true }); }
+});
+
+// --keyword-only isolates the keyword channel: the search context is built as if the semantic
+// service were down, so the tier is lexical and only keyword and identity candidates rank.
+async function runMain(extraArgs) {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-eval-main-'));
+  try {
+    const vault = join(dir, 'vault');
+    mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(vault, 'wiki', 'concepts', 'a.md'), '# A\nalpha.\n');
+    const stub = join(dir, 'stub-search.mjs');
+    writeFileSync(stub, [
+      'export async function createSearchContext(options) { globalThis.__evalContextOptions = options; return { marker: true }; }',
+      "export async function main() { return { tier: 'lexical', results: [{ path: 'wiki/concepts/a.md', passage: 'alpha', provenance: [] }], diagnostics: [] }; }",
+    ].join('\n'));
+    const questions = join(dir, 'questions.json');
+    writeFileSync(questions, JSON.stringify({ version: 1, questions: [{ id: 'q1', query: 'alpha', split: 'development', category: 'rare-token', expectedPages: ['wiki/concepts/a.md'] }] }));
+    const log = console.log; console.log = () => {};
+    try { return await evaluateMain(['--questions', questions, '--vault', vault, '--search-module', stub, ...extraArgs]); }
+    finally { console.log = log; }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+test('--keyword-only builds the search context with the semantic service switched off and records it', async () => {
+  const report = await runMain(['--keyword-only']);
+  assert.equal(await globalThis.__evalContextOptions.checkAvailable(), false);
+  assert.equal(report.configuration.keywordOnly, true);
+});
+
+test('without --keyword-only the search context keeps its default semantic availability check', async () => {
+  const report = await runMain([]);
+  assert.equal(globalThis.__evalContextOptions.checkAvailable, undefined);
+  assert.equal(report.configuration.keywordOnly, false);
 });

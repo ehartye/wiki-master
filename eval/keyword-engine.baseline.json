@@ -1,0 +1,179 @@
+{
+  "description": "Baseline of the keyword-engine question set (eval/keyword-engine.questions.json) on the live vault. Summaries only; regenerate full reports with scripts/evaluate-retrieval.mjs.",
+  "measured": {
+    "date": "2026-10-19",
+    "pluginVersion": "0.44.1",
+    "vaultPages": 7883,
+    "questions": 42,
+    "vaultNote": "The vault changes; expected pages are a snapshot, and later runs report missingExpectedPages for edited pages."
+  },
+  "runs": [
+    {
+      "label": "filesystem keyword (0.44.1), keyword-only",
+      "keywordOnly": true,
+      "pageRecallAt10": 0.437,
+      "precisionAt3": 0.135,
+      "reciprocalRank": 0.274,
+      "meanLatencyMs": 1238,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0.786,
+          "reciprocalRank": 0.402
+        },
+        "phrase": {
+          "pageRecallAt10": 0.071,
+          "reciprocalRank": 0.036
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.452,
+          "reciprocalRank": 0.385
+        }
+      }
+    },
+    {
+      "label": "filesystem keyword (0.44.1), hybrid",
+      "keywordOnly": false,
+      "pageRecallAt10": 0.399,
+      "precisionAt3": 0.135,
+      "reciprocalRank": 0.21,
+      "meanLatencyMs": 1331,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0.405,
+          "reciprocalRank": 0.264
+        },
+        "phrase": {
+          "pageRecallAt10": 0.286,
+          "reciprocalRank": 0.113
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.506,
+          "reciprocalRank": 0.252
+        }
+      }
+    },
+    {
+      "label": "Obsidian keyword (0.42.1), keyword-only",
+      "keywordOnly": true,
+      "pageRecallAt10": 0.46,
+      "precisionAt3": 0.151,
+      "reciprocalRank": 0.286,
+      "meanLatencyMs": 2078,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0.786,
+          "reciprocalRank": 0.402
+        },
+        "phrase": {
+          "pageRecallAt10": 0.071,
+          "reciprocalRank": 0.036
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.524,
+          "reciprocalRank": 0.421
+        }
+      }
+    },
+    {
+      "label": "Obsidian keyword (0.42.1), hybrid",
+      "keywordOnly": false,
+      "pageRecallAt10": 0.375,
+      "precisionAt3": 0.119,
+      "reciprocalRank": 0.165,
+      "meanLatencyMs": 2192,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0.31,
+          "reciprocalRank": 0.127
+        },
+        "phrase": {
+          "pageRecallAt10": 0.286,
+          "reciprocalRank": 0.119
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.53,
+          "reciprocalRank": 0.248
+        }
+      }
+    },
+    {
+      "label": "no keyword channel, identity only",
+      "keywordOnly": true,
+      "pageRecallAt10": 0.056,
+      "precisionAt3": 0.008,
+      "reciprocalRank": 0.021,
+      "meanLatencyMs": 72,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0,
+          "reciprocalRank": 0
+        },
+        "phrase": {
+          "pageRecallAt10": 0.071,
+          "reciprocalRank": 0.036
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.095,
+          "reciprocalRank": 0.028
+        }
+      }
+    },
+    {
+      "label": "no keyword channel, semantic + identity",
+      "keywordOnly": false,
+      "pageRecallAt10": 0.224,
+      "precisionAt3": 0.063,
+      "reciprocalRank": 0.098,
+      "meanLatencyMs": 324,
+      "byCategory": {
+        "conjunction": {
+          "pageRecallAt10": 0.238,
+          "reciprocalRank": 0.106
+        },
+        "phrase": {
+          "pageRecallAt10": 0.286,
+          "reciprocalRank": 0.119
+        },
+        "rare-token": {
+          "pageRecallAt10": 0.149,
+          "reciprocalRank": 0.07
+        }
+      }
+    }
+  ],
+  "engineRankVersusFinalRank": {
+    "note": "Rank of the first expected page in the raw filesystem engine output (limit 100) versus in the final search results (limit 10, keyword-only). The engine ranks the expected page first for every question; the final ranking step then loses many of them.",
+    "byCategory": {
+      "rare-token": {
+        "questions": 14,
+        "engineTop1": 14,
+        "finalTop10": 7
+      },
+      "conjunction": {
+        "questions": 14,
+        "engineTop1": 14,
+        "finalTop10": 11
+      },
+      "phrase": {
+        "questions": 14,
+        "engineTop1": 14,
+        "finalTop10": 1
+      }
+    }
+  },
+  "engineComparison": {
+    "note": "Questions with any expected page in the top 10.",
+    "keywordOnly": {
+      "foundByBoth": 19,
+      "filesystemOnly": 0,
+      "obsidianOnly": 1,
+      "neither": 22
+    },
+    "hybrid": {
+      "foundByBoth": 17,
+      "filesystemOnly": 1,
+      "obsidianOnly": 0,
+      "neither": 24
+    }
+  }
+}

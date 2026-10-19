@@ -131,7 +131,7 @@ export async function evaluateRetrieval(dataset, { split = 'all', vaultRoot, vau
 }
 
 export async function main(argv = process.argv.slice(2)) {
-  const { values } = parseArgs({ args: argv, options: { questions: { type: 'string' }, vault: { type: 'string' }, split: { type: 'string' }, 'search-module': { type: 'string' }, output: { type: 'string' }, json: { type: 'boolean' } } });
+  const { values } = parseArgs({ args: argv, options: { questions: { type: 'string' }, vault: { type: 'string' }, split: { type: 'string' }, 'search-module': { type: 'string' }, output: { type: 'string' }, json: { type: 'boolean' }, 'keyword-only': { type: 'boolean' } } });
   if (!values.questions) throw new Error('--questions FILE is required');
   const dataset = JSON.parse(readFileSync(values.questions, 'utf8'));
   const vaultPath = values.vault ?? resolveVault().path;
@@ -143,8 +143,14 @@ export async function main(argv = process.argv.slice(2)) {
     process.env.WIKI_MASTER_VAULT = vaultPath;
     const search = await import(values['search-module'] ? pathToFileURL(resolve(values['search-module'])).href : new URL('./search.mjs', import.meta.url));
     if (typeof search.main !== 'function') throw new Error('Search module must export main(query, options)');
-    const context = search.createSearchContext ? await search.createSearchContext({ vaultPath, limit: 10 }) : undefined;
+    // --keyword-only builds the context as if the semantic service were down, so only the keyword
+    // and identity channels rank: the way to measure the keyword engine on its own.
+    const keywordOnly = Boolean(values['keyword-only']);
+    const context = search.createSearchContext
+      ? await search.createSearchContext({ vaultPath, limit: 10, ...(keywordOnly ? { checkAvailable: async () => false } : {}) })
+      : undefined;
     report = await evaluateRetrieval(dataset, { split: values.split ?? 'all', vaultPath, searchFn: (query, options) => search.main(query, { ...options, context }) });
+    report.configuration = { keywordOnly };
   } finally {
     if (priorVault === undefined) delete process.env.WIKI_MASTER_VAULT;
     else process.env.WIKI_MASTER_VAULT = priorVault;

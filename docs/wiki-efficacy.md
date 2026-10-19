@@ -65,3 +65,28 @@ Reports: [baseline](../eval/wiki-efficacy.baseline.json), [development](../eval/
 Final verification: `node --test` ran 1,004 tests: 1,002 passed, one skipped, and one pre-existing triage-auth startup failure. The same failure reproduces on unchanged code: random port selection can hit a Windows-excluded port, producing EACCES while the server retries only EADDRINUSE (confirmed and fixed in 0.44.1). Independent spec and code-quality review found no outstanding important or critical issues after fixes. `git diff --check` passed.
 
 Stricter citation handling exposed three malformed sources lists, now repaired against matching raw source hashes, and one remaining uncaptured NoteBuddy source. Related navigation no longer disguises that missing evidence. The structural score is therefore not directly comparable to its older, more permissive result; the remaining source gap and five unreachable derived pages are visible in [vault checks](../eval/wiki-efficacy.vault-check.json).
+
+## Keyword-engine questions
+
+`eval/keyword-engine.questions.json` holds 42 questions that only the keyword channel can answer, because the general set above is dominated by exact names and paraphrases and cannot tell keyword engines apart. Each category has 14 questions (33 development, 9 held out): a rare `identifier` found on 1-4 pages and absent from every title, alias and filename; a `conjunction` of three moderately common terms (each on 10-300 pages, taken from one paragraph) that co-occurs on 1-3 pages; and a three-word `phrase` on 1-3 pages. Ground truth is every page whose text contains the string, by case-insensitive substring match over the vault snapshot, so nothing is judged by taste. `scripts/build-keyword-eval.mjs` generates the set from a seed; the committed JSON is the frozen artifact, and regenerating it is a deliberate act.
+
+Run it with `node scripts/evaluate-retrieval.mjs --questions eval/keyword-engine.questions.json --keyword-only`. `--keyword-only` builds the search context as if the semantic service were down, so only keyword and identity candidates rank; leave it off to measure the full hybrid. The report records the setting under `configuration`.
+
+Baseline on 2026-10-19 (plugin 0.44.1, 7,883 pages), page recall@10 overall and by category. Summaries are in `eval/keyword-engine.baseline.json`.
+
+| Configuration | Overall | Identifier | Conjunction | Phrase |
+|---|---|---|---|---|
+| Filesystem keyword, keyword-only | 0.437 | 0.452 | 0.786 | 0.071 |
+| Filesystem keyword, hybrid | 0.399 | 0.506 | 0.405 | 0.286 |
+| Obsidian keyword (0.42.1), keyword-only | 0.460 | 0.524 | 0.786 | 0.071 |
+| Obsidian keyword (0.42.1), hybrid | 0.375 | 0.530 | 0.310 | 0.286 |
+| No keyword channel, identity only | 0.056 | 0.095 | 0.000 | 0.071 |
+| No keyword channel, semantic and identity | 0.224 | 0.149 | 0.238 | 0.286 |
+
+What it shows, and what it does not:
+
+- **The questions need the keyword channel.** Without it recall falls from 0.44 to 0.06 keyword-only and from 0.40 to 0.22 in hybrid.
+- **The filesystem engine is not the weak point; the final ranking is.** The engine ranks an expected page first for all 42 questions, but only 7 of 14 identifier, 11 of 14 conjunction and 1 of 14 phrase questions keep it in the final top ten. After the engine admits candidates, `main()` re-ranks them by `lexicalScore` (whole-word counts, with an alphabetical tie-break) and the engine's order is discarded. A phrase on a page that shares its three words with dozens of others ties with them and loses to the alphabet.
+- **It does not separate the two engines.** Filesystem and Obsidian differ on one question each way (19 found by both, 22 by neither) because the ranking step dominates, so it measures the pipeline, not the engine alone. The filesystem engine is faster (about 1.2 against 2.1 seconds per question with a warm Obsidian).
+- **Hybrid is below keyword-only** overall (0.399 against 0.437): for exact-string queries the semantic channel adds noise that rank fusion lets displace exact matches.
+- **Limits:** 14 questions per category and a single run, so differences of one or two questions are noise. The conjunction triples are exact but not natural queries. The vault is a moving snapshot; edited pages surface as `missingExpectedPages`. Latencies use a warm Obsidian.
