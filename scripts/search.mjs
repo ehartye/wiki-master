@@ -6,7 +6,7 @@ import { fsKeywordSearch } from './lib/fs-keyword.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
-import { resolveVault, obsidianJson } from './lib/vault.mjs';
+import { resolveVault } from './lib/vault.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { statusReport } from './index-embed.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -26,7 +26,7 @@ const VECTORS_IDX = 'vectors.idx.json';
 //
 // A missing or empty index is a first-class, non-fatal state (design spec
 // section 5.5 / 5.3): building one takes minutes, so a query must never
-// trigger a build. `available: false` tells search() to skip the semantic
+// trigger a build. `available: false` tells main() to skip the semantic
 // channel and fall back to the lexical tier rather than block or error.
 // Availability is judged on total CHUNK count, not file count -- a manifest
 // entry with an empty chunks array must not count as coverage.
@@ -75,99 +75,6 @@ export function mergeRRF(lists) {
   return [...scores.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([path, score]) => ({ path, score }));
-}
-
-// The tiering ladder, isolated from real I/O behind injected deps so it is
-// unit-testable without a live Ollama/Obsidian/index. `keywordSearch` always
-// runs when needed (obsidian search always works or the vault is broken
-// anyway); the semantic channel needs BOTH a reachable Ollama AND a built
-// index -- either missing on its own degrades to `lexical`, never a partial
-// or misleading `hybrid` (design spec section 5.4/5.5). A built-but-empty
-// index (see loadChunkIndex) counts as absent, not present.
-//
-// `rawKeywordSearch` is an OPTIONAL, additive fifth dep -- absent for every
-// existing caller (purge.mjs's collectSeeds included), so their behavior is
-// byte-for-byte unchanged. When a caller (the wiki-search skill) does supply
-// it, raw/ hits are appended AFTER the normal tiering result rather than
-// fused into it: raw/ clippings are not chunked/embedded (that was a
-// deliberate, documented scope decision -- see index-embed.mjs's own
-// comment -- embedding them would roughly triple the index), so there is no
-// semantic rank to fuse them into, and blending unvetted raw evidence into
-// the same ranked list as reviewed wiki/ pages would erase a distinction
-// that matters (a raw/ hit is immutable source evidence, not yet
-// synthesized). Each raw hit carries `zone: 'raw'` so a caller can tell
-// them apart programmatically, on top of the `raw/` path prefix itself
-// already making this visually obvious. `rawCount` is always set (even 0)
-// whenever rawKeywordSearch was actually called, so a caller can disclose
-// "raw/ was checked and came up empty" rather than raw/ coverage being
-// silently indistinguishable from never having been checked at all.
-export async function search(query, deps) {
-  const { keywordSearch, ollamaAvailable, indexAvailable, semanticRun, rawKeywordSearch } = deps;
-  const keywordHits = await keywordSearch(query);
-  const ollamaUp = await ollamaAvailable();
-  const hasIndex = await indexAvailable();
-  const results = keywordHits.map((path) => ({ path }));
-
-  let base;
-  if (ollamaUp && hasIndex) {
-    try {
-      const semanticHits = await semanticRun(query);
-      // mergeRRF only knows path lists; carry each path's best startLine
-      // through separately so a fused hit still tells an agent which line to
-      // jump to when the semantic channel is the one that supplied it.
-      const lineByPath = new Map(
-        semanticHits.filter((h) => h.startLine != null).map((h) => [h.path, h.startLine])
-      );
-      const fused = mergeRRF([keywordHits, semanticHits.map((h) => h.path)])
-        .map((r) => (lineByPath.has(r.path) ? { ...r, startLine: lineByPath.get(r.path) } : r));
-      base = { tier: 'hybrid', results: fused };
-    } catch (err) {
-      // isAvailable() proves only that the server answers -- a reachable
-      // Ollama with the model never pulled 404s on every embed call
-      // (confirmed live: `Ollama embeddings HTTP 404`). Rather than crash
-      // the whole query on what search-health.mjs calls the one state where
-      // the tier label would otherwise be actively false, fall back to
-      // lexical, same as the qmd tier's own established philosophy (an
-      // optional accelerator that fails at runtime falls through).
-      base = { tier: 'lexical', results, note: `semantic channel failed (${err.message}) -- run \`node scripts/search.mjs --health\`` };
-    }
-  } else if (ollamaUp && !hasIndex) {
-    // The one case where the caller's next action differs from "Ollama is
-    // down": there is a fix (`node scripts/index-embed.mjs`), not a wait.
-    base = { tier: 'lexical', results, note: 'semantic index missing or empty -- run `node scripts/index-embed.mjs` to build it' };
-  } else {
-    base = { tier: 'lexical', results };
-  }
-
-  if (rawKeywordSearch) {
-    const rawHits = await rawKeywordSearch(query);
-    const already = new Set(base.results.map((r) => r.path));
-    const additions = rawHits.filter((p) => !already.has(p)).map((path) => ({ path, zone: 'raw' }));
-    base = { ...base, results: [...base.results, ...additions], rawCount: additions.length };
-  }
-
-  return base;
-}
-
-// The `obsidian` CLI's `search` command prints the plain-text sentence "No
-// matches found." even when `format=json` is requested -- confirmed live
-// during implementation, where it broke `obsidianJson`'s JSON.parse with a
-// SyntaxError. A zero-hit search is not a failure; it just means the keyword
-// channel contributes nothing to this query, so it is treated the same as an
-// empty result list rather than allowed to crash the whole tiering ladder.
-//
-// `path` defaults to 'wiki' -- unchanged behavior for every existing caller.
-// Obsidian's own full-text index already covers raw/ just fine (confirmed
-// live: `obsidian search query=... path=raw` returns real hits); the only
-// reason wiki-master itself never surfaced them was this one hardcoded
-// scope. Passing `path: 'raw'` is what the wiki-search skill's --include-raw
-// flag uses to close that gap without touching the wiki/-only default.
-export function keywordSearch(query, { limit = 10, obsidianJsonImpl = obsidianJson, path = 'wiki' } = {}) {
-  try {
-    return obsidianJsonImpl(['search', `query=${query}`, `path=${path}`, `limit=${limit}`]) ?? [];
-  } catch {
-    return [];
-  }
 }
 
 // Shared setup for a query: resolves the vault, loads the chunk index once,
@@ -304,10 +211,10 @@ export async function main(query, options = {}) {
     ...(includeRaw && keywordHealth.raw === 'ok' ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
 
-// Pure formatting: given a search() result and an assessTiers() verdict,
+// Pure formatting: given a main() result and an assessTiers() verdict,
 // decides what a caller sees on each stream. stdout carries ONLY the answer
 // (paths, optionally :line) so piping stays clean (`search.mjs "q" | ...`);
-// every diagnostic -- the tier line, the full block, search()'s own note,
+// every diagnostic -- the tier line, the full block, any result note,
 // the raw/ hit count when --include-raw was used -- goes to stderr. This is
 // the never-silent guarantee itself: a degraded search always emits at
 // least the one-liner naming what is off, whether or not the caller is

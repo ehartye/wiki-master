@@ -9,14 +9,14 @@
 // qmd was measured, rejected and uninstalled (design spec section 4) -- it
 // was BM25-only despite the tier name, sat above the actually-hybrid tier in
 // the ladder, and retrieved worse than the truncated page-level path it was
-// meant to replace. The remaining channels are Obsidian keyword and the
+// meant to replace. The remaining channels are the filesystem keyword scan and the
 // Ollama-backed chunk-semantic index.
 //
-// Mirrors scripts/search.mjs's `search()` ladder: Ollama reachable AND the
+// Mirrors scripts/search.mjs's `main()` tiers: Ollama reachable AND the
 // chunk index built -> hybrid (keyword + chunk-semantic, RRF-fused);
-// anything else -> lexical (Obsidian keyword alone). Any change to that
-// ladder changes this. The one deliberate divergence: `search()`'s own
-// `ollamaAvailable` dep only proves the SERVER answers (isAvailable()), so a
+// anything else -> lexical (keyword scan alone). Any change to that
+// ladder changes this. The one deliberate divergence: `main()`'s own
+// `checkAvailable` probe only proves the SERVER answers (isAvailable()), so a
 // reachable-but-modelless Ollama would let it compute `hybrid` while every
 // embed 404s underneath. assessTiers checks modelPresent() separately and
 // reports the HONEST tier (lexical) for that state, flagging it
