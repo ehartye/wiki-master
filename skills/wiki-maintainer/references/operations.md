@@ -41,10 +41,29 @@ and preview work do not open operations, log, commit or refresh indexes.
    The helper attempts a semantic index refresh after committing; inspect notices
    for missing backends, skipped work or partial builds. A commit does not establish
    index freshness. Report a non-git vault as local-only; do not claim a commit.
-7. **Sync when already authorized.** `op-commit` itself never pushes. If session or
-   vault instructions authorize sync, run `git -C <vault> push` and verify the result
-   and upstream state. Otherwise report the unpushed commit and ask only if publishing
-   is needed. A rejected push is a real stop for sync: do not force or claim success.
+7. **Sync when already authorized.** `op-commit` itself never pushes. The plugin
+   scripts own the vault's git, so sync with `node "<absolute-plugin-root>/scripts/wiki-sync.mjs"`,
+   not a bare `git push`: it fetches, rebases onto the upstream (never a merge commit),
+   pushes, retries once when another machine pushed first, and verifies against a fresh
+   fetch. Run it after `op-commit`, never between edits; it names any operation still
+   open. A conflict aborts the rebase, exits 1 and names the files; the local commits are
+   intact. Report it and stop: do not force, resolve by guessing, or claim success.
+   `--commit-local` first commits hand edits made outside any operation (the owner's
+   own Obsidian edits) in one scoped `sync:` commit; it refuses while any operation is
+   open, because dirty files cannot then be attributed. If sync is not authorized,
+   report the unpushed commit and ask only if publishing is needed.
+
+**Abandoned tokens.** A token is removed only by its own `op-commit`, so a crashed
+session, or a close that failed and kept its token, leaves one behind. Tokens older than
+24 hours are treated as abandoned: `wiki-sync` names them but they still block hand-edit commits. List them
+with `node "<absolute-plugin-root>/scripts/op-cleanup.mjs"` (a dry run) and remove them
+with `--apply --token <id>` only after verifying that operation is abandoned. Age alone is not proof. `--hours <n>` changes the age filter, with a one-hour minimum. Never delete tokens by hand-guessing which are dead.
+
+**Git ownership.** The Obsidian Git plugin stays installed for its source-control view
+and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
+interval 0, commit on file change off, auto push interval 0): they commit half-finished
+operation edits under "vault backup" and leave `op-commit` an empty delta. `wiki-sync`
+warns when they are on. Every machine sharing the vault needs the same setting.
 
 **Done only when** the requested change is validated, applicable catalogs and one
 operation log are recorded, the operation commit is verified (or its precise
