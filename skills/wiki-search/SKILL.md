@@ -31,7 +31,7 @@ read from there rather than the top of the page.
 is not `hybrid`, and inspect channel failures even when it is.** Degradation can
 leave plausible results with incomplete coverage; a fatal input/runtime error can
 still fail. Report unavailable channels instead of interpreting no hits as no knowledge:
-- `(hybrid · N chunks)` — keyword and chunk-level semantic, RRF-fused; channel status alone does not establish relevance.
+- `(hybrid · N chunks)` — keyword and chunk-level semantic, RRF-fused; channel status alone does not establish relevance. When the keyword scan finds the query exactly (1 to 3 pages hold the whole query as written, or a query of at most 5 terms has 1 to 3 pages holding every term in one paragraph), the semantic list stops voting in the final order, so an identifier or phrase is not displaced by topical neighbours; `--json` reports that as `semanticGate: { reason, pages }` (`null` when it did not apply). The tier is unchanged: semantic still admits candidates.
 - `(lexical — <what is off> · run --health)` — keyword only. The
   results are still real, but semantic ranking contributed nothing. **Say so
   in your answer** — a user reading a confident result list has no way to

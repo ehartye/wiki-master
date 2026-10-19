@@ -296,5 +296,101 @@
         "reciprocalRank": 0.809
       }
     }
+  },
+  "afterSemanticGate": {
+    "note": "0.47.0: the semantic list stops voting in the final fusion when the pages that validated as candidates answer the query exactly (1 to 3 pages hold the whole query as written, or a query of at most 5 terms has 1 to 3 pages holding every term in one paragraph). Same live vault and questions, run twice with identical per-question results. Compare with afterEngineRankFusion, whose hybrid run is the before.",
+    "measured": {
+      "date": "2026-10-19",
+      "pluginVersion": "0.47.0",
+      "vaultPages": 7883
+    },
+    "runs": [
+      {
+        "label": "gate, hybrid",
+        "keywordOnly": false,
+        "pageRecallAt10": 0.937,
+        "precisionAt3": 0.421,
+        "reciprocalRank": 0.735,
+        "meanLatencyMs": 1253,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.881,
+            "reciprocalRank": 0.714,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 0.929,
+            "reciprocalRank": 0.881,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 1,
+            "reciprocalRank": 0.61,
+            "questionsWithAnExpectedPageInTop10": "14/14"
+          }
+        }
+      },
+      {
+        "label": "gate, keyword-only (unchanged: the gate removes only the semantic list)",
+        "keywordOnly": true,
+        "pageRecallAt10": 0.937,
+        "precisionAt3": 0.429,
+        "reciprocalRank": 0.742,
+        "meanLatencyMs": 1299,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.881,
+            "reciprocalRank": 0.679,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 0.929,
+            "reciprocalRank": 0.881,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 1,
+            "reciprocalRank": 0.667,
+            "questionsWithAnExpectedPageInTop10": "14/14"
+          }
+        }
+      }
+    ],
+    "generalSetGuard": {
+      "questions": 40,
+      "pageRecallAt10": 0.938,
+      "precisionAt3": 0.342,
+      "reciprocalRank": 0.823,
+      "before": {
+        "pageRecallAt10": 0.938,
+        "precisionAt3": 0.342,
+        "reciprocalRank": 0.835
+      },
+      "guard": {
+        "pageRecallAt10": 0.9375,
+        "reciprocalRank": 0.809
+      }
+    },
+    "semanticWeightSweep": {
+      "note": "Why a gate and not a weight: a temporary weight on the semantic list in the final fusion, hybrid, page recall@10 (keyword-engine set / 40-question set).",
+      "weights": {
+        "0": [
+          0.937,
+          0.813
+        ],
+        "1": [
+          0.722,
+          0.938
+        ],
+        "0.25": [
+          0.933,
+          0.887
+        ],
+        "0.5": [
+          0.825,
+          0.9
+        ]
+      }
+    }
   }
 }

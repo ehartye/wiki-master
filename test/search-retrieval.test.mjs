@@ -351,3 +351,59 @@ test('moc and wiki keyword lists vote as equals: a moc page the engine ranks fir
   const result = await retrieval.main('alpha beta gamma', { context: ctx, limit: 3 });
   assert.ok(result.results.slice(0, 2).some(h => h.path === 'moc/z-map.md'), result.results.map(h => h.path).join());
 });
+
+// The semantic list stub: pages the semantic channel ranks first, in order, as the index would return them.
+const withSemantic = (ctx, paths) => ({ ...ctx, semanticRun: async () => paths.map(path => ({ path, startLine: 1, score: 0.9 })) });
+const neighbours = Array.from({ length: 12 }, (_, i) => `wiki/a-${String(i).padStart(2, '0')}.md`);
+const neighbourFiles = () => Object.fromEntries(neighbours.map(p => [p, '# Note\nimport and scene and apart are mentioned here.\n']));
+
+test('an identifier held by one page as written drops the semantic vote, so topical neighbours cannot displace it', async (t) => {
+  const files = { ...neighbourFiles(), 'wiki/z-exact.md': '# Note\nCall import_scene to load it.\n' };
+  const { vaultPath } = await fixture(t, files);
+  const engine = ['wiki/z-exact.md', ...neighbours];
+  const ctx = withSemantic(await context(vaultPath, [], { keywordSearchFn: async (q, o) => o.path === 'wiki' ? engine : [] }), [...neighbours, 'wiki/z-exact.md']);
+  const result = await retrieval.main('import_scene', { context: ctx, limit: 3 });
+  assert.equal(result.results[0].path, 'wiki/z-exact.md');
+  assert.deepEqual(result.semanticGate, { reason: 'phrase', pages: 1 });
+});
+
+test('three keywords held together in one paragraph of a page drop the semantic vote', async (t) => {
+  const files = Object.fromEntries(neighbours.map(p => [p, '# Note\nalpha is the only word here.\n']));
+  files['wiki/z-target.md'] = '# Target\nFirst alpha, later beta, finally gamma.\n';
+  const { vaultPath } = await fixture(t, files);
+  const engine = ['wiki/z-target.md', ...neighbours];
+  const ctx = withSemantic(await context(vaultPath, [], { keywordSearchFn: async (q, o) => o.path === 'wiki' ? engine : [] }), [...neighbours, 'wiki/z-target.md']);
+  const result = await retrieval.main('alpha beta gamma', { context: ctx, limit: 3 });
+  assert.equal(result.results[0].path, 'wiki/z-target.md');
+  assert.deepEqual(result.semanticGate, { reason: 'paragraph', pages: 1 });
+});
+
+test('a query many pages satisfy keeps the semantic vote and reports no gate', async (t) => {
+  const { vaultPath } = await fixture(t, neighbourFiles());
+  const ctx = withSemantic(await context(vaultPath, [], { keywordSearchFn: async (q, o) => o.path === 'wiki' ? neighbours : [] }), neighbours);
+  const result = await retrieval.main('import scene apart', { context: ctx, limit: 3 });
+  assert.equal(result.semanticGate, null);
+  assert.equal(result.results[0].path, 'wiki/a-00.md');
+});
+
+test('exactMatchGate: phrase pages 1 to 3 fire; paragraph needs a short query; no terms or no hits never fire', () => {
+  const q = 'alpha beta gamma';
+  assert.deepEqual(retrieval.exactMatchGate(q, { phraseHits: 3, paragraphHits: 0 }), { reason: 'phrase', pages: 3 });
+  assert.equal(retrieval.exactMatchGate(q, { phraseHits: 4, paragraphHits: 4 }), null);
+  assert.equal(retrieval.exactMatchGate(q, { phraseHits: 0, paragraphHits: 0 }), null);
+  assert.deepEqual(retrieval.exactMatchGate(q, { phraseHits: 0, paragraphHits: 2 }), { reason: 'paragraph', pages: 2 });
+  assert.equal(retrieval.exactMatchGate('why can comparing too many choices overwhelm a young child', { phraseHits: 0, paragraphHits: 1 }), null);
+  assert.deepEqual(retrieval.exactMatchGate('one two three four five', { phraseHits: 0, paragraphHits: 1 }), { reason: 'paragraph', pages: 1 });
+  assert.equal(retrieval.exactMatchGate('one two three four five six', { phraseHits: 0, paragraphHits: 1 }), null);
+  assert.equal(retrieval.exactMatchGate('the of and', { phraseHits: 0, paragraphHits: 1 }), null);
+});
+
+test('terms spread across separate paragraphs of a page do not count as held together', async (t) => {
+  const files = Object.fromEntries(neighbours.map(p => [p, '# Note\nalpha is the only word here.\n']));
+  files['wiki/z-spread.md'] = '# Spread\nalpha here.\n\nbeta somewhere else.\n\ngamma at the end.\n';
+  const { vaultPath } = await fixture(t, files);
+  const engine = ['wiki/z-spread.md', ...neighbours];
+  const ctx = withSemantic(await context(vaultPath, [], { keywordSearchFn: async (q, o) => o.path === 'wiki' ? engine : [] }), [...neighbours, 'wiki/z-spread.md']);
+  const result = await retrieval.main('alpha beta gamma', { context: ctx, limit: 3 });
+  assert.equal(result.semanticGate, null);
+});

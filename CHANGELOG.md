@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.47.0 — 2026-10-19
+
+- Fix hybrid search ranking worse than keyword-only on exact-string queries. The semantic list returns topical neighbours of an identifier or phrase, and the final fusion let them displace the pages that hold the string. A temporary weight on the semantic list showed no constant fixes it: weight 0 gave 0.937 page recall@10 on the keyword-engine set but 0.813 on the 40-question set (paraphrase 0.375), and only weight 1 held that set's guard. `exactMatchGate` decides per query instead: when 1 to 3 of the validated candidate pages hold the whole query as written, or a query of at most 5 terms has 1 to 3 pages holding every term in one paragraph, the semantic list gets no vote in the final order. It still admits candidates and the tier is unchanged. `--json` results report the decision as `semanticGate: { reason, pages }` (`null` when it did not apply).
+- Measured on the live vault (7,883 pages), page recall@10 before -> after: keyword-engine set in hybrid 0.722 -> 0.937 (identifier 0.762 -> 0.881, conjunction 0.762 -> 0.929, phrase 0.643 -> 1.000), equal to keyword-only. The 40-question set held: recall 0.938 -> 0.938, precision@3 0.342 -> 0.342, reciprocal rank 0.835 -> 0.823 (guard 0.809). Two runs matched on every question; results are flat for a page limit of 3 to 5 and a term limit of 3 to 6. The limits were chosen on these two sets, so treat them as measured, not proven. See `eval/keyword-engine.baseline.json` and `docs/wiki-efficacy.md`.
+
 ## 0.46.0 — 2026-10-19
 
 - Fix the final search ranking discarding the keyword engine's order. `main()` used the engine only to admit candidates and then ranked them by `lexicalScore` (whole words, alphabetical tie-break), so an identifier such as `import_scene` or an exact three-word phrase lost to pages that merely contained the same words. The engine's rank is now a third list in the final reciprocal-rank fusion (`moc/` and `wiki/` lists vote as equals), and pages with equal lexical scores share one rank so the alphabet no longer votes. `mergeRRF` accepts `{ path, rank }` entries and `tiedRanks` is exported.
