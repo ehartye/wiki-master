@@ -109,7 +109,7 @@ test('CLI flags reject invalid limits, missing filter values and unknown options
   assert.equal(typeof retrieval.parseArgs, 'function');
   for (const argv of [['q','--limit','0'], ['q','--limit=3x'], ['q','--project'], ['q','--wat']]) assert.throws(() => retrieval.parseArgs(argv));
   assert.deepEqual(retrieval.parseArgs(['Agent Memory','--json','--limit=3','--project','wiki-master','--type','concept','--status','active']),
-    { query: 'Agent Memory', json: true, limit: 3, project: 'wiki-master', type: 'concept', status: 'active', includeRaw: false, includeMoc: false });
+    { query: 'Agent Memory', json: true, limit: 3, project: 'wiki-master', type: 'concept', status: 'active', includeRaw: false });
 });
 
 test('keyword backend failure reports degraded coverage while exact lookup still works', async (t) => {
@@ -121,20 +121,19 @@ test('keyword backend failure reports degraded coverage while exact lookup still
   assert.equal(result.tier, 'identity-only');
 });
 
-test('bounded keyword adapter passes timeout and distinguishes zero hits from failures', async () => {
-  assert.equal(typeof retrieval.boundedKeywordSearch, 'function');
-  await assert.rejects(retrieval.boundedKeywordSearch('x'.repeat(3000), { execFileImpl() { assert.fail('unsafe search must not launch'); } }), /not sent/i);
-  let opts;
-  const execFileImpl = (cmd, args, options, callback) => { opts = options; callback(null, 'No matches found.'); };
-  assert.deepEqual(await retrieval.boundedKeywordSearch('q', { execFileImpl }), []);
-  // A cold wiki/ full-text call measured 29s on the live vault; the gate wait must outlast it too.
-  assert.ok(retrieval.KEYWORD_TIMEOUT_MS >= 45000);
-  assert.equal(opts.timeout, retrieval.KEYWORD_TIMEOUT_MS);
-  assert.equal(opts.waitTimeout, retrieval.KEYWORD_TIMEOUT_MS);
-  await retrieval.boundedKeywordSearch('q', { execFileImpl, timeout: 5000 });
-  assert.equal(opts.timeout, 5000);
-  assert.equal(opts.waitTimeout, 5000);
-  await assert.rejects(() => retrieval.boundedKeywordSearch('q', { execFileImpl: (cmd,args,opts,cb) => cb(new Error('timeout')) }), /timeout/);
+test('the default keyword channel reads the vault files, so search needs no Obsidian', async (t) => {
+  const { vaultPath } = await fixture(t, {
+    'wiki/concepts/cold-start.md': '# Cold Start\nThe zorblax subsystem needs warming.\n',
+    'wiki/concepts/other.md': '# Other\nUnrelated.\n',
+    'raw/clippings/source.md': '# Source\nzorblax evidence.\n',
+  });
+  const ctx = await context(vaultPath, [], { keywordSearchFn: undefined });
+  const result = await retrieval.main('zorblax', { context: ctx, includeRaw: true });
+  assert.equal(result.results[0].path, 'wiki/concepts/cold-start.md');
+  assert.equal(result.results[0].match, 'lexical');
+  assert.deepEqual(result.results.filter(h => h.zone === 'raw').map(h => h.path), ['raw/clippings/source.md']);
+  assert.equal(result.tier, 'hybrid');
+  assert.ok(!result.diagnostics.some(d => d.code === 'keyword-failed'));
 });
 
 test('MOC exact lookup works without semantic service', async (t) => {
@@ -221,51 +220,32 @@ test('include-raw appends bounded raw results even when wiki fills the limit', a
   assert.equal(result.rawCount, 1);
 });
 
-test('keyword search skips moc/ unless include-moc is set', async (t) => {
-  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nQuery.\n', 'moc/map.md': '# Map\nQuery map.\n' });
-  const scopes = [];
-  const ctx = await context(vaultPath, [], { keywordSearchFn: async (q, options) => { scopes.push(options.path); return options.path === 'moc' ? ['moc/map.md'] : ['wiki/a.md']; } });
-  await retrieval.main('Query', { context: ctx });
-  assert.deepEqual([...new Set(scopes)], ['wiki']);
-  scopes.length = 0;
-  const withMoc = await retrieval.main('Query', { context: ctx, includeMoc: true });
-  assert.deepEqual([...new Set(scopes)].sort(), ['moc', 'wiki']);
-  assert.ok(withMoc.results.some(h => h.path === 'moc/map.md'));
+test('keyword search asks once per scope with the query as typed: wiki and moc always, raw only with include-raw', async (t) => {
+  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha beta.\n', 'moc/map.md': '# Map\nalpha map.\n' });
+  const calls = [];
+  const ctx = await context(vaultPath, [], { keywordSearchFn: async (q, options) => { calls.push([options.path, q]); return []; } });
+  await retrieval.main('alpha beta', { context: ctx });
+  assert.deepEqual(calls, [['wiki', 'alpha beta'], ['moc', 'alpha beta']]);
+  calls.length = 0;
+  await retrieval.main('alpha beta', { context: ctx, includeRaw: true });
+  assert.deepEqual(calls.map(c => c[0]), ['wiki', 'moc', 'raw']);
 });
 
-test('keyword search runs the OR rewrite only when the query as typed returns fewer than limit hits', async (t) => {
-  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha beta.\n', 'wiki/b.md': '# B\nalpha only.\n' });
-  const calls = [];
-  let active = 0, maxActive = 0;
+test('a failing keyword scope is reported by scope while the others still contribute', async (t) => {
+  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha.\n', 'moc/map.md': '# Map\nalpha map.\n' });
   const ctx = await context(vaultPath, [], { keywordSearchFn: async (q, options) => {
-    calls.push(q); maxActive = Math.max(maxActive, ++active); await new Promise(r => setImmediate(r)); active--;
-    return q.includes(' OR ') ? ['wiki/a.md', 'wiki/b.md'] : ['wiki/a.md'];
+    if (options.path === 'wiki') throw new Error('scan failed');
+    return ['moc/map.md'];
   } });
-  const sparse = await retrieval.main('alpha beta', { context: ctx, limit: 2 });
-  assert.deepEqual(calls, ['alpha beta', 'alpha OR beta']);
-  assert.ok(sparse.results.some(h => h.path === 'wiki/b.md'), 'OR hits are merged');
-  calls.length = 0;
-  await retrieval.main('alpha beta', { context: ctx, limit: 1 });
-  assert.deepEqual(calls, ['alpha beta'], 'enough hits as typed: no OR call');
-  calls.length = 0;
-  await retrieval.main('alpha', { context: ctx, limit: 2 });
-  assert.deepEqual(calls, ['alpha'], 'single term has no distinct OR variant');
-  assert.equal(maxActive, 1, 'keyword calls never overlap');
+  const result = await retrieval.main('alpha', { context: ctx });
+  assert.deepEqual(result.diagnostics.filter(d => d.code === 'keyword-failed').map(d => [d.scope, d.message]), [['wiki', 'scan failed']]);
+  assert.ok(result.results.some(h => h.path === 'moc/map.md'));
 });
 
-test('a failed keyword call is reported and not followed by the OR rewrite for that scope', async (t) => {
-  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha beta.\n' });
-  const calls = [];
-  const ctx = await context(vaultPath, [], { keywordSearchFn: async (q) => { calls.push(q); throw new Error('CLI timed out'); } });
-  const result = await retrieval.main('alpha beta', { context: ctx });
-  assert.deepEqual(calls, ['alpha beta']);
-  assert.deepEqual(result.diagnostics.filter(d => d.code === 'keyword-failed').map(d => d.scope), ['wiki']);
-  assert.equal(result.tier, 'semantic+identity');
-});
-
-test('parseArgs accepts --include-moc', () => {
-  assert.equal(retrieval.parseArgs(['q']).includeMoc, false);
-  assert.equal(retrieval.parseArgs(['q', '--include-moc']).includeMoc, true);
+test('parseArgs still tolerates the retired --include-moc flag', () => {
+  const parsed = retrieval.parseArgs(['q', '--include-moc']);
+  assert.equal(parsed.query, 'q');
+  assert.equal('includeMoc' in parsed, false);
 });
 
 test('qualified paths preserve punctuation and cannot be claimed by aliases', async (t) => {

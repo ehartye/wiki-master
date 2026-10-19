@@ -1,7 +1,7 @@
 ---
 name: wiki-search
 description: Use when asked to find wiki pages, locate a passage, or inspect raw evidence with citation-ready paths and lines. Pure retrieval; use wiki-query for a synthesized answer and wiki-discover for new external sources.
-argument-hint: "<your search terms> [--include-raw] [--include-moc]"
+argument-hint: "<your search terms> [--include-raw]"
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.
@@ -20,8 +20,8 @@ leaves out.
 
 ## How it works
 
-`node "<absolute-plugin-root>/scripts/search.mjs" "..."` runs a tiered lookup over `wiki/` and `moc/` (MOCs match by name and semantic index; add `--include-moc` to also run Obsidian keyword search over `moc/`):
-The helper attempts Obsidian keyword lookup with a bounded timeout; a chunk-level semantic index
+`node "<absolute-plugin-root>/scripts/search.mjs" "..."` runs a tiered lookup over `wiki/` and `moc/`:
+The helper scans the Markdown files for keyword matches (exact phrase first, then all query terms, then partial matches) and needs no running app; a chunk-level semantic index
 (built by `index-embed.mjs`, Ollama-backed) fuses in via Reciprocal Rank
 Fusion when both a reachable Ollama and a built index are present. Results
 print as `path:line` — the line is the passage that actually matched, so
@@ -32,7 +32,7 @@ is not `hybrid`, and inspect channel failures even when it is.** Degradation can
 leave plausible results with incomplete coverage; a fatal input/runtime error can
 still fail. Report unavailable channels instead of interpreting no hits as no knowledge:
 - `(hybrid · N chunks)` — keyword and chunk-level semantic, RRF-fused; channel status alone does not establish relevance.
-- `(lexical — <what is off> · run --health)` — Obsidian keyword only. The
+- `(lexical — <what is off> · run --health)` — keyword only. The
   results are still real, but semantic ranking contributed nothing. **Say so
   in your answer** — a user reading a confident result list has no way to
   know the retrieval was degraded.
@@ -66,8 +66,8 @@ still have an outdated embedding. `--health` reports changes since refresh.
 evidence, deliberately excluded from both the keyword default and the
 semantic index (embedding it would roughly triple the index — an explicit,
 documented scope decision, not an oversight). That does **not** mean raw/ is
-unsearchable, though — Obsidian's own full-text index already covers it
-fine. **Pass `--include-raw`** to search both in one call:
+unsearchable, though — the keyword scan covers it (it adds a few
+seconds over the 240 MB of clippings). **Pass `--include-raw`** to search both in one call:
 
 ```bash
 node "<absolute-plugin-root>/scripts/search.mjs" "your terms" --include-raw
