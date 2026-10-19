@@ -195,13 +195,19 @@ export async function createSearchContext({ vaultPath = resolveVault().path,
     keywordSearchFn: keywordSearchFn ?? ((q, options) => boundedKeywordSearch(q, { ...options, name })) };
 }
 
+// Obsidian reads note contents on a cold full-text search: measured on the live vault, the first
+// wiki/ call took 29s and later ones 0.1-0.3s. The default 10s kill leaves it cold forever, so
+// search gets a longer bound. The gate wait matches it, or a second process queued behind a cold
+// call would give up as "busy" while the first is still legitimately working. Read-only, never retried.
+export const KEYWORD_TIMEOUT_MS = 45000;
+
 // Search uses the same cross-process gate and preflight as synchronous callers.
 // A failed channel is distinct from zero hits.
-export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = guardedExecFile } = {}) {
+export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = guardedExecFile, timeout = KEYWORD_TIMEOUT_MS } = {}) {
   const args = buildArgs(name, ['search', `query=${query}`, `path=${path}`, `limit=${limit}`, 'format=json']);
   validateCliRequest(args);
   const out = await new Promise((resolve, reject) => execFileImpl('obsidian', args,
-    { encoding: 'utf8', timeout: 10000, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+    { encoding: 'utf8', timeout, waitTimeout: timeout, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
     (err, stdout) => err ? reject(err) : resolve(stdout.trim())));
   if (!out || out === 'No matches found.') return [];
   const parsed = JSON.parse(out);

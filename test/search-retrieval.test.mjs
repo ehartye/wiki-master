@@ -127,7 +127,13 @@ test('bounded keyword adapter passes timeout and distinguishes zero hits from fa
   let opts;
   const execFileImpl = (cmd, args, options, callback) => { opts = options; callback(null, 'No matches found.'); };
   assert.deepEqual(await retrieval.boundedKeywordSearch('q', { execFileImpl }), []);
-  assert.equal(opts.timeout, 10000);
+  // A cold wiki/ full-text call measured 29s on the live vault; the gate wait must outlast it too.
+  assert.ok(retrieval.KEYWORD_TIMEOUT_MS >= 45000);
+  assert.equal(opts.timeout, retrieval.KEYWORD_TIMEOUT_MS);
+  assert.equal(opts.waitTimeout, retrieval.KEYWORD_TIMEOUT_MS);
+  await retrieval.boundedKeywordSearch('q', { execFileImpl, timeout: 5000 });
+  assert.equal(opts.timeout, 5000);
+  assert.equal(opts.waitTimeout, 5000);
   await assert.rejects(() => retrieval.boundedKeywordSearch('q', { execFileImpl: (cmd,args,opts,cb) => cb(new Error('timeout')) }), /timeout/);
 });
 
