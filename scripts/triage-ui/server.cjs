@@ -14,6 +14,7 @@ const os = require('os');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { bindWithFallback } = require('./listen.cjs');
 
 // ========== WebSocket (RFC 6455, text frames only) ==========
 
@@ -522,39 +523,36 @@ function startServer() {
   }
 
   // A remembered port can be taken by anything — another vault's server, or an
-  // unrelated process that grabbed it while we were down. Moving is always
-  // better than dying: the link is reprintable, the port is not load-bearing.
-  let port = rememberedPort();
-  let moves = 0;
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE' && moves < 10) {
-      moves++;
-      port = randomPort();
-      server.listen(port, HOST);
-      return;
-    }
-    console.error(JSON.stringify({ type: 'listen-failed', error: err.message }));
-    process.exit(1);
-  });
-
-  server.listen(port, HOST, () => {
-    rememberPort(port);
-    const url = 'http://' + URL_HOST + ':' + port;
-    const info = JSON.stringify({
-      type: 'server-started',
-      port,
-      host: HOST,
-      remote: REMOTE,
-      // `url` stays clean so liveness checks and logs carry no credential;
-      // `link` is the one-click entry point Claude hands to the user.
-      url,
-      link: url + '/?t=' + TOKEN,
-      screen_dir: CONTENT_DIR,
-      state_dir: STATE_DIR,
-      vault: VAULT_PATH,
-    });
-    console.log(info);
-    fs.writeFileSync(path.join(STATE_DIR, 'server-info'), info + '\n');
+  // unrelated process that grabbed it while we were down — and on Windows the OS can
+  // refuse a port outright (EACCES). Moving is always better than dying: the link is
+  // reprintable, the port is not load-bearing. See listen.cjs for which failures move.
+  bindWithFallback(server, {
+    host: HOST,
+    port: rememberedPort(),
+    pickPort: randomPort,
+    onFailed: (err) => {
+      console.error(JSON.stringify({ type: 'listen-failed', error: err.message }));
+      process.exit(1);
+    },
+    onBound: (port) => {
+      rememberPort(port);
+      const url = 'http://' + URL_HOST + ':' + port;
+      const info = JSON.stringify({
+        type: 'server-started',
+        port,
+        host: HOST,
+        remote: REMOTE,
+        // `url` stays clean so liveness checks and logs carry no credential;
+        // `link` is the one-click entry point Claude hands to the user.
+        url,
+        link: url + '/?t=' + TOKEN,
+        screen_dir: CONTENT_DIR,
+        state_dir: STATE_DIR,
+        vault: VAULT_PATH,
+      });
+      console.log(info);
+      fs.writeFileSync(path.join(STATE_DIR, 'server-info'), info + '\n');
+    },
   });
 }
 
