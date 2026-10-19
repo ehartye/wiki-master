@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.45.0 — 2026-10-19
+
+- Add a keyword-engine evaluation set, `eval/keyword-engine.questions.json`: 42 questions (14 each of rare identifier, three-term conjunction and three-word phrase) whose ground truth is every vault page containing the string, by exact substring match, so only a keyword channel can answer them. `scripts/build-keyword-eval.mjs` generates it from a seed (rare identifiers must be absent from every title, alias and filename; each bound is tested, and the tests were mutation-checked). `scripts/evaluate-retrieval.mjs --keyword-only` builds the search context with the semantic service switched off to measure the keyword channel on its own, and reports the setting under `configuration`.
+- First baseline (plugin 0.44.1, live vault): page recall@10 is 0.437 keyword-only and 0.399 hybrid, against 0.056 and 0.224 with no keyword channel, so the questions do need it. The filesystem engine ranks an expected page first for all 42 questions, but `main()`'s final `lexicalScore` ranking drops many from the top ten (7 of 14 identifier, 11 of 14 conjunction and 1 of 14 phrase questions survive), which makes the set a measure of the pipeline's ranking rather than of the engine alone. The filesystem and Obsidian engines differ on one question each way. See `docs/wiki-efficacy.md` and `eval/keyword-engine.baseline.json`. No search behavior changed in this release.
+
 ## 0.44.1 — 2026-10-18
 
 - Fix the triage UI server dying on startup when its randomly chosen port is refused by the OS. The server picks a port in 49152-65534 and moved to another only on `EADDRINUSE`; on Windows about 4% of that range fails to bind with `EACCES` (reserved ranges and ports held exclusively; 716 of 16,383 ports on the measured machine), so roughly one launch in 25 exited with `listen-failed`. 300 real boots with default port selection failed 9 times, every one `listen EACCES`; after the fix, 300 of 300 started. The bind-and-fallback logic now lives in `scripts/triage-ui/listen.cjs` and treats `EADDRINUSE` and `EACCES` as "pick another port" (up to 10 moves); any other listen error still fails at once.
