@@ -24,7 +24,7 @@ or the bundled `scripts/lib/vault.mjs` API. These share an OS-managed lock acros
 agent processes, vaults and plugin copies for the same user. Do not launch native
 `obsidian` directly or bypass a busy guard; other tools' raw calls are not protected.
 The guard waits up to 10 seconds for a turn, then fails without sending a request.
-Command execution has its own 10-second default timeout; `search.mjs` keyword calls use 45 seconds for both (a cold full-text search measured 29s). Each request is limited
+Command execution has its own 10-second default timeout. Each request is limited
 to a conservative 2,048-byte UTF-8 JSON envelope and rejects physical CR/LF/NUL.
 This policy is not Obsidian's documented maximum. If rejected before sending,
 use filesystem Markdown editing or narrow the read query; do not split a note

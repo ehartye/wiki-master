@@ -10,7 +10,7 @@ Run app commands through the bundled proxy, using its actual absolute path:
 node 'C:/absolute/plugin/scripts/obsidian.mjs' search 'query=offline mode' path=wiki limit=10 format=json
 ```
 
-The proxy resolves `WIKI_MASTER_VAULT` and `WIKI_MASTER_VAULT_NAME` through the existing vault wrapper. JavaScript callers use `obsidian()` from `scripts/lib/vault.mjs`; async search uses `guardedExecFile()` from `scripts/lib/cli-transport.mjs`. Arguments go directly to the executable without a shell. Node.js 20.8 or newer is required.
+The proxy resolves `WIKI_MASTER_VAULT` and `WIKI_MASTER_VAULT_NAME` through the existing vault wrapper. JavaScript callers use `obsidian()` from `scripts/lib/vault.mjs`; `guardedExecFile()` from `scripts/lib/cli-transport.mjs` is the asynchronous entry point. `search.mjs` no longer uses the CLI for keyword lookup (it reads the files directly), so it does not queue behind this gate. Arguments go directly to the executable without a shell. Node.js 20.8 or newer is required.
 
 Create, replace and append ordinary Markdown through exact-path filesystem edits even when the app responds. Read current content first, preserve user changes, bracket writes with the operation helpers, validate and complete the usual catalog/log/commit/sync lifecycle. Do not split a rejected note into repeated CLI writes. Small typed-property and app actions may use the proxy.
 
@@ -18,7 +18,7 @@ Create, replace and append ordinary Markdown through exact-path filesystem edits
 
 - Reject physical CR/LF, NUL and estimated JSON request envelopes over 2,048 UTF-8 bytes before launch. The estimate includes arguments, JSON escaping, working directory and a newline. This conservative policy is not a measured Obsidian wire limit. Diagnostics identify the command and size without echoing the input body.
 - Serialize cooperating callers for the same OS user across processes, vaults, plugin versions and worktrees. Windows uses a named pipe; Linux uses an abstract socket; other platforms reserve a deterministic loopback port. An unrelated listener fails closed. No lock file, permanent service or stale-lock stealing is involved.
-- Wait at most 10 seconds for the gate by default, separately from the CLI's default 10-second execution timeout. `search.mjs` overrides both to 45 seconds (`KEYWORD_TIMEOUT_MS`) because a cold full-text search measured 29s and a shorter kill leaves Obsidian cold. Hold the gate until the child closes, including on failure or timeout. No command is automatically retried.
+- Wait at most 10 seconds for the gate by default, separately from the CLI's default 10-second execution timeout. Hold the gate until the child closes, including on failure or timeout. No command is automatically retried.
 
 `CLI_REQUEST`, `CLI_BUSY` and `CLI_LOCK` mean the request was not sent. Use supported filesystem reads when the app channel is unavailable. A command timeout or worker failure can leave a mutation's outcome unknown: inspect the exact target and reconcile the existing operation before continuing.
 

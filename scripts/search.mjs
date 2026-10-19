@@ -2,11 +2,11 @@ import {
   readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
-import { guardedExecFile, validateCliRequest } from './lib/cli-transport.mjs';
+import { fsKeywordSearch } from './lib/fs-keyword.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
-import { resolveVault, obsidianJson, buildArgs } from './lib/vault.mjs';
+import { resolveVault, obsidianJson } from './lib/vault.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { statusReport } from './index-embed.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -188,31 +188,10 @@ export async function createSearchContext({ vaultPath = resolveVault().path,
     embedFn,
     topN: limit,
   });
-  const name = vaultPath === resolveVault().path ? resolveVault().name : basename(vaultPath);
   const names = buildNameIndex(Object.entries(index.manifest).map(([path, entry]) => ({
     path, name: basename(path, '.md').toLowerCase(), metadata: entry.metadata ?? {}, aliases: entry.aliases ?? [] })));
   return { vaultPath, indexDir, index, ollamaUp, semanticRun, names,
-    keywordSearchFn: keywordSearchFn ?? ((q, options) => boundedKeywordSearch(q, { ...options, name })) };
-}
-
-// Obsidian reads note contents on a cold full-text search: measured on the live vault, the first
-// wiki/ call took 29s and later ones 0.1-0.3s. The default 10s kill leaves it cold forever, so
-// search gets a longer bound. The gate wait matches it, or a second process queued behind a cold
-// call would give up as "busy" while the first is still legitimately working. Read-only, never retried.
-export const KEYWORD_TIMEOUT_MS = 45000;
-
-// Search uses the same cross-process gate and preflight as synchronous callers.
-// A failed channel is distinct from zero hits.
-export async function boundedKeywordSearch(query, { limit = 100, path = 'wiki', name = resolveVault().name, execFileImpl = guardedExecFile, timeout = KEYWORD_TIMEOUT_MS } = {}) {
-  const args = buildArgs(name, ['search', `query=${query}`, `path=${path}`, `limit=${limit}`, 'format=json']);
-  validateCliRequest(args);
-  const out = await new Promise((resolve, reject) => execFileImpl('obsidian', args,
-    { encoding: 'utf8', timeout, waitTimeout: timeout, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
-    (err, stdout) => err ? reject(err) : resolve(stdout.trim())));
-  if (!out || out === 'No matches found.') return [];
-  const parsed = JSON.parse(out);
-  if (!Array.isArray(parsed) || parsed.some(p => typeof p !== 'string')) throw new Error('Unexpected Obsidian search response');
-  return parsed;
+    keywordSearchFn: keywordSearchFn ?? ((q, options) => fsKeywordSearch(q, { ...options, vaultPath })) };
 }
 
 const boundedFetch = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(10000) });
@@ -230,7 +209,7 @@ function validateOptions(query, options) {
 // files is read, once each, to verify current identities, filters and passages.
 // A reusable context keeps vectors resident across evaluation questions.
 export async function main(query, options = {}) {
-  const { limit = 10, includeRaw = false, includeMoc = false } = options;
+  const { limit = 10, includeRaw = false } = options;
   validateOptions(query, { ...options, limit });
   const context = options.context ?? await createSearchContext({ vaultPath: options.vaultPath });
   const { vaultPath, index, ollamaUp, semanticRun, keywordSearchFn } = context;
@@ -243,31 +222,21 @@ export async function main(query, options = {}) {
     scopeMatch: matchesFilters(entry.metadata ?? {}, options) }))
     .filter(x => x.score > 0).sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.path.localeCompare(b.path));
   const keywordPaths = new Set();
-  // Obsidian treats spaces as AND, so the query as typed is the precise call and the OR rewrite
-  // of its terms is the recall net. The net runs only when the precise call came back short, and a
-  // failed call skips it. Calls are sequential: the CLI gate serializes them anyway, and a call
-  // queued behind a slow one burns its own 10s wait. moc/ and raw/ are opt-in for the same reason;
-  // a cold full-text call can take 30s+ and raw/ does not finish at all.
-  const orQuery = terms(query).slice(0, 8).join(' OR ');
-  const keywordScopes = ['wiki', ...(includeMoc ? ['moc'] : []), ...(includeRaw ? ['raw'] : [])];
+  // One ranked call per scope: the keyword engine already orders the exact phrase, then all query
+  // terms, then partial matches, so there is no separate precise and broad query. Each scope
+  // fails on its own and is reported as keyword-failed; zero hits is not a failure.
   const rawPaths = [];
   let keywordAvailable = false;
-  for (const scope of keywordScopes) {
-    const scoped = new Set();
-    for (const q of scope === 'raw' ? [query] : [...new Set([query, orQuery])].filter(Boolean)) {
-      if (q !== query && scoped.size >= limit) break;
-      try {
-        for (const path of await keywordSearchFn(q, { limit: poolLimit, path: scope })) {
-          if (scope === 'raw' ? inScope(path, true) && path.startsWith('raw/') : inScope(path)) scoped.add(path);
-        }
-        if (scope !== 'raw') keywordAvailable = true;
-      } catch (err) {
-        diagnostics.push({ code: 'keyword-failed', scope, message: String(err?.message ?? err).slice(0, 300) });
-        break;
+  for (const scope of ['wiki', 'moc', ...(includeRaw ? ['raw'] : [])]) {
+    try {
+      for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope })) {
+        if (scope === 'raw') { if (inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path); }
+        else if (inScope(path)) keywordPaths.add(path);
       }
+      if (scope !== 'raw') keywordAvailable = true;
+    } catch (err) {
+      diagnostics.push({ code: 'keyword-failed', scope, message: String(err?.message ?? err).slice(0, 300) });
     }
-    if (scope === 'raw') rawPaths.push(...scoped);
-    else for (const path of scoped) keywordPaths.add(path);
   }
   let tier = keywordAvailable ? 'lexical' : 'identity-only';
   let semanticHits = [];
@@ -340,7 +309,7 @@ export function renderResult({ results, note, rawCount, tier, diagnostics = [] }
   const queryAssessment = { ...assessed, tier: tier ?? assessed.tier,
     gaps: [...assessed.gaps, ...(diagnostics.some(d => d.code === 'keyword-failed') ? [{
       channel: 'keyword', state: 'request failed', buys: 'Full-text keyword coverage is incomplete.',
-      fix: 'Check Obsidian CLI availability and retry the query.',
+      fix: 'Read the keyword-failed diagnostics for the failing scope and retry the query.',
     }] : [])] };
   const stderr = announceFull
     ? fullReport(queryAssessment, { chunks }).split('\n')
@@ -463,13 +432,13 @@ async function runSetupCommand() {
 }
 
 export function parseArgs(argv) {
-  const options = { json: false, limit: 10, includeRaw: false, includeMoc: false };
+  const options = { json: false, limit: 10, includeRaw: false };
   const words = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') options.json = true;
     else if (arg === '--include-raw') options.includeRaw = true;
-    else if (arg === '--include-moc') options.includeMoc = true;
+    else if (arg === '--include-moc') continue; // 0.42.0 flag; moc/ is always searched now, so it is a no-op
     else if (arg.startsWith('--')) {
       const [name, ...rest] = arg.slice(2).split('=');
       if (!['limit', 'project', 'type', 'status'].includes(name)) throw new Error(`unknown option: --${name}`);
@@ -495,7 +464,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       await runQuery(query, options);
     } catch (err) {
       console.error(`search: ${err.message}`);
-      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] [--include-moc] | --health | --setup');
+      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
       process.exitCode = 1;
     }
   }
