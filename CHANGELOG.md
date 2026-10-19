@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.44.1 — 2026-10-18
+
+- Fix the triage UI server dying on startup when its randomly chosen port is refused by the OS. The server picks a port in 49152-65534 and moved to another only on `EADDRINUSE`; on Windows about 4% of that range fails to bind with `EACCES` (reserved ranges and ports held exclusively; 716 of 16,383 ports on the measured machine), so roughly one launch in 25 exited with `listen-failed`. 300 real boots with default port selection failed 9 times, every one `listen EACCES`; after the fix, 300 of 300 started. The bind-and-fallback logic now lives in `scripts/triage-ui/listen.cjs` and treats `EADDRINUSE` and `EACCES` as "pick another port" (up to 10 moves); any other listen error still fails at once.
+- This was also the cause of the intermittent `triage-auth` and `triage-server-handoff` test failures on Windows, which failed about 60% of local runs with `server never wrote server-info` and none of 25 runs after the fix. The failures were unexplained because the test discarded the server's stderr; `boot()` now includes the server's exit state and stderr in its error. Linux CI was never affected.
+
 ## 0.44.0 — 2026-10-18
 
 - Report per-channel search health. `search.mjs` results now carry `channels`: `keyword.{wiki,moc,raw}` (`ok` or `failed`, `raw` only when requested), `semantic` (`ok`, `failed`, `ollama-unavailable` or `index-unavailable`) and `identity` (`ok` or `incomplete`). The tier follows the primary `wiki/` keyword scope: a working `moc/` or `raw/` scan no longer lets a search whose `wiki/` scan failed be labelled `hybrid`. The status line names the failed scopes, for example `keyword request failed (wiki, moc)`.

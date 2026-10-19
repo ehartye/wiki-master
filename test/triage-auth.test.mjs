@@ -23,12 +23,21 @@ async function boot(env = {}) {
   mkdirSync(vault, { recursive: true });
   const proc = spawn(process.execPath, [SERVER], {
     env: { ...process.env, WM_TRIAGE_DIR: dir, WM_TRIAGE_VAULT: vault, ...env },
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', 'pipe'],
   });
   proc.unref();
+  proc.stderr.unref();
+  // A server that dies on startup says why on stderr; discarding it turned a one-line
+  // "listen EACCES" into an unexplained five-second timeout.
+  let stderr = '';
+  proc.stderr.on('data', (chunk) => { stderr += chunk; });
   const infoPath = join(dir, 'state', 'server-info');
   for (let i = 0; i < 100 && !existsSync(infoPath); i++) await sleep(50);
-  if (!existsSync(infoPath)) throw new Error('server never wrote server-info');
+  if (!existsSync(infoPath)) {
+    try { proc.kill(); } catch {}
+    try { rmSync(root, { recursive: true, force: true }); } catch {}
+    throw new Error(`server never wrote server-info (exit ${proc.exitCode ?? 'running'}): ${stderr.trim() || 'no stderr'}`);
+  }
   const info = JSON.parse(readFileSync(infoPath, 'utf8'));
   const stop = () => { try { proc.kill(); } catch {} try { rmSync(root, { recursive: true, force: true }); } catch {} };
   return { info, dir, vault, root, proc, stop, base: `http://127.0.0.1:${info.port}` };
