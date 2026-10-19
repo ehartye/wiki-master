@@ -106,7 +106,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, extraction, topic }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, extraction, topic }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -128,6 +128,7 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
   if (fidelity && fidelity !== 'high') lines.push(`fidelity: ${fidelity}`);
+  if (Number.isInteger(fidelityChecks)) lines.push(`fidelity-checks: ${fidelityChecks}`);
   lines.push(`source-hash: ${hash}`);
   lines.push('---');
   return lines.join('\n');
@@ -258,16 +259,18 @@ export function knownSourceUrls(vaultPath) {
 // immediately after each launcher's UA attempt rather than after both, so the common
 // case costs one extra local call instead of an `npx` cold start.
 //
-// Run through the shell (execSync) so Windows resolves the `defuddle.cmd` npm shim
-// via PATHEXT; execFile can't launch .cmd. The URL is validated as a real URL in
-// main() and double-quoted, so it is safe to interpolate.
-export function defuddleAttempts(url) {
-  const q = `"${url}"`;
-  const ua = `"${DEFAULT_USER_AGENT}"`;
-  const lang = `--lang ${CLIP_LANG}`;
-  return ['defuddle parse', 'npx --yes defuddle parse'].flatMap((launch) => [
-    `${launch} ${q} --json ${lang} --user-agent ${ua}`,
-    `${launch} ${q} --json ${lang}`,
+// The payload is base64url, not shell-interpolated source text. This also carries the
+// original URL when extracting a rendered temporary file, so relative links stay correct.
+const EXTRACT_CLI = join(dirname(fileURLToPath(import.meta.url)), 'extract-page.mjs');
+function extractionLaunchers() {
+  return [`"${process.execPath}" "${EXTRACT_CLI}"`,
+    `npx --yes --package=defuddle@0.19.5 --package=linkedom@0.18.12 --package=turndown@7.2.0 -- node "${EXTRACT_CLI}"`];
+}
+export function defuddleAttempts(source, sourceUrl = source) {
+  const payload = Buffer.from(JSON.stringify({ source, sourceUrl })).toString('base64url');
+  return extractionLaunchers().flatMap(launch => [
+    `${launch} --payload ${payload} --lang ${CLIP_LANG} --user-agent "${DEFAULT_USER_AGENT}"`,
+    `${launch} --payload ${payload} --lang ${CLIP_LANG}`,
   ]);
 }
 
@@ -290,9 +293,9 @@ const execRender = (cmd) =>
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-export function runDefuddleJson(url, { run = execDefuddle } = {}) {
+export function runDefuddleJson(url, { run = execDefuddle, sourceUrl = url } = {}) {
   let lastErr;
-  for (const cmd of defuddleAttempts(url)) {
+  for (const cmd of defuddleAttempts(url, sourceUrl)) {
     try {
       return JSON.parse(run(cmd));
     } catch (e) {
@@ -387,7 +390,7 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
   // rendered clipping gets the same title/author/date parsing and boilerplate
   // removal as every other clipping in the vault.
   try {
-    const data = JSON.parse(run(`${defuddleLauncher()} parse "${htmlFile}" --json --lang ${CLIP_LANG}`));
+    const data = runDefuddleJson(htmlFile, { run, sourceUrl: meta.finalUrl ?? url });
     return { ok: true, data, finalUrl: meta.finalUrl };
   } catch (e) {
     return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${String(e.message || e).split('\n')[0]}` };
@@ -396,28 +399,15 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
   }
 }
 
-// Whichever launcher works here — mirrors the two rungs of defuddleAttempts so a
-// globally-installed Defuddle is preferred and npx is the fallback.
-let cachedLauncher;
-function defuddleLauncher() {
-  if (cachedLauncher) return cachedLauncher;
-  try {
-    execSync('defuddle --version', { stdio: 'ignore' });
-    cachedLauncher = 'defuddle';
-  } catch {
-    cachedLauncher = 'npx --yes defuddle';
-  }
-  return cachedLauncher;
-}
-
-function defuddleReachable() {
-  for (const cmd of ['defuddle --version', 'npx --yes defuddle --version']) {
+export function extractionAvailable() {
+  for (const launch of extractionLaunchers()) {
+    const cmd = `${launch} --check-runtime`;
     try { execSync(cmd, { stdio: 'ignore' }); return true; } catch { /* try next */ }
   }
   return false;
 }
 
-export function main(argv) {
+export function main(argv, { extract = runDefuddleJson } = {}) {
   const url = argv[0];
   if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low] [--topic="..."] [--decline="reason"]'); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
@@ -464,12 +454,12 @@ export function main(argv) {
   // DOM rather than the served html — the same role `extraction: ocr` plays for
   // clip-pdf, and read the same way by triage (a method, not a defect).
   let extraction = 'text';
-  try { data = runDefuddleJson(url); }
+  try { data = extract(url); }
   catch {
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
-    if (!defuddleReachable()) {
-      console.error(`Defuddle CLI not found. Install it: npm i -g defuddle`);
+    if (!extractionAvailable()) {
+      console.error(`HTML extraction runtime unavailable. Ensure Node.js and npm/npx are available; the clipper installs its pinned extraction packages automatically.`);
       process.exit(1);
     }
     // A PDF is not a page this clipper can ever read, and rendering one only
@@ -563,6 +553,7 @@ export function main(argv) {
   const fm = buildFrontmatter({
     title: data.title, source: url, author: data.author,
     published: data.published, created, quality, hash, topic, extraction,
+    fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
   });
   let slug = slugify(data.title);
   let file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
@@ -582,6 +573,11 @@ export function main(argv) {
   // that then failed to land. Ordering it this way makes the worst case a stale
   // OPEN row (visible, re-runnable) instead of a silently closed one.
   closeIssuesResolvedByClip(vaultPath, url, 'clipped');
+  if (data.fidelityWarnings?.length) {
+    const reason = `Possible selective extraction loss: ${data.fidelityWarnings.map(w => `${w.kind}: ${w.label}`).join('; ').slice(0, 1500)}`;
+    recordIssue(vaultPath, { url, kind: 'fidelity', reason, topic, source: `raw/clippings/${slug}.md` });
+    console.error(`fidelity warning (queued for triage): ${reason}`);
+  }
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
   return { status: 'clipped', slug, file };
 }

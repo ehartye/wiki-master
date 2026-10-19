@@ -40,7 +40,7 @@ test('a rendered page is re-extracted by Defuddle, not scraped as innerText', ()
   // Defuddle must be pointed at the path the renderer was TOLD to write, not at
   // a path echoed back on the subprocess's stdout — the scratch file is ours.
   assert.ok(
-    seen.some((c) => c.includes('defuddle parse') && c.includes(wrote)),
+    seen.some((c) => c.includes('extract-page.mjs') && JSON.parse(Buffer.from(/--payload ([A-Za-z0-9_-]+)/.exec(c)[1], 'base64url').toString()).source === wrote),
     'the rendered file must be handed back to defuddle'
   );
 });
@@ -67,7 +67,7 @@ test('the redirect guard runs before extraction, so a wrong page is never parsed
   );
   assert.equal(out.ok, false);
   assert.equal(out.kind, 'failed');
-  assert.ok(!seen.some((c) => c.includes('defuddle')), 'extraction must not be attempted');
+  assert.ok(!seen.some((c) => c.includes('extract-page.mjs')), 'extraction must not be attempted');
 });
 
 test('a missing browser is reported as setup, never as the page failing', () => {

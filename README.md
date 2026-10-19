@@ -23,6 +23,7 @@ in single-digit milliseconds. A vector database solves a problem this scale does
   (Settings → General → Command line interface).
 - The vault open in Obsidian (the CLI drives the running app).
 - Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI lock).
+- npm/npx for the pinned HTML clipping runtime; dependencies are acquired automatically on first use. See [capture fidelity and limits](docs/clipping-fidelity.md).
 - Optional: [Ollama](https://ollama.com) with an embedding model
   (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
   gracefully if absent.

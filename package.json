@@ -1,10 +1,15 @@
 {
   "name": "wiki-master",
-  "version": "0.49.0",
+  "version": "0.50.0",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "node --test",
     "test:skills": "node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs test/cli-transport.test.mjs"
+  },
+  "devDependencies": {
+    "defuddle": "0.19.5",
+    "linkedom": "0.18.12",
+    "turndown": "7.2.0"
   }
 }
