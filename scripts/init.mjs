@@ -1,6 +1,6 @@
 import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { extractionAvailable } from './clip.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -27,14 +27,6 @@ export function scaffold(vaultPath, templatesDir) {
   cpSync(join(templatesDir, '_templates'), join(vaultPath, '_templates'), { recursive: true });
 }
 
-function defuddleAvailable() {
-  // execSync (shell) so Windows resolves the defuddle.cmd npm shim via PATHEXT.
-  for (const cmd of ['defuddle --version', 'npx --yes defuddle --version']) {
-    try { execSync(cmd, { stdio: 'ignore' }); return true; } catch { /* try next */ }
-  }
-  return false;
-}
-
 export function main() {
   const { path, name } = resolveVault();
   const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
@@ -44,8 +36,8 @@ export function main() {
   console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
   console.log(`  2. Verify: node "${fileURLToPath(new URL('./obsidian.mjs', import.meta.url))}" vaults   (should list "${name}")`);
   console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
-  if (!defuddleAvailable()) {
-    console.log(`\n  Note: /wiki-discover needs the Defuddle CLI. Install: npm i -g defuddle`);
+  if (!extractionAvailable()) {
+    console.log(`\n  Note: /wiki-discover needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }
 }
 

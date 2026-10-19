@@ -1,0 +1,11 @@
+# HTML clipping fidelity
+
+`clip.mjs` uses an owned extraction wrapper with pinned Defuddle 0.19.5, linkedom 0.18.12 and Turndown 7.2.0. Development uses `npm ci`; installed plugins acquire the same versions through npm exec when local dependencies are absent. The fetcher retains Defuddle's proxy support, encoding detection, size/time limits and bare-request bot retry. English remains explicit on every request.
+
+Before extraction, the wrapper preserves meaningful fragment-linked API heading text. Recognized documentation structures select their enclosing content container, preserve introductions outside `<article>`, and turn warning/availability boxes into blockquotes before readability cleanup. Navigation, footers, hidden controls and buttons are removed. Ordinary articles retain default readability selection. Rendered HTML follows the same path, with the original URL supplied for relative links.
+
+The source-to-output check examines visible headings, recognized callouts and availability notices, API introductory paragraphs and feature-list items. It looks for normalized text at the start and end of each item (up to fourteen words at each end). A missing probe saves the clip with `fidelity: partial`, prints the missing item's kind and label, and queues a `fidelity` triage issue linked to the raw file. `fidelity-checks` records the number of source items examined, including zero when none were recognized. Credibility (`quality`) is independent.
+
+This is a bounded structural check, not a completeness score. It can miss loss within a long item, miss unrecognized structures, or flag a harmless formatting change. It cannot inspect content absent from the supplied HTML, such as lazily loaded REST endpoint sections. A long clip or zero warnings does not establish complete capture. Existing raw clippings are immutable and are not rewritten by this release.
+
+Offline regression fixtures cover Three.js BufferAttribute and GLTFLoader, GitHub Pages availability/public-site warnings, and Sharp installation cautions. Full served HTML from those four URLs was also checked on 2026-10-19: 49, 47, 16 and 26 structural items respectively, with no missing probes after preservation. These observations establish the reproduced repairs, not a general fidelity guarantee. Fixture provenance is in `test/fixtures/documentation/README.md`.

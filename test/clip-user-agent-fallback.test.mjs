@@ -21,9 +21,12 @@ test('the browser user-agent is attempted before any bare request', () => {
     'dropping the UA first would re-break NCBI PMC, which serves a bot-check shell without one');
 });
 
-test('every attempt quotes the url so a query string cannot split the command', () => {
-  for (const cmd of defuddleAttempts('https://example.test/a?b=1&c=2')) {
-    assert.match(cmd, /"https:\/\/example\.test\/a\?b=1&c=2"/);
+test('every attempt carries the source in an encoded payload, never raw shell text', () => {
+  const source = 'https://example.test/a?b=1&c=2';
+  for (const cmd of defuddleAttempts(source)) {
+    assert.ok(!cmd.includes(source));
+    const payload = JSON.parse(Buffer.from(/--payload ([A-Za-z0-9_-]+)/.exec(cmd)[1], 'base64url').toString());
+    assert.equal(payload.source, source);
   }
 });
 

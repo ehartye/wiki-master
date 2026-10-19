@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.0 — 2026-10-19
+
+- Preserve technical-documentation content before readability cleanup: linked API identifiers, introductions and extension lists outside article containers, GitHub availability/warning boxes, and technical admonitions. Static and browser-rendered pages share the same owned extractor; rendered relative links retain the source URL.
+- Compare recognized source structures with extracted Markdown. Missing text probes save `fidelity: partial` and queue actionable fidelity triage, while `fidelity-checks` records how many items were examined. This bounded check cannot prove completeness or detect sections absent from supplied HTML. Existing raw captures are unchanged.
+- Pin the extraction runtime (Defuddle 0.19.5, linkedom 0.18.12, Turndown 7.2.0), retaining upstream fetch limits, charset/proxy handling and bot retry. CI installs the locked runtime. Offline fixtures reproduce four affected official documentation pages; full-page checks retained all 138 examined structural items. Details and limits: `docs/clipping-fidelity.md`.
+
 ## 0.49.0 — 2026-10-19
 
 - Add `refresh-catalogs.mjs --project <slug> [--apply]`: one shared graph scan for selected project backlog and MOC catalogs plus the global index. Standalone project generators also accept `--project`; their all-project default is preserved. All three generators skip byte-identical writes, preserving timestamps and avoiding false freshness churn. The batch reports exact changed paths and elapsed/graph times.
