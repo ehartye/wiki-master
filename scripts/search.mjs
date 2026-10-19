@@ -226,24 +226,32 @@ export async function main(query, options = {}) {
   // terms, then partial matches, so there is no separate precise and broad query. Each scope
   // fails on its own and is reported as keyword-failed; zero hits is not a failure.
   const rawPaths = [];
-  let keywordAvailable = false;
+  const keywordHealth = {};
   for (const scope of ['wiki', 'moc', ...(includeRaw ? ['raw'] : [])]) {
     try {
       for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope })) {
         if (scope === 'raw') { if (inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path); }
         else if (inScope(path)) keywordPaths.add(path);
       }
-      if (scope !== 'raw') keywordAvailable = true;
+      keywordHealth[scope] = 'ok';
     } catch (err) {
+      keywordHealth[scope] = 'failed';
       diagnostics.push({ code: 'keyword-failed', scope, message: String(err?.message ?? err).slice(0, 300) });
     }
   }
+  // wiki/ is the primary scope: a working moc/ or raw/ scan does not make the keyword channel
+  // healthy, so the tier (and the status line built from it) must not claim hybrid on its strength.
+  const keywordAvailable = keywordHealth.wiki === 'ok';
   let tier = keywordAvailable ? 'lexical' : 'identity-only';
   let semanticHits = [];
+  let semanticHealth;
   if (ollamaUp && index.available) {
-    try { semanticHits = await semanticRun(query, poolLimit, options); tier = keywordAvailable ? 'hybrid' : 'semantic+identity'; }
-    catch (err) { diagnostics.push({ code: 'semantic-failed', message: err.message }); }
-  } else diagnostics.push({ code: index.available ? 'ollama-unavailable' : 'index-unavailable', message: 'Semantic retrieval unavailable; lexical retrieval used.' });
+    try { semanticHits = await semanticRun(query, poolLimit, options); tier = keywordAvailable ? 'hybrid' : 'semantic+identity'; semanticHealth = 'ok'; }
+    catch (err) { semanticHealth = 'failed'; diagnostics.push({ code: 'semantic-failed', message: err.message }); }
+  } else {
+    semanticHealth = index.available ? 'ollama-unavailable' : 'index-unavailable';
+    diagnostics.push({ code: semanticHealth, message: 'Semantic retrieval unavailable; lexical retrieval used.' });
+  }
   const semanticByPath = new Map(semanticHits.filter(h => inScope(h.path)).map(h => [h.path, h]));
   const prelim = mergeRRF([named.map(x => x.path), [...keywordPaths], [...semanticByPath.keys()]]);
   const exactNames = named.filter(x => x.score === 1000).map(x => x.path);
@@ -290,8 +298,10 @@ export async function main(query, options = {}) {
   const rawRanked = ranked.filter(h => h.zone === 'raw');
   const selected = [...ranked.filter(h => !h.zone).slice(0, limit), ...rawRanked.slice(0, limit)];
   const results = selected.map(({ lexical, semantic, ...hit }) => ({ ...hit, score: scores.get(hit.path) ?? 0 }));
+  // A raw count only means "nothing there" when the raw scan ran; after a failed scan it is omitted.
   return { tier, results, index: indexStatus, diagnostics,
-    ...(includeRaw ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
+    channels: { keyword: keywordHealth, semantic: semanticHealth, identity: metadataComplete ? 'ok' : 'incomplete' },
+    ...(includeRaw && keywordHealth.raw === 'ok' ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
 
 // Pure formatting: given a search() result and an assessTiers() verdict,
@@ -306,16 +316,20 @@ export async function main(query, options = {}) {
 // output is unchanged); `rawCount: 0` is disclosed explicitly rather than
 // looking identical to "never checked" would.
 export function renderResult({ results, note, rawCount, tier, diagnostics = [] }, assessed, { chunks, announceFull = false } = {}) {
+  const failedScopes = [...new Set(diagnostics.filter(d => d.code === 'keyword-failed').map(d => d.scope).filter(Boolean))];
+  const rawFailed = failedScopes.includes('raw');
   const queryAssessment = { ...assessed, tier: tier ?? assessed.tier,
     gaps: [...assessed.gaps, ...(diagnostics.some(d => d.code === 'keyword-failed') ? [{
-      channel: 'keyword', state: 'request failed', buys: 'Full-text keyword coverage is incomplete.',
+      channel: 'keyword', state: failedScopes.length ? `request failed (${failedScopes.join(', ')})` : 'request failed',
+      buys: 'Keyword coverage of the named scopes is incomplete.',
       fix: 'Read the keyword-failed diagnostics for the failing scope and retry the query.',
     }] : [])] };
   const stderr = announceFull
     ? fullReport(queryAssessment, { chunks }).split('\n')
     : [statusLine(queryAssessment, { chunks })];
   if (note) stderr.push(note);
-  if (rawCount !== undefined) stderr.push(`(raw/ clippings checked via --include-raw: ${rawCount} hit${rawCount === 1 ? '' : 's'})`);
+  if (rawFailed) stderr.push('(raw/ clippings NOT searched: the raw scan failed, so no raw/ result here is not evidence of absence)');
+  else if (rawCount !== undefined) stderr.push(`(raw/ clippings checked via --include-raw: ${rawCount} hit${rawCount === 1 ? '' : 's'})`);
 
   const stdout = results.map((hit) => (hit.startLine != null ? `${hit.path}:${hit.startLine}` : hit.path));
   return { stdout, stderr };

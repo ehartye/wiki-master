@@ -240,6 +240,43 @@ test('a failing keyword scope is reported by scope while the others still contri
   const result = await retrieval.main('alpha', { context: ctx });
   assert.deepEqual(result.diagnostics.filter(d => d.code === 'keyword-failed').map(d => [d.scope, d.message]), [['wiki', 'scan failed']]);
   assert.ok(result.results.some(h => h.path === 'moc/map.md'));
+  // moc/ answering does not make the keyword channel healthy: wiki/ is the primary scope.
+  assert.equal(result.tier, 'semantic+identity');
+  assert.deepEqual(result.channels.keyword, { wiki: 'failed', moc: 'ok' });
+});
+
+test('channels name the state of every channel, and a raw scope appears only when it was requested', async (t) => {
+  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha.\n', 'raw/clippings/r.md': '# R\nalpha raw.\n' });
+  const ok = await retrieval.main('alpha', { context: await context(vaultPath, ['wiki/a.md']), includeRaw: true });
+  assert.deepEqual(ok.channels, { keyword: { wiki: 'ok', moc: 'ok', raw: 'ok' }, semantic: 'ok', identity: 'ok' });
+  const plain = await retrieval.main('alpha', { context: await context(vaultPath, ['wiki/a.md']) });
+  assert.deepEqual(Object.keys(plain.channels.keyword), ['wiki', 'moc']);
+  const down = await retrieval.main('alpha', { context: await context(vaultPath, ['wiki/a.md'], { checkAvailable: async () => false }) });
+  assert.equal(down.channels.semantic, 'ollama-unavailable');
+  assert.equal(down.tier, 'lexical');
+  const broken = await retrieval.main('alpha', { context: await context(vaultPath, ['wiki/a.md'], { embedFn: async () => { throw new Error('embed 404'); } }) });
+  assert.equal(broken.channels.semantic, 'failed');
+});
+
+test('a failed raw scan is reported as not searched, never as zero raw hits', async (t) => {
+  const { vaultPath } = await fixture(t, { 'wiki/a.md': '# A\nalpha.\n' });
+  const ctx = await context(vaultPath, [], { keywordSearchFn: async (q, options) => {
+    if (options.path === 'raw') throw new Error('raw scan exceeded 30000ms');
+    return ['wiki/a.md'];
+  } });
+  const result = await retrieval.main('alpha', { context: ctx, includeRaw: true });
+  assert.equal(result.channels.keyword.raw, 'failed');
+  assert.equal(result.rawCount, undefined, 'a count of 0 would read as evidence of absence');
+  const { stderr } = retrieval.renderResult(result, { tier: 'hybrid', gaps: [] });
+  assert.ok(stderr.some(line => /raw\/ clippings NOT searched/.test(line)), stderr.join('\n'));
+  assert.ok(!stderr.some(line => /0 hits/.test(line)));
+});
+
+test('the status line names which keyword scopes failed', () => {
+  const { stderr } = retrieval.renderResult({ results: [], tier: 'semantic+identity',
+    diagnostics: [{ code: 'keyword-failed', scope: 'wiki', message: 'x' }, { code: 'keyword-failed', scope: 'moc', message: 'y' }] },
+  { tier: 'hybrid', gaps: [] });
+  assert.match(stderr[0], /keyword request failed \(wiki, moc\)/);
 });
 
 test('parseArgs still tolerates the retired --include-moc flag', () => {
