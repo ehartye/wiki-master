@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.46.0 — 2026-10-19
+
+- Fix the final search ranking discarding the keyword engine's order. `main()` used the engine only to admit candidates and then ranked them by `lexicalScore` (whole words, alphabetical tie-break), so an identifier such as `import_scene` or an exact three-word phrase lost to pages that merely contained the same words. The engine's rank is now a third list in the final reciprocal-rank fusion (`moc/` and `wiki/` lists vote as equals), and pages with equal lexical scores share one rank so the alphabet no longer votes. `mergeRRF` accepts `{ path, rank }` entries and `tiedRanks` is exported.
+- Measured on the live vault (7,883 pages) with the 0.45.0 keyword-engine set, page recall@10 before -> after: keyword-only 0.437 -> 0.937 and hybrid 0.399 -> 0.722 (identifier 0.452 -> 0.881 and phrase 0.071 -> 1.000 keyword-only). Adding the engine list alone gave 0.847 and 0.611; the shared tie ranks gave the rest. The general 40-question set held: recall@10 0.9375 -> 0.938, precision@3 0.325 -> 0.342, reciprocal rank 0.809 -> 0.835. Two runs matched on every question. Hybrid still trails keyword-only on exact-string queries; the semantic list is untouched and is a separate question. Numbers are in `eval/keyword-engine.baseline.json`.
+
 ## 0.45.0 — 2026-10-19
 
 - Add a keyword-engine evaluation set, `eval/keyword-engine.questions.json`: 42 questions (14 each of rare identifier, three-term conjunction and three-word phrase) whose ground truth is every vault page containing the string, by exact substring match, so only a keyword channel can answer them. `scripts/build-keyword-eval.mjs` generates it from a seed (rare identifiers must be absent from every title, alias and filename; each bound is tested, and the tests were mutation-checked). `scripts/evaluate-retrieval.mjs --keyword-only` builds the search context with the semantic service switched off to measure the keyword channel on its own, and reports the setting under `configuration`.

@@ -175,5 +175,126 @@
       "obsidianOnly": 0,
       "neither": 24
     }
+  },
+  "afterEngineRankFusion": {
+    "note": "0.46.0: the engine's own rank is a third list in the final fusion and tied lexical scores share a rank. Same live vault and questions, run twice with identical per-question results. Variant A is the third list alone, kept to show what the tie rule adds.",
+    "measured": {
+      "date": "2026-10-19",
+      "pluginVersion": "0.46.0",
+      "vaultPages": 7883
+    },
+    "runs": [
+      {
+        "label": "A: engine rank as third list only, keyword-only",
+        "keywordOnly": true,
+        "pageRecallAt10": 0.847,
+        "precisionAt3": 0.31,
+        "reciprocalRank": 0.598,
+        "meanLatencyMs": 1257,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.613,
+            "reciprocalRank": 0.503,
+            "questionsWithAnExpectedPageInTop10": "10/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 1,
+            "reciprocalRank": 0.891,
+            "questionsWithAnExpectedPageInTop10": "14/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 0.929,
+            "reciprocalRank": 0.401,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          }
+        }
+      },
+      {
+        "label": "A: engine rank as third list only, hybrid",
+        "keywordOnly": false,
+        "pageRecallAt10": 0.611,
+        "precisionAt3": 0.206,
+        "reciprocalRank": 0.41,
+        "meanLatencyMs": 1392,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.619,
+            "reciprocalRank": 0.589,
+            "questionsWithAnExpectedPageInTop10": "9/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 0.786,
+            "reciprocalRank": 0.393,
+            "questionsWithAnExpectedPageInTop10": "11/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 0.429,
+            "reciprocalRank": 0.247,
+            "questionsWithAnExpectedPageInTop10": "6/14"
+          }
+        }
+      },
+      {
+        "label": "B (shipped): third list + tied lexical ranks, keyword-only",
+        "keywordOnly": true,
+        "pageRecallAt10": 0.937,
+        "precisionAt3": 0.429,
+        "reciprocalRank": 0.746,
+        "meanLatencyMs": 1161,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.881,
+            "reciprocalRank": 0.69,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 0.929,
+            "reciprocalRank": 0.881,
+            "questionsWithAnExpectedPageInTop10": "13/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 1,
+            "reciprocalRank": 0.667,
+            "questionsWithAnExpectedPageInTop10": "14/14"
+          }
+        }
+      },
+      {
+        "label": "B (shipped): third list + tied lexical ranks, hybrid",
+        "keywordOnly": false,
+        "pageRecallAt10": 0.722,
+        "precisionAt3": 0.206,
+        "reciprocalRank": 0.417,
+        "meanLatencyMs": 1483,
+        "byCategory": {
+          "rare-token": {
+            "pageRecallAt10": 0.762,
+            "reciprocalRank": 0.616,
+            "questionsWithAnExpectedPageInTop10": "11/14"
+          },
+          "conjunction": {
+            "pageRecallAt10": 0.762,
+            "reciprocalRank": 0.349,
+            "questionsWithAnExpectedPageInTop10": "11/14"
+          },
+          "phrase": {
+            "pageRecallAt10": 0.643,
+            "reciprocalRank": 0.286,
+            "questionsWithAnExpectedPageInTop10": "9/14"
+          }
+        }
+      }
+    ],
+    "generalSetGuard": {
+      "questions": 40,
+      "pageRecallAt10": 0.938,
+      "precisionAt3": 0.342,
+      "reciprocalRank": 0.835,
+      "before": {
+        "pageRecallAt10": 0.9375,
+        "precisionAt3": 0.325,
+        "reciprocalRank": 0.809
+      }
+    }
   }
 }

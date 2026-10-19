@@ -65,11 +65,23 @@ export async function semanticSearch(query, { vectors, manifest, embedFn, topN =
 // single list differ only slightly, so no one channel dominates purely by
 // having placed a result first.
 const RRF_K = 60;
+// Competition ranks for an already sorted list: equal keys share the rank of the first of them.
+export function tiedRanks(sorted, keyOf) {
+  let first = 0;
+  return sorted.map((item, i) => {
+    if (i > 0 && keyOf(item) !== keyOf(sorted[i - 1])) first = i;
+    return { item, rank: first };
+  });
+}
+
+// A list entry is a path (rank = position) or { path, rank } when the list has ties.
 export function mergeRRF(lists) {
   const scores = new Map();
   for (const list of lists) {
-    list.forEach((path, i) => {
-      scores.set(path, (scores.get(path) ?? 0) + 1 / (RRF_K + i + 1));
+    list.forEach((entry, i) => {
+      const path = typeof entry === 'string' ? entry : entry.path;
+      const rank = typeof entry === 'string' ? i : entry.rank;
+      scores.set(path, (scores.get(path) ?? 0) + 1 / (RRF_K + rank + 1));
     });
   }
   return [...scores.entries()]
@@ -129,6 +141,7 @@ export async function main(query, options = {}) {
     scopeMatch: matchesFilters(entry.metadata ?? {}, options) }))
     .filter(x => x.score > 0).sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.path.localeCompare(b.path));
   const keywordPaths = new Set();
+  const keywordByScope = [];
   // One ranked call per scope: the keyword engine already orders the exact phrase, then all query
   // terms, then partial matches, so there is no separate precise and broad query. Each scope
   // fails on its own and is reported as keyword-failed; zero hits is not a failure.
@@ -136,10 +149,12 @@ export async function main(query, options = {}) {
   const keywordHealth = {};
   for (const scope of ['wiki', 'moc', ...(includeRaw ? ['raw'] : [])]) {
     try {
+      const scoped = [];
       for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope })) {
         if (scope === 'raw') { if (inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path); }
-        else if (inScope(path)) keywordPaths.add(path);
+        else if (inScope(path)) { keywordPaths.add(path); scoped.push(path); }
       }
+      if (scope !== 'raw') keywordByScope.push(scoped);
       keywordHealth[scope] = 'ok';
     } catch (err) {
       keywordHealth[scope] = 'failed';
@@ -193,10 +208,19 @@ export async function main(query, options = {}) {
       ...passageFor(text, query, semantic?.startLine), lexical, semantic,
       ...(path.startsWith('raw/') ? { zone: 'raw' } : {}) });
   }
-  const lexRank = [...live.values()].filter(h => h.lexical > 0 && !h.zone)
-    .sort((a,b) => b.lexical - a.lexical || a.path.localeCompare(b.path)).map(h => h.path);
+  // Pages with the same lexical score share a rank (0, 0, 0, 3): the alphabet orders the output
+  // but must not vote, or it would outvote the keyword engine on every tie.
+  const lexRank = tiedRanks([...live.values()].filter(h => h.lexical > 0 && !h.zone)
+    .sort((a,b) => b.lexical - a.lexical || a.path.localeCompare(b.path)), h => h.lexical).map(({ item, rank }) => ({ path: item.path, rank }));
   const semRank = [...semanticByPath.keys()].filter(p => live.get(p)?.semantic);
-  const scores = new Map(mergeRRF([lexRank, semRank]).map(h => [h.path, h.score]));
+  // The engine's own order is the third voice: it ranks the exact phrase or identifier first, which
+  // lexRank cannot (whole words, alphabetical ties). Scopes vote as equals, then the merged list votes once.
+  // Measured on the live vault (7,883 pages) with eval/keyword-engine.questions.json, page recall@10 before ->
+  // after: keyword-only 0.437 -> 0.937, hybrid 0.399 -> 0.722; the third list alone gave 0.847 and 0.611, the
+  // shared tie ranks added the rest. The 40-question set held (recall 0.9375 -> 0.938, MRR 0.809 -> 0.835).
+  // Two runs matched per question. Hybrid still trails keyword-only: the semantic list is not tuned here.
+  const kwRank = mergeRRF(keywordByScope).map(h => h.path).filter(p => live.has(p));
+  const scores = new Map(mergeRRF([lexRank, kwRank, semRank]).map(h => [h.path, h.score]));
   const ranked = [...live.values()].sort((a,b) => Number(!!a.zone) - Number(!!b.zone) ||
     Number(b.match === 'exact') - Number(a.match === 'exact') || (scores.get(b.path) ?? 0) - (scores.get(a.path) ?? 0) || a.path.localeCompare(b.path));
   const exact = ranked.filter(h => h.match === 'exact');
