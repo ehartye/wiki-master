@@ -89,6 +89,25 @@ export function mergeRRF(lists) {
     .map(([path, score]) => ({ path, score }));
 }
 
+// Exact-match gate for the semantic vote. The semantic list finds paraphrases, but for an exact string it
+// returns topical neighbours that fusion lets displace the pages that hold the string. Weighting it down
+// for every query does not work (no constant passes both question sets); this decides per query. It fires
+// when the pages that validated as candidates answer the query exactly: 1 to 3 hold the whole query as
+// written, or the query is short (at most 5 terms, a keyword query) and 1 to 3 hold every term in one
+// paragraph. A long natural-language question whose terms happen to share a paragraph does not fire.
+// Measured on the live vault (7,883 pages), page recall@10 hybrid: keyword-engine set 0.722 -> 0.937,
+// 40-question set 0.938 -> 0.938 (reciprocal rank 0.835 -> 0.823, guard 0.809). Results are flat for a
+// page limit of 3 to 5 and a term limit of 3 to 6. Offline it fires on 8 of 40 general questions and 41 of 42
+// keyword-engine questions; keyword-only recall stays 0.937. Two runs matched per question.
+export const GATE_MAX_PAGES = 3;
+export const GATE_MAX_TERMS = 5;
+export function exactMatchGate(query, { phraseHits, paragraphHits }) {
+  if (phraseHits >= 1 && phraseHits <= GATE_MAX_PAGES) return { reason: 'phrase', pages: phraseHits };
+  const n = terms(query).length;
+  if (n >= 1 && n <= GATE_MAX_TERMS && paragraphHits >= 1 && paragraphHits <= GATE_MAX_PAGES) return { reason: 'paragraph', pages: paragraphHits };
+  return null;
+}
+
 // Shared setup for a query: resolves the vault, loads the chunk index once,
 // and checks Ollama once. Used by both `main()` (the library entrypoint --
 // scripts/purge.mjs calls this via collectSeeds, so its `{ tier, results }`
@@ -181,6 +200,7 @@ export async function main(query, options = {}) {
   const rawCandidates = [...new Set(rawPaths)].slice(0, poolLimit);
   const indexStatus = { available: index.available, metadataComplete, freshness: 'candidate-validated', checked: 0, modified: 0, removed: 0 };
   if (candidates.length > poolLimit) diagnostics.push({ code: 'candidate-limit', message: `Validated first ${poolLimit} of ${candidates.length} candidates.` });
+  const queryTerms = terms(query), phraseText = query.trim().toLowerCase();
   const live = new Map();
   for (const path of [...candidates.slice(0, poolLimit), ...rawCandidates]) {
     indexStatus.checked++;
@@ -197,6 +217,9 @@ export async function main(query, options = {}) {
     const current = noteIdentity(text, path);
     if (!matchesFilters(current.metadata, options)) continue;
     const lexical = lexicalScore(query, path, current, text);
+    const lowered = text.toLowerCase();
+    const holdsPhrase = lowered.includes(phraseText);
+    const holdsParagraph = queryTerms.length > 0 && lowered.split(/\n\s*\n/).some(p => queryTerms.every(t => p.includes(t)));
     // A stale semantic vector alone is no longer evidence of relevance.
     const semantic = !modified ? semanticByPath.get(path) : undefined;
     if (!lexical && !semantic && !keywordPaths.has(path) && !rawPaths.includes(path)) continue;
@@ -205,7 +228,7 @@ export async function main(query, options = {}) {
       ...citationProvenance(text, context.names),
       indexFreshness: !entry ? 'unindexed' : modified ? 'modified' : entry.contentHash ? 'current' : 'unverified',
       match: exact ? 'exact' : lexical || keywordPaths.has(path) || rawPaths.includes(path) ? 'lexical' : 'semantic',
-      ...passageFor(text, query, semantic?.startLine), lexical, semantic,
+      ...passageFor(text, query, semantic?.startLine), lexical, semantic, holdsPhrase, holdsParagraph,
       ...(path.startsWith('raw/') ? { zone: 'raw' } : {}) });
   }
   // Pages with the same lexical score share a rank (0, 0, 0, 3): the alphabet orders the output
@@ -220,7 +243,10 @@ export async function main(query, options = {}) {
   // shared tie ranks added the rest. The 40-question set held (recall 0.9375 -> 0.938, MRR 0.809 -> 0.835).
   // Two runs matched per question. Hybrid still trails keyword-only: the semantic list is not tuned here.
   const kwRank = mergeRRF(keywordByScope).map(h => h.path).filter(p => live.has(p));
-  const scores = new Map(mergeRRF([lexRank, kwRank, semRank]).map(h => [h.path, h.score]));
+  // When the engine has found the query exactly, the semantic list stops voting (see exactMatchGate).
+  const wiki = [...live.values()].filter(h => !h.zone);
+  const semanticGate = exactMatchGate(query, { phraseHits: wiki.filter(h => h.holdsPhrase).length, paragraphHits: wiki.filter(h => h.holdsParagraph).length });
+  const scores = new Map(mergeRRF([lexRank, kwRank, ...(semanticGate ? [] : [semRank])]).map(h => [h.path, h.score]));
   const ranked = [...live.values()].sort((a,b) => Number(!!a.zone) - Number(!!b.zone) ||
     Number(b.match === 'exact') - Number(a.match === 'exact') || (scores.get(b.path) ?? 0) - (scores.get(a.path) ?? 0) || a.path.localeCompare(b.path));
   const exact = ranked.filter(h => h.match === 'exact');
@@ -228,9 +254,9 @@ export async function main(query, options = {}) {
   if (indexStatus.modified || indexStatus.removed) diagnostics.push({ code: 'stale-candidates', message: `${indexStatus.modified} modified and ${indexStatus.removed} removed candidates; refresh index-embed.` });
   const rawRanked = ranked.filter(h => h.zone === 'raw');
   const selected = [...ranked.filter(h => !h.zone).slice(0, limit), ...rawRanked.slice(0, limit)];
-  const results = selected.map(({ lexical, semantic, ...hit }) => ({ ...hit, score: scores.get(hit.path) ?? 0 }));
+  const results = selected.map(({ lexical, semantic, holdsPhrase, holdsParagraph, ...hit }) => ({ ...hit, score: scores.get(hit.path) ?? 0 }));
   // A raw count only means "nothing there" when the raw scan ran; after a failed scan it is omitted.
-  return { tier, results, index: indexStatus, diagnostics,
+  return { tier, results, index: indexStatus, diagnostics, semanticGate,
     channels: { keyword: keywordHealth, semantic: semanticHealth, identity: metadataComplete ? 'ok' : 'incomplete' },
     ...(includeRaw && keywordHealth.raw === 'ok' ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
