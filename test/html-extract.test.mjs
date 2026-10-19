@@ -66,3 +66,18 @@ test('line breaks do not create false warnings and aria-only severity is preserv
  assert.match(data.contentMarkdown,/First line/);
  assert.deepEqual(data.fidelityWarnings,[]);
 });
+
+test('visible labels are not counted twice and nested severity labels survive',async()=>{
+ const html='<html><body><main><aside class="admonition" aria-label="Note"><p>Note</p><p>Outer content.</p><aside class="admonition" aria-label="Danger"><p>Inner restriction.</p></aside></aside></main></body></html>';
+ const data=await extractHtml(html,'https://example.org/');
+ assert.match(data.contentMarkdown,/Danger/);
+ assert.match(data.contentMarkdown,/Inner restriction/);
+ assert.deepEqual(data.fidelityWarnings,[]);
+});
+
+test('callout cleanup preserves ordered-list starting numbers',async()=>{
+ const html='<html><body><main><aside class="admonition"><p>Continue the procedure:</p><ol start="5"><li>Install dependencies.</li><li>Restart the application.</li></ol></aside></main></body></html>';
+ const data=await extractHtml(html,'https://example.org/');
+ assert.match(data.contentMarkdown,/5\.\s+Install dependencies/);
+ assert.match(data.contentMarkdown,/6\.\s+Restart the application/);
+});

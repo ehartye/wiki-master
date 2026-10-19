@@ -26,7 +26,9 @@ function textOf(node) {
   if (node.nodeType === 3) return node.textContent;
   if (node.nodeType !== 1 || node.matches('script, style, svg, nav, button, [hidden], [aria-hidden="true"]')) return '';
   if (node.tagName === 'BR') return ' ';
-  const inner = [...node.childNodes].map(textOf).join('');
+  let inner = [...node.childNodes].map(textOf).join('');
+  const label = node.matches(CALLOUT) ? node.getAttribute('aria-label') : null;
+  if (label && !normalize(inner).startsWith(normalize(label))) inner = `${label} ${inner}`;
   return BLOCK.test(node.tagName) ? ` ${inner} ` : inner;
 }
 function contentRoot(document) {
@@ -44,7 +46,7 @@ function signals(document) {
   const add = (kind, nodes) => {
     for (const node of nodes) {
       if (node.closest('nav, footer, [role="navigation"], [hidden], [aria-hidden="true"]')) continue;
-      const text = `${kind === 'callout' ? (node.getAttribute('aria-label') ?? '') : ''} ${textOf(node)}`.trim();
+      const text = textOf(node).trim();
       if (normalize(text).length < 3) continue;
       candidates.push({ kind, text, label: text.replace(/\s+/g, ' ').slice(0, 100) });
     }
@@ -97,14 +99,17 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
     for (const header of root.querySelectorAll('header')) {
       const div = document.createElement('div'); div.innerHTML = header.innerHTML; header.replaceWith(div);
     }
-    for (const node of root.querySelectorAll(`${CALLOUT}, ${AVAILABILITY}`)) {
+    // Process children first: replacing a parent clones its already-preserved descendants.
+    for (const node of [...root.querySelectorAll(`${CALLOUT}, ${AVAILABILITY}`)].reverse()) {
       const block = document.createElement('blockquote'); block.innerHTML = node.innerHTML;
       const label = node.getAttribute('aria-label');
-      if (label && !normalize(textOf(node)).startsWith(normalize(label))) {
+      if (label && !normalize([...node.childNodes].map(textOf).join('')).startsWith(normalize(label))) {
         const title = document.createElement('p'); title.textContent = label; block.prepend(title);
       }
       for (const child of block.querySelectorAll('*')) {
-        for (const attr of [...child.attributes]) if (!['href', 'src', 'alt', 'title'].includes(attr.name)) child.removeAttribute(attr.name);
+        for (const attr of [...child.attributes]) {
+          if (/^(class|id|style|role|aria-.+|data-.+)$/.test(attr.name)) child.removeAttribute(attr.name);
+        }
       }
       node.replaceWith(block);
     }
