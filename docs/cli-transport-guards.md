@@ -18,7 +18,7 @@ Create, replace and append ordinary Markdown through exact-path filesystem edits
 
 - Reject physical CR/LF, NUL and estimated JSON request envelopes over 2,048 UTF-8 bytes before launch. The estimate includes arguments, JSON escaping, working directory and a newline. This conservative policy is not a measured Obsidian wire limit. Diagnostics identify the command and size without echoing the input body.
 - Serialize cooperating callers for the same OS user across processes, vaults, plugin versions and worktrees. Windows uses a named pipe; Linux uses an abstract socket; other platforms reserve a deterministic loopback port. An unrelated listener fails closed. No lock file, permanent service or stale-lock stealing is involved.
-- Wait at most 10 seconds for the gate by default, separately from the CLI's default 10-second execution timeout. Hold the gate until the child closes, including on failure or timeout. No command is automatically retried.
+- Wait at most 10 seconds for the gate by default, separately from the CLI's default 10-second execution timeout. `search.mjs` overrides both to 45 seconds (`KEYWORD_TIMEOUT_MS`) because a cold full-text search measured 29s and a shorter kill leaves Obsidian cold. Hold the gate until the child closes, including on failure or timeout. No command is automatically retried.
 
 `CLI_REQUEST`, `CLI_BUSY` and `CLI_LOCK` mean the request was not sent. Use supported filesystem reads when the app channel is unavailable. A command timeout or worker failure can leave a mutation's outcome unknown: inspect the exact target and reconcile the existing operation before continuing.
 

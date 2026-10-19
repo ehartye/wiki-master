@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.42.1 — 2026-10-18
+
+- Fix cold-start timeouts in `search.mjs` keyword search. The first full-text `wiki/` call after a quiet period took 29s on the live vault (later calls 0.1-0.3s), but the 10s kill never let it finish, so Obsidian stayed cold and the keyword channel failed again on the next query. Keyword calls now use a 45s execution timeout (`KEYWORD_TIMEOUT_MS`, overridable per call) and the same gate wait, so a second process queued behind a cold call waits instead of failing as busy. The global 10s default for other CLI callers is unchanged. The search is read-only and still never retried. `--include-raw` is still too slow through Obsidian (`raw/` was 242 MB and did not finish in 90s); it will now wait up to 45s and then report `keyword-failed` for the `raw` scope.
+
 ## 0.42.0 — 2026-10-18
 
 - Fix `search.mjs` Obsidian keyword timeouts. Search fired up to five full-text CLI calls at once; the transport guard serialized them, so one slow call (a cold `wiki/` search measured 29s against the 10s limit; `raw/` did not finish in 90s) became one timeout plus several "CLI busy" failures and an empty keyword channel. Keyword calls now run one at a time. The query as typed runs first, and the `OR` rewrite of its terms runs only when that returned fewer than `--limit` hits and did not fail. A failed call is reported as `keyword-failed` and skips the rewrite for that scope.
