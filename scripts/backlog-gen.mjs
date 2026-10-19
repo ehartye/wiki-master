@@ -13,9 +13,10 @@
 // its overview.md/architecture.md/etc — so the project value maps directly to a nested path
 // here, never flattened.
 import { readFileSync, writeFileSync, existsSync, renameSync, mkdirSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByBacklogStatus } from './lib/authored-group.mjs';
 
@@ -59,19 +60,22 @@ function writeFenced(path, catalog, projectTitle) {
     // index-gen.mjs/moc-authored-gen.mjs exactly (see module comment).
     next = `${existing.trimEnd()}\n\n${fenced}\n`;
   }
+  if (next === existing) return false;
   const dir = join(path, '..');
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(path)}.tmp-${process.pid}`);
   writeFileSync(tmp, next);
   renameSync(tmp, path);
+  return true;
 }
 
 // Dry run by default (apply: false) — matches every other repair/generation script in this
 // repo. Returns { written: [project, ...] } either way, so a caller can inspect what WOULD
 // happen without writing anything. A project with zero backlog items is skipped entirely —
 // there is nothing to index, and creating an empty roadmap.md would be pure ceremony.
-export function regenerateBacklogRoadmaps(vaultPath, { apply = false } = {}) {
-  const { pages } = buildGraph(vaultPath);
+export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: selectedProject, graph } = {}) {
+  validateProject(selectedProject);
+  const { pages } = graph ?? buildGraph(vaultPath);
   // Computed from the WHOLE vault, before filtering to backlog items — a backlog
   // item slug can collide with another project's just as easily as
   // overview.md/architecture.md/roadmap.md can (see graph.mjs's findAmbiguousNames).
@@ -79,20 +83,23 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false } = {}) {
   const items = pages.filter((p) => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item');
   const projects = groupByProject(items);
   const written = [];
+  const changed = [];
   for (const { project, pages: projectItems } of projects) {
+    if (selectedProject !== undefined && project.toLowerCase() !== selectedProject.toLowerCase()) continue;
     written.push(project);
     if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
-    writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project);
+    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project)) changed.push(relative(vaultPath, roadmapPath).replaceAll('\\', '/'));
   }
-  return { written };
+  return { written, changed };
 }
 
-export function main() {
+export function main(argv = process.argv.slice(2)) {
   const { path: vaultPath } = resolveVault();
-  const apply = process.argv.includes('--apply');
-  const r = regenerateBacklogRoadmaps(vaultPath, { apply });
-  console.log(JSON.stringify({ type: 'backlog-gen', applied: apply, projects: r.written }));
+  const { apply, project, pathsFile } = catalogArgs(argv);
+  if (pathsFile) throw new Error('--paths-file is supported by refresh-catalogs.mjs only');
+  const r = regenerateBacklogRoadmaps(vaultPath, { apply, project });
+  console.log(JSON.stringify({ type: 'backlog-gen', applied: apply, projects: r.written, changed: r.changed }));
   if (!apply) console.error('dry run — re-run with --apply to write');
   return r;
 }

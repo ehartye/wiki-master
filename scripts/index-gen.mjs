@@ -59,9 +59,9 @@ export function renderCatalog({ pages }) {
   return lines.join('\n').trimEnd();
 }
 
-export function regenerateIndex(vaultPath) {
+export function regenerateIndex(vaultPath, { graph, apply = true } = {}) {
   const indexPath = join(vaultPath, 'index.md');
-  const catalog = renderCatalog(buildGraph(vaultPath));
+  const catalog = renderCatalog(graph ?? buildGraph(vaultPath));
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
 
   let existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '---\ntype: synthesis\n---\n# Index\n';
@@ -76,11 +76,13 @@ export function regenerateIndex(vaultPath) {
     next = `${existing.trimEnd()}\n\n${fenced}\n`;
   }
 
+  const changed = next !== existing;
+  if (!apply || !changed) return { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed: apply && changed };
   // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
   const tmp = join(vaultPath, `index.md.tmp-${process.pid}`);
   writeFileSync(tmp, next);
   renameSync(tmp, indexPath);
-  return { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath };
+  return { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed };
 }
 
 export function main() {

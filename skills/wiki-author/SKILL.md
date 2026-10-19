@@ -30,9 +30,7 @@ Steps:
    factual content or project behavior was actually verified.
 5. Validate frontmatter, placement and links. Use full-path links when crossing
    project boundaries: `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`.
-   Refresh the index catalog; use `moc-authored-gen.mjs --apply` for projects
-   with two or more authored pages and `backlog-gen.mjs --apply` for backlog
-   changes. Inspect generated changes for unrelated projects.
+   Refresh affected catalogs with `refresh-catalogs.mjs --project <slug> --apply` (one graph scan for the project's backlog, MOC and global index). With concurrent writers pass `--paths-file <JSON ownership ledger>` to omit their untracked additions. Inspect the returned `changed` paths and add the safe catalog paths to the operation's ledger.
 6. Complete the shared operations contract: one relink log entry, then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`.
    Verify the commit and index-refresh notices, sync when already authorized,
