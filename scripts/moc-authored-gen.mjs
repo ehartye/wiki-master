@@ -16,9 +16,10 @@
 // heuristic for a job hand-written prose (preserved outside the fence) already
 // does better.
 import { readFileSync, writeFileSync, existsSync, renameSync, mkdirSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByKind, OTHER } from './lib/authored-group.mjs';
 
@@ -83,18 +84,21 @@ function writeFenced(path, catalog) {
     // mirrors index-gen.mjs's regenerateIndex exactly (see module comment).
     next = `${existing.trimEnd()}\n\n${fenced}\n`;
   }
+  if (next === existing) return false;
   const dir = join(path, '..');
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(path)}.tmp-${process.pid}`);
   writeFileSync(tmp, next);
   renameSync(tmp, path);
+  return true;
 }
 
 // Dry run by default (apply: false) — matches every other repair/generation
 // script in this repo. Returns { written: [project, ...] } either way, so a
 // caller can inspect what WOULD happen without writing anything.
-export function regenerateAuthoredMocs(vaultPath, { apply = false } = {}) {
-  const { pages } = buildGraph(vaultPath);
+export function regenerateAuthoredMocs(vaultPath, { apply = false, project: selectedProject, graph } = {}) {
+  validateProject(selectedProject);
+  const { pages } = graph ?? buildGraph(vaultPath);
   // Computed from the WHOLE vault, before filtering to wiki/authored/ — a bare
   // name written into project A's MOC is exactly as ambiguous as one written
   // anywhere else if project B (or any other page) shares that basename.
@@ -102,20 +106,23 @@ export function regenerateAuthoredMocs(vaultPath, { apply = false } = {}) {
   const authored = pages.filter((p) => p.path.startsWith('wiki/authored/'));
   const projects = groupByProject(authored).filter((g) => g.pages.length >= MIN_PAGES);
   const written = [];
+  const changed = [];
   for (const { project, pages: projectPages } of projects) {
+    if (selectedProject !== undefined && project.toLowerCase() !== selectedProject.toLowerCase()) continue;
     written.push(project);
     if (!apply) continue;
     const mocPath = join(vaultPath, 'moc', `${projectSlug(project)}.md`);
-    writeFenced(mocPath, renderProjectCatalog({ pages: projectPages, ambiguousNames }));
+    if (writeFenced(mocPath, renderProjectCatalog({ pages: projectPages, ambiguousNames }))) changed.push(relative(vaultPath, mocPath).replaceAll('\\', '/'));
   }
-  return { written };
+  return { written, changed };
 }
 
-export function main() {
+export function main(argv = process.argv.slice(2)) {
   const { path: vaultPath } = resolveVault();
-  const apply = process.argv.includes('--apply');
-  const r = regenerateAuthoredMocs(vaultPath, { apply });
-  console.log(JSON.stringify({ type: 'moc-authored-gen', applied: apply, projects: r.written }));
+  const { apply, project, pathsFile } = catalogArgs(argv);
+  if (pathsFile) throw new Error('--paths-file is supported by refresh-catalogs.mjs only');
+  const r = regenerateAuthoredMocs(vaultPath, { apply, project });
+  console.log(JSON.stringify({ type: 'moc-authored-gen', applied: apply, projects: r.written, changed: r.changed }));
   if (!apply) console.error('dry run — re-run with --apply to write');
   return r;
 }

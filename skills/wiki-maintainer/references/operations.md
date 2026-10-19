@@ -26,11 +26,7 @@ and preview work do not open operations, log, commit or refresh indexes.
    canonical placement and exact citation/link targets. Preserve raw bodies and
    unrelated changes. `reviewed` advances only for factual verification. On uncertain
    write timeouts inspect the target before retrying; do not make a duplicate page.
-4. **Refresh affected catalogs.** Use `index-gen.mjs` for catalog changes;
-   `moc-authored-gen.mjs --apply` for project authored hubs and
-   `backlog-gen.mjs --apply` for changed backlog items. These generators may inspect
-   multiple projects: inspect the diff and avoid unrelated edits. Never hand-edit
-   generated fences. Check links and requested retrieval after substantive changes.
+4. **Refresh affected catalogs once.** For project authoring run `node "<absolute-plugin-root>/scripts/refresh-catalogs.mjs" --project <slug> --apply` instead of three separate generators. It builds one vault graph, updates only that project's backlog and MOC, then the global index; unchanged files are not rewritten. With concurrent writers, pass `--paths-file <JSON ownership ledger>` to include only tracked pages and this operation's untracked additions in the snapshot. Add the returned `changed` paths to the operation's commit ledger after inspecting them. Tracked pages are never hidden. Without a project selector it refreshes all projects. Standalone generators remain available and the project generators accept `--project`. A global scan is still needed for cross-project ambiguous names.
 5. **Log once.** Pipe a concise narrative into `log-entry.mjs --op <op> --title
    "<title>"`. It writes one uniquely named `log/YYYY-MM-DD-HHmmss-<op>-<slug>.md`,
    with date/op/title frontmatter and a grep-friendly heading. Use the existing

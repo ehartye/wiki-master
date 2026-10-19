@@ -146,3 +146,7 @@ of one flat, ungrouped catalog.
 `npm test` (or `node --test`) runs the unit suite for the deterministic scripts
 against a fixture vault — no running Obsidian required. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
+
+### Catalog refresh
+
+Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run. It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` restricts untracked page visibility to the operation's owned additions; tracked pages stay visible. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately. Cross-project ambiguity detection still requires one vault scan.

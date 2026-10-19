@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.0 — 2026-10-19
+
+- Add `refresh-catalogs.mjs --project <slug> [--apply]`: one shared graph scan for selected project backlog and MOC catalogs plus the global index. Standalone project generators also accept `--project`; their all-project default is preserved. All three generators skip byte-identical writes, preserving timestamps and avoiding false freshness churn. The batch reports exact changed paths and elapsed/graph times.
+- With `--paths-file <JSON ownership ledger>`, exclude other sessions' untracked additions from the shared snapshot while retaining all tracked pages. Cross-project ambiguity remains vault-wide within that snapshot; newly generated pages are included before rendering the global index.
+- Live read-only measurement: separate calls 37,205ms versus one batched refresh 10,473ms (one graph build, 10,438ms; 22,043 graph nodes including attachments and raw evidence). This is one warm-machine comparison, not a fixed latency guarantee. The previously reported 90-second index pass remains a separate observation under different conditions.
+
 ## 0.48.0 — 2026-10-19
 
 - Fix `op-commit` reporting success when git failed. A held `.git/index.lock` (or a rejecting hook) made `git add` or `git commit` fail; `commitPaths` returned the reason but `op-commit` read it as an empty delta, printed "made no changes", deleted the operation token and exited 0 while the operation's files sat uncommitted. It was observed twice (2026-10-13 and 2026-10-14). A git failure now returns `failed: true`, `op-commit` exits 1, keeps the token, and the same command can be retried once the cause clears.
