@@ -63,8 +63,12 @@ test('agent proxy rejects oversized payloads and missing commands without touchi
 test('separate worker processes serialize fake CLI calls across vault arguments', async () => {
   const f = fixture(), endpoint = address();
   try {
-    const results = await Promise.all(['one', 'two', 'three'].map((id, i) => worker([f.program, f.log, id, '80', '0', `vault=${i}`], { endpoint, timeout: 2000, waitTimeout: 3000 }).result));
-    assert.ok(results.every(r => r.ok));
+    // This test is about ordering, not speed. Each fake CLI is a Node process, and under full-suite load one
+    // took over 2s to start and exit, so the old 2s execution and 3s gate-wait bounds made the guard (correctly)
+    // fail a call with ETIMEDOUT or CLI_BUSY: 3 of 8 runs failed with 48 CPU burners running. A hang is still
+    // caught by the runner's own timeout; the tests that assert a timeout or busy gate keep their short bounds.
+    const results = await Promise.all(['one', 'two', 'three'].map((id, i) => worker([f.program, f.log, id, '80', '0', `vault=${i}`], { endpoint, timeout: 60000, waitTimeout: 120000 }).result));
+    assert.ok(results.every(r => r.ok), JSON.stringify(results));
     const events = readFileSync(f.log, 'utf8').trim().split('\n').map(JSON.parse);
     let active = null;
     for (const e of events) { if (e.event === 'start') { assert.equal(active, null); active = e.id; } else { assert.equal(active, e.id); active = null; } }
