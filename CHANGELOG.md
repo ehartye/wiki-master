@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.44.0 — 2026-10-18
+
+- Report per-channel search health. `search.mjs` results now carry `channels`: `keyword.{wiki,moc,raw}` (`ok` or `failed`, `raw` only when requested), `semantic` (`ok`, `failed`, `ollama-unavailable` or `index-unavailable`) and `identity` (`ok` or `incomplete`). The tier follows the primary `wiki/` keyword scope: a working `moc/` or `raw/` scan no longer lets a search whose `wiki/` scan failed be labelled `hybrid`. The status line names the failed scopes, for example `keyword request failed (wiki, moc)`.
+- A failed `--include-raw` scan is now reported as `raw/ clippings NOT searched` instead of `0 hits`, and `rawCount` is omitted from the result, so a failure can no longer read as evidence of absence.
+- `purge` decides whether an empty search result can be trusted from the search's own `channels` (a failed `wiki/` keyword scan refuses it) instead of probing whether the Obsidian app is running, since search no longer uses Obsidian. `collectSeeds` is unchanged; `searchSeeds` additionally returns the failure. The `assertRunning` injection point on `purge.main` is removed.
+- Remove the legacy `search()` tier ladder and the synchronous Obsidian `keywordSearch` from `search.mjs`, with their tests. Neither had a production caller after 0.43.0; `main()` is the only search entry point.
+
 ## 0.43.0 — 2026-10-18
 
 - Replace Obsidian full-text search with a direct file scan as `search.mjs`'s keyword channel (`scripts/lib/fs-keyword.mjs`). Obsidian took 29s on a cold `wiki/` call, never finished `raw/` (242 MB) in 90s, and returned a capped list in no relevance order. The scan reads the Markdown files with 16 concurrent reads, needs no running app, goes through no CLI gate and is never stale: about 0.7s for `wiki/` (7,785 files, 53 MB), 10ms for `moc/`, 1.6s for `raw/`. Candidates rank by exact phrase, then all query terms, then partial matches, then terms in the path, then a capped occurrence count. `--include-raw` now works (about 8s end to end on the live vault).

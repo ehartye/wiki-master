@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { BIN_DIR, binPathFor, planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
-import { resolveVault, assertRunning } from './lib/vault.mjs';
+import { resolveVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
@@ -236,12 +236,24 @@ const MAX_SEEDS = 25;
 // No score threshold, deliberately: search.mjs fuses its channels with RRF
 // (mergeRRF, k=60), so a rank-1 hit scores ~1/61. Those numbers order results
 // and mean nothing in absolute terms; thresholding them drops everything.
-export async function collectSeeds(topic, { searchImpl = searchMain, maxSeeds = MAX_SEEDS, limit = 40 } = {}) {
-  const { results = [] } = (await searchImpl(topic, { limit })) ?? {};
-  return results
+// searchSeeds also says whether an empty answer can be trusted. search.mjs reports per-channel
+// health in result.channels; if the keyword scan of wiki/ failed, "no pages" may only mean
+// "could not look", and purge must not turn that into "nothing to plan". A result with no
+// channel information (an injected test search) is taken at face value.
+export async function searchSeeds(topic, { searchImpl = searchMain, maxSeeds = MAX_SEEDS, limit = 40 } = {}) {
+  const { results = [], channels, diagnostics = [] } = (await searchImpl(topic, { limit })) ?? {};
+  const seeds = results
     .filter((h) => h.path.startsWith('wiki/'))
     .slice(0, maxSeeds)
     .map((h) => h.path);
+  const failure = channels?.keyword?.wiki === 'failed'
+    ? (diagnostics.find((d) => d.code === 'keyword-failed' && d.scope === 'wiki')?.message ?? 'keyword scan of wiki/ failed')
+    : null;
+  return { seeds, failure };
+}
+
+export async function collectSeeds(topic, options) {
+  return (await searchSeeds(topic, options)).seeds;
 }
 
 function report(plan) {
@@ -271,11 +283,9 @@ function report(plan) {
   console.log(`\nPURGE: ${wiki} wiki, ${raw} raw, ${plan.collateral.length} collateral, ${plan.blocking.length} blocking`);
 }
 
-// applyPurge and assertRunning are injectable for the same reason searchImpl
-// is: each guards a real-world condition — a failed move, a dead Obsidian
-// CLI — that cannot be reproduced on demand from outside main(). See the
-// `if (failed.length)` guard and the empty-seedPaths branch below for what
-// each one tests. Splitting main into one function per mode was considered
+// applyPurge is injectable for the same reason searchImpl is: it guards a real-world
+// condition — a failed move — that cannot be reproduced on demand from outside main(). See
+// the `if (failed.length)` guard below for what it tests. Splitting main into one function per mode was considered
 // and rejected for this task: real refactor, but it would churn this DI
 // seam for a benefit this task does not need.
 // Splits `--seeds a.md,b.md` (or a repeated flag) out of the remaining argv,
@@ -304,7 +314,6 @@ export function parseSeeds(args) {
 export async function main(argv, {
   searchImpl = searchMain,
   applyPurge: applyPurgeFn = applyPurge,
-  assertRunning: assertRunningFn = assertRunning,
 } = {}) {
   const { path: vaultPath } = resolveVault();
   const mode = argv[0] ?? '--plan';
@@ -424,20 +433,16 @@ export async function main(argv, {
     console.log(`seeds (${seedPaths.length}, pinned via --seeds):`);
     for (const s of seedPaths) console.log(`  ${s}`);
   } else {
-  seedPaths = await collectSeeds(arg, { searchImpl });
+  const found = await searchSeeds(arg, { searchImpl });
+  seedPaths = found.seeds;
   if (!seedPaths.length) {
-    // An empty result is indistinguishable from a dead Obsidian CLI unless
-    // something checks: keywordSearch (search.mjs) swallows every backend
-    // failure into [], while the semantic tier throws unhandled instead —
-    // the same broken CLI produces opposite symptoms depending on whether
-    // Ollama happens to be present too. Probe only now, lazily, the moment
-    // an empty result is about to drive the decision "nothing to plan."
-    try {
-      assertRunningFn();
-      console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
-    } catch (err) {
-      console.error(`purge: cannot trust this empty result — ${err.message}`);
+    // An empty result is only "nothing to plan" when the keyword scan of wiki/ ran. Check the
+    // search's own channel health, lazily, the moment an empty result is about to decide that.
+    if (found.failure) {
+      console.error(`purge: cannot trust this empty result — ${found.failure}`);
       process.exitCode = 1;
+    } else {
+      console.log(`purge: search returned no wiki pages for "${arg}" — nothing to plan.`);
     }
     return;
   }

@@ -36,6 +36,11 @@ still fail. Report unavailable channels instead of interpreting no hits as no kn
   results are still real, but semantic ranking contributed nothing. **Say so
   in your answer** — a user reading a confident result list has no way to
   know the retrieval was degraded.
+- `(<tier> — keyword request failed (wiki) · run --health)` — a keyword scope failed. A failed `wiki/`
+  scope (the primary one) drops the tier below `hybrid` even if `moc/` answered, so results come from the other
+  channels only; **say so**. In `--json` output `channels` states each channel: `keyword.{wiki,moc,raw}` is `ok` or
+  `failed`, `semantic` is `ok`, `failed`, `ollama-unavailable` or `index-unavailable`, and `identity` is `ok` or
+  `incomplete`. A `raw/ clippings NOT searched` line means the raw scan failed: no raw hit is then not evidence of absence.
 
 To diagnose or fix: `node "<absolute-plugin-root>/scripts/search.mjs" --health` for the full
 report, `--setup` for the exact remediation commands. The usual causes are

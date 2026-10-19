@@ -802,39 +802,53 @@ test('--restore does not clear a same-url decline recorded for a different reaso
   }
 });
 
-// I3: an empty search result is indistinguishable from a dead Obsidian CLI
-// unless something checks. The lazy canary (assertRunning) is probed only
-// once an empty result is about to drive the "nothing to plan" decision --
-// covering both what it decides when Obsidian is healthy and when it isn't,
-// in both --plan and --apply (the check runs before the two modes diverge).
+// I3: an empty search result is only evidence of "nothing to plan" when the keyword scan of wiki/
+// actually ran. search.mjs reports that in result.channels, so purge reads the result itself
+// instead of probing the Obsidian app (search no longer uses it). Both --plan and --apply reach
+// this check before the two modes diverge.
 const emptySearch = async () => ({ tier: 'test', results: [] });
+const failedKeywordSearch = async () => ({ tier: 'semantic+identity', results: [],
+  channels: { keyword: { wiki: 'failed', moc: 'ok' }, semantic: 'ok', identity: 'ok' },
+  diagnostics: [{ code: 'keyword-failed', scope: 'wiki', message: 'Keyword scan of wiki/ exceeded 30000ms' }] });
 
-test('an empty search result with a healthy Obsidian reports nothing to plan (--plan)', async () => {
+test('an empty search result with a healthy keyword scan reports nothing to plan (--plan)', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const r = await runMain(v, ['--plan', 'Nonexistent Topic'],
-      { searchImpl: emptySearch, assertRunning: () => {} });
-    assert.ok(r.logs.some((l) => l.includes('nothing to plan')));
-    assert.equal(r.exitCode, undefined);
+    const healthy = async () => ({ tier: 'hybrid', results: [], channels: { keyword: { wiki: 'ok', moc: 'ok' }, semantic: 'ok', identity: 'ok' } });
+    for (const searchImpl of [healthy, emptySearch]) {
+      const r = await runMain(v, ['--plan', 'Nonexistent Topic'], { searchImpl });
+      assert.ok(r.logs.some((l) => l.includes('nothing to plan')));
+      assert.equal(r.exitCode, undefined);
+    }
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
 });
 
-test('an empty search result with a dead Obsidian refuses to trust it (--apply)', async () => {
+test('an empty search result after a failed wiki keyword scan refuses to trust it (--apply)', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const r = await runMain(v, ['--apply', 'Nonexistent Topic'], {
-      searchImpl: emptySearch,
-      assertRunning: () => { throw new Error('Obsidian CLI unavailable.'); },
-    });
+    const r = await runMain(v, ['--apply', 'Nonexistent Topic'], { searchImpl: failedKeywordSearch });
     assert.equal(r.exitCode, 1);
-    assert.ok(r.errs.some((l) => l.includes('cannot trust this empty result')));
+    assert.ok(r.errs.some((l) => l.includes('cannot trust this empty result') && l.includes('exceeded 30000ms')));
     assert.equal(existsSync(join(v, '.recycle')), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('purge no longer asks Obsidian whether it is running before trusting a search', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--plan', 'Nonexistent Topic'], { searchImpl: emptySearch,
+      assertRunning: () => { throw new Error('Obsidian must not be consulted'); } });
+    assert.ok(r.logs.some((l) => l.includes('nothing to plan')));
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
