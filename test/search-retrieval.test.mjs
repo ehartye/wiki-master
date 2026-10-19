@@ -328,3 +328,26 @@ test('all keyword failures report semantic plus identity rather than hybrid', as
   assert.ok(rendered.stderr[0].includes('semantic+identity'));
   assert.ok(rendered.stderr[0].includes('keyword'));
 });
+
+test('the keyword engine order breaks ties the lexical score cannot: the page holding the exact string ranks first', async (t) => {
+  // Every page carries the same words, so the lexical score ties and the alphabet would pick a-*.
+  // Only the engine knows that z-exact holds the identifier as written.
+  const files = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`wiki/a-${String(i).padStart(2, '0')}.md`, '# Note\nimport and scene are mentioned apart.\n']));
+  files['wiki/z-exact.md'] = '# Note\nCall import_scene to load it.\n';
+  const { vaultPath } = await fixture(t, files);
+  const engineOrder = ['wiki/z-exact.md', ...Object.keys(files).filter(p => p !== 'wiki/z-exact.md')];
+  const ctx = await context(vaultPath, [], { checkAvailable: async () => false,
+    keywordSearchFn: async (q, options) => options.path === 'wiki' ? engineOrder : [] });
+  const result = await retrieval.main('import_scene', { context: ctx, limit: 3 });
+  assert.equal(result.results[0].path, 'wiki/z-exact.md');
+});
+
+test('moc and wiki keyword lists vote as equals: a moc page the engine ranks first is not queued behind every wiki hit', async (t) => {
+  const files = Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`wiki/a-${String(i).padStart(2, '0')}.md`, '# Note\nalpha beta gamma.\n']));
+  files['moc/z-map.md'] = '# Map\nalpha beta gamma in order.\n';
+  const { vaultPath } = await fixture(t, files);
+  const ctx = await context(vaultPath, [], { checkAvailable: async () => false,
+    keywordSearchFn: async (q, options) => options.path === 'moc' ? ['moc/z-map.md'] : Object.keys(files).filter(p => p.startsWith('wiki/')) });
+  const result = await retrieval.main('alpha beta gamma', { context: ctx, limit: 3 });
+  assert.ok(result.results.slice(0, 2).some(h => h.path === 'moc/z-map.md'), result.results.map(h => h.path).join());
+});

@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  semanticSearch, mergeRRF, loadChunkIndex, renderResult,
+  semanticSearch, mergeRRF, tiedRanks, loadChunkIndex, renderResult,
 } from '../scripts/search.mjs';
 import { encodeVectors } from '../scripts/lib/vector-index.mjs';
 import { assessTiers } from '../scripts/lib/search-health.mjs';
@@ -260,4 +260,18 @@ test('renderResult: adds no raw/ disclosure line when rawCount is absent (--incl
   });
   const { stderr } = renderResult(result, assessed, { chunks: 100, announceFull: false });
   assert.equal(stderr.length, 1, 'no raw-related line when raw/ was never searched');
+});
+
+test('tiedRanks gives equal keys the rank of the first of them', () => {
+  const ranks = tiedRanks([{ k: 3 }, { k: 3 }, { k: 3 }, { k: 2 }, { k: 1 }, { k: 1 }], x => x.k).map(x => x.rank);
+  assert.deepEqual(ranks, [0, 0, 0, 3, 4, 4]);
+  assert.deepEqual(tiedRanks([], x => x), []);
+});
+
+test('mergeRRF takes explicit ranks: tied entries score the same, and plain paths still rank by position', () => {
+  const merged = mergeRRF([[{ path: 'a.md', rank: 0 }, { path: 'b.md', rank: 0 }, { path: 'c.md', rank: 2 }], ['c.md']]);
+  const score = p => merged.find(h => h.path === p).score;
+  assert.equal(score('a.md'), score('b.md'));
+  assert.ok(Math.abs(score('c.md') - (1 / 63 + 1 / 61)) < 1e-12);
+  assert.equal(merged[0].path, 'c.md');
 });
