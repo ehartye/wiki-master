@@ -106,6 +106,11 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths }) {
     // copy of that check would be untested dead weight, not a second layer
     // of defense — confirmed by mutation testing, not assumed.
     const result = commitPaths(vaultPath, paths, `${op}: ${title}`);
+    // A git failure is not an empty delta. Keep the token and the scoped ledger so
+    // the same close can be retried once the cause (a lock, a hook) is gone.
+    if (result.failed) {
+      return { ok: false, reason: `git could not commit this operation (the token is kept; retry the same op-commit): ${result.reason}` };
+    }
     outcome = {
       ok: true,
       committed: result.committed,
@@ -228,7 +233,7 @@ export async function main(argv, refreshDeps) {
     for (const path of r.excludedPaths) console.log(`  ${path}`);
   }
   if (typeof r.unpushed === 'number' && r.unpushed > 0) {
-    console.log(`${r.unpushed} commit(s) unpushed. Run \`git push\` from the vault to sync.`);
+    console.log(`${r.unpushed} commit(s) unpushed. Run \`node scripts/wiki-sync.mjs\` to sync: it rebases onto other machines' work, pushes and verifies.`);
   }
   if (r.wrappedLinks.length) {
     console.log(`⚠ ${r.wrappedLinks.length} hard-wrapped wikilink(s) in the files just committed — run \`node scripts/repair-wrapped-links.mjs --apply\`:`);

@@ -493,3 +493,58 @@ test('a non-git vault still refreshes its index', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// The P1 failure from 0.41.1: git could not take the index lock, `git add` threw,
+// and op-commit reported "made no changes", deleted the token and exited 0 while
+// the operation's files sat untracked. A failed git call is not an empty delta.
+test('a held index lock fails the commit, keeps the token, and a retry commits the same files', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+    const lock = join(dir, '.git', 'index.lock');
+    writeFileSync(lock, '');
+
+    const failed = commitOp(dir, { op: 'relink', title: 'locked', token });
+    assert.equal(failed.ok, false);
+    assert.match(failed.reason, /index\.lock/);
+    assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')), 'the token must survive a failed commit');
+    assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim(), head);
+
+    rmSync(lock);
+    const retried = commitOp(dir, { op: 'relink', title: 'locked', token });
+    assert.equal(retried.ok, true);
+    assert.equal(retried.committed, true);
+    assert.deepEqual(committedFiles(dir), ['ours.md']);
+    assert.equal(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the CLI exits 1 and says the commit failed when git cannot stage', async () => {
+  const dir = tempRepo();
+  try {
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    writeFileSync(join(dir, '.git', 'index.lock'), '');
+    const r = await run(commitMain, dir, ['--op', 'relink', '--title', 'locked', '--since', token]);
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some(line => /index\.lock/.test(line)), r.errs.join('|'));
+    assert.ok(!r.logs.some(line => /nothing to commit/.test(line)), 'a failure must not read as an empty commit');
+    assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a commit that git rejects (failing pre-commit hook) also keeps the token', async () => {
+  const dir = tempRepo();
+  try {
+    const hook = join(dir, '.git', 'hooks', 'pre-commit');
+    mkdirSync(join(dir, '.git', 'hooks'), { recursive: true });
+    writeFileSync(hook, '#!/bin/sh\necho blocked >&2\nexit 1\n', { mode: 0o755 });
+    const token = await begin(dir, 'relink');
+    writeFileSync(join(dir, 'ours.md'), 'our note\n');
+    const result = commitOp(dir, { op: 'relink', title: 'hooked', token });
+    assert.equal(result.ok, false);
+    assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

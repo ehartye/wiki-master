@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 // The single place wiki-master touches git. Deliberately narrow: stage, commit,
-// push. No force, no history rewriting, no branch switching, no merge conflict
-// resolution — a vault is a user's knowledge base, and an automated tool that
+// push, and the fetch and rebase wiki-sync needs to move commits between machines.
+// No force, no history rewriting, no branch switching, no merge conflict
+// resolution (a conflicting rebase is aborted and reported) — a vault is a user's knowledge base, and an automated tool that
 // rewrites its history is a worse failure than the one this feature fixes.
 
 // `-c core.quotePath=false` on every invocation: without it, git renders
@@ -74,6 +75,13 @@ export function isGitRepo(cwd) {
 // would leave the move done but uncommitted with no way for the caller to
 // know — the exact working-tree-only state this feature exists to prevent,
 // reached by crash instead of by bug.
+//
+// A result is one of three things, and callers must not conflate them: committed;
+// a legitimate empty delta (`reason` only: 'nothing to commit' or 'not a git
+// repository'); or a git failure (`failed: true`, `reason` is git's stderr): a held
+// index.lock, a rejecting hook, a permissions error. Reading the third as the second
+// made op-commit report "made no changes" and delete its token while the
+// operation's files sat uncommitted (0.41.1, observed twice).
 export function commitPaths(cwd, paths, message) {
   if (!isGitRepo(cwd)) return { committed: false, reason: 'not a git repository' };
   if (!paths.length) return { committed: false, reason: 'nothing to commit' };
@@ -90,7 +98,7 @@ export function commitPaths(cwd, paths, message) {
   try {
     tracked = new Set(git(cwd, ['ls-files', '-z']).split('\0').filter(Boolean));
   } catch (err) {
-    return { committed: false, reason: stderrOf(err) };
+    return { committed: false, failed: true, reason: stderrOf(err) };
   }
   const stageable = paths.filter((p) => tracked.has(p) || existsSync(join(cwd, p)));
   if (!stageable.length) return { committed: false, reason: 'nothing to commit' };
@@ -100,7 +108,7 @@ export function commitPaths(cwd, paths, message) {
   try {
     git(cwd, ['add', '--pathspec-from-file=-', '--pathspec-file-nul'], { input });
   } catch (err) {
-    return { committed: false, reason: stderrOf(err) };
+    return { committed: false, failed: true, reason: stderrOf(err) };
   }
 
   // "Did any of OUR paths end up staged?" — not "is the index non-empty?".
@@ -115,7 +123,7 @@ export function commitPaths(cwd, paths, message) {
     const out = git(cwd, ['diff', '--cached', '--name-only', '-z']);
     staged = new Set(out.split('\0').filter(Boolean));
   } catch (err) {
-    return { committed: false, reason: stderrOf(err) };
+    return { committed: false, failed: true, reason: stderrOf(err) };
   }
   if (!stageable.some((p) => staged.has(p))) {
     return { committed: false, reason: 'nothing to commit' };
@@ -125,7 +133,7 @@ export function commitPaths(cwd, paths, message) {
     const commitArgs = ['commit', '-q', '-m', message, '--pathspec-from-file=-', '--pathspec-file-nul'];
     git(cwd, commitArgs, { input });
   } catch (err) {
-    return { committed: false, reason: stderrOf(err) };
+    return { committed: false, failed: true, reason: stderrOf(err) };
   }
   return { committed: true, sha: git(cwd, ['rev-parse', 'HEAD']) };
 }
@@ -155,4 +163,85 @@ export function push(cwd) {
   } catch (err) {
     return { pushed: false, reason: stderrOf(err) };
   }
+}
+
+// --- Sync primitives (wiki-sync.mjs) -----------------------------------------
+//
+// The plugin owns the vault's git (decision recorded in the wiki-master vault:
+// obsidian-git's auto-commit raced scoped operation commits, and three machines
+// share one remote). Syncing is fetch, rebase onto the upstream, push. Still no
+// force, no merge commits, no conflict resolution: a conflict aborts the rebase
+// and is reported, because the right resolution of two machines' edits to one
+// page is a human's or an agent's judgement, not a script's.
+
+// Where git keeps rebase state is not always `.git/` (worktrees, submodules), so
+// ask git rather than building the path.
+export function rebaseInProgress(cwd) {
+  return ['rebase-merge', 'rebase-apply'].some((name) => {
+    try {
+      return existsSync(resolve(cwd, git(cwd, ['rev-parse', '--git-path', name])));
+    } catch {
+      return false;
+    }
+  });
+}
+
+export function upstreamOf(cwd) {
+  try {
+    return git(cwd, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function fetchUpstream(cwd) {
+  try {
+    git(cwd, ['fetch', '-q']);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: stderrOf(err) };
+  }
+}
+
+export function aheadBehind(cwd) {
+  const [ahead, behind] = git(cwd, ['rev-list', '--left-right', '--count', 'HEAD...@{u}']).split(/\s+/).map(Number);
+  return { ahead, behind };
+}
+
+// Everything dirty in the working tree. `-z` removes quoting entirely and
+// `--no-renames` keeps a staged rename as two plain paths, so every entry is one
+// path that can go straight back into commitPaths.
+export function dirtyPaths(cwd) {
+  return git(cwd, ['status', '--porcelain', '-z', '--untracked-files=all', '--no-renames'])
+    .split('\0').filter(Boolean).map((entry) => entry.slice(3));
+}
+
+// Files the upstream changed since the merge base. An uncommitted edit to one of
+// these is what a rebase's autostash cannot put back cleanly.
+export function incomingFiles(cwd) {
+  return git(cwd, ['diff', '--name-only', '-z', 'HEAD...@{u}']).split('\0').filter(Boolean);
+}
+
+export function rebaseOntoUpstream(cwd) {
+  try {
+    git(cwd, ['rebase', '--autostash', '@{u}']);
+    return { ok: true };
+  } catch (err) {
+    let conflicts = [];
+    try {
+      conflicts = git(cwd, ['diff', '--name-only', '--diff-filter=U', '-z']).split('\0').filter(Boolean);
+    } catch { /* the conflict list is a courtesy; the abort below is not */ }
+    let aborted = false;
+    try {
+      git(cwd, ['rebase', '--abort']);
+      aborted = true;
+    } catch { /* reported below */ }
+    return { ok: false, conflicts, aborted, reason: stderrOf(err) };
+  }
+}
+
+// A rejected push means the remote moved after our fetch: the one case worth a
+// second attempt. Anything else (auth, network, a hook) is reported as it is.
+export function isPushRejection(reason = '') {
+  return /rejected|non-fast-forward|fetch first|failed to update ref/i.test(reason);
 }
