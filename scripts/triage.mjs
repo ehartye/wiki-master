@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
-import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey } from './lib/triage.mjs';
+import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -16,26 +16,32 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // to re-clip. buildFrontmatter writes `fidelity` and `extraction`.
 // A clipping is healthy at these grades; anything else is a real quality problem.
 const HEALTHY_FIDELITY = new Set(['high', 'ok', 'clean']);
+function* clippingFiles(dir, prefix='') {
+  for (const entry of readdirSync(dir,{withFileTypes:true})) {
+    const rel=prefix+entry.name;
+    if(entry.isDirectory()) yield* clippingFiles(join(dir,entry.name),rel+'/');
+    else if(entry.isFile() && entry.name.endsWith('.md')) yield rel;
+  }
+}
 
 // One pass over raw/clippings/, yielding both things the queue needs from
-// frontmatter: the fidelity flags, and the research topic each clipping was
-// gathered for. They are read together because the directory is large (1,800+
-// files on the reference vault) and scanning it twice to answer two questions
-// about the same 1,200 bytes is waste the queue pays on every render.
+// frontmatter: fidelity, topic attribution and durable citation restrictions.
+// Read the complete header so a long figure list cannot hide its restriction.
 export function scanClippings(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return { flagged: [], topics: [] };
+  if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [], active: [] };
   const flagged = [];
   const topics = [];
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.md')) continue;
+  const quarantined = [];
+  const active = [];
+  for (const f of clippingFiles(dir)) {
     let head;
     try {
-      head = readFileSync(join(dir, f), 'utf8').slice(0, 1200);
+      head = readFileSync(join(dir, f), 'utf8');
     } catch {
       continue;
     }
-    const fm = head.startsWith('---') ? head.slice(3, head.indexOf('\n---', 3)) : '';
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(head)?.[1] ?? '';
     if (!fm) continue;
 
     const srcLine = /^source:\s*(.+)$/m.exec(fm);
@@ -46,6 +52,11 @@ export function scanClippings(vaultPath) {
       // carries a URL, while a backlog row is the clipping's own vault path.
       topics.push({ path: `raw/clippings/${f}`, url, topic });
     }
+    if (/^citation-status:\s*["']?quarantined["']?\s*$/m.test(fm)) {
+      quarantined.push({url,path:`raw/clippings/${f}`});
+      continue;
+    }
+    active.push({url,path:`raw/clippings/${f}`});
     // Read `fidelity` specifically. `extraction:` records HOW the text was read
     // (e.g. ocr) — a method, not a defect — so it must never become a triage
     // item; matching either key also let an earlier `extraction:` line win the
@@ -61,7 +72,7 @@ export function scanClippings(vaultPath) {
       occurrences: 1,
     });
   }
-  return { flagged, topics };
+  return { flagged, topics, quarantined, active };
 }
 
 // Kept as its own export: it is the unit under test in triage-fidelity.test.mjs
@@ -75,8 +86,11 @@ export function collectTriage(
   { expiringWithinDays = 30, backlogLimit = 25, hubStubLimit = 25 } = {}
 ) {
   const log = loadIssueLog(vaultPath);
-  const issues = openIssues(log);
-  const { flagged: fidelity, topics } = scanClippings(vaultPath);
+  const { flagged: fidelity, topics, quarantined, active } = scanClippings(vaultPath);
+  const activeUrls=new Set(active.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')));
+  const suppressedPaths=new Set(quarantined.map(x=>issueKey(x.path,'')));
+  const suppressedUrls=new Set(quarantined.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')).filter(x=>!activeUrls.has(x)));
+  const issues = openIssues(log).filter(x=>x.kind==='attention'||(!suppressedUrls.has(issueKey(x.url,''))&&!suppressedPaths.has(issueKey(x.source||x.url,''))));
   const topicIndex = buildTopicIndex(topics);
 
   // De-dupe against the log, and honour dispositions. Two hazards:
@@ -88,11 +102,13 @@ export function collectTriage(
   //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
   const queued = new Set(issues.map((i) => issueKey(i.url, i.kind)));
   const settled = settledKeys(log);
+  const pending=new Set(pendingReclips(log).map(x=>issueKey(x.url,'fidelity')));
+  const partialUrls=new Set(quarantined.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')).filter(x=>activeUrls.has(x)));
   const fidelityOnly = fidelity.filter(
-    (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
+    (f) => !queued.has(issueKey(f.url, f.kind)) && (!settled.has(issueKey(f.url, f.kind)) || (pending.has(issueKey(f.url,'fidelity')) && partialUrls.has(issueKey(f.url,''))))
   );
 
-  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
+  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressedUrls.has(issueKey(x.url,'')));
 
   // The backlog is `unsummarizedSources`, not `unparsedSources`. A source cited
   // only by a concept's provenance frontmatter is parsed but has no summary
@@ -106,7 +122,7 @@ export function collectTriage(
   let hubStubs = [];
   try {
     const m = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
-    unsummarized = m.unsummarizedSources || [];
+    unsummarized = (m.unsummarizedSources || []).filter(path=>!suppressedPaths.has(issueKey(path,'')));
     hubStubs = m.hubStubs || [];
   } catch {
     unsummarized = [];
