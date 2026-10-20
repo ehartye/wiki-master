@@ -151,3 +151,7 @@ against a fixture vault — no running Obsidian required. See
 ### Catalog refresh
 
 Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run. It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` restricts untracked page visibility to the operation's owned additions; tracked pages stay visible. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately. Cross-project ambiguity detection still requires one vault scan.
+
+### Content lint
+
+`node scripts/lint.mjs` is warn-only and never scored. Quotes the strict verbatim check cannot place are sorted into tiers, with counts first: **convention** (same words in the same order; markup, punctuation or extraction spacing differ; counted, listed with `--tier=convention`), **gapped** (every word is in the evidence in order with extra evidence words between them, which are printed: extraction noise or a silent omission) and **unverified** (a word is changed, added, reordered or negated, or the evidence trail does not hold the text). `--json` emits `{tiers, findings, style}`; `--tier=<name>`, `--page=<substr>` and `--full` narrow or widen the listing. A tier is a pointer for review, not a verdict on the quote. The matching lives in `scripts/lib/quote-match.mjs`.

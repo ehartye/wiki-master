@@ -22,11 +22,25 @@ Before the first authorized write, follow the shared operations completion contr
    counts. Zero evaluated is not a clean result; report missing evidence or backend
    failures. Similarity is a topical diagnostic, never proof of claim correctness.
 3. Run the content lint: `node "<absolute-plugin-root>/scripts/lint.mjs"` (warn-only,
-   never scored). It flags (a) quotes that cannot be verified against the page's
-   raw/ evidence trail — adjudicate each: real drift gets fixed against the
-   clipping (guardrail #5), quoting-convention artifacts get ignored, and claims
-   the vault genuinely doesn't hold get marked unsourced on the page; (b) style
-   flags per the v0.2.2 licenses — pointers for review, not violations.
+   never scored; `--json` for the full list, `--tier=convention|gapped|unverified`,
+   `--page=<substr>`, `--full` for untruncated quotes). It sorts each quote the
+   verbatim check cannot place into a tier and leads with the counts:
+   - **convention** — the evidence has the same words in the same order; markup,
+     punctuation or extraction spacing differ. Counted, not listed; leave it unless
+     the count jumps.
+   - **gapped** — every quoted word is in the evidence in order, with extra evidence
+     words between them, which are listed. A header, timestamp or citation is
+     extraction noise. A dropped clause or two joined sentences is a silent omission:
+     restore the words or add an ellipsis. Read each inserted run.
+   - **unverified** — a word is changed, added, reordered or negated (so is a dropped
+     negation or operator), or the page's evidence trail does not hold the text.
+     Adjudicate a bounded sample and report its size: real drift gets fixed against
+     the clipping (guardrail #5); the wiki's own wording, mention quotes and
+     retracted claims are conventions to ignore; claims the vault genuinely doesn't
+     hold get marked unsourced on the page. Confirm the trail itself resolves (an
+     ambiguous or misrouted citation) before editing a quote. Two-column captures
+     with interleaved text land here too.
+   Style flags per the v0.2.2 licenses are pointers for review, not violations.
 4. Read the flagged pages (orphans, hub-stubs, drifted). Look for: contradictions
    between pages, claims superseded by newer sources, concepts referenced but
    unwritten, and missing cross-references.

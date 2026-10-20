@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkQuotes, checkStyle, normalize, quoteFragments } from '../scripts/lint.mjs';
+import { execFileSync } from 'node:child_process';
+import { checkQuotes, checkStyle, classifyQuotes, normalize, quoteFragments } from '../scripts/lint.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lint-vault');
@@ -139,4 +140,86 @@ test('checkStyle exempts quoted spans', () => {
 test('checkStyle applies no style license to wiki/authored/', () => {
   const findings = checkStyle(FIXTURE, graph());
   assert.deepEqual(findings.filter((f) => f.page === 'wiki/authored/policy.md'), []);
+});
+
+// ── quote tiers ──────────────────────────────────────────────────────────────
+// verbatim (not reported) → convention (same words, markup/punctuation/spacing
+// differ) → gapped (all words in order, extra evidence words between them) →
+// unverified. Convention and gapped are NOT silently passed: the first is a
+// counted pointer, the second lists the inserted words so a reviewer can tell
+// extraction noise from a silent omission.
+
+const tierOf = (res, page) => res.findings.filter((f) => f.page === `wiki/concepts/${page}.md`);
+
+test('classifyQuotes: markup, punctuation and extraction-split words are the convention tier', () => {
+  const res = classifyQuotes(FIXTURE, graph());
+  const found = tierOf(res, 'tier-convention');
+  assert.equal(found.length, 2, 'both quotes on the page are flagged by the verbatim check');
+  assert.ok(found.every((f) => f.tier === 'convention'), JSON.stringify(found.map((f) => f.tier)));
+});
+
+test('classifyQuotes: a quote with extra evidence words inside is gapped and shows them', () => {
+  const [f] = tierOf(classifyQuotes(FIXTURE, graph()), 'tier-gapped');
+  assert.equal(f.tier, 'gapped');
+  assert.deepEqual(f.inserted, ['148 chapter 8']);
+  assert.ok(f.quote.includes('then hands the result'), 'carries the whole quote');
+});
+
+test('classifyQuotes: a substituted word and a dropped negation stay unverified', () => {
+  const res = classifyQuotes(FIXTURE, graph());
+  assert.equal(tierOf(res, 'tier-substituted')[0].tier, 'unverified');
+  assert.equal(tierOf(res, 'tier-negation-dropped')[0].tier, 'unverified');
+  assert.equal(tierOf(res, 'bad')[0].tier, 'unverified');
+});
+
+test('classifyQuotes: verbatim quotes are counted but not reported; totals add up', () => {
+  const res = classifyQuotes(FIXTURE, graph());
+  assert.ok(!res.findings.some((f) => f.page.includes('good.md')));
+  assert.ok(res.verbatim >= 1, 'good.md has a verbatim quote');
+  assert.equal(res.examined, res.verbatim + res.findings.length);
+});
+
+test('classifyQuotes: a page saying the text is not in the clipped source is exempt', () => {
+  assert.deepEqual(tierOf(classifyQuotes(FIXTURE, graph()), 'tier-declared-absent'), []);
+});
+
+test('checkQuotes keeps its contract: every non-verbatim quote, {page, quote, checked}', () => {
+  const findings = checkQuotes(FIXTURE, graph());
+  for (const page of ['tier-convention', 'tier-gapped', 'tier-substituted', 'bad']) {
+    assert.ok(findings.some((f) => f.page === `wiki/concepts/${page}.md`), page);
+  }
+  for (const f of findings) assert.deepEqual(Object.keys(f).sort(), ['checked', 'page', 'quote']);
+});
+
+const runLint = (...args) => execFileSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'lint.mjs'), ...args],
+  { env: { ...process.env, WIKI_MASTER_VAULT: FIXTURE }, encoding: 'utf8' });
+
+test('lint --json emits tier counts, tiered findings and style flags', () => {
+  const out = JSON.parse(runLint('--json'));
+  assert.deepEqual(Object.keys(out.tiers).sort(), ['convention', 'examined', 'gapped', 'unverified', 'verbatim']);
+  assert.equal(out.tiers.convention, out.findings.filter((f) => f.tier === 'convention').length);
+  assert.equal(out.tiers.gapped, out.findings.filter((f) => f.tier === 'gapped').length);
+  assert.equal(out.tiers.unverified, out.findings.filter((f) => f.tier === 'unverified').length);
+  assert.ok(Array.isArray(out.style) && out.style.some((s) => s.page === 'wiki/entities/puffy.md'));
+  assert.ok(out.findings.every((f) => f.quote && f.page && f.tier && Number.isInteger(f.checked)));
+});
+
+test('lint --json --tier and --page filter the findings but not the counts', () => {
+  const all = JSON.parse(runLint('--json'));
+  const gapped = JSON.parse(runLint('--json', '--tier=gapped'));
+  assert.ok(gapped.findings.length >= 1 && gapped.findings.every((f) => f.tier === 'gapped'));
+  assert.deepEqual(gapped.tiers, all.tiers);
+  const one = JSON.parse(runLint('--json', '--page=tier-substituted'));
+  assert.deepEqual([...new Set(one.findings.map((f) => f.page))], ['wiki/concepts/tier-substituted.md']);
+});
+
+test('lint human output leads with tier counts, lists gapped inserts, and --full avoids truncation', () => {
+  const out = runLint();
+  assert.match(out, /Quote tiers: \d+ examined, \d+ verbatim, \d+ convention, \d+ gapped, \d+ unverified/);
+  assert.match(out, /Gapped quotes: 1/);
+  assert.match(out, /inserted: 148 chapter 8/);
+  assert.match(out, /Unverifiable quotes: \d+/);
+  const long = runLint('--tier=unverified');
+  assert.ok(!long.includes('visible to the assertion'), 'default output truncates long quotes for display');
+  assert.ok(runLint('--tier=unverified', '--full').includes('visible to the assertion'), '--full prints the whole quote');
 });

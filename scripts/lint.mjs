@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
+import { prepareDocument, classifyFragments, DECLARES_ABSENT } from './lib/quote-match.mjs';
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no
@@ -66,10 +67,38 @@ function evidenceBodies(vaultPath, page, byName, pages) {
     .map((p) => splitFm(readFileSync(join(vaultPath, p), 'utf8')));
 }
 
-export function checkQuotes(vaultPath, graph) {
+// Prepared evidence documents are shared across pages (one raw clipping backs many
+// pages) but bounded, least recently used out. A document costs several times its
+// source size once its word string and compact form exist, so the cap is on that
+// weighted size, not on raw characters.
+const DOC_CACHE_WEIGHT = 160_000_000;
+const DOC_WEIGHT = 4;
+function makeDocCache(vaultPath) {
+  const cache = new Map();
+  let held = 0;
+  return (path) => {
+    const hit = cache.get(path);
+    if (hit) { cache.delete(path); cache.set(path, hit); return hit.doc; }
+    const text = splitFm(readFileSync(join(vaultPath, path), 'utf8'));
+    const doc = prepareDocument(text);
+    cache.set(path, { doc, size: text.length * DOC_WEIGHT });
+    held += text.length * DOC_WEIGHT;
+    for (const [k, v] of cache) {
+      if (held <= DOC_CACHE_WEIGHT || cache.size <= 1) break;
+      cache.delete(k); held -= v.size;
+    }
+    return doc;
+  };
+}
+
+// Every quote the verbatim check cannot place, sorted into the tier that says why.
+// Returns { examined, verbatim, findings }; verbatim quotes are counted, not listed.
+export function classifyQuotes(vaultPath, graph) {
   const byName = buildNameIndex(graph.pages);
   const pages = new Map(graph.pages.map((p) => [p.path, p]));
+  const docFor = makeDocCache(vaultPath);
   const findings = [];
+  let examined = 0, verbatim = 0;
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
     // A page declaring `sources: []` has, by its own frontmatter, no external
@@ -82,24 +111,35 @@ export function checkQuotes(vaultPath, graph) {
     const body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
     const quotes = quotedSpans(body);
     if (!quotes.length) continue;
+    const paths = evidencePaths(p, byName, pages);
     const evidence = evidenceBodies(vaultPath, p, byName, pages).map(normalize);
+    let docs = null; // prepared only if some quote of this page fails the verbatim check
     for (const q of quotes) {
-      // A sentence that declares its claim unsourced is the policy working.
+      // A sentence that declares its claim unsourced (or absent from the clipped
+      // source) is the policy working.
       const sentence = body.split(/(?<=[.!?])\s+/).find((s) => s.includes(q)) ?? '';
-      if (/unsourced/i.test(sentence)) continue;
+      if (DECLARES_ABSENT.test(sentence)) continue;
       // Edge punctuation is quoting convention, not source text: the page
       // ends a quote "…the image." where the book continues "…the image, so".
-      const fragments = quoteFragments(q)
-        .map((f) => normalize(f).replace(/^[.,;:!?\s]+|[.,;:!?\s]+$/g, ''));
+      const raw = quoteFragments(q);
+      const fragments = raw.map((f) => normalize(f).replace(/^[.,;:!?\s]+|[.,;:!?\s]+$/g, ''));
       if (!fragments.length) continue;
-      if (!fragments.every((f) => evidence.some((e) => e.includes(f)))) {
-        // Full quote, never truncated: a repair tool re-checking this finding must
-        // see the whole span, or a quote whose tail diverges verifies on its prefix.
-        findings.push({ page: p.path, quote: q, checked: evidence.length });
-      }
+      examined++;
+      if (fragments.every((f) => evidence.some((e) => e.includes(f)))) { verbatim++; continue; }
+      docs ??= paths.map(docFor);
+      const { tier, inserted } = classifyFragments(raw, docs);
+      // Full quote, never truncated: a repair tool re-checking this finding must
+      // see the whole span, or a quote whose tail diverges verifies on its prefix.
+      findings.push({ page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}) });
     }
   }
-  return findings;
+  return { examined, verbatim, findings };
+}
+
+// The strict contract callers (repair-quote-provenance) rely on: every quote the
+// verbatim check cannot place, whatever its tier.
+export function checkQuotes(vaultPath, graph) {
+  return classifyQuotes(vaultPath, graph).findings.map(({ page, quote, checked }) => ({ page, quote, checked }));
 }
 
 // WTW-seeded word lists (flags, not bans). Seeded from MOS:WTW categories.
@@ -160,23 +200,69 @@ export function checkStyle(vaultPath, graph) {
   return findings;
 }
 
-export function main() {
+const TIERS = ['convention', 'gapped', 'unverified'];
+const SHOW_BY_DEFAULT = ['gapped', 'unverified'];
+
+function parseArgs(argv) {
+  const opt = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  const tier = opt('tier');
+  if (tier && tier !== 'all' && !TIERS.includes(tier)) throw new Error(`--tier must be one of: ${[...TIERS, 'all'].join(', ')}`);
+  return { json: argv.includes('--json'), full: argv.includes('--full'), tier, page: opt('page') };
+}
+
+const clip = (q, full, n = 80) => (full || q.length <= n ? q : `${q.slice(0, n)}...`);
+
+export function main(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
   const { path: vaultPath } = resolveVault();
   const graph = buildGraph(vaultPath);
-  const quotes = checkQuotes(vaultPath, graph);
+  const { examined, verbatim, findings } = classifyQuotes(vaultPath, graph);
   const style = checkStyle(vaultPath, graph);
+  const count = (t) => findings.filter((f) => f.tier === t).length;
+  const tiers = { examined, verbatim, convention: count('convention'), gapped: count('gapped'), unverified: count('unverified') };
+  const wanted = args.tier && args.tier !== 'all' ? [args.tier] : (args.json || args.tier === 'all' ? TIERS : SHOW_BY_DEFAULT);
+  const inPage = (x) => !args.page || x.page.includes(args.page);
+  const listed = findings.filter((f) => wanted.includes(f.tier) && inPage(f));
+  // Gapped quotes with the most skipped words first: that is where a spliced
+  // passage is likeliest to hide among the header-and-timestamp noise.
+  const skipped = (f) => f.inserted.join(' ').split(' ').filter(Boolean).length;
+  listed.sort((x, y) => (x.tier === 'gapped' && y.tier === 'gapped' ? skipped(y) - skipped(x) : 0));
+  const shownStyle = style.filter(inPage);
+
+  if (args.json) {
+    const out = listed.map((f) => (f.tier === 'gapped' ? { ...f, insertedWords: skipped(f) } : f));
+    console.log(JSON.stringify({ tiers, findings: out, style: shownStyle }, null, 2));
+    return { findings: listed, tiers, style: shownStyle };
+  }
+
   console.log(`Content lint (warn-only — flags for review, never scored)`);
-  console.log(`\nUnverifiable quotes: ${quotes.length}`);
-  for (const f of quotes) console.log(`  ${f.page}\n    "${f.quote.slice(0, 80)}..." (checked ${f.checked} sources)`);
+  console.log(`
+Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${tiers.convention} convention, ${tiers.gapped} gapped, ${tiers.unverified} unverified`);
+  console.log(`  convention: the evidence has these words in this order; markup, punctuation or extraction spacing differ (counted, listed with --tier=convention)`);
+  console.log(`  gapped: every word is in the evidence in order, with extra evidence words between them — extraction noise, or a silent omission; read the inserted words`);
+  console.log(`  unverified: a word is changed, added, reordered or negated, or the evidence trail does not hold the text`);
+  for (const tier of TIERS) {
+    if (!wanted.includes(tier)) continue;
+    const rows = listed.filter((f) => f.tier === tier);
+    const label = tier === 'unverified' ? 'Unverifiable quotes' : `${tier[0].toUpperCase()}${tier.slice(1)} quotes`;
+    console.log(`
+${label}: ${args.page ? `${rows.length} on matching pages (${tiers[tier]} vault-wide)` : rows.length}`);
+    for (const f of rows) {
+      console.log(`  ${f.page}
+    "${clip(f.quote, args.full)}" (checked ${f.checked} sources)`);
+      if (f.tier === 'gapped') console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
+    }
+  }
   const byCat = {};
-  for (const f of style) (byCat[f.category] ??= []).push(f);
-  console.log(`\nStyle flags: ${style.length}`);
+  for (const f of shownStyle) (byCat[f.category] ??= []).push(f);
+  console.log(`
+Style flags: ${shownStyle.length}`);
   for (const [cat, fs] of Object.entries(byCat)) {
     console.log(`  ${cat}: ${fs.length}`);
     for (const f of fs.slice(0, 5)) console.log(`    ${f.page} — ${f.word}`);
     if (fs.length > 5) console.log(`    ... and ${fs.length - 5} more`);
   }
-  return { quotes, style };
+  return { findings: listed, tiers, style: shownStyle };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
