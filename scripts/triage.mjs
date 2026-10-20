@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
-import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey } from './lib/triage.mjs';
+import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -102,8 +102,10 @@ export function collectTriage(
   //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
   const queued = new Set(issues.map((i) => issueKey(i.url, i.kind)));
   const settled = settledKeys(log);
+  const pending=new Set(pendingReclips(log).map(x=>issueKey(x.url,'fidelity')));
+  const partialUrls=new Set(quarantined.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')).filter(x=>activeUrls.has(x)));
   const fidelityOnly = fidelity.filter(
-    (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
+    (f) => !queued.has(issueKey(f.url, f.kind)) && (!settled.has(issueKey(f.url, f.kind)) || (pending.has(issueKey(f.url,'fidelity')) && partialUrls.has(issueKey(f.url,''))))
   );
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressedUrls.has(issueKey(x.url,'')));

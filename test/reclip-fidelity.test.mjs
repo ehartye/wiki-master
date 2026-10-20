@@ -164,9 +164,32 @@ test('successful repair preserves unrelated attention work',async t=>{
 
 test('quarantining one exact capture does not settle another capture sharing its URL',async t=>{
  const root=vault(t);writeFileSync(join(root,'raw/clippings/other.md'),original().replace('oldhash','anotherhash'));
+ disposeIssue(root,{url:'https://example.org/source.pdf',kind:'fidelity',disposition:'reclip'});
  const result=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'First capture unverifiable'});
  assert.equal(result.quarantined,1);
  const queue=collectTriage(root);assert.equal(queue.fidelity.length,1);assert.equal(queue.fidelity[0].title,'other');
  recordIssue(root,{url:'https://example.org/source.pdf',kind:'failed',source:'raw/clippings/other.md',reason:'Other capture still needs repair'});
  assert.equal(collectTriage(root).clipFailures.length,1);
+});
+
+test('a second writer cannot replace the active repair session or its transaction',async t=>{
+ const root=vault(t);let unblock,started;const waiting=new Promise(r=>{unblock=r;});const ready=new Promise(r=>{started=r;});
+ const clip=pdfClipContent({title:'Example',source:'https://example.org/source.pdf',text:prose+' First repair.'});
+ const first=runReclips({vaultPath:root,apply:true,includeTabular:true,obtain:async()=>{started();await waiting;return {path:'x.pdf'};},extract:()=>clip});
+ await ready;
+ const second=await runReclips({vaultPath:root,apply:true,includeTabular:true,obtain:async()=>({path:'other.pdf'}),extract:()=>pdfClipContent({title:'x',source:'x',text:prose+' Second repair.'})});
+ unblock();const result=await first;
+ assert.equal(second.conflicts.length,1);assert.equal(result.reclipped,1);
+ assert.ok(readFileSync(join(root,'wiki/sources/example.md'),'utf8').includes(clip.hash));
+});
+
+test('recovery discovers new dependencies and refuses an incomplete ownership ledger',async t=>{
+ const root=vault(t);const raw='raw/clippings/example.md',old='wiki/sources/example.md',added='wiki/sources/new.md';
+ const first=await runReclips({vaultPath:root,apply:true,targets:[raw],quarantineReason:'Unverifiable rows',write:()=>{throw new Error('interrupted');}});
+ assert.equal(first.conflicts.length,1);
+ writeFileSync(join(root,added),'A new citation [[raw/clippings/example]].\n');
+ const refused=await runReclips({vaultPath:root,apply:true,targets:[raw],ownedPaths:[raw,old]});
+ assert.equal(refused.conflicts.length,1);assert.doesNotMatch(readFileSync(join(root,raw),'utf8'),/citation-status: quarantined/);
+ const done=await runReclips({vaultPath:root,apply:true,targets:[raw],ownedPaths:[raw,old,added]});
+ assert.equal(done.quarantined,1);assert.match(readFileSync(join(root,added),'utf8'),/Do not cite/);
 });

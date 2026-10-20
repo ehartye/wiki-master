@@ -2,7 +2,7 @@
 
 ## 0.51.0 — 2026-10-20
 
-- Fix triage re-clips bypassing current PDF extraction policy: explicit requests are no longer skipped because characters look clean; table-aware/flattened captures can be selected explicitly. Repairs honor shared mode planning and fidelity floors, retain unrelated metadata and propagate summary hashes without advancing factual review dates. Reconstructed tables still require row verification.
+- Fix triage re-clips bypassing current PDF extraction policy: explicit requests are no longer skipped because characters look clean; table-aware/flattened captures can be selected explicitly. Repairs honor shared mode planning and fidelity floors, retain unrelated metadata and propagate summary hashes without advancing factual review dates. Reconstructed tables still require row verification. Cooperating repair sessions are serialized; interrupted metadata/hash updates retain a journal and recheck citation membership before completing.
 - Add dry-run selectors, exact targets/ownership ledgers, per-batch mode overrides and an explicit terminal `--on-failure quarantine` policy. Failed repairs can preserve the old raw body, record a tracked do-not-cite restriction and close triage instead of repeatedly reopening an unfixable source. The default failure policy remains reopen.
 - Quarantined captures stay out of fidelity/failure/backlog triage across machines, including stale local issue history. Directly matched citing pages are restricted; operators must inspect indirect citations and derived claims. Quarantine is not a fidelity pass or successful ingest. See `docs/reclipping.md` for the reviewed-table workflow and operational limits.
 

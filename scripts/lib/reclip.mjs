@@ -10,6 +10,7 @@ import { matchLocalFile } from './migrate.mjs';
 import { swapSourceHash } from './repoint.mjs';
 import { parseNote } from './note.mjs';
 import { buildNameIndex, resolveLinkTarget, wikilinks } from './graph.mjs';
+import { acquireGate, lockAddress } from './cli-transport.mjs';
 
 const norm = url => issueKey(url, '');
 const layout = text => scalar(text, 'fidelity') === 'tabular' || ['table-aware','table-flattened'].includes(scalar(text,'extraction'));
@@ -91,7 +92,20 @@ async function obtainSource(url, {file,from,title,sourceFile}={}) {
 
 // A pending journal retains the original hash transition until every dependent update
 // and the raw replacement finish. A retry resumes it rather than extracting again.
-export async function runReclips({vaultPath,apply=false,includeTabular=false,targets,mode='auto',onFailure='reopen',limit=Infinity,from,sourceFile,ownedPaths,quarantineReason,obtain=obtainSource,extract=extractForReclip,write=atomic}={}) {
+const emptyReport=()=>({selected:0,reclipped:0,quarantined:0,alreadyResolved:0,usedLocal:0,needsReview:[],failed:[],conflicts:[],conflictDetails:[],changed:[],results:[]});
+export async function runReclips(options={}) {
+  if(!options.apply)return runReclipsOwned(options);
+  let release;
+  try {
+    const root=realpathSync(options.vaultPath);
+    release=await acquireGate(lockAddress('wiki-master-reclip:'+ (process.platform==='win32'?root.toLowerCase():root)),1);
+  } catch(err) {
+    if(!['CLI_BUSY','CLI_LOCK'].includes(err.code))throw err;
+    return {...emptyReport(),conflicts:['repair-session'],conflictDetails:[{path:'repair-session',reason:'Another repair owns this vault or its reservation is unavailable',pending:false}]};
+  }
+  try {return await runReclipsOwned(options);} finally {await release();}
+}
+async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',onFailure='reopen',limit=Infinity,from,sourceFile,ownedPaths,quarantineReason,obtain=obtainSource,extract=extractForReclip,write=atomic}={}) {
   if (!['auto','reading-order','table'].includes(mode)) throw new Error('Invalid reading mode');
   if (!['reopen','quarantine'].includes(onFailure)) throw new Error('Invalid failure policy');
   if (!(limit>0) || (!Number.isInteger(limit) && limit!==Infinity)) throw new Error('Limit must be a positive integer');
@@ -115,12 +129,12 @@ export async function runReclips({vaultPath,apply=false,includeTabular=false,tar
     return targets!==undefined||requested.has(norm(scalar(text,'source')))||(includeTabular&&layout(text));
   }).slice(0,limit);
   if(sourceFile&&selected.length!==1)throw new Error('--source-file requires exactly one selected clipping');
-  const report={selected:selected.length,reclipped:0,quarantined:0,alreadyResolved:0,usedLocal:0,needsReview:[],failed:[],conflicts:[],conflictDetails:[],changed:[],results:[]};
+  const report={...emptyReport(),selected:selected.length};
   const changed=new Set(),mark=path=>changed.add(rel(path));
   let names;
   const citing=(text,path)=>{
     const wiki=[...markdown(join(root,'wiki'))];
-    if(!names)names=buildNameIndex([...allRaw,...wiki].map(p=>{const parsed=parseNote(head(p));return {path:rel(p),name:rel(p).split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};}));
+    if(!names)names=buildNameIndex([...markdown(dir),...wiki].map(p=>{const parsed=parseNote(head(p));return {path:rel(p),name:rel(p).split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};}));
     const hash=scalar(text,'source-hash'),raw=rel(path);
     return wiki.filter(p=>{const value=readFileSync(p,'utf8');return (hash&&value.includes(hash))||wikilinks(value).some(t=>{const hit=resolveLinkTarget(names,t);return Array.isArray(hit)?hit.includes(raw):hit===raw;});});
   };
@@ -151,16 +165,28 @@ export async function runReclips({vaultPath,apply=false,includeTabular=false,tar
     if(state.rawPath!==rel(path)||!['repair','quarantine'].includes(state.kind))throw new Error('Invalid repair journal');
     const raw=readFileSync(path,'utf8');
     if(raw!==state.rawBefore&&raw!==state.rawAfter)conflict('Concurrent raw edit; pending repair retained');
+    const dependencies=()=>{
+      names=undefined;
+      return state.kind==='quarantine'?citing(state.rawBefore,path):[...markdown(join(root,'wiki','sources'))].filter(p=>state.fromHash&&readFileSync(p,'utf8').includes(state.fromHash));
+    };
+    state.pages=[...new Set([...state.pages,...dependencies().map(rel)])];
+    save(path,state);
     const pages=state.pages.map(p=>resolve(root,p));
     for(const page of pages)if(!page.startsWith(resolve(root,'wiki')+sep)||!realpathSync(page).startsWith(realpathSync(join(root,'wiki'))+sep))conflict('Pending page outside wiki scope');
     assertOwned([path,...pages]);
     const project=value=>state.kind==='quarantine'?restrict(value,path,state.reason):swapSourceHash(value,state.fromHash,state.toHash);
     const updates=pages.map(page=>{const before=readFileSync(page,'utf8');return {page,before,after:project(before)};});
     for(const u of updates){if(readFileSync(u.page,'utf8')!==u.before)conflict(`Concurrent page edit: ${rel(u.page)}`);if(u.after!==u.before){write(u.page,u.after);mark(u.page);}}
+    const verifyMembership=()=>{
+      const added=dependencies().map(rel).filter(p=>!state.pages.includes(p));
+      if(added.length){state.pages.push(...added);save(path,state);conflict('Citation membership changed; pending repair retained');}
+    };
+    verifyMembership();
     // Raw last: failed dependent updates cannot hide quarantine work. The journal
     // still permits recovery if interruption happens after this final write.
     if(readFileSync(path,'utf8')!==raw)conflict('Concurrent raw edit');
     if(raw!==state.rawAfter){write(path,state.rawAfter);mark(path);}
+    verifyMembership();
     if(readFileSync(path,'utf8')!==state.rawAfter||updates.some(u=>{const value=readFileSync(u.page,'utf8');return project(value)!==value;}))conflict('Dependent edit during completion; pending repair retained');
     if(state.kind==='quarantine'){
       settle(state.url,path,'quarantine',state.reason);report.quarantined++;
