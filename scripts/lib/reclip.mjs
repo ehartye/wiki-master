@@ -29,9 +29,6 @@ function metadata(text, values) {
   }
   return `---\n${header}\n---\n${text.slice(fm[0].length)}`;
 }
-export function needsReclip(text, {requested = false} = {}) {
-  return requested || layout(text) || !['','high'].includes(scalar(text,'fidelity')) || assessFidelity(text.slice(block(text)?.[0].length ?? 0)).degraded;
-}
 export function mergeReclip(original, clip) {
   const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction});
   return updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`;

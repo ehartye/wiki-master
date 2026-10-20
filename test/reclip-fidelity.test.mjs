@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { extractForReclip, needsReclip, mergeReclip, runReclips } from '../scripts/lib/reclip.mjs';
+import { extractForReclip, mergeReclip, runReclips } from '../scripts/lib/reclip.mjs';
 import { pdfClipContent } from '../scripts/clip-pdf.mjs';
-import { recordIssue, loadIssueLog, openIssues, settledKeys, issueKey } from '../scripts/lib/triage.mjs';
+import { recordIssue, disposeIssue, loadIssueLog, openIssues, settledKeys, issueKey } from '../scripts/lib/triage.mjs';
 import { fidelityFlagged, collectTriage } from '../scripts/triage.mjs';
 import { makePdf } from './fixtures/make-pdf.mjs';
 import { pdftotextPresent } from '../scripts/lib/pdf-extract.mjs';
@@ -13,12 +13,16 @@ import { pdftotextPresent } from '../scripts/lib/pdf-extract.mjs';
 const prose = 'This reference provides clear and useful explanations for the reader. '.repeat(20);
 const original = (fidelity='tabular', extraction='table-aware') => `---\ntitle: "Example"\nsource: "https://example.org/source.pdf"\nauthor: "Example author"\npublished: 2020-01-01\ncreated: 2025-01-01\ntopic: "Reference review"\ntags: [clippings, reference]\nsource-hash: oldhash\nfidelity: ${fidelity}\nextraction: ${extraction}\nfigures:\n  - "[[raw/figures/example.png]]"\n---\n\n${prose}\n`;
 
-test('clean characters do not resolve layout-derived fidelity or an explicit request', () => {
-  assert.equal(needsReclip(original()), true);
-  assert.equal(needsReclip(original('degraded','table-flattened')), true);
+test('clean characters do not resolve layout-derived fidelity or an explicit request', async t => {
+  const root=vault(t),path=join(root,'raw/clippings/example.md');
+  assert.equal((await runReclips({vaultPath:root,includeTabular:true})).selected,1);
+  writeFileSync(path,original('degraded','table-flattened'));
+  assert.equal((await runReclips({vaultPath:root,includeTabular:true})).selected,1);
   const clean = original().replace('fidelity: tabular\n','').replace('extraction: table-aware\n','');
-  assert.equal(needsReclip(clean), false);
-  assert.equal(needsReclip(clean, { requested: true }), true);
+  writeFileSync(path,clean);
+  assert.equal((await runReclips({vaultPath:root,includeTabular:true})).selected,0);
+  disposeIssue(root,{url:'https://example.org/source.pdf',kind:'fidelity',disposition:'reclip'});
+  assert.equal((await runReclips({vaultPath:root})).selected,1);
 });
 
 test('PDF reclip honors the shared plan, mode arguments, fidelity floor and OCR caution', () => {
