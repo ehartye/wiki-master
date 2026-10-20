@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.50.1 — 2026-10-20
+
+- Preserve GitHub REST reference endpoint sections: Defuddle's exact `.gutter` cleanup rule was deleting the layout columns containing parameters and examples. Recognized reference layouts now follow the existing documentation-preservation path. Browser rendering is unnecessary for the reproduced pages because their endpoint bodies are present in served HTML.
+- Retain parameter-table captions and method/path summaries, and convert supplied request/response examples into fenced code blocks without losing their original line breaks. Extend fidelity diagnostics to whole normalized parameter rows and endpoint summaries, plus literal code examples, so retained headings cannot mask their loss.
+- Add offline artifacts/workflow-runs fixtures. Full-page checks retain 24 endpoint sections, all 59 supplied visible examples exactly, and all 450 examined structural items. Alternate language/schema tabs absent from supplied visible HTML remain outside the guarantee. Existing raw clippings are unchanged; see `docs/clipping-fidelity.md`.
+
 ## 0.50.0 — 2026-10-19
 
 - Preserve technical-documentation content before readability cleanup: linked API identifiers, introductions and extension lists outside article containers, GitHub availability/warning boxes, and technical admonitions. Static and browser-rendered pages share the same owned extractor; rendered relative links retain the source URL.
