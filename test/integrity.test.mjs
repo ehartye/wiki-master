@@ -102,6 +102,46 @@ test('ambiguous bare links require disambiguation while full paths resolve exact
   assert.equal(r.issues[0].candidates.length, 2);
 });
 
+// Found live: the vault holds both raw/clippings/Build.md and raw/clippings/build.md.md
+// (the "X.md.md" convention for a note named X.md). The extension-stripped path of the
+// second spells the full path of the first, so a link that names Build.md exactly was
+// reported as an ambiguous link between two files. An existing file named exactly,
+// path and extension, is never ambiguous with another file's stem.
+const SUBSTANTIVE = 'This substantive page describes a factual claim in enough detail to exceed the stub floor.';
+const BUILD_PAIR = {
+  'raw/clippings/Build.md': 'The build guide.',
+  'raw/clippings/build.md.md': 'A different clipping filed under the name build.md.',
+};
+
+test('an exact path-with-extension citation is not ambiguous with a file whose extension-stripped path spells it', t => {
+  const f = fixture(t, {
+    ...BUILD_PAIR,
+    'wiki/sources/Build summary.md': note(SUBSTANTIVE, 'type: source\nstatus: maintained\nsources: ["[[raw/clippings/Build.md]]"]'),
+  });
+  const r = f.scan();
+  assert.deepEqual(r.issues.map(x => `${x.rule} ${x.target}`), []);
+  assert.equal(r.defectCount, 0);
+});
+
+test('exact path-with-extension body links with an alias or anchor, in any letter case, stay unambiguous', t => {
+  const f = fixture(t, {
+    ...BUILD_PAIR,
+    'wiki/sources/Build summary.md': note(SUBSTANTIVE, 'type: source\nstatus: maintained\nsources: ["[[raw/clippings/Build.md]]"]'),
+    'wiki/concepts/Uses build.md': note(`${SUBSTANTIVE}\nSee [[raw/clippings/Build.md|the build guide]], [[raw/clippings/Build.md#Install]] and [[raw/clippings/build.md]].`,
+      'type: concept\nstatus: maintained\nsources: ["[[wiki/sources/Build summary.md]]"]'),
+  });
+  const r = f.scan();
+  assert.deepEqual(r.issues.map(x => `${x.rule} ${x.source} ${x.target}`), []);
+});
+
+test('the X.md.md convention still resolves [[path/X.md]] when no file X.md exists', t => {
+  const f = fixture(t, {
+    'raw/clippings/build.md.md': 'A clipping filed under the name build.md.',
+    'wiki/sources/Build summary.md': note(SUBSTANTIVE, 'type: source\nstatus: maintained\nsources: ["[[raw/clippings/build.md]]"]'),
+  });
+  assert.equal(f.scan().defectCount, 0);
+});
+
 test('stable issue IDs survive line shifts; duplicate occurrences count once and actual repair reduces count', t => {
   const body = '[[raw/clippings/missing.md]]\n[[raw/clippings/missing.md]]';
   const f = fixture(t, { 'wiki/authored/a.md': note(body, 'type: authored\nsources: []') });

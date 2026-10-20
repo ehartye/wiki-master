@@ -418,6 +418,32 @@ test('resolveLinkTarget resolves a link whose target name itself ends in .md', (
   );
 });
 
+// Found live: raw/clippings/Build.md and raw/clippings/build.md.md both exist. The
+// extension-stripped path of the second ("raw/clippings/build.md") is also the full
+// path of the first, and resolveLinkTarget checked that key before anything else — so a
+// link naming Build.md exactly silently landed on the OTHER file. An existing file named
+// exactly, path and extension, wins; the Name.md.md convention above still holds when no
+// such file exists. Results must not depend on which page the walk visits first.
+for (const [order, pages] of [
+  ['exact file first', [{ path: 'raw/clippings/Build.md', name: 'build' }, { path: 'raw/clippings/build.md.md', name: 'build.md' }]],
+  ['stem collision first', [{ path: 'raw/clippings/build.md.md', name: 'build.md' }, { path: 'raw/clippings/Build.md', name: 'build' }]],
+]) {
+  test(`resolveLinkTarget: an exact path-with-extension wins over another file's extension-stripped path (${order})`, () => {
+    const byName = buildNameIndex(pages);
+    for (const nav of [false, true]) {
+      assert.equal(resolveLinkTarget(byName, 'raw/clippings/Build.md', { nav }), 'raw/clippings/Build.md', `nav=${nav}`);
+      assert.equal(resolveLinkTarget(byName, 'raw/clippings/build.md', { nav }), 'raw/clippings/Build.md', 'letter case does not matter');
+      assert.equal(resolveLinkTarget(byName, 'raw/clippings/build.md.md', { nav }), 'raw/clippings/build.md.md');
+      assert.equal(resolveLinkTarget(byName, 'raw/clippings/Build', { nav }), 'raw/clippings/Build.md', 'the extension-less path still names Build.md');
+    }
+  });
+}
+
+test('resolveLinkTarget: [[path/X.md]] still lands on path/X.md.md when no file X.md exists', () => {
+  const byName = buildNameIndex([{ path: 'raw/clippings/X.md.md', name: 'x.md' }]);
+  assert.equal(resolveLinkTarget(byName, 'raw/clippings/X.md'), 'raw/clippings/X.md.md');
+});
+
 // ─── Hash-based ingest-state tracking (specs/2026-07-21-hash-ingest-state-design.md) ───
 // The link-resolution backlog manufactured 172 phantom items on the live vault
 // (~0 real): 80 clippings whose `[[Title]]` citation could not bridge the

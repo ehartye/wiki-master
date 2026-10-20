@@ -89,7 +89,7 @@ function prepare(page, markdown) {
 }
 
 function resolver(pages) {
-  const exact = new Map(), labels = new Map();
+  const exact = new Map(), stems = new Map(), labels = new Map();
   const add = (map, key, path) => {
     key = normalizeIdentity(key);
     if (!map.has(key)) map.set(key, new Set());
@@ -97,12 +97,16 @@ function resolver(pages) {
   };
   for (const p of pages) {
     add(exact, p.path, p.path);
-    add(exact, p.path.replace(/\.md$/i, ''), p.path);
+    add(stems, p.path.replace(/\.md$/i, ''), p.path);
     for (const label of [p.name, p.metadata?.title, ...(p.aliases ?? [])].filter(Boolean)) add(labels, label, p.path);
   }
   return (target, nav = false) => {
     const key = normalizeIdentity(target);
+    // A file named exactly, path and extension, wins over another file's
+    // extension-stripped path: the "X.md.md" convention makes the stem of
+    // "build.md.md" spell the full path of "Build.md".
     if (exact.has(key)) return [...exact.get(key)].sort();
+    if (stems.has(key)) return [...stems.get(key)].sort();
     if (key.includes('/')) return [];
     const candidates = [...(labels.get(key) ?? labels.get(key.replace(/\.md$/i, '')) ?? [])];
     const preferred = candidates.filter(path => nav ? isContent(path) : path.startsWith('raw/'));

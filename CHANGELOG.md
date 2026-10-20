@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.51.1 — 2026-10-20
+
+- Fix a link that names an existing file exactly, path and extension, being treated as ambiguous with — or silently resolved to — a different file. The `Name.md.md` convention makes the extension-stripped path of `raw/clippings/build.md.md` spell `raw/clippings/build.md`, which is also the full path of `raw/clippings/Build.md`. `health` reported `[[raw/clippings/Build.md]]` as an `ambiguous-link` between the two, and `resolveLinkTarget` returned the `.md.md` file, so the citation and its backlink were credited to the wrong clipping. A file matched exactly by path and extension (letter case ignored) now wins in both `integrity.mjs` and `graph.mjs`, regardless of the order the vault walk visits them.
+- The convention is unchanged: `[[path/X.md]]` still resolves to `path/X.md.md` when no file `X.md` exists, and genuinely ambiguous bare names stay ambiguous. Live vault, read-only: 241 → 225 open defects. The 16 resolved issue IDs are all `ambiguous-link raw/clippings/Build.md`; no new issue appeared and all 715 unresolved-navigation entries are unchanged.
+- Not changed: `relationships.mjs` and `identity-audit.mjs` register the same two keys per content page, so such a pair would be skipped from relationship suggestions or listed as an identity collision. That is conservative, never a wrong resolution, and the live vault holds no such content pair.
+
 ## 0.51.0 — 2026-10-20
 
 - Fix triage re-clips bypassing current PDF extraction policy: explicit requests are no longer skipped because characters look clean; table-aware/flattened captures can be selected explicitly. Repairs honor shared mode planning and fidelity floors, retain unrelated metadata and propagate summary hashes without advancing factual review dates. Reconstructed tables still require row verification. Cooperating repair sessions are serialized; interrupted metadata/hash updates retain a journal and recheck citation membership before completing.

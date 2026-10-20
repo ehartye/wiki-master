@@ -344,6 +344,11 @@ export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays 
 // to the concept page. Collisions WITHIN a class stay first-wins — genuinely
 // ambiguous, and the full-path key above is how you say which one you meant.
 const NAV = '\u0000nav';
+// "<path with extension>\0path": the file a link names exactly. It outranks the
+// extension-stripped key, which another file can spell: the "X.md.md" convention
+// makes the stem of "raw/clippings/build.md.md" equal "raw/clippings/build.md",
+// the full path of "raw/clippings/Build.md". First registrant wins a case-only clash.
+const EXACT = '\u0000path';
 const canonicalIndexes = new WeakSet();
 export function buildNameIndex(pages) {
   const byName = new Map();
@@ -351,6 +356,8 @@ export function buildNameIndex(pages) {
   for (const p of pages) {
     const name = normalizeIdentity(p.name);
     if (!byName.has(name)) byName.set(name, p.path);
+    const exactKey = p.path.toLowerCase() + EXACT;
+    if (!byName.has(exactKey)) byName.set(exactKey, p.path);
     const navKey = name + NAV;
     const navPrior = byName.get(navKey);
     if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path))) byName.set(navKey, p.path);
@@ -411,6 +418,7 @@ export function resolveLinkTarget(byName, target, { nav = false } = {}) {
   // exact file it names — the disambiguation above is unaffected.
   const pick = (k) => nav && byName.has(k + NAV) ? byName.get(k + NAV) : byName.get(k);
   const lower = normalizeIdentity(target);
+  if (byName.has(lower + EXACT)) return byName.get(lower + EXACT);
   if (byName.has(lower)) return pick(lower);
   const full = lower.replace(/\.md$/i, '');
   if (byName.has(full)) return pick(full);
