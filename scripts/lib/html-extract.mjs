@@ -20,6 +20,10 @@ export function extractionRuntime() {
 const CALLOUT = '.ghd-alert, .starlight-aside, .admonition, .markdown-alert';
 const AVAILABILITY = '[class*="PermissionsStatement_permissionsBox"]';
 const HEADINGS = 'h1, h2, h3, h4, h5, h6';
+const REST_OPERATION = '[class*="RestOperation_codeBlock"]';
+const REST_PARAMETERS = 'table[class*="ParameterTable_parameterTable"]';
+const REST_EXAMPLE = '[class*="RestCodeSamples_codeBlock"] > code';
+const REST_ENDPOINT = '[class*="RestCodeSamples_method"]';
 const BLOCK = /^(P|DIV|SECTION|ARTICLE|ASIDE|BLOCKQUOTE|LI|UL|OL|H[1-6]|HEADER|MAIN)$/;
 const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 function textOf(node) {
@@ -56,6 +60,12 @@ function signals(document) {
   add('availability', root.querySelectorAll(AVAILABILITY));
   add('introduction', root.querySelectorAll('.class-description > p, [data-container="lead"] > p'));
   add('list-item', root.querySelectorAll('.class-description li'));
+  if (root.querySelector(REST_OPERATION)) {
+    add('endpoint', root.querySelectorAll(REST_ENDPOINT));
+    add('parameter-row', root.querySelectorAll(`${REST_PARAMETERS} tbody tr`));
+    add('table-caption', root.querySelectorAll(`${REST_PARAMETERS} caption`));
+    add('code-block', root.querySelectorAll(REST_EXAMPLE));
+  }
   return candidates;
 }
 export function assessFidelity(html, markdown, title = '') {
@@ -66,7 +76,11 @@ export function assessFidelity(html, markdown, title = '') {
 function assessSignals(expected, markdown, title) {
   // Strip Markdown link destinations so an inline link does not interrupt its source sentence.
   const plain = normalize(`${title}\n${markdown.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')}`);
+  const literal = markdown.replace(/\r\n?/g, '\n');
   return expected.filter(signal => {
+    // Code punctuation, case and line boundaries are semantic; do not use prose normalization.
+    if (signal.kind === 'code-block') return !literal.includes(signal.text.replace(/\r\n?/g, '\n').trim());
+    if (['parameter-row', 'endpoint'].includes(signal.kind)) return !plain.includes(normalize(signal.text));
     const words = normalize(signal.text).split(' ');
     // Bounded start/end probes catch selective loss without mistaking link destinations for text.
     return ![words.slice(0, 14), words.slice(-14)].every(probe => plain.includes(probe.join(' ')));
@@ -78,7 +92,8 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   const { document } = parseHTML(html);
   const expected = signals(document);
   const root = contentRoot(document);
-  const documentation = !!root.querySelector(`.class-description, ${CALLOUT}, ${AVAILABILITY}`);
+  const restReference = !!root.querySelector(REST_OPERATION);
+  const documentation = restReference || !!root.querySelector(`.class-description, ${CALLOUT}, ${AVAILABILITY}`);
 
   // Defuddle 0.19.5 treats every fragment link in a heading as a removable permalink,
   // including actual API identifiers. Unwrap meaningful text; keep icon-only anchors removable.
@@ -89,6 +104,27 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
     }
   }
   if (documentation) {
+    if (restReference) {
+      // Defuddle's exact `.gutter` cleanup removes GitHub's endpoint layout columns.
+      // Preserve the enclosing reference below, and give its non-<pre> samples
+      // semantic code-block markup so Markdown conversion retains line breaks.
+      for (const code of root.querySelectorAll(REST_EXAMPLE)) {
+        if (code.parentElement.tagName === 'PRE') continue;
+        const pre = document.createElement('pre');
+        const language = code.className.match(/(?:^|\s)language-([\w-]+)/)?.[1];
+        if (language) pre.setAttribute('data-language', language);
+        code.replaceWith(pre); pre.append(code);
+      }
+      for (const endpoint of root.querySelectorAll(REST_ENDPOINT)) {
+        const p = document.createElement('p'); const code = document.createElement('code');
+        code.textContent = [...endpoint.childNodes].map(child => textOf(child).trim()).filter(Boolean).join(' ');
+        p.append(code); endpoint.replaceWith(p);
+      }
+      for (const caption of root.querySelectorAll(`${REST_PARAMETERS} caption`)) {
+        const label = document.createElement('p'); label.textContent = caption.textContent;
+        caption.closest('table').before(label); caption.remove();
+      }
+    }
     // Starlight hides a duplicate visual title from assistive technology; its aria-label is substantive.
     for (const callout of root.querySelectorAll(CALLOUT)) {
       const title = callout.querySelector('.starlight-aside__title');
@@ -121,5 +157,5 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   });
   const markdown = data.contentMarkdown ?? '';
   const fidelityWarnings = assessSignals(expected, markdown, data.title ?? '');
-  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, scope: 'headings, callouts, availability, API introductions and feature lists' } };
+  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, scope: 'headings, callouts, availability, API introductions, feature lists and recognized REST endpoints, parameters and examples' } };
 }
