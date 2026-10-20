@@ -72,5 +72,5 @@ test('a quoted topic value is unwrapped, as YAML-escaped frontmatter writes it t
 
 test('a vault with no clippings directory yields both lists empty rather than throwing', () => {
   const d = mkdtempSync(join(tmpdir(), 'wm-fid-none-'));
-  assert.deepEqual(scanClippings(d), { flagged: [], topics: [], quarantined: [] });
+  assert.deepEqual(scanClippings(d), { flagged: [], topics: [], quarantined: [], active: [] });
 });

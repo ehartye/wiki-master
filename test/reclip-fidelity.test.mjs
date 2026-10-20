@@ -125,3 +125,44 @@ test('real PDF repair uses explicit reading-order mode and preserves metadata en
  assert.ok(text.includes('A readable reference paragraph'));assert.match(text,/author: "Example author"/);
  assert.doesNotMatch(text,/^fidelity: (?:tabular|degraded)$/m);
 });
+
+test('interrupted hash propagation retains the old transition and resumes without re-extraction',async t=>{
+ const root=vault(t);const raw=join(root,'raw/clippings/example.md');const summary=join(root,'wiki/sources/example.md');const before=readFileSync(summary,'utf8');
+ const clip=pdfClipContent({title:'Example',source:'https://example.org/source.pdf',text:prose+' Changed.'});
+ const first=await runReclips({vaultPath:root,apply:true,includeTabular:true,obtain:async()=>({path:'x.pdf'}),extract:()=>clip,write:(path,text)=>{writeFileSync(path,text);if(path===raw)writeFileSync(summary,before+'Concurrent note.\n');}});
+ assert.equal(first.conflicts.length,1);
+ const retry=await runReclips({vaultPath:root,apply:true,includeTabular:true,obtain:async()=>{throw new Error('must resume saved extraction');}});
+ assert.equal(retry.reclipped,1);assert.ok(readFileSync(summary,'utf8').includes(clip.hash));assert.ok(readFileSync(summary,'utf8').includes('Concurrent note.'));
+});
+
+test('quarantine supports valid extensionless citations and resumes an interrupted page restriction',async t=>{
+ const root=vault(t);const page=join(root,'wiki/sources/example.md');writeFileSync(page,'Prior text cites [[raw/clippings/example|Example]].\n');
+ const refused=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'Unverified',ownedPaths:['raw/clippings/example.md']});
+ assert.equal(refused.conflicts.length,1);assert.doesNotMatch(readFileSync(join(root,'raw/clippings/example.md'),'utf8'),/citation-status/);
+ const first=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'Unverified',write:()=>{throw new Error('interrupted write');}});
+ assert.equal(first.conflicts.length,1);
+ const retry=await runReclips({vaultPath:root,apply:true,includeTabular:true});
+ assert.equal(retry.quarantined,1);assert.match(readFileSync(page,'utf8'),/Do not cite/);
+});
+
+test('clean OCR enters review without losing its fidelity caution',async t=>{
+ const root=vault(t);const clip=pdfClipContent({title:'Example',source:'https://example.org/source.pdf',text:prose,fidelityFloor:'ocr',extraction:'ocr'});
+ const result=await runReclips({vaultPath:root,apply:true,includeTabular:true,onFailure:'quarantine',obtain:async()=>({path:'x.pdf'}),extract:()=>clip});
+ assert.equal(result.quarantined,0);assert.equal(result.needsReview.length,1);
+ assert.match(readFileSync(join(root,'raw/clippings/example.md'),'utf8'),/^fidelity: ocr$/m);
+});
+
+test('successful repair preserves unrelated attention work',async t=>{
+ const root=vault(t);recordIssue(root,{url:'https://example.org/source.pdf',kind:'attention',reason:'Check permission to quote'});
+ await runReclips({vaultPath:root,apply:true,includeTabular:true,obtain:async()=>({path:'x.pdf'}),extract:()=>pdfClipContent({title:'Example',source:'https://example.org/source.pdf',text:prose})});
+ assert.equal(openIssues(loadIssueLog(root))[0].kind,'attention');
+});
+
+test('quarantining one exact capture does not settle another capture sharing its URL',async t=>{
+ const root=vault(t);writeFileSync(join(root,'raw/clippings/other.md'),original().replace('oldhash','anotherhash'));
+ const result=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'First capture unverifiable'});
+ assert.equal(result.quarantined,1);
+ const queue=collectTriage(root);assert.equal(queue.fidelity.length,1);assert.equal(queue.fidelity[0].title,'other');
+ recordIssue(root,{url:'https://example.org/source.pdf',kind:'failed',source:'raw/clippings/other.md',reason:'Other capture still needs repair'});
+ assert.equal(collectTriage(root).clipFailures.length,1);
+});

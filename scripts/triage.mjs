@@ -29,10 +29,11 @@ function* clippingFiles(dir, prefix='') {
 // Read the complete header so a long figure list cannot hide its restriction.
 export function scanClippings(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [] };
+  if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [], active: [] };
   const flagged = [];
   const topics = [];
   const quarantined = [];
+  const active = [];
   for (const f of clippingFiles(dir)) {
     let head;
     try {
@@ -55,6 +56,7 @@ export function scanClippings(vaultPath) {
       quarantined.push({url,path:`raw/clippings/${f}`});
       continue;
     }
+    active.push({url,path:`raw/clippings/${f}`});
     // Read `fidelity` specifically. `extraction:` records HOW the text was read
     // (e.g. ocr) — a method, not a defect — so it must never become a triage
     // item; matching either key also let an earlier `extraction:` line win the
@@ -70,7 +72,7 @@ export function scanClippings(vaultPath) {
       occurrences: 1,
     });
   }
-  return { flagged, topics, quarantined };
+  return { flagged, topics, quarantined, active };
 }
 
 // Kept as its own export: it is the unit under test in triage-fidelity.test.mjs
@@ -84,9 +86,11 @@ export function collectTriage(
   { expiringWithinDays = 30, backlogLimit = 25, hubStubLimit = 25 } = {}
 ) {
   const log = loadIssueLog(vaultPath);
-  const { flagged: fidelity, topics, quarantined } = scanClippings(vaultPath);
-  const suppressed=new Set(quarantined.flatMap(x=>[x.url,x.path]).filter(Boolean).map(x=>issueKey(x,'')));
-  const issues = openIssues(log).filter(x=>!suppressed.has(issueKey(x.url,'')));
+  const { flagged: fidelity, topics, quarantined, active } = scanClippings(vaultPath);
+  const activeUrls=new Set(active.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')));
+  const suppressedPaths=new Set(quarantined.map(x=>issueKey(x.path,'')));
+  const suppressedUrls=new Set(quarantined.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')).filter(x=>!activeUrls.has(x)));
+  const issues = openIssues(log).filter(x=>x.kind==='attention'||(!suppressedUrls.has(issueKey(x.url,''))&&!suppressedPaths.has(issueKey(x.source||x.url,''))));
   const topicIndex = buildTopicIndex(topics);
 
   // De-dupe against the log, and honour dispositions. Two hazards:
@@ -102,7 +106,7 @@ export function collectTriage(
     (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
   );
 
-  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressed.has(issueKey(x.url,'')));
+  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressedUrls.has(issueKey(x.url,'')));
 
   // The backlog is `unsummarizedSources`, not `unparsedSources`. A source cited
   // only by a concept's provenance frontmatter is parsed but has no summary
@@ -116,7 +120,7 @@ export function collectTriage(
   let hubStubs = [];
   try {
     const m = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
-    unsummarized = (m.unsummarizedSources || []).filter(path=>!suppressed.has(issueKey(path,'')));
+    unsummarized = (m.unsummarizedSources || []).filter(path=>!suppressedPaths.has(issueKey(path,'')));
     hubStubs = m.hubStubs || [];
   } catch {
     unsummarized = [];
