@@ -16,26 +16,31 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // to re-clip. buildFrontmatter writes `fidelity` and `extraction`.
 // A clipping is healthy at these grades; anything else is a real quality problem.
 const HEALTHY_FIDELITY = new Set(['high', 'ok', 'clean']);
+function* clippingFiles(dir, prefix='') {
+  for (const entry of readdirSync(dir,{withFileTypes:true})) {
+    const rel=prefix+entry.name;
+    if(entry.isDirectory()) yield* clippingFiles(join(dir,entry.name),rel+'/');
+    else if(entry.isFile() && entry.name.endsWith('.md')) yield rel;
+  }
+}
 
 // One pass over raw/clippings/, yielding both things the queue needs from
-// frontmatter: the fidelity flags, and the research topic each clipping was
-// gathered for. They are read together because the directory is large (1,800+
-// files on the reference vault) and scanning it twice to answer two questions
-// about the same 1,200 bytes is waste the queue pays on every render.
+// frontmatter: fidelity, topic attribution and durable citation restrictions.
+// Read the complete header so a long figure list cannot hide its restriction.
 export function scanClippings(vaultPath) {
   const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return { flagged: [], topics: [] };
+  if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [] };
   const flagged = [];
   const topics = [];
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.md')) continue;
+  const quarantined = [];
+  for (const f of clippingFiles(dir)) {
     let head;
     try {
-      head = readFileSync(join(dir, f), 'utf8').slice(0, 1200);
+      head = readFileSync(join(dir, f), 'utf8');
     } catch {
       continue;
     }
-    const fm = head.startsWith('---') ? head.slice(3, head.indexOf('\n---', 3)) : '';
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(head)?.[1] ?? '';
     if (!fm) continue;
 
     const srcLine = /^source:\s*(.+)$/m.exec(fm);
@@ -45,6 +50,10 @@ export function scanClippings(vaultPath) {
       // Keyed by BOTH identities because triage rows arrive as both: an issue
       // carries a URL, while a backlog row is the clipping's own vault path.
       topics.push({ path: `raw/clippings/${f}`, url, topic });
+    }
+    if (/^citation-status:\s*["']?quarantined["']?\s*$/m.test(fm)) {
+      quarantined.push({url,path:`raw/clippings/${f}`});
+      continue;
     }
     // Read `fidelity` specifically. `extraction:` records HOW the text was read
     // (e.g. ocr) — a method, not a defect — so it must never become a triage
@@ -61,7 +70,7 @@ export function scanClippings(vaultPath) {
       occurrences: 1,
     });
   }
-  return { flagged, topics };
+  return { flagged, topics, quarantined };
 }
 
 // Kept as its own export: it is the unit under test in triage-fidelity.test.mjs
@@ -75,8 +84,9 @@ export function collectTriage(
   { expiringWithinDays = 30, backlogLimit = 25, hubStubLimit = 25 } = {}
 ) {
   const log = loadIssueLog(vaultPath);
-  const issues = openIssues(log);
-  const { flagged: fidelity, topics } = scanClippings(vaultPath);
+  const { flagged: fidelity, topics, quarantined } = scanClippings(vaultPath);
+  const suppressed=new Set(quarantined.flatMap(x=>[x.url,x.path]).filter(Boolean).map(x=>issueKey(x,'')));
+  const issues = openIssues(log).filter(x=>!suppressed.has(issueKey(x.url,'')));
   const topicIndex = buildTopicIndex(topics);
 
   // De-dupe against the log, and honour dispositions. Two hazards:
@@ -92,7 +102,7 @@ export function collectTriage(
     (f) => !queued.has(issueKey(f.url, f.kind)) && !settled.has(issueKey(f.url, f.kind))
   );
 
-  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays });
+  const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressed.has(issueKey(x.url,'')));
 
   // The backlog is `unsummarizedSources`, not `unparsedSources`. A source cited
   // only by a concept's provenance frontmatter is parsed but has no summary
@@ -106,7 +116,7 @@ export function collectTriage(
   let hubStubs = [];
   try {
     const m = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });
-    unsummarized = m.unsummarizedSources || [];
+    unsummarized = (m.unsummarizedSources || []).filter(path=>!suppressed.has(issueKey(path,'')));
     hubStubs = m.hubStubs || [];
   } catch {
     unsummarized = [];

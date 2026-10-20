@@ -68,6 +68,8 @@ the token and identify pending writes/validation; do not start over blindly.
 
 ## Exceptions with their own transaction
 
+**Re-clipping:** `apply-reclips.mjs` applies repairs but does not own a commit. Use an enclosing operation with an exact target list and ownership ledger; inspect its returned changed paths. A verified repair, a pending table verification and a quarantine are distinct outcomes. Quarantine may close triage without making evidence citable. See [re-clipping and quarantine](../../../docs/reclipping.md) for selectors, mode overrides and the explicit terminal-failure policy.
+
 - `purge.mjs --apply`, `--restore` and `--reconcile` own their manifests, logs and
   commits. Do not wrap their transaction in a competing commit. Collateral Markdown
   repairs use an ordinary operation after the purge commit. Keep every seed/plan,
