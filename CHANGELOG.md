@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.53.1 — 2026-10-21
+
+- Make automatic resolution of an agent's own operation tokens the shared skill default, unless the user explicitly asks to leave an operation open. Complete validated scoped commits and already-authorized sync without another confirmation; recoverable failures and resumed tasks continue the saved operation rather than opening replacement tokens or duplicating edits and logs.
+- Explain uncertain completion, verified empty-delta closure, commit identity after sync rebases, delegated ownership and actionable blocker handoffs. Abandoned-token cleanup requires verified ownership, no unfinished work or user hold, an exact token ID and the helper's age eligibility. Age alone never authorizes cleanup of another agent's operation.
+- Add matched behavioral probes for recovery, explicit holds, read-only lookup, abandoned own tokens and unresolved conflicts. This is skill guidance; token storage, cleanup eligibility and Git helper behavior are unchanged.
+
 ## 0.53.0 — 2026-10-20
 
 - Name clippings so Obsidian can index them and a wikilink can carry them. Obsidian does not index a dot-prefixed file, and `graph.mjs` skips the same names, so a clipping filed as `.github-workflows-build.yml.md` was invisible: every citation of it was an `unresolved-citation` in `health` and a dead link in Obsidian, and an uncited one never reached the ingest backlog. A backtick in a filename was the same trap in another form: `health` reads a backtick pair inside a wikilink as an inline code span and blanks it, so a body link to such a file could not resolve. `slugify` (articles, PDFs, Word, Excel, PowerPoint, Confluence) and `slugifyRepoPath` (`clip-gh`) now spell each leading dot `dot-` and drop backticks (`scripts/lib/clip-names.mjs`): `.github/workflows/build.yml` is `dot-github-workflows-build.yml.md`, `` `stringify`-`uneval` shared memory `` is `stringify-uneval shared memory.md`. For `clip-gh` the step runs after the length cut and hash, so a long path keeps the digest of its full original path and a file keeps its name apart from the prefix.

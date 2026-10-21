@@ -12,6 +12,21 @@ The skills' shared access policy permits ordinary Markdown reads and scoped edit
 
 Writing workflows share scope/authorization, operation-open, edit, validation, affected catalog refresh, log, operation-commit and authorized sync. Existing session instructions and the vault's own sync rules count as authorization. Read-only requests never open write operations. The operation helpers still do not push automatically.
 
+As of 0.53.1, the maintainer core and shared completion reference explicitly make
+agents responsible for automatically resolving their own tokens unless the user
+asks to keep an operation open. Recovery inspects saved ownership, exact files,
+validation and actual commits before retrying the same operation. A verified
+already-committed or no-op operation can close with an empty delta; an uncertain
+timeout must not duplicate work or silently replace its token. A sync rebase
+requires reconciling commit identity through the operation's unique log.
+
+This default does not claim another writer's work, override delegated ownership,
+grant new publication permission or guess at content conflicts. Genuine blockers
+retain an actionable handoff. Official abandoned-token cleanup needs verified
+ownership, no pending work or user hold, an exact ID and age eligibility; no routine
+approval is needed for that already-authorized cleanup. Age is a review signal,
+not an automatic expiry. The command implementations are unchanged.
+
 The maintainer core is 76 lines, down from 444. Detailed access, operations, evidence, authoring, maintenance and workflow policies live in focused references linked directly from applicable entry points. All 19 descriptions now name natural user triggers and adjacent workflow boundaries. Existing provenance and purge safeguards remain in force.
 
 ## Behavioral suite
