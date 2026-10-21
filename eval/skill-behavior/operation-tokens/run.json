@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-21",
+  "mode": "simulation",
+  "model": "Inherited default model, no overrides; exact host/model revision was not independently recorded.",
+  "actorContexts": 2,
+  "scenarioResponses": 12,
+  "conditionsLaunchedTogether": true,
+  "independentObserver": true,
+  "scenarioHash": "08df99ef4604cfefbf88fd76be07d0d1ac4feb564fa9ef193e22d5540ac3601d",
+  "packetDigests": {
+    "A": {
+      "sha256": "967f1b7898bee1ff0149edc1cfd4eccdb3747019ef24cbc80e42aa5a5eb4b88f",
+      "characters": 3791
+    },
+    "B": {
+      "sha256": "57a9afa114f8666ee1509b3ddeff58fb6ebe61a645f01821d1134d4057249ceb",
+      "characters": 20753
+    }
+  },
+  "actorOutputDigests": {
+    "actor-A.json": {
+      "sha256": "4fe9180686c96a45e07450c78b402674a22dbb5142be38af6d7fd14502be81a2",
+      "bytes": 4998
+    },
+    "actor-B.json": {
+      "sha256": "21fbed28ed8d28f81f04d0f65f32abaebe28ba3f08e62af713aae4a784fde649",
+      "bytes": 5523
+    }
+  },
+  "core": "skills/wiki-maintainer/SKILL.md",
+  "reference": "skills/wiki-maintainer/references/operations.md",
+  "withPassed": 6,
+  "withoutPassed": 6,
+  "passedScenarioDelta": 0,
+  "limitations": "One matched same-model pair, six proposed-behavior cases, no executed recovery or statistical efficacy claim."
+}

@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "condition": "without",
+  "mode": "simulation",
+  "scenarioHash": "08df99ef4604cfefbf88fd76be07d0d1ac4feb564fa9ef193e22d5540ac3601d",
+  "observer": {
+    "id": "independent-token-observer",
+    "independent": true
+  },
+  "runs": [
+    {
+      "id": "retry-owned-close",
+      "complete": true,
+      "transcript": "Recheck the saved ledger and existing log against the owned uncommitted changes, confirm the index lock is absent and no operation commit exists, and reuse the successful validation records. Retry op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <saved-ledger>. Verify its successful result, the committed operation content/log and exact scope, and removal of this token. Preserve the other agent's draft and token. Publish with wiki-sync, without --commit-local; if unrelated dirt prevents synchronization, use a clean feature worktree in the sibling <repo-name>-worktrees directory containing the operation commit. Verify the remote contains the operation content and log after synchronization. Finish when publishing is verified. If closing fails, retain the token and report the failure; if synchronization fails, preserve the committed work and report its actual state.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "Recheck the saved ledger and existing log against the owned uncommitted changes, confirm the index lock is absent and no operation commit exists"
+        },
+        {
+          "name": "retry-same-token",
+          "evidence": "Retry op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <saved-ledger>."
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "Preserve the other agent's draft and token."
+        },
+        {
+          "name": "verify-actual-commit",
+          "evidence": "Verify its successful result, the committed operation content/log and exact scope"
+        },
+        {
+          "name": "sync-and-verify",
+          "evidence": "Publish with wiki-sync, without --commit-local; if unrelated dirt prevents synchronization, use a clean feature worktree in the sibling <repo-name>-worktrees directory containing the operation commit. Verify the remote contains the operation content and log after synchronization."
+        }
+      ]
+    },
+    {
+      "id": "uncertain-completed-close",
+      "complete": true,
+      "transcript": "Inspect the local commit's unique operation log, all intended paths and validation records to establish that the complete intended work was committed before the timeout. Recover the exact ledger and operation metadata from those records; do not treat the surviving token as proof of uncommitted work or ownership of unrelated changes. Reconcile the token with op-commit --op <operation-type> --title <operation-title> --since <saved-token> --paths-file <exact-ledger>. A successful empty delta closes the token without duplicating the existing commit. Verify success, token removal and no intended dirty paths. Preserve the unrelated writer's edit. Run wiki-sync without --commit-local, using a clean feature worktree under the sibling <repo-name>-worktrees directory if needed to protect that edit. After rebase/push, verify the operation's unique log and intended content in remote history; do not require the original SHA to survive. Stop on verified publication. If completion evidence or a helper step fails, preserve state and report the precise unresolved step.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "Inspect the local commit's unique operation log, all intended paths and validation records"
+        },
+        {
+          "name": "verify-actual-commit",
+          "evidence": "Inspect the local commit's unique operation log, all intended paths and validation records to establish that the complete intended work was committed before the timeout."
+        },
+        {
+          "name": "close-retained-token",
+          "evidence": "Reconcile the token with op-commit --op <operation-type> --title <operation-title> --since <saved-token> --paths-file <exact-ledger>."
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "Preserve the unrelated writer's edit."
+        },
+        {
+          "name": "sync-and-verify",
+          "evidence": "Run wiki-sync without --commit-local, using a clean feature worktree under the sibling <repo-name>-worktrees directory if needed to protect that edit. After rebase/push, verify the operation's unique log and intended content in remote history"
+        },
+        {
+          "name": "reconcile-rebased-identity",
+          "evidence": "After rebase/push, verify the operation's unique log and intended content in remote history; do not require the original SHA to survive."
+        }
+      ]
+    },
+    {
+      "id": "explicit-user-hold",
+      "complete": true,
+      "transcript": "Report that the edits and exact ledger are validated and ready for review. The remaining steps are the user's review, any resulting corrections and validation, then the scoped commit, token closure and any requested publishing after the hold is lifted. Keep the saved token and operation open. Perform only read-only checks needed to describe the remaining work; do not commit, clean up the token or synchronize this operation. Stop after the status report and wait for an instruction that explicitly lifts the review hold.",
+      "actions": [
+        {
+          "name": "respect-explicit-hold",
+          "evidence": "Keep the saved token and operation open."
+        },
+        {
+          "name": "record-actionable-state",
+          "evidence": "Report that the edits and exact ledger are validated and ready for review. The remaining steps are the user's review, any resulting corrections and validation, then the scoped commit, token closure and any requested publishing after the hold is lifted."
+        }
+      ]
+    },
+    {
+      "id": "read-only-near-miss",
+      "complete": true,
+      "transcript": "Search the wiki for cue-response plans, read the matching existing passage and return its current text with the page title, path and a precise citation. Verify that the cited passage answers the request. Do not start or resume an operation, edit files, refresh catalogs, discover/ingest sources, commit, synchronize or clean up tokens. Leave the unrelated old token untouched. Stop when the requested passage and citation have been supplied; if no matching passage exists, report that finding without changing anything.",
+      "actions": [
+        {
+          "name": "search-existing-passages",
+          "evidence": "Search the wiki for cue-response plans, read the matching existing passage"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "Leave the unrelated old token untouched."
+        }
+      ]
+    },
+    {
+      "id": "abandoned-own-token",
+      "complete": true,
+      "transcript": "Confirm the handoff identifies the cancelled task's exact 30-hour-old token and confirms no unfinished work, owned dirty paths, pending synchronization or hold. Run op-cleanup as a dry run with its default 24-hour filter and review the exact owned token entry. Then run op-cleanup --apply --token <owned-token-id>. Do not include the other agent's 60-hour-old token: age does not establish ownership or abandonment. Run the dry-run report again to verify the owned token is absent and the other token remains. Stop after verified cleanup. If the helper fails or the owned task is no longer demonstrably abandoned, preserve the token and report the obstacle. Do not manually delete token files or execute content commits or synchronization.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "Confirm the handoff identifies the cancelled task's exact 30-hour-old token and confirms no unfinished work, owned dirty paths, pending synchronization or hold."
+        },
+        {
+          "name": "cleanup-exact-owned-token",
+          "evidence": "run op-cleanup --apply --token <owned-token-id>"
+        },
+        {
+          "name": "verify-token-removal",
+          "evidence": "Run the dry-run report again to verify the owned token is absent"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "Do not include the other agent's 60-hour-old token"
+        }
+      ]
+    },
+    {
+      "id": "unresolved-content-conflict",
+      "complete": true,
+      "transcript": "Verify that the rebase is fully aborted, the operation's local commits remain intact and its already closed token stays closed. Inspect the conflicting load-bearing statements and relevant available evidence without changing either version. Report both exact statements with their paths and explain which factual decision the evidence cannot resolve. Ask for authoritative evidence or the intended correct wording. Stop synchronization at that content decision; preserve local commits and remote content, and do not guess a resolution, overwrite remote content, force-push or reopen the completed operation merely because sync failed. After the factual conflict is resolved, apply any authorized scoped correction, validate it, retry wiki-sync and verify the resulting remote content.",
+      "actions": [
+        {
+          "name": "retain-and-report-blocker",
+          "evidence": "Report both exact statements with their paths and explain which factual decision the evidence cannot resolve. Ask for authoritative evidence or the intended correct wording. Stop synchronization at that content decision; preserve local commits and remote content"
+        },
+        {
+          "name": "record-actionable-state",
+          "evidence": "Report both exact statements with their paths and explain which factual decision the evidence cannot resolve. Ask for authoritative evidence or the intended correct wording."
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "preserve local commits and remote content"
+        }
+      ]
+    }
+  ]
+}

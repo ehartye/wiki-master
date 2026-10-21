@@ -1,0 +1,171 @@
+{
+  "with": {
+    "version": 1,
+    "scenarioHash": "08df99ef4604cfefbf88fd76be07d0d1ac4feb564fa9ef193e22d5540ac3601d",
+    "condition": "with",
+    "mode": "simulation",
+    "observer": {
+      "id": "independent-token-observer",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 6,
+      "observed": 6,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 6,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "retry-owned-close",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-completed-close",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "explicit-user-hold",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "read-only-near-miss",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "abandoned-own-token",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "unresolved-content-conflict",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "without": {
+    "version": 1,
+    "scenarioHash": "08df99ef4604cfefbf88fd76be07d0d1ac4feb564fa9ef193e22d5540ac3601d",
+    "condition": "without",
+    "mode": "simulation",
+    "observer": {
+      "id": "independent-token-observer",
+      "independent": true
+    },
+    "status": "pass",
+    "coverage": {
+      "expected": 6,
+      "observed": 6,
+      "missing": 0,
+      "incomplete": 0
+    },
+    "missingScenarios": [],
+    "passedScenarios": 6,
+    "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+    "runs": [
+      {
+        "id": "retry-owned-close",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "uncertain-completed-close",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "explicit-user-hold",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "read-only-near-miss",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "abandoned-own-token",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      },
+      {
+        "id": "unresolved-content-conflict",
+        "status": "pass",
+        "missingActions": [],
+        "forbiddenActions": [],
+        "requiredActionRecall": 1,
+        "contextCharacters": null,
+        "durationMs": null,
+        "artifacts": []
+      }
+    ]
+  },
+  "status": "complete",
+  "delta": {
+    "passedScenarios": 0
+  },
+  "interpretation": "A positive delta applies only to these matched scenarios and conditions. Inspect individual failures and evidence before generalizing."
+}

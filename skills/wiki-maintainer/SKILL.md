@@ -42,6 +42,8 @@ not substituted by the host.
 5. **Preserve scope and user work.** Reuse existing session authorization. Reads
    do not open operations, log, commit or refresh indexes. Before the first
    authorized write, follow [operation completion](references/operations.md).
+   Resolve your own operation tokens automatically unless the user explicitly
+   asks to leave them open; resume the same operation after recoverable failures.
    Never stage the whole vault. Purge retains its explicit plan approval.
 6. **Keep Reddit and Medium separate.** In derived pages and query answers,
    place Reddit-derived material under `## Reddit discussion (anecdotal)` and

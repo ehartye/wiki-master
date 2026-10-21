@@ -4,12 +4,20 @@ Use this contract for every ordinary vault write, including standalone clipping,
 authoring and applying triage decisions. Read-only search, query, health, freshness
 and preview work do not open operations, log, commit or refresh indexes.
 
+**Own the token through completion.** Automatically finish your own operation's
+validation, scoped commit and already-authorized sync without asking again.
+An explicit user hold overrides this default. A token is not resolved merely
+because its file was deleted; account for the work and verify the outcome.
+
 1. **Resolve scope and authorization.** Read the vault's instructions. Existing
    session authorization counts: do not ask again to do already requested work or
    sync when the user or vault instructions already authorize it. A request to
    answer/search does not authorize filing a new page. Purge requires its specific
    reviewed plan and publication approval; do not replace those with this rule.
 2. **Open before the first write.** Run `op-begin.mjs --op <op>` and save its token.
+   On task resumption, reconcile a saved token before opening another one. Keep
+   the operation type, title, owned-path ledger, log path and last completed phase
+   with it so recovery can distinguish unfinished work from an already closed step.
    It snapshots already-dirty paths; `op-commit` excludes them. It does not isolate
    simultaneous edits to the same file. Coordinate overlapping targets; preserve
    pre-existing changes and report exclusions instead of sweeping them into a commit.
@@ -49,11 +57,39 @@ and preview work do not open operations, log, commit or refresh indexes.
    open, because dirty files cannot then be attributed. If sync is not authorized,
    report the unpushed commit and ask only if publishing is needed.
 
-**Abandoned tokens.** A token is removed only by its own `op-commit`, so a crashed
-session, or a close that failed and kept its token, leaves one behind. Tokens older than
-24 hours are treated as abandoned: `wiki-sync` names them but they still block hand-edit commits. List them
-with `node "<absolute-plugin-root>/scripts/op-cleanup.mjs"` (a dry run) and remove them
-with `--apply --token <id>` only after verifying that operation is abandoned. Age alone is not proof. `--hours <n>` changes the age filter, with a one-hour minimum. Never delete tokens by hand-guessing which are dead.
+## Recovery and token ownership
+
+- **Retry the same operation.** After a recoverable failure, inspect the token,
+  exact owned files and actual commits before retrying the failed step. Resolve
+  an understood cause within the authorized scope without another confirmation.
+  A failed Git close keeps its token; retry that `op-commit`, not the edits or an
+  already-written log. Never delete a Git lock or guess at a content conflict.
+- **Reconcile uncertain completion.** A timeout may have occurred after a commit
+  or token removal. Verify the actual commit's subject and path membership, owned
+  content and validation state. A completed no-op or already-committed operation
+  with a retained token still closes through its own scoped `op-commit`; an empty
+  delta alone does not prove completion. If the token is already gone, verify
+  closure and continue from the next unfinished step rather than opening a new
+  token or replaying work. After a sync rebase, locate the operation through its
+  unique log path and recheck the resulting commit instead of relying on its old SHA.
+- **Respect holds and ownership.** Do not close a user-held operation. A delegated
+  worker reports to its enclosing operation's owner rather than closing the parent's
+  token. Leave other agents' tokens alone unless ownership was explicitly transferred;
+  tokens contain an opening dirty-path snapshot, not proof of who owns later edits.
+- **Leave actionable blockers.** If safe progress requires an unresolved conflict,
+  missing authorization or another owner's action, retain the operation and record
+  its token, owned paths, completed steps, pending work and exact next action. Report
+  that blocker or ownership handoff; do not claim completion or silently abandon it.
+
+**Abandoned tokens.** List retained tokens with
+`node "<absolute-plugin-root>/scripts/op-cleanup.mjs"` (a dry run). Older than 24
+hours means a review candidate, not proven abandonment; these tokens still block
+`wiki-sync --commit-local`. For a verified-abandoned operation you own, with no
+unfinished work or user hold, apply cleanup with its explicit `--apply --token <id>`
+without another approval. Prefer normal `op-commit` closure when the saved operation
+can be completed. `--hours <n>` changes the age filter, with a one-hour minimum;
+respect that eligibility and verify removal. Never sweep tokens by age or delete
+them manually. Token files are local Git-ignored state, not cross-machine locks.
 
 **Git ownership.** The Obsidian Git plugin stays installed for its source-control view
 and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
@@ -64,7 +100,7 @@ warns when they are on. Every machine sharing the vault needs the same setting.
 **Done only when** the requested change is validated, applicable catalogs and one
 operation log are recorded, the operation commit is verified (or its precise
 limitation reported), and authorized sync is verified. If blocked partway, retain
-the token and identify pending writes/validation; do not start over blindly.
+the token with the actionable handoff above; do not start over blindly.
 
 ## Exceptions with their own transaction
 
