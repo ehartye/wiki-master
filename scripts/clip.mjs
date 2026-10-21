@@ -11,6 +11,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
+import { clipSafeName } from './lib/clip-names.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -64,11 +65,11 @@ const DEFAULT_USER_AGENT =
 const CLIP_LANG = 'en';
 
 export function slugify(title) {
-  const s = (title || '')
+  const s = clipSafeName((title || '')
     .replace(/[\\/:*?"<>|#^[\]]/g, '-')
     .replace(/\s+/g, ' ')
     .replace(/-+/g, '-')
-    .trim();
+    .trim());
   return s.slice(0, 120).replace(/[-\s]+$/, '') || 'untitled';
 }
 

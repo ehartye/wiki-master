@@ -90,6 +90,26 @@ scripts tolerate it and never flagged it as a defect. Repair from the plugin roo
 surgery — it recognizes and reorders only that exact shape and is a no-op on
 anything else — idempotent and safe to re-run.
 
+**Renaming clippings that Obsidian hides or a wikilink cannot carry.** Obsidian does
+not index a dot-prefixed file, and `graph.mjs` skips the same names, so a clipping
+filed as `.github-workflows-build.yml.md` is invisible: every citation of it is an
+`unresolved-citation`, and an uncited one never reaches the ingest backlog. A backtick
+in a filename is the same trap in another form (a backtick pair inside a wikilink reads
+as a code span). The clippers now write `dot-github-workflows-build.yml.md` and drop
+backticks (`scripts/lib/clip-names.mjs`); a re-clip of `clip-gh` adopts a file written
+under its old name instead of copying it or, in digest mode, pruning it. Rename the
+existing ones from the plugin root:
+`node "<absolute-plugin-root>/scripts/rename-unsafe-clippings.mjs"` (dry-run), then
+`--apply --paths-out <ledger.json>` inside an operation and close with
+`op-commit --paths-file <ledger.json>`; the ledger lists the old names, the new names and
+the pages rewritten. It renames only `.md` files under `raw/` (a state file such as
+`raw/book-nom/.booknom-state.json` is hidden on purpose), leaves clipping content and
+therefore `source-hash` alone, repoints full-path wikilinks in every page except `raw/`,
+`log/` and `_templates/` (a link in a code block is an example and stays), reports other
+mentions of an old path without rewriting them, and refuses a rename whose target exists.
+Pages are rewritten before files are renamed, so an interrupted run is finished by running
+it again.
+
 **Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
 whose authored pages predate this convention has none of it set. Repair from the
 plugin root: `node "<absolute-plugin-root>/scripts/backfill-authored-metadata.mjs"` (dry-run) then `--apply`

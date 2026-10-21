@@ -8,7 +8,7 @@ const blank = text => text.replace(/[^\r\n]/g, ' ');
 
 // Preserve offsets so diagnostics always refer to the original file. This is a
 // wikilink scanner, not a renderer: headings and external URLs are not checked.
-function prose(text) {
+export function prose(text) {
   let fence = null;
   const fenced = text.split(/(?<=\n)/).map(line => {
     const container = line.replace(/^(?: {0,3}>[ \t]?)+/, '');
@@ -187,7 +187,7 @@ export function scanIntegrity(vaultPath) {
     coverage: { contentPages: content.length, provenanceEligible, stubs: content.filter(isStub).length,
       checks: Object.keys(VERIFY),
       notChecked: ['factual correctness', 'external URLs', 'heading/block anchors', 'historical moves/deletions', 'Markdown-style links'],
-      exclusions: ['raw bodies', 'templates', 'logs', 'system files', 'dot directories', 'code examples', 'comments', 'embeds'] },
+      exclusions: ['raw bodies', 'templates', 'logs', 'system files', 'dot-prefixed files and directories', 'code examples', 'comments', 'embeds'] },
   };
 }
 
