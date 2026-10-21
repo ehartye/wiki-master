@@ -8,6 +8,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
 // real source file (a config, a short script) is still worth a clipping.
@@ -121,9 +122,13 @@ export function slugifyRepoPath(relPath) {
     .replace(/-+/g, '-')
     .trim()
     .replace(/[-\s]+$/, '');
-  if (s.length <= REPO_SLUG_SAFE_LENGTH) return s || 'untitled';
+  // The safe-name step runs last, on the finished slug, so the hash decision
+  // above never changes and a file keeps the same name apart from its prefix:
+  // `.github-x.yml` becomes `dot-github-x.yml`, `clipSafeName(old)` exactly. That
+  // is what lets the legacy-name adoption below recognise a file written before.
+  if (s.length <= REPO_SLUG_SAFE_LENGTH) return clipSafeName(s) || 'untitled';
   const digest = createHash('sha256').update(String(relPath)).digest('hex').slice(0, 12);
-  return `${s.slice(0, REPO_SLUG_SAFE_LENGTH - digest.length - 1)}-${digest}`;
+  return clipSafeName(`${s.slice(0, REPO_SLUG_SAFE_LENGTH - digest.length - 1)}-${digest}`);
 }
 
 // Build one file's clipping. Pure: no IO, no git, no gh — the testable core.
@@ -441,7 +446,37 @@ function walkRepoFiles(dir, base = dir) {
 // vault's orphan/graph view before anything had a chance to be ingested.
 // I/O glue only — every decision it makes (grouping, anchor selection,
 // content shape) lives in an already-unit-tested pure function above.
-function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups }) {
+// One clipping per included repo file, into `outDir`. `tmp` is the checkout the
+// files are read from. Content already clipped (same source-hash) is left alone.
+export function writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp }) {
+  const existingHashes = new Map();
+  if (existsSync(outDir)) {
+    for (const f of readdirSync(outDir)) {
+      if (!f.endsWith('.md')) continue;
+      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(join(outDir, f), 'utf8').slice(0, 800));
+      if (m) existingHashes.set(m[1].toLowerCase(), f);
+    }
+  }
+
+  // Adopt a clipping written under a legacy hidden/backtick name before the hash
+  // check, so a re-clip converges on the safe name whether or not the content
+  // changed, instead of leaving the old file beside a new copy.
+  const legacyNames = legacyNameMap(readdirSync(outDir));
+  let clipped = 0; let unchanged = 0; let thin = 0; let renamed = 0;
+  for (const relPath of included) {
+    const content = readFileSync(join(tmp, relPath), 'utf8');
+    const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
+    if (clip.wordCount < THIN_WORD_FLOOR) { thin++; continue; }
+    const fileName = `${slugifyRepoPath(relPath)}.md`;
+    if (adoptLegacyName(outDir, legacyNames, fileName)) renamed++;
+    if (existingHashes.has(clip.hash)) { unchanged++; continue; }
+    writeFileSync(join(outDir, fileName), clip.body);
+    clipped++;
+  }
+  return { clipped, unchanged, thin, renamed };
+}
+
+export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups }) {
   const extensionCounts = {};
   for (const p of included) {
     const ext = extname(p).toLowerCase() || '(none)';
@@ -477,13 +512,18 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
     listingsWritten++;
   }
 
-  let anchorsClipped = 0; let anchorsUnchanged = 0; let anchorsThin = 0;
+  // A clipping written before names were made safe (`.github-x.yml.md`) is adopted
+  // under its current name first. Without this, an unchanged one would be skipped by
+  // the hash check below and then pruned as stale: the file would be deleted.
+  const legacyNames = legacyNameMap(readdirSync(outDir));
+  let anchorsClipped = 0; let anchorsUnchanged = 0; let anchorsThin = 0; let anchorsRenamed = 0;
   for (const relPath of anchorPaths) {
     const content = readFileSync(join(tmp, relPath), 'utf8');
     const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
     if (clip.wordCount < THIN_WORD_FLOOR) { anchorsThin++; continue; }
     const anchorFilename = `${slugifyRepoPath(relPath)}.md`;
     expectedFilenames.add(anchorFilename);
+    if (adoptLegacyName(outDir, legacyNames, anchorFilename)) anchorsRenamed++;
     if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
     writeFileSync(join(outDir, anchorFilename), clip.body);
     anchorsClipped++;
@@ -509,6 +549,7 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
   console.log(`  documents written this run: ${totalDocs} (manifest: 1, listings: ${listingsWritten}, anchor clips: ${anchorsClipped})`);
   console.log(`  listings unchanged (already up to date): ${listingsUnchanged}`);
   console.log(`  anchor clips unchanged: ${anchorsUnchanged}, thin (skipped): ${anchorsThin}`);
+  if (anchorsRenamed) console.log(`  renamed (legacy hidden/backtick name -> safe name): ${anchorsRenamed}`);
   console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
   if (staleFilenames.length) {
     console.log(`  pruned (no longer produced by this repo's current structure): ${staleFilenames.length}`);
@@ -517,7 +558,7 @@ function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quali
   }
   return {
     status: 'digest', totalIncluded: included.length, moduleCount: groups.length,
-    listingsWritten, listingsUnchanged, anchorsClipped, anchorsUnchanged, anchorsThin,
+    listingsWritten, listingsUnchanged, anchorsClipped, anchorsUnchanged, anchorsThin, anchorsRenamed,
     excluded: excluded.length, pruned: staleFilenames.length, outDir,
   };
 }
@@ -648,25 +689,7 @@ export function main(argv) {
 
     mkdirSync(outDir, { recursive: true });
 
-    const existingHashes = new Map();
-    if (existsSync(outDir)) {
-      for (const f of readdirSync(outDir)) {
-        if (!f.endsWith('.md')) continue;
-        const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(join(outDir, f), 'utf8').slice(0, 800));
-        if (m) existingHashes.set(m[1].toLowerCase(), f);
-      }
-    }
-
-    let clipped = 0; let unchanged = 0; let thin = 0;
-    for (const relPath of included) {
-      const content = readFileSync(join(tmp, relPath), 'utf8');
-      const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
-      if (clip.wordCount < THIN_WORD_FLOOR) { thin++; continue; }
-      if (existingHashes.has(clip.hash)) { unchanged++; continue; }
-      const fileSlug = slugifyRepoPath(relPath);
-      writeFileSync(join(outDir, `${fileSlug}.md`), clip.body);
-      clipped++;
-    }
+    const { clipped, unchanged, thin, renamed } = writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp });
 
     const manifest = repoManifestContent({
       owner, repo, ref: resolvedRef, description: meta.description, primaryLanguage: meta.primaryLanguage,
@@ -676,9 +699,10 @@ export function main(argv) {
 
     console.log(`clipped: ${clipped} file(s) to raw/clippings/gh/${slugify(owner)}/${slugify(repo)}/ (+ _repo-overview.md)`);
     console.log(`  unchanged (already clipped, same content): ${unchanged}`);
+    if (renamed) console.log(`  renamed (legacy hidden/backtick name -> safe name): ${renamed}`);
     console.log(`  thin (skipped): ${thin}`);
     console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
-    return { status: 'clipped', clipped, unchanged, thin, excluded: excluded.length, outDir };
+    return { status: 'clipped', clipped, unchanged, thin, renamed, excluded: excluded.length, outDir };
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

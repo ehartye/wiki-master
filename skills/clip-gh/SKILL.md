@@ -156,6 +156,16 @@ This only applies to digest-mode output (listings/manifest/anchors); a
 per-file-mode clipping for a source file renamed or deleted upstream is
 **not** currently pruned — that remains a known gap.
 
+**Filenames Obsidian can see.** A repo file whose path starts with a dot
+(`.github/workflows/ci.yml`, `.gitignore`) is clipped as `dot-github-workflows-ci.yml.md`,
+not `.github-workflows-ci.yml.md`: Obsidian does not index a dot-prefixed file, and the
+graph walk skips it, so such a clipping can neither be cited nor reach the ingest
+backlog. A clipping written under the old name is adopted on the next re-clip — renamed
+to the new name, content untouched — so digest mode's prune cannot delete it and a
+changed file is updated in place rather than copied. The run reports it as `renamed`.
+Citations of the old name are repointed by
+`scripts/rename-unsafe-clippings.mjs` (see the maintenance reference).
+
 ## Steps
 
 1. **Preflight** (once, or whenever a clip fails unexpectedly):
