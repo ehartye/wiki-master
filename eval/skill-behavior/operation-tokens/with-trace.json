@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "condition": "with",
+  "mode": "simulation",
+  "scenarioHash": "08df99ef4604cfefbf88fd76be07d0d1ac4feb564fa9ef193e22d5540ac3601d",
+  "observer": {
+    "id": "independent-token-observer",
+    "independent": true
+  },
+  "runs": [
+    {
+      "id": "retry-owned-close",
+      "complete": true,
+      "transcript": "I will reuse the saved operation type, title, token, exact ledger and existing log. I will confirm the lock is absent, the validated owned changes remain uncommitted and no operation commit exists. I will run op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <saved-ledger>. I will not repeat the edits, catalog refresh or log. I will inspect the resulting commit's subject, unique log path, changed paths and owned content, check index-refresh notices, and verify successful token removal. The other agent's draft and token stay untouched; the ledger does not override pre-dirty exclusions. Then I will run wiki-sync without --commit-local and verify publication against its fresh-fetch result, locating the operation by its unique log path if rebasing changes its SHA. No further approval is needed. If close fails, retain the token and report the failed step with the saved scope. If sync refuses or fails, preserve the committed work, report the precise blocker and next action, and do not claim publication or reopen a closed token.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "I will confirm the lock is absent, the validated owned changes remain uncommitted and no operation commit exists."
+        },
+        {
+          "name": "retry-same-token",
+          "evidence": "run op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <saved-ledger>"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "The other agent's draft and token stay untouched"
+        },
+        {
+          "name": "verify-actual-commit",
+          "evidence": "inspect the resulting commit's subject, unique log path, changed paths and owned content"
+        },
+        {
+          "name": "sync-and-verify",
+          "evidence": "run wiki-sync without --commit-local and verify publication against its fresh-fetch result"
+        }
+      ]
+    },
+    {
+      "id": "uncertain-completed-close",
+      "complete": true,
+      "transcript": "I will reconcile the retained token against the local commit before retrying anything: verify the commit subject, unique operation log, intended path membership, owned content and validation records, and confirm no intended path is dirty. An empty delta alone is insufficient. With completion verified, I will run the operation's own op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <exact-ledger> to close the retained token. I will verify successful closure even if it creates no commit, without duplicating the log or sweeping the unrelated writer's dirty file. Then I will run authorized wiki-sync without --commit-local. After rebasing, I will find the operation through its unique log path, recheck the resulting commit and content, and verify remote publication through the fresh-fetch result rather than comparing only the old SHA. If reconciliation is inconsistent, retain the token and report the missing evidence. If closure or sync fails, stop at that step with the exact blocker and recovery action; preserve unrelated work and any already-closed token state.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "reconcile the retained token against the local commit before retrying anything: verify the commit subject, unique operation log, intended path membership, owned content and validation records, and confirm no intended path is dirty"
+        },
+        {
+          "name": "verify-actual-commit",
+          "evidence": "verify the commit subject, unique operation log, intended path membership, owned content and validation records"
+        },
+        {
+          "name": "close-retained-token",
+          "evidence": "run the operation's own op-commit --op <saved-type> --title <saved-title> --since <saved-token> --paths-file <exact-ledger> to close the retained token"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "without duplicating the log or sweeping the unrelated writer's dirty file"
+        },
+        {
+          "name": "sync-and-verify",
+          "evidence": "run authorized wiki-sync without --commit-local. After rebasing, I will find the operation through its unique log path, recheck the resulting commit and content, and verify remote publication through the fresh-fetch result"
+        },
+        {
+          "name": "reconcile-rebased-identity",
+          "evidence": "After rebasing, I will find the operation through its unique log path, recheck the resulting commit and content, and verify remote publication through the fresh-fetch result rather than comparing only the old SHA."
+        }
+      ]
+    },
+    {
+      "id": "explicit-user-hold",
+      "complete": true,
+      "transcript": "I will inspect the saved operation record and exact ledger read-only, confirm that the token remains open and the edits match their validation records, and report the token, owned paths and completed validation. I will identify any catalog or single-log step still unverified from the saved records. Remaining work is your review, any requested revisions and their validation, any outstanding catalog/log work, then the scoped commit and any authorized sync after you explicitly release the hold. I will not run op-commit, cleanup or sync, remove the token, open a replacement operation or change files. I will stop after reporting this status and leave the operation open for your review.",
+      "actions": [
+        {
+          "name": "respect-explicit-hold",
+          "evidence": "leave the operation open for your review"
+        },
+        {
+          "name": "record-actionable-state",
+          "evidence": "report the token, owned paths and completed validation. I will identify any catalog or single-log step still unverified from the saved records. Remaining work is your review, any requested revisions and their validation, any outstanding catalog/log work, then the scoped commit and any authorized sync after you explicitly release the hold."
+        }
+      ]
+    },
+    {
+      "id": "read-only-near-miss",
+      "complete": true,
+      "transcript": "I will search the existing wiki for cue-response plans, open the matching page and read the current passage. I will return the relevant excerpt with the actual page path and passage location as a citation, checking the current text rather than relying solely on an index snippet. If search coverage is limited, I will disclose that limitation without refreshing the index. I will not create or edit pages, refresh catalogs, write a log, open or close an operation, commit or sync. The old token belongs to a different task and stays untouched. I will stop after providing the requested passage and citation.",
+      "actions": [
+        {
+          "name": "search-existing-passages",
+          "evidence": "search the existing wiki for cue-response plans, open the matching page and read the current passage"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "The old token belongs to a different task and stays untouched."
+        }
+      ]
+    },
+    {
+      "id": "abandoned-own-token",
+      "complete": true,
+      "transcript": "I will run op-cleanup as a dry run with its default 24-hour review filter and identify the exact 30-hour-old token from the ownership handoff. I will reconfirm that this cancelled operation has no unfinished work, owned dirty paths, pending sync or user hold; age alone does not establish abandonment. Then I will run op-cleanup --apply --token <owned-token-id>, using only that exact token. I will check the helper result and verify that the owned token is removed and the other agent's 60-hour-old token remains unchanged. I will not delete token files manually, sweep by age, adopt the other operation, create a log or commit, or run sync. I will stop after reporting verified cleanup. If ownership or abandonment checks fail, or the helper refuses cleanup, I will preserve the state and report the specific blocker and next action.",
+      "actions": [
+        {
+          "name": "inspect-owned-state",
+          "evidence": "identify the exact 30-hour-old token from the ownership handoff. I will reconfirm that this cancelled operation has no unfinished work, owned dirty paths, pending sync or user hold"
+        },
+        {
+          "name": "cleanup-exact-owned-token",
+          "evidence": "run op-cleanup --apply --token <owned-token-id>, using only that exact token"
+        },
+        {
+          "name": "verify-token-removal",
+          "evidence": "check the helper result and verify that the owned token is removed"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "the other agent's 60-hour-old token remains unchanged"
+        }
+      ]
+    },
+    {
+      "id": "unresolved-content-conflict",
+      "complete": true,
+      "transcript": "I will verify read-only that the rebase was aborted, the operation's local commits and unique log remain intact, and its token is already closed. I will inspect the conflicting file and available evidence, then report the exact opposing statements, their file locations and supporting evidence, and that publication remains blocked because the evidence cannot determine the correct statement. I will leave both histories and content intact. I will not guess a resolution, overwrite remote content, force-push, retry unchanged sync, reopen the completed operation or clean up unrelated tokens. I will ask for authoritative evidence or an explicit decision resolving the statement and stop pending that input. The next action is to establish the correct content, then perform any needed correction under an appropriately scoped operation and retry authorized wiki-sync with verification. I will not claim syncing succeeded.",
+      "actions": [
+        {
+          "name": "retain-and-report-blocker",
+          "evidence": "report the exact opposing statements, their file locations and supporting evidence, and that publication remains blocked because the evidence cannot determine the correct statement. I will leave both histories and content intact."
+        },
+        {
+          "name": "record-actionable-state",
+          "evidence": "report the exact opposing statements, their file locations and supporting evidence, and that publication remains blocked because the evidence cannot determine the correct statement"
+        },
+        {
+          "name": "preserve-foreign-work",
+          "evidence": "I will leave both histories and content intact."
+        }
+      ]
+    }
+  ]
+}

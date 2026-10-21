@@ -27,6 +27,12 @@ ownership, no pending work or user hold, an exact ID and age eligibility; no rou
 approval is needed for that already-authorized cleanup. Age is a review signal,
 not an automatic expiry. The command implementations are unchanged.
 
+The [six operation-token probes](../eval/skill-behavior/operation-tokens/README.md)
+passed 6/6 in both matched conditions, with 22/22 required actions and no forbidden
+actions proposed. This is a zero measured difference, not evidence of superiority.
+The independently labeled simulations retain all transcripts and limits; existing
+real-Git fixtures check helper behavior separately.
+
 The maintainer core is 76 lines, down from 444. Detailed access, operations, evidence, authoring, maintenance and workflow policies live in focused references linked directly from applicable entry points. All 19 descriptions now name natural user triggers and adjacent workflow boundaries. Existing provenance and purge safeguards remain in force.
 
 ## Behavioral suite
