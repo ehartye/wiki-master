@@ -4,14 +4,19 @@ Use this contract for every ordinary vault write, including standalone clipping,
 authoring and applying triage decisions. Read-only search, query, health, freshness
 and preview work do not open operations, log, commit or refresh indexes.
 
-**Own the token through completion.** Automatically finish your own operation's
-validation, scoped commit and already-authorized sync without asking again.
-An explicit user hold overrides this default. A token is not resolved merely
+**Own the update through verified publication.** An authorized wiki edit includes
+validation, the scoped operation commit, and pushing to its configured upstream
+with `wiki-sync.mjs`, followed by remote verification. Finish those steps without
+asking a separate routine permission question. An explicit user instruction to
+hold publication or keep the work local overrides this default. A local commit
+or a closed token alone does not publish the update. If a remote is absent or sync
+fails, report the work as unpublished with its exact next action. Never create a
+remote or repository merely to satisfy this rule. A token is not resolved merely
 because its file was deleted; account for the work and verify the outcome.
 
 1. **Resolve scope and authorization.** Read the vault's instructions. Existing
-   session authorization counts: do not ask again to do already requested work or
-   sync when the user or vault instructions already authorize it. A request to
+   session authorization counts: a request to make a wiki update includes its
+   normal commit-and-sync completion unless an explicit hold applies. A request to
    answer/search does not authorize filing a new page. Purge requires its specific
    reviewed plan and publication approval; do not replace those with this rule.
 2. **Open before the first write.** Run `op-begin.mjs --op <op>` and save its token.
@@ -45,17 +50,25 @@ because its file was deleted; account for the work and verify the outcome.
    The helper attempts a semantic index refresh after committing; inspect notices
    for missing backends, skipped work or partial builds. A commit does not establish
    index freshness. Report a non-git vault as local-only; do not claim a commit.
-7. **Sync when already authorized.** `op-commit` itself never pushes. The plugin
+7. **Push and verify your update.** `op-commit` itself never pushes. The plugin
    scripts own the vault's git, so sync with `node "<absolute-plugin-root>/scripts/wiki-sync.mjs"`,
    not a bare `git push`: it fetches, rebases onto the upstream (never a merge commit),
    pushes, retries once when another machine pushed first, and verifies against a fresh
    fetch. Run it after `op-commit`, never between edits; it names any operation still
    open. A conflict aborts the rebase, exits 1 and names the files; the local commits are
    intact. Report it and stop: do not force, resolve by guessing, or claim success.
+   Inspect the sync result and verify the operation's resulting commit is included
+   in the freshly fetched upstream. After a rebase, identify it by its unique log
+   path and verify its actual changed paths rather than assuming its old SHA.
+   Do not stop at a local commit, delegate publication to Obsidian Git, or ask the
+   user to push work you are responsible for. Inspect outgoing commits first;
+   coordinate rather than publish unrelated or explicitly held local commits.
    `--commit-local` first commits hand edits made outside any operation (the owner's
    own Obsidian edits) in one scoped `sync:` commit; it refuses while any operation is
-   open, because dirty files cannot then be attributed. If sync is not authorized,
-   report the unpushed commit and ask only if publishing is needed.
+   open, because dirty files cannot then be attributed. Use ordinary sync for your
+   operation; do not use `--commit-local` to sweep another writer's unfinished work.
+   When the user explicitly holds publication, retain the local commit and report
+   that it is unpushed. Without an upstream, report local-only completion.
 
 ## Recovery and token ownership
 
@@ -73,8 +86,10 @@ because its file was deleted; account for the work and verify the outcome.
   token or replaying work. After a sync rebase, locate the operation through its
   unique log path and recheck the resulting commit instead of relying on its old SHA.
 - **Respect holds and ownership.** Do not close a user-held operation. A delegated
-  worker reports to its enclosing operation's owner rather than closing the parent's
-  token. Leave other agents' tokens alone unless ownership was explicitly transferred;
+  worker reports its owned paths and validation to its enclosing operation's named
+  owner rather than closing the parent's token. That owner remains responsible for
+  the scoped commit, push and remote verification; delegation does not drop the
+  publication step. Leave other agents' tokens alone unless ownership was explicitly transferred;
   tokens contain an opening dirty-path snapshot, not proof of who owns later edits.
 - **Leave actionable blockers.** If safe progress requires an unresolved conflict,
   missing authorization or another owner's action, retain the operation and record
@@ -99,8 +114,10 @@ warns when they are on. Every machine sharing the vault needs the same setting.
 
 **Done only when** the requested change is validated, applicable catalogs and one
 operation log are recorded, the operation commit is verified (or its precise
-limitation reported), and authorized sync is verified. If blocked partway, retain
-the token with the actionable handoff above; do not start over blindly.
+limitation reported), and its push and remote publication are verified. A user-held
+or local-only result must be labeled accordingly. If blocked partway, preserve the
+actual operation/commit state and leave the actionable handoff above; a sync failure
+after token closure does not require a replacement token. Do not start over blindly.
 
 ## Exceptions with their own transaction
 
@@ -121,8 +138,9 @@ the token with the actionable handoff above; do not start over blindly.
 
 Replace absolute path placeholders, title and narrative with the real task. The
 comment marks where the already-authorized edits and checks occur; do not run the
-close step after a failed edit/check. These templates do not auto-push: step 7 is
-conditional on the actual authorization and upstream configuration.
+close step after a failed edit/check. These examples assume a configured upstream
+and no explicit user hold, so they include the push step. For an explicit local-only
+request, omit that step and report the unpushed commit.
 
 ```powershell
 $wikiPriorVault = $env:WIKI_MASTER_VAULT
@@ -135,6 +153,8 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Could not log wiki operation' }
   node 'C:/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since $wikiOpToken
   if ($LASTEXITCODE -ne 0) { throw 'Could not commit wiki operation' }
+  node 'C:/absolute/installed/plugin/scripts/wiki-sync.mjs'
+  if ($LASTEXITCODE -ne 0) { throw 'Wiki update is committed locally but not verified published' }
 } finally {
   $env:WIKI_MASTER_VAULT = $wikiPriorVault
 }
@@ -147,5 +167,6 @@ try {
   # Perform authorized edits, validate, and refresh affected catalogs here.
   printf '%s\n' 'Validated task narrative' | node '/absolute/installed/plugin/scripts/log-entry.mjs' --op relink --title 'Task title' || exit
   node '/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since "$wiki_op_token" || exit
+  node '/absolute/installed/plugin/scripts/wiki-sync.mjs' || exit
 )
 ```

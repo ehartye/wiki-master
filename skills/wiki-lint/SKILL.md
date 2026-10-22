@@ -55,4 +55,4 @@ Before the first authorized write, follow the shared operations completion contr
 6. Close the operation:
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op lint --title "<summary>" --since <saved-token>`
    A lint that applied fixes and did not commit them leaves the vault changed with
-   no record — the failure `/wiki-purge` was built to end. The helper does not push; complete already-authorized sync through the shared contract.
+   no record — the failure `/wiki-purge` was built to end. The helper does not push; push and verify remote publication through the shared contract.

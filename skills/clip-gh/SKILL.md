@@ -237,8 +237,8 @@ Citations of the old name are repointed by
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit and verify
-already-authorized sync through the shared operations contract. During discovery,
+its returned paths and extraction diagnostics, log once, commit, push and verify
+remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Capturing evidence does not by itself authorize ingestion; reuse explicit
 discover-and-ingest authorization when it is already present.

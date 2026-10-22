@@ -33,10 +33,12 @@ Steps:
    Refresh affected catalogs with `refresh-catalogs.mjs --project <slug> --apply` (one graph scan for the project's backlog, MOC and global index). With concurrent writers pass `--paths-file <JSON ownership ledger>` to omit their untracked additions. Inspect the returned `changed` paths and add the safe catalog paths to the operation's ledger.
 6. Complete the shared operations contract: one relink log entry, then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`.
-   Verify the commit and index-refresh notices, sync when already authorized,
-   and verify the upstream state. Do not ask again for authorized publishing.
+   Verify the commit and index-refresh notices, push with `wiki-sync.mjs`, and
+   verify that the update reached the configured upstream. The authoring request
+   includes this completion step unless the user explicitly holds publication;
+   do not ask another routine permission question or leave the push to the user.
 
 **Done only when** the requested documentation and affected catalogs are
-validated, its log and operation commit are recorded, and already-authorized sync
-is verified. Report local-only, skipped or failed steps precisely; do not call an
-uncommitted page published.
+validated, its log and operation commit are recorded, and remote publication is
+verified. Report explicit holds, local-only results and failed sync precisely;
+do not call a local commit published.

@@ -81,4 +81,4 @@ For each source:
 6. **Close the operation:**
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token>`
    Commits exactly the pages this ingest touched, as one revertable unit, and
-   reports anything it deliberately left alone. Then follow the shared completion contract for already-authorized sync and verify its result.
+   reports anything it deliberately left alone. Then follow the shared completion contract to push your updates and verify remote publication.
