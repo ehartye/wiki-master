@@ -48,5 +48,5 @@ than reimplementing its search-mechanics/health-disclosure logic here.
    file a substantive new answer and wait for acceptance; answering alone is
    read-only. Before creating or editing the page, open a query operation and
    retain the token. Validate citations, regenerate the catalog, log once, close
-   the operation, and verify already-authorized sync using the directly linked
+   the operation, and push and verify remote publication using the directly linked
    completion contract. Do not open an operation for an answer that is not filed.

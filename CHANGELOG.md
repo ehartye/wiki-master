@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.53.2 — 2026-10-22
+
+- Make agents responsible for pushing their own authorized wiki updates through `wiki-sync.mjs` and verifying remote publication. A local commit or closed operation token alone is not a published update; no separate routine push confirmation is needed.
+- Put this completion rule in the shared core, authoring and other writing routes, and include sync in both shell examples. Preserve explicit publication holds, local-only vaults, delegated operation ownership and other writers' work. Failed syncs resume from the actual saved commit state and are reported as unpublished.
+- This changes skill guidance only; Git helpers, token storage and cleanup rules are unchanged.
+
 ## 0.53.1 — 2026-10-21
 
 - Make automatic resolution of an agent's own operation tokens the shared skill default, unless the user explicitly asks to leave an operation open. Complete validated scoped commits and already-authorized sync without another confirmation; recoverable failures and resumed tasks continue the saved operation rather than opening replacement tokens or duplicating edits and logs.

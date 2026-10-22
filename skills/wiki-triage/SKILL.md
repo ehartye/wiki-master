@@ -78,7 +78,7 @@ const stillOpen = openIssues(loadIssueLog(vaultPath));
 
 Then act on what the user chose. Starting the UI alone needs no content operation.
 Before applying a disposition that changes tracked content or pipeline state, open
-or reuse an operation; validate, log, commit and verify already-authorized sync
+or reuse an operation; validate, log, commit, push and verify remote publication
 through the completion contract. Handoffs such as ingest own their transaction:
 
 | disposition | what you do |

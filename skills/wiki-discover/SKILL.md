@@ -143,7 +143,7 @@ were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
 clipping paths, write one discovery log entry naming the clipped/declined/failed
 counts, and close with:
 `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token>`.
-Verify the commit and complete already-authorized sync through the shared
+Verify the commit and push and verify remote publication through the shared
 contract. If no writes occurred, report that and do not manufacture a log/commit.
 Clippings must not remain dirty while waiting for an ingestion decision.
 

@@ -57,7 +57,7 @@ of a source is a citation contract even on a stub.
    write one `log-entry.mjs --op relink` narrative and close with
    `op-commit.mjs --op relink --title "<summary>" --since <saved-token>`, using the
    absolute helper paths and shell-safe examples in the completion reference.
-   Inspect the actual committed paths and index-refresh notices; sync when already
-   authorized. Report before/after defect counts, verified resolved IDs, remaining
+   Inspect the actual committed paths and index-refresh notices; push and verify remote
+   publication through the shared completion contract. Report before/after defect counts, verified resolved IDs, remaining
    IDs with reasons, new IDs, and commit/sync status. If nothing changed, no operation
    is needed. Never claim zero defects merely because the assigned batch is done.

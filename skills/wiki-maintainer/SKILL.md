@@ -10,6 +10,14 @@ its portable knowledge store. A failed app connection does not block supported
 filesystem work. Load the directly linked references required by your operation,
 not every reference for a simple lookup.
 
+**Push the wiki updates you own.** An authorized wiki edit includes validation,
+the scoped operation commit, and pushing to the configured upstream with
+`wiki-sync.mjs`, followed by remote verification. Complete this without another
+routine permission question unless the user explicitly says to hold publication
+or keep the work local. A local commit or a closed token alone is not published.
+Report a missing upstream or failed sync as unpublished work, with the next step;
+preserve other writers' edits and tokens. See [operation completion](references/operations.md).
+
 ## Location and access
 
 The vault is `WIKI_MASTER_VAULT`, default `~/.wiki-master-vault`; its Obsidian
@@ -76,7 +84,7 @@ not substituted by the host.
 | Concepts, relinking, task maps, discovery, factual review | [Identity, relationships and verification](references/efficacy.md) |
 | Ingest backlog, lint, structural repairs, migration | [Metrics, repairs and pattern limits](references/maintenance.md) |
 | Domain workflow details when needed | [Workflow reference](references/workflows.md) |
-| Any vault mutation | [Completion, logging, commits and authorized sync](references/operations.md) |
+| Any vault mutation | [Completion, logging, scoped commits and verified push](references/operations.md) |
 
 Run cheap structural checks during substantive maintenance. A clean graph does
 not establish factual correctness: sample changed or high-use pages when reviewing

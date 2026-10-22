@@ -38,5 +38,5 @@ Before the first authorized write, follow the shared operations completion contr
 5. Close the operation:
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`
    Relink rewrites links across the graph; committing it as one unit is what makes
-   it revertable. The helper does not push; complete already-authorized sync through the shared contract. This step also reports any hard-wrapped wikilink
+   it revertable. The helper does not push; push and verify remote publication through the shared contract. This step also reports any hard-wrapped wikilink
    still present in the files it commits, in case one was introduced after step 1 ran.
