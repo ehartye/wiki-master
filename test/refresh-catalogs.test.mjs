@@ -8,6 +8,7 @@ import { regenerateBacklogRoadmaps } from '../scripts/backlog-gen.mjs';
 import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
 import { regenerateIndex } from '../scripts/index-gen.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
+import { validateAuthored } from '../scripts/validate-authored.mjs';
 function fixture(t) {
  const root=mkdtempSync(join(tmpdir(),'wm-refresh-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
  for(const project of ['alpha','beta']) {
@@ -42,8 +43,9 @@ test('batch dry run changes nothing; project traversal is rejected before scanni
 });
 test('batch output equals sequential generators, including first-created catalog collisions',t=>{
  const a=fixture(t),b=fixture(t);
- regenerateBacklogRoadmaps(a,{apply:true});regenerateAuthoredMocs(a,{apply:true});regenerateIndex(a);
- refreshCatalogs(b,{apply:true});
+ const now=new Date('2026-03-05T12:00:00Z');
+ regenerateBacklogRoadmaps(a,{apply:true,now});regenerateAuthoredMocs(a,{apply:true});regenerateIndex(a);
+ refreshCatalogs(b,{apply:true,now});
  for(const p of ['index.md','moc/alpha.md','moc/beta.md','wiki/authored/alpha/roadmap.md','wiki/authored/beta/roadmap.md'])
   assert.equal(readFileSync(join(a,p),'utf8'),readFileSync(join(b,p),'utf8'),p);
 });
@@ -69,4 +71,55 @@ test('all generators reuse a supplied graph without scanning the vault',t=>{
  assert.deepEqual(regenerateBacklogRoadmaps(missing,{project:'alpha',graph}).written,['alpha']);
  assert.deepEqual(regenerateAuthoredMocs(missing,{project:'alpha',graph}).written,['alpha']);
  assert.ok(regenerateIndex(missing,{graph,apply:false}).pages>0);
+});
+
+// A roadmap the refresh creates must satisfy validate-authored.mjs and be listed in its project's map.
+const NOW = new Date('2026-03-05T23:59:59Z');
+
+test('a refresh forwards now: the roadmap it creates carries all eight authored keys and validates', t => {
+  const root = fixture(t);
+  const result = refreshCatalogs(root, { project: 'alpha', apply: true, now: NOW });
+  assert.ok(result.changed.includes('wiki/authored/alpha/roadmap.md'));
+  const text = readFileSync(join(root, 'wiki/authored/alpha/roadmap.md'), 'utf8');
+  assert.match(text, /^---\ntype: authored\ncreated: 2026-03-05\nupdated: 2026-03-05\nstatus: draft\nsources: \[\]\nai-generated: true\nproject: alpha\nkind: roadmap\n---\n/);
+  assert.doesNotMatch(text, /^reviewed:/m);
+  assert.deepEqual(validateAuthored(root, ['wiki/authored/alpha/roadmap.md']).defects, []);
+});
+
+test('a scoped refresh lists the new roadmap in the project map with a bare link when no other roadmap exists', t => {
+  const root = fixture(t);
+  refreshCatalogs(root, { project: 'alpha', apply: true, now: NOW });
+  const moc = readFileSync(join(root, 'moc/alpha.md'), 'utf8');
+  assert.match(moc, /## Roadmap\n- \[\[roadmap\]\]/);
+  assert.match(readFileSync(join(root, 'index.md'), 'utf8'), /\[\[roadmap\]\]/);
+});
+
+test('an unscoped refresh lists each new roadmap under its own project with a path link', t => {
+  const root = fixture(t);
+  refreshCatalogs(root, { apply: true, now: NOW });
+  for (const project of ['alpha', 'beta']) {
+    const moc = readFileSync(join(root, `moc/${project}.md`), 'utf8');
+    assert.match(moc, new RegExp(`## Roadmap\\n- \\[\\[wiki/authored/${project}/roadmap\\|roadmap\\]\\]`), project);
+    assert.deepEqual(validateAuthored(root, [`wiki/authored/${project}/roadmap.md`]).defects, [], project);
+  }
+});
+
+test('a refresh dry run with now creates no roadmap, and now: undefined falls through to the current day', t => {
+  const root = fixture(t);
+  const dry = refreshCatalogs(root, { project: 'alpha', now: NOW });
+  assert.equal(dry.applied, false);
+  assert.ok(!existsSync(join(root, 'wiki/authored/alpha/roadmap.md')));
+  const before = new Date().toISOString().slice(0, 10);
+  refreshCatalogs(root, { project: 'alpha', apply: true, now: undefined });
+  const after = new Date().toISOString().slice(0, 10);
+  const day = readFileSync(join(root, 'wiki/authored/alpha/roadmap.md'), 'utf8').match(/^created: (\S+)$/m)[1];
+  assert.ok(day === before || day === after, day);
+});
+
+test('an invalid now fails before any catalog is written', t => {
+  const root = fixture(t);
+  assert.throws(() => refreshCatalogs(root, { project: 'alpha', apply: true, now: 'today' }), /now must be a valid Date/);
+  assert.ok(!existsSync(join(root, 'wiki/authored/alpha/roadmap.md')));
+  assert.ok(!existsSync(join(root, 'moc')));
+  assert.ok(!existsSync(join(root, 'index.md')));
 });

@@ -21,7 +21,8 @@ function updateSnapshot(vaultPath, graph, paths) {
   }
 }
 
-export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph } = {}) {
+// `now` is the date a newly created roadmap is stamped with; omitted or undefined means the current time.
+export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph, now } = {}) {
   validateProject(project);
   if (ownedPaths !== undefined && (!Array.isArray(ownedPaths) || ownedPaths.some(p =>
     typeof p !== 'string' || !p || p.includes('\\') || p.includes(':') || p.includes('\0') ||
@@ -39,7 +40,7 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
     graph.pages = graph.pages.filter(p => tracked.has(p.path) || owned.has(p.path));
   }
   const graphMs = performance.now() - started;
-  const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph });
+  const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now });
   if (apply) updateSnapshot(vaultPath, graph, backlog.changed);
   const moc = regenerateAuthoredMocs(vaultPath, { project, apply, graph });
   if (apply) updateSnapshot(vaultPath, graph, moc.changed);

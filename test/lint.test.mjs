@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { checkQuotes, checkStyle, classifyQuotes, normalize, quoteFragments } from '../scripts/lint.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { checkQuotes, checkStyle, classifyQuotes, normalize, quoteFragments, quotedSpans } from '../scripts/lint.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'lint-vault');
@@ -222,4 +224,143 @@ test('lint human output leads with tier counts, lists gapped inserts, and --full
   const long = runLint('--tier=unverified');
   assert.ok(!long.includes('visible to the assertion'), 'default output truncates long quotes for display');
   assert.ok(runLint('--tier=unverified', '--full').includes('visible to the assertion'), '--full prints the whole quote');
+});
+
+// ── nested quotations ────────────────────────────────────────────────────────
+// A phrase quoted inside a quotation belongs to the outer quote. The old
+// extractor removed curly pairs first, so a curly phrase inside a straight
+// quotation vanished from the outer text and left a gap of spaces that read as
+// inserted words. These tests build their own throwaway vaults.
+
+const BROWN = 'We conclude that in the field of public education the doctrine of “separate but equal” has no place.';
+
+function nestedVault(t, clipping, pages) {
+  const root = mkdtempSync(join(tmpdir(), 'wm-lint-nested-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const d of ['raw/clippings', 'wiki/concepts', 'wiki/sources']) mkdirSync(join(root, d), { recursive: true });
+  writeFileSync(join(root, 'index.md'), '---\ntype: synthesis\n---\n# Index\n');
+  writeFileSync(join(root, 'raw/clippings/clip.md'),
+    `---\ntitle: "Clip"\nsource: "https://example.com/clip"\ncreated: 2026-10-24\ntags: [clippings]\nquality: high\n---\n${clipping}\n`);
+  writeFileSync(join(root, 'wiki/sources/clip-page.md'),
+    '---\ntype: source\ncreated: 2026-10-24\nstatus: maintained\nsources: ["[[clip]]"]\nai-generated: true\n---\n# Clip Page\nA summary of the clipping.\n');
+  for (const [name, body] of Object.entries(pages)) {
+    writeFileSync(join(root, 'wiki/concepts', `${name}.md`),
+      `---\ntype: concept\ncreated: 2026-10-24\nstatus: maintained\nsources: ["[[clip-page]]"]\nai-generated: true\n---\n# ${name}\n${body}\n`);
+  }
+  return root;
+}
+const lintNested = (root) => classifyQuotes(root, buildGraph(root));
+
+test('classifyQuotes: a curly phrase inside a straight quotation is part of the outer quote and verifies verbatim', (t) => {
+  const root = nestedVault(t, `The opinion states: ${BROWN} The Court went on.`, {
+    brown: `The Court wrote "${BROWN}" in its opinion.`,
+  });
+  const res = lintNested(root);
+  assert.deepEqual(res.findings, [], JSON.stringify(res.findings));
+  assert.equal(res.examined, 1);
+  assert.equal(res.verbatim, 1);
+});
+
+test('classifyQuotes: the nested-quote sentence is convention when the clipping differs only in extraction spacing', (t) => {
+  const root = nestedVault(t, 'The opinion states: We conclude that in the field of public educa tion the doctrine of separate but equal has no place. The Court went on.', {
+    brown: `The Court wrote "${BROWN}" in its opinion.`,
+  });
+  const [f, ...more] = lintNested(root).findings;
+  assert.equal(more.length, 0);
+  assert.equal(f.tier, 'convention', JSON.stringify(f));
+  assert.ok(!/ {2}/.test(f.quote), 'the quote carries no run of spaces where the inner phrase was');
+  assert.ok(f.quote.includes('doctrine of separate but equal has no place'), f.quote);
+});
+
+test('classifyQuotes: an altered outer word beside a nested phrase stays unverified', (t) => {
+  const root = nestedVault(t, `The opinion states: ${BROWN} The Court went on.`, {
+    brown: `The Court wrote "${BROWN.replace('has no place', 'has some place')}" in its opinion.`,
+  });
+  const [f] = lintNested(root).findings;
+  assert.equal(f.tier, 'unverified', JSON.stringify(f));
+});
+
+test('classifyQuotes: an altered nested phrase is unverified, not gapped with the phrase listed as inserted', (t) => {
+  const root = nestedVault(t, `The opinion states: ${BROWN.replace('separate but equal', 'separate but unequal')} The Court went on.`, {
+    brown: `The Court wrote "${BROWN}" in its opinion.`,
+  });
+  const res = lintNested(root);
+  assert.equal(res.findings.length, 1);
+  assert.equal(res.findings[0].tier, 'unverified', JSON.stringify(res.findings[0]));
+  assert.equal(res.findings[0].inserted, undefined);
+});
+
+test('classifyQuotes: a nested phrase of five or more words is checked on its own as well', (t) => {
+  const outer = 'The Court held that the rule of “separate but equal under the law” has no place here.';
+  const root = nestedVault(t, `The opinion states: ${outer} The Court went on.`, {
+    brown: `The Court wrote "${outer}" in its opinion.`,
+  });
+  const res = lintNested(root);
+  assert.deepEqual(res.findings, []);
+  assert.equal(res.examined, 2, 'the outer quote and the inner phrase');
+  assert.equal(res.verbatim, 2);
+});
+
+test('classifyQuotes: a sentence that declares its nested quotation unsourced stays exempt', (t) => {
+  const root = nestedVault(t, 'Unrelated clipping text about something else entirely.', {
+    absent: 'The summary says "A claim with “nested words” inside it here" and this is unsourced in the clipping.',
+  });
+  const res = lintNested(root);
+  assert.deepEqual(res.findings, []);
+  assert.equal(res.examined, 0);
+});
+
+test('quotedSpans: a curly phrase inside a straight quotation keeps its words and loses its marks', () => {
+  assert.deepEqual(
+    quotedSpans(`He wrote "${BROWN}" and left.`),
+    ['We conclude that in the field of public education the doctrine of separate but equal has no place.'],
+  );
+});
+
+test('quotedSpans: a nested phrase of five words is listed after its outer quote, in document order', () => {
+  assert.deepEqual(
+    quotedSpans('Then "a long outer quote with “five words are inside here” and more" ended.'),
+    ['a long outer quote with five words are inside here and more', 'five words are inside here'],
+  );
+});
+
+test('quotedSpans: a straight phrase inside a curly quotation keeps its words and is listed on its own', () => {
+  assert.deepEqual(
+    quotedSpans('Then “he said "one two three four five" and left” ended.'),
+    ['he said one two three four five and left', 'one two three four five'],
+  );
+});
+
+test('quotedSpans: sibling quotations never capture the text between them', () => {
+  assert.deepEqual(
+    quotedSpans('First “a b c d e” then some words between “f g h i j” and "k l m n o" last.'),
+    ['a b c d e', 'f g h i j', 'k l m n o'],
+  );
+});
+
+test('quotedSpans: a short quote consumes its closing mark so parity does not flip', () => {
+  assert.deepEqual(quotedSpans('The "Adaptive" mode is "one two three four five" exactly.'), ['one two three four five']);
+});
+
+test('quotedSpans: a closing curly mark with no curly opener is ignored without error', () => {
+  assert.deepEqual(quotedSpans('He said "one two three four five” and left.'), []);
+  assert.deepEqual(quotedSpans('a "b c d e f g” h'), []);
+  assert.deepEqual(quotedSpans('a b c d e f g” h'), []);
+});
+
+test('quotedSpans: a straight mark never pairs across a blank line', () => {
+  assert.deepEqual(
+    quotedSpans('The 5" pipe is wide.\n\nHe said "one two three four five" plainly.'),
+    ['one two three four five'],
+  );
+});
+
+test('quotedSpans: a curly quotation may span a blank line', () => {
+  const [span, ...more] = quotedSpans('“first paragraph has words here\n\nsecond paragraph has words too”');
+  assert.equal(more.length, 0);
+  assert.ok(span.includes('first paragraph') && span.includes('second paragraph'), span);
+});
+
+test('quotedSpans: an unclosed curly opener does not hide a later complete quotation', () => {
+  assert.ok(quotedSpans('A “stray opener here.\n\nLater “one two three four five” ends.').includes('one two three four five'));
 });

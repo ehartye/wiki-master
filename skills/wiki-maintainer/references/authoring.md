@@ -76,6 +76,8 @@
   before this pattern existed) is the concrete proof this format is meant to
   prevent recurring.
 
+  When `backlog-gen.mjs` (or `refresh-catalogs.mjs`) creates a roadmap that does not exist, the page starts with `type: authored`, `created`, `updated`, `status: draft`, `sources: []`, `ai-generated: true`, `project` and `kind: roadmap`. `reviewed` is omitted on purpose: nobody has reviewed a page a script just wrote. `created` and `updated` are the UTC day of the run and cannot be set from the command line. A dry run creates no page and no temp file. An existing roadmap is never rewritten outside the generated fence.
+
   `node "<absolute-plugin-root>/scripts/health.mjs"`'s `monolith candidates` line (a `wiki/authored/`
   page over ~3,000 words with several stacked dated-update callouts) is a
   secondary safety net for anything that still grows despite the format above —

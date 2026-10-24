@@ -148,6 +148,10 @@ of one flat, ungrouped catalog.
 against a fixture vault — no running Obsidian required. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
 
+### Releasing
+
+A release changes the version in ten places: the nine JSON fields listed in `VERSION_FIELDS` in `test/drift-guard.test.mjs` (seven files; `package-lock.json` and `.github/plugin/marketplace.json` each carry it twice) plus the `CHANGELOG.md` heading. `test/drift-guard.test.mjs` fails if any JSON field differs from `package.json` or if a manifest gains a version field that `VERSION_FIELDS` does not list.
+
 ### Catalog refresh
 
 Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run. It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` restricts untracked page visibility to the operation's owned additions; tracked pages stay visible. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately. Cross-project ambiguity detection still requires one vault scan.
@@ -156,4 +160,4 @@ Use `node scripts/validate-authored.mjs --paths-file <JSON array>` to check only
 
 ### Content lint
 
-`node scripts/lint.mjs` is warn-only and never scored. Quotes the strict verbatim check cannot place are sorted into tiers, with counts first: **convention** (same words in the same order; markup, punctuation or extraction spacing differ; counted, listed with `--tier=convention`), **gapped** (every word is in the evidence in order with extra evidence words between them, which are printed: extraction noise or a silent omission) and **unverified** (a word is changed, added, reordered or negated, or the evidence trail does not hold the text). `--json` emits `{tiers, findings, style}`; `--tier=<name>`, `--page=<substr>` and `--full` narrow or widen the listing. A tier is a pointer for review, not a verdict on the quote. The matching lives in `scripts/lib/quote-match.mjs`.
+`node scripts/lint.mjs` is warn-only and never scored. Quotes the strict verbatim check cannot place are sorted into tiers, with counts first: **convention** (same words in the same order; markup, punctuation or extraction spacing differ; counted, listed with `--tier=convention`), **gapped** (every word is in the evidence in order with extra evidence words between them, which are printed: extraction noise or a silent omission) and **unverified** (a word is changed, added, reordered or negated, or the evidence trail does not hold the text). `--json` emits `{tiers, findings, style}`; `--tier=<name>`, `--page=<substr>` and `--full` narrow or widen the listing. A tier is a pointer for review, not a verdict on the quote. Quotations are paired in document order, so a phrase quoted inside a quotation stays part of the outer quote and is checked inside it with its inner marks removed; a nested phrase of five or more words is also checked on its own. A straight quote mark never pairs across a blank line, a curly quotation may span one, and a closing curly mark with no curly opener is ignored. The matching lives in `scripts/lib/quote-match.mjs`.

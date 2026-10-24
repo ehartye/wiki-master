@@ -45,11 +45,19 @@ export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
   return lines.join('\n').trimEnd();
 }
 
-function writeFenced(path, catalog, projectTitle) {
+// The page a roadmap starts as. It carries every key validate-authored.mjs requires of a page in
+// a project folder (authored-contract.mjs: REQUIRED_KEYS and PROJECT_KEYS), because the project
+// map groups pages by `project:` and a page without one is never listed there. `reviewed` is left
+// out: nobody has reviewed a page a script just wrote. Both dates are the UTC day of the run.
+// The project is written as a plain YAML scalar, so a name that is not one is not handled.
+function roadmapStub(projectTitle, now) {
+  const day = now.toISOString().slice(0, 10);
+  return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${projectTitle}\nkind: roadmap\n---\n# ${projectTitle} — roadmap\n\n## Summary\n\n`;
+}
+
+function writeFenced(path, catalog, projectTitle, now) {
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
-  const existing = existsSync(path)
-    ? readFileSync(path, 'utf8')
-    : `---\ntype: authored\nsources: []\nai-generated: true\nkind: roadmap\n---\n# ${projectTitle} — roadmap\n\n## Summary\n\n`;
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : roadmapStub(projectTitle, now);
   let next;
   const begin = existing.indexOf(BEGIN_MARK);
   const end = existing.indexOf(END_MARK);
@@ -73,8 +81,10 @@ function writeFenced(path, catalog, projectTitle) {
 // repo. Returns { written: [project, ...] } either way, so a caller can inspect what WOULD
 // happen without writing anything. A project with zero backlog items is skipped entirely —
 // there is nothing to index, and creating an empty roadmap.md would be pure ceremony.
-export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: selectedProject, graph } = {}) {
+export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: selectedProject, graph, now = new Date() } = {}) {
   validateProject(selectedProject);
+  // Read only when a stub may be written, so a dry run never depends on it.
+  if (apply && !(now instanceof Date && !Number.isNaN(now.getTime()))) throw new TypeError('now must be a valid Date');
   const { pages } = graph ?? buildGraph(vaultPath);
   // Computed from the WHOLE vault, before filtering to backlog items — a backlog
   // item slug can collide with another project's just as easily as
@@ -89,7 +99,7 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: s
     written.push(project);
     if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
-    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project)) changed.push(relative(vaultPath, roadmapPath).replaceAll('\\', '/'));
+    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project, now)) changed.push(relative(vaultPath, roadmapPath).replaceAll('\\', '/'));
   }
   return { written, changed };
 }

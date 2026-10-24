@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { extractHtml, assessFidelity, extractionRuntime } from '../scripts/lib/html-extract.mjs';
-const fixture = name => readFileSync(new URL(`./fixtures/documentation/github-rest-${name}.html`, import.meta.url), 'utf8');
+// Fixtures are CRLF in a working tree checked out with core.autocrlf=true, and the examples are compared as exact
+// multiline text, so read them as LF; the extractor itself gives the same result for either (see the last test).
+const fixture = name => readFileSync(new URL(`./fixtures/documentation/github-rest-${name}.html`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 for (const [name, heading, parameter, responseKey] of [
   ['artifacts', 'Get an artifact', 'artifact_id', 'archive_download_url'],
@@ -43,5 +45,18 @@ test('code diagnostics detect flattened lines and destroyed JSON punctuation', a
   for (const damage of [body=>body.replace(/\n/g,' '), body=>body.replace(/["{}]/g,'')]) {
     const damaged = result.contentMarkdown.replace(/```[^\n]*\n([\s\S]*?)\n```/g, (_all, body)=>damage(body));
     assert.ok(assessFidelity(html, damaged, result.title).some(w=>w.kind==='code-block'));
+  }
+});
+
+test('the line endings of the served page do not change the extraction', async () => {
+  for (const name of ['artifacts', 'workflow-runs']) {
+    const lf = fixture(name).replace(/\r\n/g, '\n');
+    const crlf = lf.replace(/\n/g, '\r\n');
+    assert.ok(crlf.includes('\r\n') && !lf.includes('\r'));
+    const url = `https://docs.github.com/en/rest/actions/${name}`;
+    const [fromLf, fromCrlf] = [await extractHtml(lf, url), await extractHtml(crlf, url)];
+    assert.equal(fromCrlf.contentMarkdown, fromLf.contentMarkdown, `${name}: markdown differs between LF and CRLF`);
+    assert.equal(fromCrlf.title, fromLf.title);
+    assert.deepEqual(fromCrlf.fidelityWarnings, fromLf.fidelityWarnings);
   }
 });

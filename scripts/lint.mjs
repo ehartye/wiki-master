@@ -44,19 +44,58 @@ function splitFm(md) {
   return md.slice(m ? m[0].length : 0);
 }
 
-function quotedSpans(body) {
-  const out = [];
-  const keep = (s) => {
-    if ((s.match(/\S+/g) || []).length >= MIN_QUOTE_WORDS) out.push(s);
+// Quotations are paired in document order with a stack, so a phrase quoted
+// inside a quotation stays part of the outer quote (its marks are dropped, its
+// words kept) and is also checked on its own when it is long enough:
+//   - “ opens a curly quotation; ” closes the nearest open one, discarding any
+//     straight opener still open above it. A ” with no curly opener is ignored.
+//   - " closes the straight opener on top of the stack, else opens a new one. A
+//     straight mark never pairs across a blank line, so a stray one (5" pipe)
+//     cannot swallow a later paragraph; a curly quotation may span one.
+//   - Quotes shorter than MIN_QUOTE_WORDS are consumed but not returned: a short
+//     quote ("Adaptive") must still take its closing mark, or parity flips and
+//     the text BETWEEN two quotes is captured.
+// Each span is { start, text, raw }: text has the inner marks removed for
+// matching, raw is the page text as written, for locating its sentence.
+const PARAGRAPH_BREAK = /[ \t\r]*\n/y;
+
+function scanQuotes(body) {
+  const found = [];
+  const open = []; // { curly, at } — at is the index just after the opening mark
+  let settled = 0; // open[0..settled) holds only curly openers carried across a blank line
+  const close = (at, end) => {
+    const raw = body.slice(at, end);
+    const text = raw.replace(/["“”]/g, '');
+    if ((text.match(/\S+/g) || []).length >= MIN_QUOTE_WORDS) found.push({ start: at, text, raw });
   };
-  // Curly pairs are unambiguous — extract them first and remove them, so a
-  // straight quote can never mispair with a curly one and capture the text
-  // BETWEEN two quotations.
-  const rest = body.replace(/“([^“”]+?)”/g, (_, g) => { keep(g); return ' '; });
-  // No length minimum in the regex: a short quote ("Adaptive") must still
-  // consume its closing mark, or parity flips and we capture BETWEEN quotes.
-  for (const m of rest.matchAll(/"([^"]*?)"/g)) keep(m[1]);
-  return out;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === '\n') {
+      PARAGRAPH_BREAK.lastIndex = i + 1;
+      if (!PARAGRAPH_BREAK.test(body)) continue;
+      const carried = open.splice(settled).filter((o) => o.curly);
+      for (const o of carried) open.push(o);
+      settled = open.length;
+    } else if (c === '“') {
+      open.push({ curly: true, at: i + 1 });
+    } else if (c === '”') {
+      let k = open.length - 1;
+      while (k >= 0 && !open[k].curly) k--;
+      if (k < 0) continue;
+      close(open[k].at, i);
+      open.length = k;
+      settled = Math.min(settled, k);
+    } else if (c === '"') {
+      const top = open[open.length - 1];
+      if (top && !top.curly) { close(top.at, i); open.pop(); }
+      else open.push({ curly: false, at: i + 1 });
+    }
+  }
+  return found.sort((a, b) => a.start - b.start);
+}
+
+export function quotedSpans(body) {
+  return scanQuotes(body).map((q) => q.text);
 }
 
 // The breadcrumb trail (#13) lives in graph.mjs — health measures reachability
@@ -109,15 +148,15 @@ export function classifyQuotes(vaultPath, graph) {
     // existing per-sentence "unsourced" exemption below honors a narrower claim.
     if (p.declaresNoSources) continue;
     const body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
-    const quotes = quotedSpans(body);
+    const quotes = scanQuotes(body);
     if (!quotes.length) continue;
     const paths = evidencePaths(p, byName, pages);
     const evidence = evidenceBodies(vaultPath, p, byName, pages).map(normalize);
     let docs = null; // prepared only if some quote of this page fails the verbatim check
-    for (const q of quotes) {
+    for (const { text: q, raw: written } of quotes) {
       // A sentence that declares its claim unsourced (or absent from the clipped
       // source) is the policy working.
-      const sentence = body.split(/(?<=[.!?])\s+/).find((s) => s.includes(q)) ?? '';
+      const sentence = body.split(/(?<=[.!?])\s+/).find((s) => s.includes(written)) ?? '';
       if (DECLARES_ABSENT.test(sentence)) continue;
       // Edge punctuation is quoting convention, not source text: the page
       // ends a quote "…the image." where the book continues "…the image, so".
