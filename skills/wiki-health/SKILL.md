@@ -1,6 +1,6 @@
 ---
 name: wiki-health
-description: Use when asked to check wiki integrity, list structural defects, or report wiki health and ingest backlog. Read-only reporting; resolving defects belongs to wiki-repair and factual review to wiki-lint.
+description: Use when asked to check wiki integrity, list structural defects, or report wiki health and ingest backlog. Read-only whole-vault reporting; resolving defects belongs to wiki-repair, factual review to wiki-lint, and checking only the pages one authoring task wrote to wiki-author.
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.

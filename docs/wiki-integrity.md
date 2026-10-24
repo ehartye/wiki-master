@@ -43,6 +43,22 @@ heading/block validation, Markdown-style links, external URLs and factual correc
 as unchecked. The existing graph remains the legacy/navigation helper contract; the
 integrity scanner reads current content with its stricter syntax and ambiguity rules.
 
+## Scoped validation
+
+`node scripts/validate-authored.mjs --paths-file <ledger>` checks only the pages in an
+operation's ledger, the JSON array of paths `op-commit` takes. It prints
+`path:line rule message` per defect, exits 0 when clean, 1 on any defect and 2 for
+unusable input, and writes nothing (`--json` prints `version`, `checked`, `skipped` and
+`defects`). It applies this scan's link rules plus authoring rules `health.mjs` does not
+know: frontmatter keys, `kind` and `project` against the folder, and the `kind`,
+`decision-status` and `backlog-status` vocabularies. An unresolved wikilink on a ledger page is an error there, although health
+keeps it as an unscored forward link. The scan still reads the whole vault because
+ambiguity is vault-wide, so "scoped" describes the report, not the cost; defects on pages
+outside the ledger are never reported. An older vault may hold `backlog-status` values
+such as `done`, `open` or `proposed`, a `decision-status` of `accepted-implemented`, and
+page `status` values beyond `stub`, `draft` and `maintained`, so page `status` is checked
+for presence only.
+
 ## Agent workflow
 
 Invoke `wiki-repair` to resolve the worklist or selected issue IDs. The skill owns

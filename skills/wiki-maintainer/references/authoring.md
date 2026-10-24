@@ -112,3 +112,56 @@ style preference.
 - **The wiki owns intent; the repo owns behaviour.** When they disagree, the code
   wins on what happens and the wiki wins on what was meant — and the disagreement
   itself is worth writing down, because it is usually where the next defect is.
+
+## Validating what a task wrote
+
+Before committing, check exactly the pages the task wrote:
+`node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`,
+with the vault set as in the access reference.
+
+**The ledger** is the file `op-commit.mjs --paths-file` takes: a non-empty JSON array
+of vault-relative paths with `/` separators (no drive prefix, backslash, empty segment,
+`.` or `..`), for example `["wiki/authored/demo/guides/user.md","wiki/authored/demo/roadmap.md"]`.
+No helper builds it; write it with your file tool from the pages this task created or
+edited, under `.wiki-master/` or outside the vault. A path whose letter case differs
+from the file on disk is reported as `missing-file`, because a case-insensitive disk
+would otherwise drop that page's link checks without a word.
+
+**The result.** The command writes nothing and reads the whole vault (ambiguity is
+vault-wide), but reports only ledger pages; `health.mjs` stays the whole-vault check.
+Exit 0 is clean, 1 means defects (fix and rerun), 2 means an unusable ledger, unknown
+flag or missing vault. The text report is one `path:line rule message` line per defect,
+sorted by path then line, then `validate-authored: N pages checked, M defects`, with
+`, K skipped` appended only when K is above zero (checked plus skipped is the number of
+distinct ledger paths). `--json` prints
+`{"version":1,"checked":N,"skipped":K,"defects":[{"path","line","rule","message"}]}`
+instead. An absent frontmatter key is reported at line 1; a blank key at its own line.
+
+Under `wiki/authored/`:
+
+- `missing-key`: `type`, `created`, `updated`, `status`, `ai-generated` and a
+  `sources` line (`[]` is valid) must be present and not blank, so an unfilled
+  template fails. A page in a project folder also needs `project` and `kind`, a
+  decision `decision-status`, a backlog item `backlog-status`. `reviewed` is optional.
+  A page missing one of those two statuses is judged by its declared `kind`, not its folder.
+- `bad-value`: `type` is `authored`, `ai-generated` is `true` or `false`, and `kind`
+  and the two statuses use the vocabularies above (the message lists them). The page
+  `status` is checked for presence only, so `status: wip` passes: check its value
+  yourself against `stub`, `draft` and `maintained`.
+- `kind-folder-mismatch`, `project-folder-mismatch`: `kind` agrees with the folder
+  or file in the table above, `project` with the project folder (case ignored). The
+  project is the folder path above the first kind folder (`guides`, `diagrams`,
+  `reference`, `decisions`, `notes`, `backlog`) below the top folder, so
+  `notes/<topic>/x.md` is a note and `project` must equal that folder path exactly.
+  With no kind folder, `project` may be the top folder or the top folder plus one
+  sub-project. `overview.md`, `architecture.md` and `roadmap.md` expect their own
+  kind when they sit in a project folder. A page directly under `wiki/authored/` has
+  no project or kind expectation. A wrong-kind page in `backlog/` gets only
+  `kind-folder-mismatch`.
+
+On every wiki content page: `ambiguous-link`, `malformed-link` (a hard-wrapped link
+is one), `unresolved-citation`, `missing-evidence` and `unresolved-link`, which is
+stricter than health (it keeps such links as unscored forward links): a task must
+not leave a dead link. Code spans and fences are not scanned. An absent file is
+`missing-file`; raw, log, template, root catalog, non-Markdown and dot-prefixed paths
+are skipped and counted.
