@@ -1,9 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { renderBacklogCatalog, regenerateBacklogRoadmaps, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
+import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
+import { validateAuthored } from '../scripts/validate-authored.mjs';
+import { REQUIRED_KEYS, PROJECT_KEYS } from '../scripts/lib/authored-contract.mjs';
+import { parseNote } from '../scripts/lib/note.mjs';
 
 // Generated roadmap-as-index over backlog/*.md items (spec
 // docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md §3) — the actual
@@ -140,4 +144,130 @@ test('regenerateBacklogRoadmaps: two projects with a same-named backlog item eac
     `demo's roadmap should pipe its OWN auth-fix.md, got: ${demoRoadmap}`);
   assert.ok(otherRoadmap.includes('[[wiki/authored/other/backlog/auth-fix|auth-fix]]'),
     `other's roadmap should pipe its OWN auth-fix.md, got: ${otherRoadmap}`);
+});
+
+// The roadmap that backlog-gen CREATES must satisfy the contract validate-authored.mjs checks and
+// carry the project key the project map groups by. An existing roadmap is never given any of it.
+const NOW = new Date('2026-03-05T23:59:59Z');
+
+function freshVault(t, project = 'demo') {
+  const v = mkdtempSync(join(tmpdir(), 'wm-backlog-stub-'));
+  t.after(() => rmSync(v, { recursive: true, force: true }));
+  mkdirSync(join(v, 'wiki', 'authored', ...project.split('/'), 'backlog'), { recursive: true });
+  return v;
+}
+
+const roadmapOf = (v, project = 'demo') => join(v, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
+const frontmatterOf = (text) => text.match(/^---\n([\s\S]*?)\n---\n/)[1];
+
+test('a created roadmap carries exactly the eight authored keys, in order, and no reviewed key', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+  const out = readFileSync(roadmapOf(v), 'utf8');
+  assert.equal(frontmatterOf(out), [
+    'type: authored', 'created: 2026-03-05', 'updated: 2026-03-05', 'status: draft',
+    'sources: []', 'ai-generated: true', 'project: demo', 'kind: roadmap',
+  ].join('\n'));
+  assert.doesNotMatch(out, /^reviewed:/m);
+  const { metadata } = parseNote(out);
+  for (const key of [...REQUIRED_KEYS, ...PROJECT_KEYS]) assert.ok(Object.hasOwn(metadata, key), key);
+});
+
+test('created and updated are the UTC day of the run, not the local day', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  regenerateBacklogRoadmaps(v, { apply: true, now: new Date('2026-12-31T23:59:59Z') });
+  assert.match(readFileSync(roadmapOf(v), 'utf8'), /^created: 2026-12-31\nupdated: 2026-12-31$/m);
+  const w = freshVault(t);
+  writeItem(w, 'item-a', 'demo', 'planned');
+  regenerateBacklogRoadmaps(w, { apply: true, now: new Date('2027-01-01T00:00:00Z') });
+  assert.match(readFileSync(roadmapOf(w), 'utf8'), /^created: 2027-01-01\nupdated: 2027-01-01$/m);
+});
+
+test('now defaults to the current UTC day, also when passed as undefined', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  const before = new Date().toISOString().slice(0, 10);
+  regenerateBacklogRoadmaps(v, { apply: true, now: undefined });
+  const after = new Date().toISOString().slice(0, 10);
+  const day = readFileSync(roadmapOf(v), 'utf8').match(/^created: (\S+)$/m)[1];
+  assert.ok(day === before || day === after, `created ${day} is neither ${before} nor ${after}`);
+});
+
+test('now must be a valid Date, and a bad one fails before anything is written', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  for (const now of ['2026-03-05', 0, null, new Date('nope')]) {
+    assert.throws(() => regenerateBacklogRoadmaps(v, { apply: true, now }), /now must be a valid Date/);
+  }
+  assert.ok(!existsSync(roadmapOf(v)));
+});
+
+test('a created roadmap passes validate-authored.mjs, for a plain and a nested project', (t) => {
+  for (const project of ['demo', 'acme/tool']) {
+    const v = freshVault(t, project);
+    writeItem(v, 'item-a', project, 'planned');
+    regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+    const result = validateAuthored(v, [`wiki/authored/${project}/roadmap.md`]);
+    assert.deepEqual(result.defects, [], project);
+    assert.equal(result.checked, 1);
+  }
+});
+
+test('a created roadmap appears in its project map; without a project key it was missing from it', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  writeFileSync(join(v, 'wiki', 'authored', 'demo', 'overview.md'),
+    '---\ntype: authored\ncreated: 2026-03-05\nupdated: 2026-03-05\nstatus: draft\nsources: []\nai-generated: true\nproject: demo\nkind: overview\n---\n# Overview\n');
+  regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+  regenerateAuthoredMocs(v, { apply: true });
+  const moc = readFileSync(join(v, 'moc', 'demo.md'), 'utf8');
+  assert.match(moc, /## Roadmap\n- \[\[roadmap\]\]/);
+  assert.match(moc, /## Overview\n- \[\[overview\]\]/);
+});
+
+test('a roadmap that already exists keeps every byte outside the fence, whatever now is', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  const hand = '---\ntype: authored\nkind: roadmap\ncreated: 2020-01-01\n---\n# demo - roadmap\n\nHand-written.\n\n';
+  const tail = '\n\nHand-written tail.\n';
+  writeFileSync(roadmapOf(v), `${hand}${BEGIN_MARK}\nstale\n${END_MARK}${tail}`);
+  regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+  const out = readFileSync(roadmapOf(v), 'utf8');
+  assert.ok(out.startsWith(hand), 'head is byte-identical');
+  assert.ok(out.endsWith(tail), 'tail is byte-identical');
+  assert.doesNotMatch(out, /2026-03-05|project:/);
+});
+
+test('an existing roadmap without a fence only gains the fence: no stub keys are added', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  const legacy = '---\ntype: authored\n---\n# demo - roadmap\nLegacy.\n';
+  writeFileSync(roadmapOf(v), legacy);
+  regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+  const out = readFileSync(roadmapOf(v), 'utf8');
+  assert.ok(out.startsWith(`${legacy.trimEnd()}\n\n${BEGIN_MARK}`));
+  assert.equal(frontmatterOf(out), 'type: authored');
+});
+
+test('a dry run creates no stub and no temp file, and never reads now', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  const before = readdirSync(join(v, 'wiki', 'authored', 'demo')).sort();
+  const r = regenerateBacklogRoadmaps(v, { now: NOW });
+  assert.deepEqual(r.written, ['demo']);
+  assert.deepEqual(r.changed, []);
+  assert.deepEqual(readdirSync(join(v, 'wiki', 'authored', 'demo')).sort(), before);
+  assert.deepEqual(regenerateBacklogRoadmaps(v, { apply: false, now: new Date('nope') }).changed, []);
+});
+
+test('a second apply at a later now rewrites nothing: the stub dates are written once', (t) => {
+  const v = freshVault(t);
+  writeItem(v, 'item-a', 'demo', 'planned');
+  regenerateBacklogRoadmaps(v, { apply: true, now: NOW });
+  const first = readFileSync(roadmapOf(v), 'utf8');
+  const r = regenerateBacklogRoadmaps(v, { apply: true, now: new Date('2030-01-01T00:00:00Z') });
+  assert.deepEqual(r.changed, []);
+  assert.equal(readFileSync(roadmapOf(v), 'utf8'), first);
 });

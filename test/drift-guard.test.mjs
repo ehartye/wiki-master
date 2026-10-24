@@ -62,30 +62,128 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
-test('version is identical across all seven manifests (Claude + Copilot + Codex + lockfile)', () => {
-  // The version is one fact copied into seven files — the exact drift seam this
-  // suite exists to guard. wiki-master ships to three hosts (Claude Code reads
-  // .claude-plugin/; Copilot CLI reads a root plugin.json + .github/plugin/;
-  // Codex reads .codex-plugin/),
-  // and a manifest set that disagrees about what version this is must fail loud.
-  // package-lock.json is the sleepiest of the seven: npm rewrites it only when
-  // someone runs `npm install`, so a bump that edits the other six by hand
-  // leaves the lockfile silently pinned to the previous version.
-  const versions = [
-    'package.json',
-    '.claude-plugin/plugin.json',
-    '.codex-plugin/plugin.json',
-    '.claude-plugin/marketplace.json',
-    'plugin.json',
-    '.github/plugin/marketplace.json',
-    'package-lock.json',
-  ].map((f) => {
-    const j = JSON.parse(readFileSync(join(ROOT, f), 'utf8'));
-    return { f, v: j.version ?? j.plugins?.[0]?.version };
-  });
-  const distinct = new Set(versions.map((x) => x.v));
-  assert.equal(distinct.size, 1,
-    `manifests disagree: ${versions.map((x) => `${x.f}=${x.v}`).join(', ')}`);
+// Every place a release version is written. The table is the single list a
+// version bump must touch; the discovery test below fails when a manifest grows
+// a `version` field that is not listed here, so the table cannot go stale
+// silently. package-lock.json lists every dependency's version too: only its
+// root `version` and the `packages[""]` entry describe this plugin.
+const VERSION_FIELDS = [
+  { file: 'package.json', path: ['version'] },
+  { file: 'package-lock.json', path: ['version'] },
+  { file: 'package-lock.json', path: ['packages', '', 'version'] },
+  { file: 'plugin.json', path: ['version'] },
+  { file: '.claude-plugin/plugin.json', path: ['version'] },
+  { file: '.claude-plugin/marketplace.json', path: ['plugins', 0, 'version'] },
+  { file: '.codex-plugin/plugin.json', path: ['version'] },
+  { file: '.github/plugin/marketplace.json', path: ['metadata', 'version'] },
+  { file: '.github/plugin/marketplace.json', path: ['plugins', 0, 'version'] },
+];
+const LOCK_FILE = 'package-lock.json';
+const MANIFEST_FILES = [...new Set(VERSION_FIELDS.map((r) => r.file))];
+
+const readManifest = (file) => JSON.parse(readFileSync(join(ROOT, file), 'utf8'));
+
+const pathLabel = (path) => path.reduce(
+  (acc, k) => (typeof k === 'number' ? `${acc}[${k}]`
+    : k === '' ? `${acc}[""]`
+      : acc ? `${acc}.${k}` : k), '');
+
+const valueAt = (json, path) => path.reduce((o, k) => (o == null ? undefined : o[k]), json);
+
+// Paths of every `version` key in a manifest. In the lockfile only the root and
+// the `packages[""]` entry count; the other entries are dependencies.
+function versionKeyPaths(file, json) {
+  const scope = file === LOCK_FILE
+    ? { ...json, packages: json.packages && '' in json.packages ? { '': json.packages[''] } : {} }
+    : json;
+  const found = [];
+  (function walk(node, path) {
+    if (Array.isArray(node)) node.forEach((v, i) => walk(v, [...path, i]));
+    else if (node && typeof node === 'object') {
+      for (const [k, v] of Object.entries(node)) {
+        if (k === 'version') found.push([...path, k]);
+        walk(v, [...path, k]);
+      }
+    }
+  })(scope, []);
+  return found;
+}
+
+// Throws unless the table and the manifests name exactly the same version keys.
+function assertCoverage(read) {
+  for (const file of MANIFEST_FILES) {
+    const json = read(file);
+    const listed = VERSION_FIELDS.filter((r) => r.file === file).map((r) => pathLabel(r.path));
+    const present = versionKeyPaths(file, json).map(pathLabel);
+    for (const label of present) {
+      assert.ok(listed.includes(label),
+        `${file} has an unlisted version field '${label}': add it to VERSION_FIELDS so a bump cannot miss it`);
+    }
+    for (const label of listed) {
+      assert.ok(present.includes(label),
+        `VERSION_FIELDS lists '${label}' in ${file} but the file has no such version field`);
+    }
+  }
+}
+
+test('version is identical in every field of the manifests (Claude + Copilot + Codex + lockfile)', () => {
+  // The version is one fact copied into nine JSON fields across seven files —
+  // the exact drift seam this suite exists to guard. wiki-master ships to three
+  // hosts (Claude Code reads .claude-plugin/; Copilot CLI reads a root
+  // plugin.json + .github/plugin/; Codex reads .codex-plugin/), and a manifest
+  // set that disagrees about what version this is must fail loud. Two files
+  // carry the version twice: package-lock.json (root and packages[""]) and
+  // .github/plugin/marketplace.json (metadata.version and the plugin entry).
+  // npm rewrites the lockfile only when someone runs `npm install`, so a bump
+  // that edits the other files by hand leaves it silently pinned to the
+  // previous version. package.json is the reference every row is held to.
+  const expected = valueAt(readManifest('package.json'), ['version']);
+  assert.match(expected, /^\d+\.\d+\.\d+$/, `package.json version is not x.y.z: ${expected}`);
+  const stale = VERSION_FIELDS
+    .map((r) => ({ ...r, v: valueAt(readManifest(r.file), r.path) }))
+    .filter((r) => r.v !== expected);
+  assert.deepEqual(stale, [],
+    `version fields differ from package.json (${expected}): ${stale.map((r) => `${r.file} ${pathLabel(r.path)}=${r.v}`).join(', ')}`);
+});
+
+test('every version field in the manifests is listed in VERSION_FIELDS', () => {
+  assertCoverage(readManifest);
+});
+
+test('the coverage guard names an unlisted or a missing version field', () => {
+  // Positive control for the test above: prove assertCoverage fails, with its
+  // own message, on a drifted tree, so a guard that never throws cannot pass the
+  // real-tree check forever. It runs on manifests synthesized from the table,
+  // so the real tree being clean or drifted cannot change its result. The
+  // synthetic lockfile also carries a dependency entry, which must be ignored.
+  const synth = (file) => {
+    const json = file === LOCK_FILE ? { packages: { 'node_modules/dep': { version: '1.0.0' } } } : {};
+    for (const row of VERSION_FIELDS.filter((r) => r.file === file)) {
+      let node = json;
+      row.path.slice(0, -1).forEach((k, i) => {
+        node = node[k] ??= typeof row.path[i + 1] === 'number' ? [] : {};
+      });
+      node.version = '1.2.3';
+    }
+    return json;
+  };
+  assert.doesNotThrow(() => assertCoverage(synth));
+
+  const extra = (file) => {
+    const j = synth(file);
+    if (file === '.claude-plugin/plugin.json') j.extra = { version: '0.0.0' };
+    return j;
+  };
+  assert.throws(() => assertCoverage(extra),
+    { message: ".claude-plugin/plugin.json has an unlisted version field 'extra.version': add it to VERSION_FIELDS so a bump cannot miss it" });
+
+  const missing = (file) => {
+    const j = synth(file);
+    if (file === '.codex-plugin/plugin.json') delete j.version;
+    return j;
+  };
+  assert.throws(() => assertCoverage(missing),
+    { message: "VERSION_FIELDS lists 'version' in .codex-plugin/plugin.json but the file has no such version field" });
 });
 
 test('shared plugin hooks use supported fields and remain opt-in on every host', () => {
