@@ -1,6 +1,6 @@
 ---
 name: wiki-author
-description: Use when asked to write or update wiki project documentation, architecture, a guide, an ADR, or a backlog item. Places original content canonically; captured external sources belong to wiki-ingest, not authoring.
+description: Use when asked to write or update wiki project documentation, architecture, a guide, an ADR, or a backlog item, or to validate only the pages an authoring task wrote. Places original content canonically; captured external sources belong to wiki-ingest, not authoring.
 argument-hint: "[what to author, e.g. \"a user guide for sparta-scope\"]"
 ---
 
@@ -30,6 +30,16 @@ Steps:
    factual content or project behavior was actually verified.
 5. Validate frontmatter, placement and links. Use full-path links when crossing
    project boundaries: `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`.
+   Check exactly the pages this task wrote: list every page you created or edited in
+   a JSON array of vault-relative paths (the ledger `op-commit.mjs --paths-file` takes;
+   keep the file under `.wiki-master/` or outside the vault) and run
+   `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`
+   with the vault set as in the access reference. It is read-only and prints one
+   `path:line rule message` line per defect. Exit 0 is clean, 1 means defects (fix,
+   rerun, then commit), 2 means an unusable ledger or vault. It scans the whole vault
+   but reports only ledger pages; `health.mjs` stays the whole-vault check. The rules,
+   the `--json` shape and what it does not check (a page `status` value) are in the
+   [authoring reference](../wiki-maintainer/references/authoring.md#validating-what-a-task-wrote).
    Refresh affected catalogs with `refresh-catalogs.mjs --project <slug> --apply` (one graph scan for the project's backlog, MOC and global index). With concurrent writers pass `--paths-file <JSON ownership ledger>` to omit their untracked additions. Inspect the returned `changed` paths and add the safe catalog paths to the operation's ledger.
 6. Complete the shared operations contract: one relink log entry, then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`.

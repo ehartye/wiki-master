@@ -79,11 +79,18 @@ const stillOpen = openIssues(loadIssueLog(vaultPath));
 Then act on what the user chose. Starting the UI alone needs no content operation.
 Before applying a disposition that changes tracked content or pipeline state, open
 or reuse an operation; validate, log, commit, push and verify remote publication
-through the completion contract. Handoffs such as ingest own their transaction:
+through the completion contract. Handoffs such as ingest own their transaction.
+
+The dispositions a row offers depend on its kind. Clip failures (`failed`, `gone`,
+`thin`, `wrong-node`, `blocked`) and `attention` rows offer `downloaded`,
+`clipped-manually`, `retry`, `declined` and `ignore`. Fidelity rows offer
+`acceptable`, `reclip`, `downloaded` and `quarantine`; an expiring decline offers
+`keep-declined` and `reconsider`; the backlog offers `ingest` and `ignore`:
 
 | disposition | what you do |
 |---|---|
-| `clipped-by-hand` | confirm the clipping exists in `raw/clippings/`; if not, say so |
+| `clipped-manually` (shown as "clipped by hand") | confirm a clipping for that URL exists in `raw/clippings/`; if not, say so |
+| `downloaded` | the user saved the source file themselves ("browse — clip this file"): `apply-reclips.mjs` re-clips an existing clipping from it; for a URL with no clipping yet, run the matching document clipper on the saved file with `--source="<url>"` and the run's `--topic` (a URL still in the decline log is skipped there too) |
 | `retry` | re-run `clip.mjs` for that URL — a transient failure may have cleared |
 | `declined` | `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<reason>"` |
 | `reconsider` | the decline is expiring and they want it re-evaluated — treat as a discovery candidate |
