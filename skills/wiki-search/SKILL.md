@@ -56,6 +56,11 @@ ideas. Inspect decision/backlog state inside metadata before describing a propos
 as shipped. Exact titles and equivalent aliases are prioritized; ambiguous names
 still require choosing the intended full path.
 
+To list backlog items by their lifecycle, do not search for `status:`: that finds the
+page status (`draft` or `maintained`). Run
+`node "<absolute-plugin-root>/scripts/backlog-list.mjs" --project <slug> --backlog-status planned`
+(also `--startable` and `--json`); the authoring reference describes it.
+
 **`op-commit` attempts an index refresh after every bracketed operation**; read
 its notice for backend failures or a partial build. It cannot preempt edits outside
 the operation — a hand edit in Obsidian, a `git pull` from
