@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import {
   isGitRepo, commitPaths, push, rebaseInProgress, upstreamOf, fetchUpstream,
-  aheadBehind, dirtyPaths, incomingFiles, rebaseOntoUpstream, isPushRejection,
+  aheadBehind, dirtyPaths, incomingFiles, rebaseOntoUpstream, isPushRejection, indexLockAgeSeconds,
 } from './lib/git.mjs';
 import { obsidianGitAutoCommit } from './lib/obsidian-git.mjs';
 import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
@@ -18,8 +18,15 @@ import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
 // attribute. A conflict aborts the rebase and is reported with the file names, and
 // the local commits are still there afterwards.
 
+// Git's stderr as one line for a report: its non-empty lines joined with " | ", at most 400 characters.
+function oneLine(text = '') {
+  const joined = String(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).join(' | ');
+  return joined.length > 400 ? `${joined.slice(0, 397)}...` : joined;
+}
+
 // `hooks.beforePush` runs before every push attempt. It exists so a test can move
-// the remote between our fetch and our push, which is the race the retry is for.
+// the remote between our fetch and our push, which is the race the retry is for. `hooks.rebaseImpl` replaces the rebase so a test can return a failure no real git run
+// produces on demand (a started rebase whose abort failed).
 export async function syncVault(vaultPath, { commitLocal = false, staleOperationHours = STALE_OPERATION_HOURS, hooks = {} } = {}) {
   if (!isGitRepo(vaultPath)) return { ok: true, skipped: 'not a git repository' };
 
@@ -70,7 +77,17 @@ export async function syncVault(vaultPath, { commitLocal = false, staleOperation
     if (overlap.length) {
       return fail('overlap', `uncommitted edits overlap incoming changes in ${overlap.join(', ')}; commit them (or finish the operation) and sync again`, { overlap });
     }
-    const rebased = rebaseOntoUpstream(vaultPath);
+    const rebased = (hooks.rebaseImpl ?? rebaseOntoUpstream)(vaultPath);
+    if (!rebased.ok && rebased.started === false) {
+      // The rebase never began (a held index lock, an autostash that could not snapshot): there are no conflict
+      // files and nothing was aborted, so this is not the conflict recovery. A result without `started` is read
+      // as a started rebase.
+      const age = indexLockAgeSeconds(vaultPath);
+      return fail('rebase-failed',
+        `could not start the rebase onto ${report.upstream}; nothing was changed: ${oneLine(rebased.reason)}${age === null ? '' : ` (index.lock is ${age} s old)`}. `
+        + 'If another process holds the index lock, wait for it to finish (never delete a Git lock) and run wiki-sync again',
+        { phase: 'rebase', stderr: rebased.reason, lockAgeSeconds: age });
+    }
     if (!rebased.ok) {
       return fail('conflict', `rebasing onto ${report.upstream} conflicts in ${rebased.conflicts.join(', ') || 'unknown files'}${rebased.aborted ? '; the rebase was aborted and your commits are intact' : '; the abort failed, inspect the vault'}`, { conflicts: rebased.conflicts });
     }

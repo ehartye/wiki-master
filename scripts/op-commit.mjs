@@ -11,6 +11,7 @@ import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL } from './
 import { isContent } from './lib/graph.mjs';
 import { findWrappedLinks } from './lib/dewrap-links.mjs';
 import { checkEvidenceMap, verifyStagedEvidence } from './lib/evidence-bytes.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 
 // See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
 function statusPorcelain(cwd) {
@@ -61,13 +62,17 @@ function scanForWrappedLinks(vaultPath, paths) {
 // or not there was anything to commit — an op that ran and found nothing to
 // do, or ran against a vault that isn't a git repo, still finished; it should
 // not leave scratch state behind for the next run to trip over.
-export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, evidence }) {
+// A path named in the ledger that was already dirty when the operation opened would be dropped from the commit as
+// another writer's work. The ledger is a statement of ownership, but pre-existing dirt may not be ours, so the close
+// refuses (and keeps the token) instead of exiting 0 with a page unpublished; `include` is the explicit way to say
+// "these were written by this operation", and the adopted paths are reported.
+export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, evidence, include }) {
   // Dirty-set subtraction cannot identify new edits made by another concurrent writer.
   // An explicit file ledger narrows that delta without claiming ownership of pre-dirty paths.
-  if (onlyPaths !== undefined && (!Array.isArray(onlyPaths) || !onlyPaths.length || onlyPaths.some(p =>
-    typeof p !== 'string' || !p || p.includes('\\') || p.includes('\0') || /^[A-Za-z]:/.test(p) ||
-    p.split('/').some(part => !part || part === '.' || part === '..')))) {
-    return { ok: false, reason: 'explicit operation scope requires a nonempty array of vault-relative file paths using / separators' };
+  if (onlyPaths !== undefined) {
+    try { checkLedgerPaths(onlyPaths); } catch {
+      return { ok: false, reason: 'explicit operation scope requires a nonempty array of vault-relative file paths using / separators' };
+    }
   }
   // Declared evidence bytes (size and SHA-256) are checked against what git will store, so the ledger
   // must be explicit: the map covers exactly the paths this operation owns.
@@ -75,6 +80,16 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
     if (onlyPaths === undefined) return { ok: false, reason: 'an evidence map needs an explicit operation scope (--paths-file)' };
     const problem = checkEvidenceMap(evidence, onlyPaths);
     if (problem) return { ok: false, reason: problem };
+  }
+  let adopt = new Set();
+  if (include !== undefined) {
+    if (onlyPaths === undefined) return { ok: false, reason: '--include needs an explicit operation scope (--paths-file): it may only name paths in that ledger' };
+    let named;
+    try { named = checkLedgerPaths(include); } catch (error) { return { ok: false, reason: `--include: ${error.message}` }; }
+    const inLedger = new Set(onlyPaths);
+    const outside = named.filter((p) => !inLedger.has(p));
+    if (outside.length) return { ok: false, reason: `--include may only name paths in the ledger; not in it: ${outside.join(', ')}` };
+    adopt = new Set(named);
   }
   // The token is joined straight into a path, and `unlinkSync` runs on it at the
   // end — so a token carrying `../` would both read and DELETE a file outside
@@ -106,7 +121,22 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
     const after = dirtySet(statusPorcelain(vaultPath));
     const delta = deltaPaths(before, after);
     const scope = onlyPaths === undefined ? null : new Set(onlyPaths);
-    const paths = scope ? delta.filter(path => scope.has(path)) : delta;
+    const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+    // Ledger paths that were dirty before the operation and still are: left alone before, now refused unless adopted.
+    const preexisting = scope ? [...scope].filter(path => before.has(path) && after.has(path)).sort(byCodeUnit) : [];
+    const unowned = preexisting.filter(path => !adopt.has(path));
+    if (unowned.length) {
+      const shown = unowned.slice(0, 20).join(', ') + (unowned.length > 20 ? `, and ${unowned.length - 20} more` : '');
+      return {
+        ok: false, refused: true, preexisting: unowned,
+        reason: `${unowned.length} path(s) named in the ledger were already dirty before op-begin, so this commit would leave them out: ${shown}. `
+          + 'If this operation wrote them, run the same op-commit again with --include <path> for each (or --include-from <file>); '
+          + 'if another writer owns them, remove them from the ledger. The token is kept.',
+      };
+    }
+    const adopted = preexisting.filter(path => adopt.has(path));
+    const inScope = scope ? delta.filter(path => scope.has(path)) : delta;
+    const paths = [...new Set([...inScope, ...adopted])].sort(byCodeUnit);
     const excludedPaths = scope ? delta.filter(path => !scope.has(path)) : [];
     // No `if (paths.length)` guard here, deliberately: commitPaths already
     // returns { committed: false, reason: 'nothing to commit' } on an empty
@@ -128,8 +158,9 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
       sha: result.sha,
       reason: result.reason,
       paths,
+      adopted,
       excludedPaths,
-      before: [...before].sort(),
+      before: [...before].filter(path => !adopted.includes(path)).sort(),
       unpushed: result.committed ? unpushedCount(vaultPath) : null,
       ...(evidence && result.committed ? { evidence: { verified: Object.keys(evidence) } } : {}),
     };
@@ -201,7 +232,7 @@ export async function main(argv, refreshDeps) {
   const title = get('--title');
   const token = get('--since');
   if (!op || !title || !token) {
-    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--evidence-map <JSON-file>]');
+    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--include <path>]... [--include-from <JSON-file>] [--evidence-map <JSON-file>]');
     process.exitCode = 1;
     return;
   }
@@ -215,9 +246,30 @@ export async function main(argv, refreshDeps) {
     const file = get('--paths-file');
     try {
       if (!file || file.startsWith('--')) throw new Error('missing JSON file argument');
-      paths = JSON.parse(readFileSync(file, 'utf8'));
+      paths = readLedger(file);
     } catch (error) {
       console.error(`op-commit: cannot read explicit --paths-file scope: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+  let include;
+  if (argv.includes('--include') || argv.includes('--include-from')) {
+    include = [];
+    try {
+      argv.forEach((arg, i) => {
+        if (arg !== '--include') return;
+        const value = argv[i + 1];
+        if (!value || value.startsWith('--')) throw new Error('--include needs a path');
+        include.push(value);
+      });
+      if (argv.includes('--include-from')) {
+        const file = get('--include-from');
+        if (!file || file.startsWith('--')) throw new Error('--include-from needs a JSON file');
+        include.push(...readLedger(file));
+      }
+    } catch (error) {
+      console.error(`op-commit: ${error.message}`);
       process.exitCode = 1;
       return;
     }
@@ -235,7 +287,7 @@ export async function main(argv, refreshDeps) {
     }
   }
   const { path: vaultPath } = resolveVault();
-  const r = commitOp(vaultPath, { op, title, token, paths, evidence });
+  const r = commitOp(vaultPath, { op, title, token, paths, evidence, include });
 
   if (!r.ok) {
     console.error(`op-commit: ${r.reason}`);
@@ -252,6 +304,10 @@ export async function main(argv, refreshDeps) {
     for (const p of r.paths) console.log(`  ${p}`);
   } else {
     console.log(`op-commit: "${op}" made no changes — nothing to commit.`);
+  }
+  if (r.adopted?.length) {
+    console.log(`adopted ${r.adopted.length} file(s) that were already dirty before this operation (named with --include):`);
+    for (const p of r.adopted) console.log(`  ${p}`);
   }
   if (r.before.length) {
     console.log(`left alone (already dirty before this operation, not part of it): ${r.before.length} file(s)`);

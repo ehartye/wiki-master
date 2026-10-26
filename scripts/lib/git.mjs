@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 // The single place wiki-master touches git. Deliberately narrow: stage, commit,
@@ -34,6 +34,10 @@ function git(cwd, args, { input } = {}) {
     cwd,
     encoding: 'utf8',
     input,
+    // stderr is captured (err.stderr, and so the reason a caller builds), never also printed: with it attached to the
+    // parent a failed call printed git's message once raw and again inside the reason, and a failure the caller
+    // handles (no upstream, say) still wrote a fatal: line to the user's terminal.
+    stdio: ['pipe', 'pipe', 'pipe'],
     maxBuffer: 32 * 1024 * 1024,
   }).replace(/\s+$/, '');
 }
@@ -233,11 +237,26 @@ export function incomingFiles(cwd) {
   return git(cwd, ['diff', '--name-only', '-z', 'HEAD...@{u}']).split('\0').filter(Boolean);
 }
 
+// How old the repository's index lock file is, in seconds, or null when there is none. Git writes no owner into the
+// file, so its age is all that tells a stale lock from a live one. Nothing here removes or waits for a lock.
+export function indexLockAgeSeconds(cwd, now = Date.now()) {
+  try {
+    const file = resolve(cwd, git(cwd, ['rev-parse', '--git-path', 'index.lock']));
+    return Math.max(0, Math.round((now - statSync(file).mtimeMs) / 1000));
+  } catch {
+    return null;
+  }
+}
+
+// `started` says whether a rebase began. It is read from the repository (is rebase state on disk?), not from git's
+// message: a held index lock, or an autostash that cannot take its snapshot, fails before any rebase exists, and
+// then there is nothing to abort and no conflict to list. Only a started rebase is aborted and has conflict files.
 export function rebaseOntoUpstream(cwd) {
   try {
     git(cwd, ['rebase', '--autostash', '@{u}']);
     return { ok: true };
   } catch (err) {
+    if (!rebaseInProgress(cwd)) return { ok: false, started: false, conflicts: [], aborted: false, reason: stderrOf(err) };
     let conflicts = [];
     try {
       conflicts = git(cwd, ['diff', '--name-only', '--diff-filter=U', '-z']).split('\0').filter(Boolean);
@@ -247,7 +266,7 @@ export function rebaseOntoUpstream(cwd) {
       git(cwd, ['rebase', '--abort']);
       aborted = true;
     } catch { /* reported below */ }
-    return { ok: false, conflicts, aborted, reason: stderrOf(err) };
+    return { ok: false, started: true, conflicts, aborted, reason: stderrOf(err) };
   }
 }
 

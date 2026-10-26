@@ -88,16 +88,22 @@ test('explicit operation paths exclude a concurrent writer created and staged af
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('explicit scope does not take ownership of paths dirty before opening', async () => {
+test('explicit scope does not silently take ownership of paths dirty before opening: it refuses, and --include adopts', async () => {
   const dir = tempRepo();
   try {
     writeFileSync(join(dir, 'theirs.md'), 'already in progress\n');
     const token = await begin(dir, 'relink');
     writeFileSync(join(dir, 'ours.md'), 'our note\n');
-    const result = commitOp(dir, { op: 'relink', title: 'ours', token, paths: ['ours.md', 'theirs.md'] });
-    assert.equal(result.ok, true);
-    assert.deepEqual(committedFiles(dir), ['ours.md']);
-    assert.deepEqual(result.before, ['theirs.md']);
+    const refused = commitOp(dir, { op: 'relink', title: 'ours', token, paths: ['ours.md', 'theirs.md'] });
+    assert.equal(refused.ok, false);
+    assert.equal(refused.refused, true);
+    assert.deepEqual(refused.preexisting, ['theirs.md']);
+    assert.ok(existsSync(join(dir, '.wiki-master', 'ops', token + '.json')), 'the token is kept');
+    const adopted = commitOp(dir, { op: 'relink', title: 'ours', token, paths: ['ours.md', 'theirs.md'], include: ['theirs.md'] });
+    assert.equal(adopted.ok, true);
+    assert.deepEqual(committedFiles(dir), ['ours.md', 'theirs.md']);
+    assert.deepEqual(adopted.adopted, ['theirs.md']);
+    assert.deepEqual(adopted.before, [], 'an adopted path is no longer reported as left alone');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

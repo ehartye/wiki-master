@@ -30,9 +30,13 @@ because its file was deleted; account for the work and verify the outcome.
    files this operation owns, including its log and generated catalogs when safe.
    Pass a JSON array of those paths using `op-commit.mjs --paths-file <file>`;
    keep the manifest under `.wiki-master/` or outside the vault. This narrows the
-   newly dirty delta and reports other new paths as outside scope. It does not
-   override pre-dirty exclusions or isolate simultaneous edits to the same file.
-   Without explicit scope, subtraction alone can include another writer's new edits.
+   newly dirty delta and reports other new paths as outside scope. A ledger path that
+   was already dirty when you ran `op-begin` is refused, not skipped: `op-commit` exits 1,
+   names it and keeps the token. If this operation wrote it, run the same `op-commit`
+   again with `--include <path>` for each (or `--include-from <file>`); if another writer
+   owns it, take it out of the ledger. **Create new files only after `op-begin`**: a page
+   written first counts as already dirty. It does not isolate simultaneous edits to the
+   same file. Without explicit scope, subtraction alone can include another writer's new edits.
    When the ledger carries a receipt that records its own byte length and SHA-256
    (captured JSON or log evidence), also pass `--evidence-map <file>`: a JSON object
    of ledger path to `{ "bytes": N, "sha256": "<64 lower-case hex>" }`, kept beside
@@ -67,6 +71,15 @@ because its file was deleted; account for the work and verify the outcome.
    fetch. Run it after `op-commit`, never between edits; it names any operation still
    open. A conflict aborts the rebase, exits 1 and names the files; the local commits are
    intact. Report it and stop: do not force, resolve by guessing, or claim success.
+   `rebase-failed` is different: the rebase never started (usually a held `.git/index.lock`),
+   so no files are named and nothing changed. Wait for the other git process, never delete
+   a lock, and run `wiki-sync` again. The line gives the lock's age; git records no holder,
+   so a lock that stays old with no git process running is for the owner to judge.
+   Older versions printed a held lock as a conflict in "unknown files": an empty file list
+   means it was not a content conflict. Any sync, yours or another writer's, stashes and
+   restores every uncommitted tracked file, so their modification times change and a CRLF
+   file can come back LF with git's content unchanged; check line endings and content
+   just before `op-commit`, not before an earlier sync.
    Inspect the sync result and verify the operation's resulting commit is included
    in the freshly fetched upstream. After a rebase, identify it by its unique log
    path and verify its actual changed paths rather than assuming its old SHA.
