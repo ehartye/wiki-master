@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.61.0 — 2026-10-26
+
+- New integrity rule `malformed-frontmatter` in `health` (and so in `wiki-repair`'s worklist and `validate-authored`). A page that opens with a frontmatter fence but whose metadata is not read is now named, with the file and line: a fence line with a stray carriage return (`---\r\r\n`), a fence that is never closed, or a carriage return inside the block that is not half of a CRLF. Before this, such a page parsed with no metadata at all and `health` reported a `missing-evidence` on a page that declares `sources: []`, which pointed at the wrong problem; the page also dropped out of its project's catalog. The damaged page no longer also gets that `missing-evidence`, and every other check still runs on it.
+- Only the opening region is examined. A stray carriage return in the body parses correctly and is not this rule; a plain CRLF page, an LF page and a page with a byte-order mark are clean. A file that uses carriage returns alone as line endings (no LF at all) is not detected.
+- The integrity contract gains one issue type (`docs/wiki-integrity.md`, `wiki-repair` and the authoring reference list it). Issue IDs of every existing rule are unchanged: `malformed-frontmatter` has its own rule name in the ID.
+- [tested] On the maintainer's vault (2026-10-26, 10,060 content pages scanned), the scan adds 0 issues and removes 0 (25 defects before and after, 712 unresolved links before and after), so the rule produces no false positive there. The known damage was a page already repaired and two pages whose stray carriage returns are in the body, which is not frontmatter damage.
+- Evidence: 9 new tests. Mutations: not suppressing `missing-evidence` fails 3, not reporting fails 5, searching the whole page instead of the opening region fails the body-carriage-return test.
+
 ## 0.60.0 — 2026-10-26
 
 - Repository line endings are now a stated policy. `.gitattributes` gains `* text=auto eol=lf`: text files are LF in the repository and in every working tree, whatever `core.autocrlf` says (the `test/fixtures` rule it generalizes was already there). Before this, a Windows checkout with `core.autocrlf=true` held CRLF copies of files that git stored as LF (measured on a fresh worktree: 420 of 477 tracked files `i/lf w/crlf`), so scripted multi-line edits found nothing to match and `git add` printed a warning per file. `git add --renormalize .` stages nothing: the repository already stored LF. The README documents the one-time recipe for a checkout made before the policy (`git rm --cached -r -q . && git reset --hard`, with a clean tree), which was run on a worktree and left 477 of 477 text files LF on disk.

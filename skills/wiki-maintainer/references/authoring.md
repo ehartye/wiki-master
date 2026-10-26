@@ -180,7 +180,9 @@ Under `wiki/authored/`:
   folder is read, so these checks add no second whole-vault scan.
 
 On every wiki content page: `ambiguous-link`, `malformed-link` (a hard-wrapped link
-is one), `unresolved-citation`, `missing-evidence` and `unresolved-link`, which is
+is one), `unresolved-citation`, `malformed-frontmatter` (the page's metadata is not
+read because of a stray carriage return or an unclosed fence), `missing-evidence`
+and `unresolved-link`, which is
 stricter than health (it keeps such links as unscored forward links): a task must
 not leave a dead link. Code spans and fences are not scanned. An absent file is
 `missing-file`; raw, log, template, root catalog, non-Markdown and dot-prefixed paths

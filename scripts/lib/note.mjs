@@ -51,8 +51,27 @@ function flowList(value) {
   return out;
 }
 
+const FRONTMATTER = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const STRAY_CR = /\r(?!\n)/;
+
+// A page that opens with a frontmatter fence either has its metadata read or it is damaged: the parser
+// cannot match the fence (a doubled carriage return, `---\r\r\n`, or a block that is never closed), or a
+// carriage return inside the block is not half of a CRLF. Returns { line, text } for the reader, or null.
+// Only the opening region is searched: a stray carriage return in the body does not stop the page parsing.
+export function frontmatterDamage(markdown) {
+  const text = markdown.replace(/^\uFEFF/, '');
+  if (!/^---[ \t\r]*(?:\n|$)/.test(text)) return null;
+  const match = text.match(FRONTMATTER);
+  const region = match ? match[0] : text.split('\n', 60).join('\n');
+  const stray = region.search(STRAY_CR);
+  if (match && stray < 0) return null;
+  if (stray < 0) return { line: 1, text: 'The file opens with a frontmatter fence that is not closed, so no metadata was read.' };
+  const line = region.slice(0, stray).split('\n').length;
+  return { line, text: `Frontmatter has a carriage return that is not part of a CRLF line ending (line ${line}); ${match ? 'the block may be read wrongly' : 'no metadata was read'}.` };
+}
+
 export function parseNote(markdown) {
-  const match = markdown.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  const match = markdown.match(FRONTMATTER);
   const metadata = {};
   const body = match ? markdown.slice(match[0].length) : markdown;
   const lines = (match?.[1] ?? '').split(/\r?\n/);

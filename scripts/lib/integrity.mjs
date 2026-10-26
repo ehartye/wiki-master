@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } from './graph.mjs';
-import { normalizeIdentity, parseNote, withoutComment } from './note.mjs';
+import { frontmatterDamage, normalizeIdentity, parseNote, withoutComment } from './note.mjs';
 
 const blank = text => text.replace(/[^\r\n]/g, ' ');
 
@@ -83,6 +83,7 @@ function prepare(page, markdown) {
     fmTargets: sourceLinks.filter(x => !x.malformed).map(x => x.target),
     evidenceTargets: factualLinks.filter(x => !x.malformed).map(x => x.target),
     declaresNoSources: Array.isArray(metadata.sources) && metadata.sources.length === 0,
+    frontmatterDamage: frontmatterDamage(markdown),
     words: (prose(body).match(/\S+/g) ?? []).length,
     provenanceLine: start < 0 ? offset + 1 : start + 1,
   };
@@ -126,6 +127,7 @@ const VERIFY = {
   'malformed-link': 'Read the surrounding prose and correct the intended wikilink syntax; rerun health and verify meaning is preserved.',
   'unresolved-citation': 'Locate the intended evidence, verify it supports the claim, repair the exact citation and rerun health.',
   'ambiguous-link': 'Read the candidate pages, choose the intended identity, qualify its canonical path and rerun health.',
+  'malformed-frontmatter': 'Open the file with its bytes visible, normalise the damaged line ending or close the fence without changing any text, rerun health and verify the page\'s metadata is now read.',
   'missing-evidence': 'Verify the substantive claims against evidence and restore the required citation trail; rerun health. Do not add unrelated citations or weaken status to clear this issue.',
 };
 
@@ -168,6 +170,8 @@ export function scanIntegrity(vaultPath) {
   let provenanceEligible = 0;
   for (const p of content) {
     let citationDefect = false;
+    // Unread metadata would otherwise surface as a missing trail on a page that declares none.
+    if (p.frontmatterDamage) add(issues, 'malformed-frontmatter', p, p.frontmatterDamage);
     for (const [channel, occurrences] of [['sources', p.sourceLinks], ['body', p.bodyLinks]]) {
       for (const link of occurrences) {
         const citation = channel === 'sources' || (link.factual && /^(raw|wiki\/sources)\//i.test(link.target));
@@ -184,7 +188,7 @@ export function scanIntegrity(vaultPath) {
     if (!p.path.startsWith('wiki/') || isStub(p) || authoredDisclosure) continue;
     provenanceEligible++;
     const hasEvidence = sourcePage ? evidenceEdges(p).some(path => path.startsWith('raw/')) : reachesRaw(p);
-    if (!hasEvidence && !citationDefect) add(issues, 'missing-evidence', p, { line: p.provenanceLine,
+    if (!hasEvidence && !citationDefect && !p.frontmatterDamage) add(issues, 'missing-evidence', p, { line: p.provenanceLine,
       text: sourcePage ? 'Substantive source page has no unambiguous direct citation to raw evidence.' : 'Substantive derived page has no unambiguous evidence route to raw within three hops.' });
   }
   const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
