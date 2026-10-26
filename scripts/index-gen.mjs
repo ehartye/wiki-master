@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
+import { keptByMention } from './lib/catalog-scope.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
 // LLM from writing its index; TheKnowledge's recovery rests on "indexes are
@@ -60,12 +61,17 @@ export function renderCatalog({ pages }) {
   return lines.join('\n').trimEnd();
 }
 
-export function regenerateIndex(vaultPath, { graph, apply = true } = {}) {
+// `excluded` is the pages a scoped refresh left out of `graph` (an ownership ledger omits other writers'
+// uncommitted pages). One the current index already lists stays listed: the index is regenerated in full, and
+// without this the other writer's line would be deleted from the working copy.
+export function regenerateIndex(vaultPath, { graph, apply = true, excluded = [] } = {}) {
   const indexPath = join(vaultPath, 'index.md');
-  const catalog = renderCatalog(graph ?? buildGraph(vaultPath));
+  const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '---\ntype: synthesis\n---\n# Index\n';
+  const seen = graph ?? buildGraph(vaultPath);
+  const kept = keptByMention(excluded, [...seen.pages, ...excluded], existing);
+  const catalog = renderCatalog(kept.length ? { ...seen, pages: [...seen.pages, ...kept] } : seen);
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
 
-  let existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '---\ntype: synthesis\n---\n# Index\n';
   let next;
   const begin = existing.indexOf(BEGIN_MARK);
   const end = existing.indexOf(END_MARK);
@@ -77,13 +83,15 @@ export function regenerateIndex(vaultPath, { graph, apply = true } = {}) {
     next = `${existing.trimEnd()}\n\n${fenced}\n`;
   }
 
+  // `changed` says what an apply would change, so a dry run predicts it; only `apply` writes.
   const changed = next !== existing;
-  if (!apply || !changed) return { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed: apply && changed };
+  const result = { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed, previous: existsSync(indexPath) ? existing : null, next };
+  if (!apply || !changed) return result;
   // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
   const tmp = join(vaultPath, `index.md.tmp-${process.pid}`);
   writeFileSync(tmp, next);
   renameSync(tmp, indexPath);
-  return { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed };
+  return result;
 }
 
 export function main() {

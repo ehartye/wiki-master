@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } from './graph.mjs';
 import { frontmatterDamage, normalizeIdentity, parseNote, strayCarriageReturn, withoutComment } from './note.mjs';
 import { blank, prose } from './prose.mjs';
+import { unrecognizedBacklogItems } from './authored-group.mjs';
 
 export { prose };
 
@@ -104,7 +105,11 @@ const VERIFY = {
   'missing-evidence': 'Verify the substantive claims against evidence and restore the required citation trail; rerun health. Do not add unrelated citations or weaken status to clear this issue.',
 };
 
-export function scanIntegrity(vaultPath) {
+// `sources`, a Set of vault-relative paths, scopes what is reported to those pages; the scan still reads the
+// whole vault, because a link is ambiguous only against every page. With it the result also lists `pages`,
+// the named paths that are scanned content pages, so a caller can tell a path the scan never saw from a
+// page with nothing to report. Without it the result is the whole-vault one.
+export function scanIntegrity(vaultPath, { sources } = {}) {
   const graph = buildGraph(vaultPath);
   const pages = graph.pages.map(p => isContent(p.path) ? prepare(p, readFileSync(join(vaultPath, p.path), 'utf8')) : p);
   const content = pages.filter(p => isContent(p.path));
@@ -166,11 +171,16 @@ export function scanIntegrity(vaultPath) {
   }
   const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sorted = map => [...map.values()].sort((a, b) => compare(a.source, b.source) || compare(a.rule, b.rule) || compare(a.target, b.target));
-  const findings = sorted(issues);
+  const scoped = list => (sources ? list.filter(x => sources.has(x.source ?? x.page)) : list);
+  const findings = scoped(sorted(issues));
   return { version: 1, status: !content.length ? 'empty' : findings.length ? 'defects' : 'clear',
-    defectCount: findings.length, issues: findings, forwardLinks: sorted(forwards),
+    defectCount: findings.length, issues: findings, forwardLinks: scoped(sorted(forwards)),
+    ...(sources ? { pages: content.map(p => p.path).filter(path => sources.has(path)).sort(compare) } : {}),
     // Unscored: a page with a carriage return that is not half of a CRLF. It stays readable, so it is not a defect.
-    strayCarriageReturns: content.filter(p => p.strayCarriageReturn).map(p => ({ page: p.path, line: p.strayCarriageReturn })).sort((a, b) => compare(a.page, b.page)),
+    strayCarriageReturns: scoped(content.filter(p => p.strayCarriageReturn).map(p => ({ page: p.path, line: p.strayCarriageReturn })).sort((a, b) => compare(a.page, b.page))),
+    // Unscored: a backlog item whose status the generated roadmap cannot place (it lists them under "Unrecognized status").
+    unrecognizedBacklogStatus: scoped(unrecognizedBacklogItems(content.filter(p => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item'))
+      .map(p => ({ page: p.path, status: p.backlogStatus ?? null })).sort((a, b) => compare(a.page, b.page))),
     coverage: { contentPages: content.length, provenanceEligible, stubs: content.filter(isStub).length,
       checks: Object.keys(VERIFY),
       notChecked: ['factual correctness', 'external URLs', 'heading/block anchors', 'historical moves/deletions', 'Markdown-style links'],
@@ -184,6 +194,7 @@ export function integrityReport(r) {
     `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`];
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
   if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
+  if (r.unrecognizedBacklogStatus?.length) lines.push(`Backlog items with a missing or unrecognized status: ${r.unrecognizedBacklogStatus.length} (unscored; the project's generated roadmap lists them under "Unrecognized status"): ${r.unrecognizedBacklogStatus.slice(0, 5).map(x => `${x.page} (${x.status ?? 'no status'})`).join(', ')}${r.unrecognizedBacklogStatus.length > 5 ? ', ...' : ''}`);
   for (const issue of r.issues) lines.push(`  ${issue.id} ${issue.rule} ${issue.source}:${issue.line}${issue.target ? ` -> ${JSON.stringify(issue.target)}` : ''}`, `    ${issue.evidence.replace(/\s+/g, ' ')}`, `    Verify: ${issue.verification}`);
   lines.push('Structural integrity only; factual truth and completeness require separate review.',
     'Use --json for the full worklist, --backlog for ingest, --legacy for the historical score.');
