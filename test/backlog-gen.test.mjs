@@ -271,3 +271,69 @@ test('a second apply at a later now rewrites nothing: the stub dates are written
   assert.deepEqual(r.changed, []);
   assert.equal(readFileSync(roadmapOf(v), 'utf8'), first);
 });
+
+// ------------------------------------------------------------- depends-on --
+// A prerequisite never changes an item's own status: the catalog keeps every item under the
+// status its author set, notes what an open item still waits on, and lists the items whose
+// prerequisites have all closed. An item that declares nothing renders exactly as before.
+
+const dep = (slug, status, dependsOn) => ({
+  path: `wiki/authored/demo/backlog/${slug}.md`, project: 'demo', kind: 'backlog-item', backlogStatus: status,
+  metadata: dependsOn ? { 'depends-on': dependsOn } : {},
+});
+
+test('items that declare no depends-on render exactly as they did before the key existed', () => {
+  const withMetadata = [dep('a', 'shipped'), dep('b', 'planned'), dep('c', 'blocked')];
+  const without = withMetadata.map(({ metadata, ...rest }) => rest);
+  assert.equal(renderBacklogCatalog({ pages: withMetadata }), renderBacklogCatalog({ pages: without }));
+  assert.ok(!renderBacklogCatalog({ pages: withMetadata }).includes('Ready to start'));
+});
+
+test('an open item notes the prerequisites it still waits on and stays under its own status', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('base', 'planned'), dep('next', 'planned', ['[[base]]'])] });
+  assert.equal(catalog, '## Planned\n- [[base]]\n- [[next]] — waiting on [[base]]');
+});
+
+test('a human-set blocked item stays under Blocked, notes what it waits on, and is never listed as ready', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('base', 'shipped'), dep('held', 'blocked', ['[[base]]'])] });
+  assert.ok(catalog.includes('## Blocked\n- [[held]]'));
+  assert.ok(!catalog.includes('Ready to start'));
+  const waiting = renderBacklogCatalog({ pages: [dep('base', 'planned'), dep('held', 'blocked', ['[[base]]'])] });
+  assert.ok(waiting.includes('## Blocked\n- [[held]] — waiting on [[base]]'));
+});
+
+test('a planned item whose prerequisites are all shipped or dropped is listed under Ready to start, after the status groups', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('done', 'shipped'), dep('gone', 'dropped'), dep('next', 'planned', ['[[done]]', '[[gone]]']), dep('late', 'planned', ['[[next]]'])] });
+  assert.ok(catalog.endsWith('## Ready to start\n- [[next]]'));
+  assert.ok(catalog.includes('- [[late]] — waiting on [[next]]'));
+  assert.ok(catalog.indexOf('## Ready to start') > catalog.indexOf('## Shipped'));
+});
+
+test('a shipped item is not annotated even when its own prerequisites are not met', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('open', 'planned'), dep('odd', 'shipped', ['[[open]]'])] });
+  assert.ok(catalog.includes('## Shipped\n- [[odd]]'));
+  assert.ok(!/odd\]\] — waiting/.test(catalog));
+});
+
+test('a prerequisite that does not resolve is shown as plain text, never as a dead link', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('next', 'planned', ['[[nowhere]]'])] });
+  assert.equal(catalog, '## Planned\n- [[next]] — waiting on `nowhere`');
+});
+
+test('a prerequisite whose name is ambiguous vault-wide is linked by its full path', () => {
+  const catalog = renderBacklogCatalog({ pages: [dep('base', 'planned'), dep('next', 'planned', ['[[base]]'])], ambiguousNames: new Set(['base']) });
+  assert.ok(catalog.includes('- [[next]] — waiting on [[wiki/authored/demo/backlog/base|base]]'));
+});
+
+test('regenerating from files renders the annotation and the ready list from frontmatter', () => {
+  const v = tempVault();
+  const file = (name, status, deps) => writeFileSync(join(v, 'wiki', 'authored', 'demo', 'backlog', `${name}.md`),
+    `---\ntype: authored\nsources: []\nproject: demo\nkind: backlog-item\nbacklog-status: ${status}\n${deps ? `depends-on: ${deps}\n` : ''}---\n# ${name}\n\nbody\n`);
+  file('base', 'shipped');
+  file('next', 'planned', '["[[base]]"]');
+  file('later', 'planned', '["[[next]]"]');
+  regenerateBacklogRoadmaps(v, { apply: true });
+  const out = readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
+  assert.ok(out.includes('- [[later]] — waiting on [[next]]'));
+  assert.ok(out.includes('## Ready to start\n- [[next]]'));
+});

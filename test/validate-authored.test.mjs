@@ -563,3 +563,105 @@ test('placement reads the project folder, the kind folder and the exact-file kin
   assert.deepEqual(contract.placement('wiki/authored/overview.md'), { project: '', strict: false, expectedKind: null, folder: null });
   assert.equal(contract.placement('wiki/concepts/x.md'), null);
 });
+
+// ------------------------------------------------------------- depends-on --
+
+const BL = `${DEMO}/backlog`;
+const todo = (status, dependsOn, fields = {}) => page({ kind: 'backlog-item', 'backlog-status': status, ...(dependsOn === undefined ? {} : { 'depends-on': dependsOn }), ...fields }, '# An item\n\nWork.\n');
+
+test('a backlog item whose prerequisites exist in its project has no dependency defect, in the ledger or not', t => {
+  const v = vault(t);
+  v.put(`${BL}/base.md`, todo('shipped'));
+  v.put(`${BL}/next.md`, todo('planned', '["[[base]]", "[[wiki/authored/demo/backlog/base.md|base again]]"]'));
+  assert.deepEqual(v.validate([`${BL}/next.md`]).defects, []);
+});
+
+test('depends-on may be a block sequence', t => {
+  const v = vault(t);
+  v.put(`${BL}/base.md`, todo('shipped'));
+  v.put(`${BL}/next.md`, todo('planned', '\n  - "[[base]]"'));
+  assert.deepEqual(v.validate([`${BL}/next.md`]).defects, []);
+});
+
+test('a prerequisite that matches no item is a dependency-dangling defect on the depends-on line', t => {
+  const v = vault(t);
+  const text = v.put(`${BL}/next.md`, todo('planned', '["[[nowhere]]"]'));
+  const d = only(v.validate([`${BL}/next.md`]), `${BL}/next.md`);
+  assert.equal(d.rule, 'dependency-dangling');
+  assert.equal(d.line, lineOf(text, /^depends-on:/));
+  assert.match(d.message, /nowhere/);
+});
+
+test('a note in the backlog folder is not an item, so depending on it is dangling', t => {
+  const v = vault(t);
+  v.put(`${BL}/just-a-note.md`, page({ kind: 'note' }));
+  v.put(`${BL}/next.md`, todo('planned', '["[[just-a-note]]"]'));
+  assert.deepEqual(rules(v.validate([`${BL}/next.md`])), ['dependency-dangling']);
+});
+
+test('a prerequisite in another project is dependency-cross-project, and the message says why', t => {
+  const v = vault(t);
+  v.put('wiki/authored/other/backlog/base.md', todo('shipped', undefined, { project: 'other' }));
+  v.put(`${BL}/next.md`, todo('planned', '["[[wiki/authored/other/backlog/base.md|base]]"]'));
+  const d = only(v.validate([`${BL}/next.md`]), `${BL}/next.md`);
+  assert.equal(d.rule, 'dependency-cross-project');
+  assert.match(d.message, /same project/);
+});
+
+test('an item that depends on itself is dependency-self', t => {
+  const v = vault(t);
+  v.put(`${BL}/loop.md`, todo('planned', '["[[loop]]"]'));
+  assert.deepEqual(rules(v.validate([`${BL}/loop.md`])), ['dependency-self']);
+});
+
+test('a cycle is reported on each ledger page in it, naming the whole loop, and not on pages outside the ledger', t => {
+  const v = vault(t);
+  v.put(`${BL}/a.md`, todo('planned', '["[[b]]"]'));
+  v.put(`${BL}/b.md`, todo('planned', '["[[c]]"]'));
+  v.put(`${BL}/c.md`, todo('planned', '["[[a]]"]'));
+  const result = v.validate([`${BL}/a.md`]);
+  assert.deepEqual(rules(result), ['dependency-cycle']);
+  assert.equal(result.defects[0].path, `${BL}/a.md`);
+  assert.match(result.defects[0].message, /a -> b -> c -> a/);
+});
+
+test('an entry that is not a wikilink is dependency-malformed instead of ignored', t => {
+  const v = vault(t);
+  v.put(`${BL}/next.md`, todo('planned', '["plain-text"]'));
+  const d = only(v.validate([`${BL}/next.md`]), `${BL}/next.md`);
+  assert.equal(d.rule, 'dependency-malformed');
+  assert.match(d.message, /plain-text/);
+});
+
+test('depends-on on a page that is not a backlog item is dependency-misplaced', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/notes/n.md`, page({ 'depends-on': '["[[x]]"]' }));
+  assert.deepEqual(rules(v.validate([`${DEMO}/notes/n.md`])), ['dependency-misplaced']);
+});
+
+test('an item without depends-on, and an empty depends-on, add no defect', t => {
+  const v = vault(t);
+  v.put(`${BL}/plain.md`, todo('planned'));
+  v.put(`${BL}/empty.md`, todo('planned', '[]'));
+  assert.deepEqual(v.validate([`${BL}/plain.md`, `${BL}/empty.md`]).defects, []);
+});
+
+test('the command prints a dependency defect and exits 1', t => {
+  const v = vault(t);
+  v.put(`${BL}/next.md`, todo('planned', '["[[nowhere]]"]'));
+  const r = v.runLedger([`${BL}/next.md`]);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /next\.md:\d+ dependency-dangling /);
+});
+
+test('the depends-on key and its five defect rules are written where authors read them', () => {
+  const read = file => readFileSync(join(ROOT, file), 'utf8');
+  const authoring = read('skills/wiki-maintainer/references/authoring.md');
+  for (const [label, text] of [['schema', read('templates/vault-schema.md')], ['authoring reference', authoring], ['backlog template', read('templates/_templates/authored-backlog-item.md')]]) {
+    assert.ok(text.includes('depends-on'), `${label} names depends-on`);
+  }
+  for (const rule of ['dependency-dangling', 'dependency-cross-project', 'dependency-self', 'dependency-cycle', 'dependency-malformed', 'dependency-misplaced']) {
+    assert.ok(authoring.includes(`\`${rule}\``), `authoring reference lists ${rule}`);
+  }
+  assert.ok(authoring.includes('Ready to start'), 'authoring reference names the generated section');
+});

@@ -6,8 +6,9 @@ import { resolveVault } from './lib/vault.mjs';
 import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { parseNote } from './lib/note.mjs';
+import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
 import {
-  BACKLOG_STATUSES, DECISION_STATUSES, KINDS, KIND_STATUS_KEY, PROJECT_KEYS, REQUIRED_KEYS,
+  AUTHORED_ROOT, BACKLOG_STATUSES, DECISION_STATUSES, KINDS, KIND_STATUS_KEY, PROJECT_KEYS, REQUIRED_KEYS,
   placement, projectProblem,
 } from './lib/authored-contract.mjs';
 
@@ -106,6 +107,72 @@ function frontmatterDefects(path, markdown) {
   return out;
 }
 
+// A backlog item's prerequisites are resolved among the items of its own project only, so reading
+// that one backlog folder is enough: no second whole-vault graph is built for them.
+function backlogItems(vaultPath, dir) {
+  const items = [];
+  (function walk(abs, rel) {
+    let entries;
+    try { entries = readdirSync(abs, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue;
+      if (e.isDirectory()) walk(join(abs, e.name), `${rel}/${e.name}`);
+      else if (e.name.endsWith('.md')) {
+        let markdown;
+        try { markdown = readFileSync(join(abs, e.name), 'utf8'); } catch { continue; }
+        const { metadata } = parseNote(markdown);
+        if (metadata.kind === 'backlog-item') items.push({ path: `${rel}/${e.name}`, backlogStatus: metadata['backlog-status'], metadata });
+      }
+    }
+  })(join(vaultPath, ...dir.split('/')), dir);
+  return items;
+}
+
+const slug = path => path.slice(path.lastIndexOf('/') + 1).replace(/.md$/, '');
+const DEPENDENCY_PROBLEMS = {
+  dangling: ['dependency-dangling', target => `[[${target}]] matches no backlog item in this project`],
+  'cross-project': ['dependency-cross-project', target => `[[${target}]] is in another project; a dependency must be an item of the same project`],
+  self: ['dependency-self', () => 'an item cannot depend on itself'],
+};
+
+function dependencyDefects(vaultPath, texts) {
+  const out = [];
+  const analyses = new Map();
+  const analysisFor = (path, metadata) => {
+    const place = placement(path);
+    const dir = place?.project ? `${AUTHORED_ROOT}${place.project}/backlog` : null;
+    if (!analyses.has(dir)) {
+      const items = dir ? backlogItems(vaultPath, dir) : [];
+      analyses.set(dir, { items, analysis: null });
+    }
+    const entry = analyses.get(dir);
+    if (!entry.items.some(it => it.path === path)) entry.items.push({ path, backlogStatus: metadata['backlog-status'], metadata });
+    entry.analysis ??= analyzeBacklog(entry.items);
+    return entry.analysis;
+  };
+  for (const [path, markdown] of texts) {
+    const { metadata } = parseNote(markdown);
+    if (!Object.hasOwn(metadata, DEPENDS_ON_KEY)) continue;
+    const { entries, malformed } = dependsOnEntries(metadata);
+    if (!entries.length && !malformed.length) continue;
+    const line = keyLines(markdown).get(DEPENDS_ON_KEY) ?? 1;
+    const add = (rule, message) => out.push({ path, line, rule, message });
+    if (metadata.kind !== 'backlog-item') {
+      add('dependency-misplaced', `${DEPENDS_ON_KEY} is read only on backlog items (kind: backlog-item), so these prerequisites are ignored`);
+      continue;
+    }
+    for (const raw of malformed) add('dependency-malformed', `${DEPENDS_ON_KEY} entry ${JSON.stringify(raw)} is not a [[wikilink]]; write quoted wikilinks, e.g. ${DEPENDS_ON_KEY}: ["[[other-item]]"]`);
+    const analysis = analysisFor(path, metadata);
+    for (const dep of analysis.byPath.get(path).deps) {
+      if (dep.problem) add(DEPENDENCY_PROBLEMS[dep.problem][0], DEPENDENCY_PROBLEMS[dep.problem][1](dep.target));
+    }
+    for (const cycle of analysis.cycles) {
+      if (cycle.slice(0, -1).includes(path)) add('dependency-cycle', `dependency cycle: ${cycle.map(slug).join(' -> ')}`);
+    }
+  }
+  return out;
+}
+
 const also = lines => (lines.length > 1 ? ` (lines ${lines.join(', ')})` : '');
 const flat = text => String(text).replace(/\r?\n/g, '\\n');
 const clip = (text, max = 80) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
@@ -150,6 +217,7 @@ export function validateAuthored(vaultPath, paths) {
     present.add(path);
   }
   for (const [path, markdown] of texts) defects.push(...frontmatterDefects(path, markdown));
+  defects.push(...dependencyDefects(vaultPath, texts));
   if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath), present));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
   return { version: 1, checked, skipped, defects };
