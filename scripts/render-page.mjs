@@ -1,6 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { renderPage, RenderUnavailable } from './lib/render.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // A one-page browser render, as a subprocess.
 //

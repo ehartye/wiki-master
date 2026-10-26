@@ -18,6 +18,8 @@ import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { repointCitation } from './lib/repoint.mjs';
 import { insertSourceHashes } from './lib/backfill.mjs';
 import { recordIssue } from './lib/triage.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const arg = (n) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);

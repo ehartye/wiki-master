@@ -23,6 +23,8 @@ import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByKind, OTHER } from './lib/authored-group.mjs';
 import { keptByMention } from './lib/catalog-scope.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/moc-authored-gen.mjs %%';
 export const END_MARK = '%% END GENERATED CATALOG %%';

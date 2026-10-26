@@ -2,6 +2,8 @@ import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 export function slugify(title) {
   const s = String(title)

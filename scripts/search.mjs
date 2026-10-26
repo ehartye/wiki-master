@@ -13,6 +13,8 @@ import { hash } from './lib/embed-cache.mjs';
 import { buildNameIndex } from './lib/graph.mjs';
 import { noteIdentity, exactIdentity, lexicalScore, terms, inScope,
   matchesFilters, passageFor, boundedMetadata, citationProvenance, METADATA_VERSION } from './lib/retrieval.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';

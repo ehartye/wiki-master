@@ -22,6 +22,8 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { classifyAmbiguous, projectOf, repointBareLinks, onlyWikilinksChanged, bumpUpdated, hasGeneratedFence } from './lib/ambiguous-repair.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const lower = (s) => String(s).trim().toLowerCase();
 const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

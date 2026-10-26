@@ -19,6 +19,8 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, isContent, normalizeName } from './lib/graph.mjs';
 import { dewrapText } from './lib/dewrap-links.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Dry run by default (apply: false) — matches every other repair/generation script in
 // this repo. Returns a structured summary either way, so a caller can inspect what

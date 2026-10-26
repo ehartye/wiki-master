@@ -29,6 +29,8 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { planClippingRenames, stemOf } from './lib/clip-names.mjs';
 import { rewriteLinkTargets } from './lib/rewrite-links.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const SKIP_DIRS = new Set(['.git', '.obsidian', '.wiki-master', 'node_modules']);
 // log/ is append-only history: it is scanned for mentions but never rewritten.

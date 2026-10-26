@@ -36,6 +36,10 @@
   for a genuinely standalone, project-less note. Use `_templates/authored-note.md`
   to start a page (`_templates/authored-decision.md` for an ADR,
   `_templates/authored-backlog-item.md` for a backlog item — see below).
+  A project's `overview.md` may carry `repo:` (a git remote URL, `owner/name`, or a
+  repository folder name; a list is allowed). `node scripts/session-brief.mjs`, run in
+  a repository, uses it to find the project that repository belongs to and print its
+  state page; the repository itself needs no change, and holds no project name.
   `kind: decision` additionally carries `decision-status: proposed | accepted |
   superseded | deprecated` (Nygard's ADR vocabulary) — keep it in sync with
   whatever the page's own `## Status` section says in prose. **Existing files

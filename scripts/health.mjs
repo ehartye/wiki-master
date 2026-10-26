@@ -3,6 +3,8 @@ import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 import { scanIntegrity, integrityReport } from './lib/integrity.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 export { scanIntegrity };
 
 // Health reads the vault filesystem directly — no Obsidian CLI. The CLI's

@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 export const scenarioHash = dataset => createHash('sha256').update(JSON.stringify(dataset)).digest('hex');
 const strings = value => Array.isArray(value) && value.every(s => typeof s === 'string' && s.trim());

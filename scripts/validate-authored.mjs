@@ -14,6 +14,8 @@ import {
   AUTHORED_ROOT, BACKLOG_STATUSES, DECISION_STATUSES, KINDS, KIND_STATUS_KEY, PROJECT_KEYS, REQUIRED_KEYS,
   placement, projectProblem,
 } from './lib/authored-contract.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Read-only check of exactly the pages one authoring task wrote. The ledger is the
 // JSON array of vault-relative paths that op-commit and refresh-catalogs take.

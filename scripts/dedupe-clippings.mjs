@@ -9,6 +9,8 @@ import { join } from 'node:path';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, buildNameIndex, resolveLinkTarget } from './lib/graph.mjs';
 import { planClippingDedupe } from './lib/dedupe.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
 const { path: vault } = resolveVault();

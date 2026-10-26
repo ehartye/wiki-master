@@ -2,6 +2,8 @@ import { rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Removes operation tokens left behind by operations that never closed. A token
 // only records what was already dirty when its operation opened, so deleting an

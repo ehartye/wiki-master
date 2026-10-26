@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { parseTerms, scanRepo, BUILTIN_RULES } from './lib/private-terms.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const USAGE = [
   'usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <path>] [--known <path>] [--json]',

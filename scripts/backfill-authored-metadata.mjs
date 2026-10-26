@@ -16,6 +16,8 @@ import { resolveVault } from './lib/vault.mjs';
 import {
   classifyAuthoredProject, classifyAuthoredKind, classifyDecisionStatus, insertAuthoredMetadata,
 } from './lib/authored-classify.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
 const { path: vault } = resolveVault();
