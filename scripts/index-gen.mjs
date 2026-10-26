@@ -1,10 +1,12 @@
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
-import { keptByMention } from './lib/catalog-scope.mjs';
+import { keptByMention, scopeGraph } from './lib/catalog-scope.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
 // LLM from writing its index; TheKnowledge's recovery rests on "indexes are
@@ -94,22 +96,30 @@ export function regenerateIndex(vaultPath, { graph, apply = true, excluded = [] 
   return result;
 }
 
-export function main() {
+export function main(argv = process.argv.slice(2)) {
+  const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' } } });
   const { path: vaultPath } = resolveVault();
-  const r = regenerateIndex(vaultPath);
+  let scoped = {};
+  if (values['paths-file'] !== undefined) scoped = scopeGraph(vaultPath, buildGraph(vaultPath), checkLedgerPaths(readLedger(values['paths-file'])));
+  const r = regenerateIndex(vaultPath, scoped);
   console.log(`index.md regenerated: ${r.pages} pages cataloged`);
   return r;
 }
 
 const USAGE = [
-  'usage: node scripts/index-gen.mjs',
+  'usage: node scripts/index-gen.mjs [--paths-file <JSON array>]',
   '',
   'Regenerates the catalog between the fence markers of index.md. Manual framing outside the fence is kept.',
-  'Takes no options.',
+  'Without an option it lists every page on disk, another writer\'s uncommitted pages included.',
+  '--paths-file <JSON array of vault-relative paths> is the operation\'s ownership ledger: the catalog then lists a page only when it is in',
+  'the last commit or the ledger names it, and keeps a line it already holds for another writer\'s page that still exists.',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
 ].join('\n');
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (helpRequested()) exitWithHelp(USAGE);
-  else main();
+  else {
+    try { main(); }
+    catch (err) { console.error(`index-gen: ${err.message}`); process.exitCode = 2; }
+  }
 }

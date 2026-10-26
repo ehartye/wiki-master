@@ -176,9 +176,28 @@ test('the standalone commands print the populated list and the note, and refuse 
   assert.deepEqual(sorted(JSON.parse(r.stdout.trim()).changed), ['moc/alpha.md', 'moc/beta.md']);
   assert.match(r.stderr, /dry run — 2 file\(s\) would change; re-run with --apply/);
   for (const script of ['moc-authored-gen.mjs', 'backlog-gen.mjs']) {
-    const refused = run(script, ['--diff'], root);
-    assert.notEqual(refused.status, 0, script);
-    assert.match(refused.stderr, /--diff is supported by refresh-catalogs\.mjs only/);
+    for (const [flag, name] of [['--diff', 'diff'], ['--paths-file=x', 'paths-file']]) {
+      const refused = run(script, [flag], root);
+      assert.equal(refused.status, 2, `${script} ${flag}`);
+      assert.equal(refused.stderr.trim().split('\n').length, 1, `one line, not a stack trace: ${refused.stderr}`);
+      assert.equal(refused.stderr.trim(), `${script.replace('.mjs', '')}: --${name} is supported by refresh-catalogs.mjs only`);
+    }
+    const unknown = run(script, ['--bogus'], root);
+    assert.equal(unknown.status, 2, script);
+    assert.equal(unknown.stderr.trim().split('\n').length, 1, unknown.stderr);
   }
   assert.ok(!existsSync(join(root, 'moc')));
+});
+
+test('a file that changed only in order is named with a label, not left as an empty block', (t) => {
+  const root = vault(t);
+  refreshCatalogs(root, { project: 'alpha', apply: true, now: NOW });
+  const file = join(root, 'moc/alpha.md');
+  const lines = readFileSync(file, 'utf8').split('\n');
+  const at = lines.findIndex((l) => l.startsWith('- ['));
+  [lines[at], lines[at + 1]] = [lines[at + 1], lines[at]];
+  writeFileSync(file, lines.join('\n'));
+  const r = run('refresh-catalogs.mjs', ['--project', 'alpha', '--diff'], root);
+  assert.deepEqual(JSON.parse(r.stdout.trim()).changed, ['moc/alpha.md']);
+  assert.match(r.stderr, /^diff moc\/alpha\.md\n\(same lines, different order or whitespace\)$/m);
 });

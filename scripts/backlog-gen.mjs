@@ -218,5 +218,8 @@ export function main(argv = process.argv.slice(2)) {
   return r;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try { main(); }
+  catch (err) { console.error(`backlog-gen: ${err.message}`); process.exitCode = 2; }
+}
 

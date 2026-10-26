@@ -16,7 +16,16 @@ export function committedPaths(vaultPath) {
   return list(['ls-tree', '-r', '-z', '--name-only', 'HEAD']);
 }
 
-const FENCE = /%% BEGIN GENERATED CATALOG[^\n]*%%([\s\S]*?)%% END GENERATED CATALOG %%/;
+// Splits a graph for an operation that owns `ownedPaths`: the pages a catalog may list (committed, or named by
+// the ledger) and the rest, which belong to someone else's unfinished work.
+export function scopeGraph(vaultPath, graph, ownedPaths) {
+  const committed = committedPaths(vaultPath);
+  const owned = new Set(ownedPaths);
+  const listed = (p) => committed.has(p.path) || owned.has(p.path);
+  return { graph: { ...graph, pages: graph.pages.filter(listed) }, excluded: graph.pages.filter((p) => !listed(p)) };
+}
+
+const FENCE =/%% BEGIN GENERATED CATALOG[^\n]*%%([\s\S]*?)%% END GENERATED CATALOG %%/;
 const baseName = (path) => path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '').toLowerCase();
 
 // The link targets inside the generated fence of a catalog file, lower-cased, without alias or `.md`.

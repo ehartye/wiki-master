@@ -74,7 +74,9 @@ For each source:
    task map the new knowledge helps answer. Preserve `reviewed` on pages that
    received only metadata/link edits; stamp it only after factual verification.
 4. Regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`
-   (never hand-edit index.md's generated fence). Write the log entry by piping the
+   (never hand-edit index.md's generated fence). With another writer in the vault,
+   add `--paths-file <ledger>` (the JSON array of pages this ingest wrote) so their
+   uncommitted pages stay out of the catalog and their lines already in it stay in. Write the log entry by piping the
    narrative to `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<title>"`
    (creates `log/<timestamp>-ingest-<slug>.md` in the resolved vault).
 5. Never edit anything under `raw/`.

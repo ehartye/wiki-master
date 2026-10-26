@@ -9,7 +9,7 @@ import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { regenerateBacklogRoadmaps } from './backlog-gen.mjs';
 import { regenerateAuthoredMocs, projectSlug } from './moc-authored-gen.mjs';
 import { regenerateIndex } from './index-gen.mjs';
-import { committedPaths } from './lib/catalog-scope.mjs';
+import { scopeGraph } from './lib/catalog-scope.mjs';
 
 // Refresh generated nodes only; a second full scan would undo the benefit. The text comes from the
 // planned output, not from disk, so a dry run sees what an apply would have written and the later
@@ -87,14 +87,9 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
     try { checkLedgerPaths(ownedPaths); } catch { throw new Error('ownedPaths must be exact vault-relative paths'); }
   }
   const started = performance.now();
-  const graph = buildGraphImpl(vaultPath);
+  let graph = buildGraphImpl(vaultPath);
   let excluded = [];
-  if (ownedPaths !== undefined) {
-    const committed = committedPaths(vaultPath);
-    const owned = new Set(ownedPaths);
-    excluded = graph.pages.filter(p => !committed.has(p.path) && !owned.has(p.path));
-    graph.pages = graph.pages.filter(p => committed.has(p.path) || owned.has(p.path));
-  }
+  if (ownedPaths !== undefined) ({ graph, excluded } = scopeGraph(vaultPath, graph, ownedPaths));
   const graphMs = performance.now() - started;
   const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now, excluded });
   updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
@@ -124,7 +119,10 @@ export function main(argv = process.argv.slice(2)) {
   const { diffs, ...result } = refreshCatalogs(resolveVault().path, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
   // One block per changed file, after the one-line JSON, on stderr so the JSON on stdout keeps its shape.
-  for (const d of diffs ?? []) console.error([`diff ${d.path}`, ...d.removed.map(l => `- ${l}`), ...d.added.map(l => `+ ${l}`)].join('\n'));
+  for (const d of diffs ?? []) {
+    const body = [...d.removed.map(l => `- ${l}`), ...d.added.map(l => `+ ${l}`)];
+    console.error([`diff ${d.path}`, ...(body.length ? body : ['(same lines, different order or whitespace)'])].join('\n'));
+  }
   if (!result.applied) console.error(result.changed.length ? `dry run — ${result.changed.length} file(s) would change; re-run with --apply` : 'dry run — nothing would change');
   if (result.staleCatalogs) console.error(`${result.staleCatalogs.length} generated catalog(s) of other projects now hold a bare link to a name this project made ambiguous; refresh each with refresh-catalogs.mjs --project <its project> --apply: ${result.staleCatalogs.map(x => `${x.path} (${x.names.join(', ')})`).join('; ')}`);
   return result;
