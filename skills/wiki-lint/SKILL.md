@@ -47,6 +47,18 @@ Before the first authorized write, follow the shared operations completion contr
      hold get marked unsourced on the page. Confirm the trail itself resolves (an
      ambiguous or misrouted citation) before editing a quote. Two-column captures
      with interleaved text land here too.
+   Scope the run to the work: `--updated-since=<YYYY-MM-DD>` for the pages edited
+   since a date, `--paths-file=<ledger>` for the pages a task wrote (both may be
+   given). The graph is still built whole, so a scoped run saves the quote checks,
+   not the first twenty seconds. Record what you read, so the next run does not
+   list it again: `lint.mjs --ids` shows each finding's id, then
+   `node "<absolute-plugin-root>/scripts/lint-disposition.mjs" record --ids=<id>,<id>
+   --disposition=own-wording|mention|title|markup|accepted --reviewer=<name>
+   (--page=<path> | --paths-file=<ledger> | --whole-vault)`. Use `fixed` only for a
+   quote you corrected (a finding still present after `fixed` is listed again). The
+   verdicts are lines in `lint-dispositions.jsonl` at the vault root; add that file
+   to the operation's ledger. A changed quote or a replaced clipping is a new
+   finding and needs a new reading. `--include-reviewed` lists the reviewed ones.
    Style flags per the v0.2.2 licenses are pointers for review, not violations.
 4. Read the flagged pages (orphans, hub-stubs, drifted). Look for: contradictions
    between pages, claims superseded by newer sources, concepts referenced but

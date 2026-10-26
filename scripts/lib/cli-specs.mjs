@@ -144,7 +144,20 @@ export const CLI_SPECS = {
   },
   triage: { options: ['remote'] },
   init: { options: [] },
-  lint: { options: ['json', 'full', 'near', 'tier', 'page'] },
+  lint: { options: ['json', 'full', 'near', 'tier', 'page', 'paths-file', 'updated-since', 'ids', 'include-reviewed'] },
+  'lint-disposition': {
+    options: ['ids', 'disposition', 'reviewer', 'note', 'page', 'paths-file', 'whole-vault', 'apply'],
+    usage: [
+      'usage: node scripts/lint-disposition.mjs record --ids=<id>[,<id>...] --disposition=<verdict> --reviewer=<name> [--note=<text>] (--page=<path> | --paths-file=<ledger> | --whole-vault)',
+      '       node scripts/lint-disposition.mjs prune [--apply]',
+      '',
+      'Records that a person read lint findings and what they decided, in lint-dispositions.jsonl at the vault root, so the next lint run does not list them again.',
+      'The ids come from `lint.mjs --ids`. A verdict is one of own-wording, mention, title, markup, accepted, fixed. The scope says where to look for the ids;',
+      'a finding whose quote or raw evidence has changed has a new id and needs a new verdict.',
+      'prune lists (dry run) or with --apply removes the records of a page that no longer exists.',
+      VAULT,
+    ],
+  },
   stale: { options: [] },
   'index-embed': { options: ['rebuild', 'status', 'concurrency'] },
 };

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
@@ -7,6 +7,8 @@ import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/grap
 import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { evidenceHashOf, findingId, DISPOSITIONS_FILE, loadDispositions, reviewedBy } from './lib/lint-dispositions.mjs';
 cliGuard(import.meta.url);
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
@@ -141,7 +143,10 @@ function makeDocCache(vaultPath) {
 // Only the unverified tier is reconsidered, so no verbatim, convention or gapped quote changes tier. A
 // clipping's `source:` URL is not matched: a URL is one whitespace-separated word and a returned quote
 // has at least MIN_QUOTE_WORDS, so no quote can be a substring of one.
-export function classifyQuotes(vaultPath, graph) {
+// `pages`, a Set of vault-relative paths, limits the work to those pages (the graph is still built whole, because a
+// page's evidence is found through it). Every finding carries `evidenceHash` (the raw documents behind the page's
+// quotes) and `id`, which names the finding for a recorded verdict (lib/lint-dispositions.mjs).
+export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
   const byName = buildNameIndex(graph.pages);
   const pages = new Map(graph.pages.map((p) => [p.path, p]));
   const docFor = makeDocCache(vaultPath);
@@ -149,6 +154,7 @@ export function classifyQuotes(vaultPath, graph) {
   let examined = 0, verbatim = 0, title = 0;
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
+    if (scope && !scope.has(p.path)) continue;
     // A page declaring `sources: []` has, by its own frontmatter, no external
     // artifact to verify a quote against — checking it would flag every
     // quotation as unverifiable against zero evidence, 100% false-positive by
@@ -163,6 +169,7 @@ export function classifyQuotes(vaultPath, graph) {
     const evidence = evidenceBodies(vaultPath, p, byName, pages).map(normalize);
     let docs = null; // prepared only if some quote of this page fails the verbatim check
     let titles = null; // the cited clippings' titles, read only when a quote would be unverified
+    let evidenceHash = null; // computed for the first finding of the page
     for (const { text: q, raw: written } of quotes) {
       // A sentence that declares its claim unsourced (or absent from the clipped
       // source) is the policy working.
@@ -183,7 +190,9 @@ export function classifyQuotes(vaultPath, graph) {
       }
       // Full quote, never truncated: a repair tool re-checking this finding must
       // see the whole span, or a quote whose tail diverges verifies on its prefix.
-      findings.push({ page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}) });
+      evidenceHash ??= evidenceHashOf(paths, evidence);
+      const finding = { page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}), evidenceHash };
+      findings.push({ ...finding, id: findingId(finding) });
     }
   }
   return { examined, verbatim, title, findings };
@@ -256,10 +265,11 @@ const LICENSE = {
 
 const CONNECTIVES = /\b(however|but|despite|yet)\b/i;
 
-export function checkStyle(vaultPath, graph) {
+export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
   const findings = [];
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
+    if (scope && !scope.has(p.path)) continue;
     const dir = Object.keys(LICENSE).find((d) => p.path.startsWith(d));
     if (dir === undefined) continue;
     let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
@@ -292,39 +302,87 @@ function parseArgs(argv) {
   const opt = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
   const tier = opt('tier');
   if (tier && tier !== 'all' && !TIERS.includes(tier)) throw new Error(`--tier must be one of: ${[...TIERS, 'all'].join(', ')}`);
-  return { json: argv.includes('--json'), full: argv.includes('--full'), near: argv.includes('--near'), tier, page: opt('page') };
+  const pathsFile = opt('paths-file');
+  if (pathsFile === '') throw new Error('--paths-file needs a file: --paths-file=<ledger.json>');
+  const since = opt('updated-since');
+  if (since !== undefined && !(/^\d{4}-\d{2}-\d{2}$/.test(since) && new Date(`${since}T00:00:00Z`).toISOString().slice(0, 10) === since)) throw new Error('--updated-since must be a date, YYYY-MM-DD');
+  return {
+    json: argv.includes('--json'), full: argv.includes('--full'), near: argv.includes('--near'), tier, page: opt('page'),
+    pathsFile, since, ids: argv.includes('--ids'), includeReviewed: argv.includes('--include-reviewed'),
+  };
 }
 
 const clip = (q, full, n = 80) => (full || q.length <= n ? q : `${q.slice(0, n)}...`);
+
+// The pages a run is limited to, or null for the whole vault: those a ledger names, those whose `updated` is on or
+// after a date, or both. A page with no `updated` is not "updated since" anything.
+export function scopeOf(graph, { pathsFile, since }) {
+  if (pathsFile === undefined && since === undefined) return null;
+  const named = pathsFile === undefined ? null : new Set(checkLedgerPaths(readLedger(pathsFile)));
+  const pages = new Set();
+  for (const p of graph.pages) {
+    if (!isContent(p.path)) continue;
+    if (named && !named.has(p.path)) continue;
+    if (since !== undefined) {
+      const u = p.metadata?.updated;
+      if (typeof u !== 'string' || u.slice(0, 10) < since) continue;
+    }
+    pages.add(p.path);
+  }
+  const by = [...(named ? ['paths-file'] : []), ...(since !== undefined ? ['updated-since'] : [])];
+  const info = { pages: pages.size, ...(named ? { named: named.size } : {}), by };
+  const text = named && since !== undefined ? `${pages.size} of ${named.size} named page(s) examined, updated on or after ${since}`
+    : named ? `${pages.size} of ${named.size} named page(s) examined (paths-file)` : `${pages.size} page(s) updated on or after ${since}`;
+  return { pages, info, text };
+}
 
 export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const { path: vaultPath } = resolveVault();
   const graph = buildGraph(vaultPath);
-  const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph);
-  const style = checkStyle(vaultPath, graph);
+  const scope = scopeOf(graph, args);
+  const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph, scope ? { pages: scope.pages } : {});
+  const style = checkStyle(vaultPath, graph, scope ? { pages: scope.pages } : {});
   const count = (t) => findings.filter((f) => f.tier === t).length;
   const tiers = { examined, verbatim, title, convention: count('convention'), gapped: count('gapped'), unverified: count('unverified') };
+  // Verdicts a reviewer recorded (lint-disposition.mjs). Without the file nothing below changes.
+  const dispositionsFile = join(vaultPath, DISPOSITIONS_FILE);
+  const dispositions = existsSync(dispositionsFile) ? loadDispositions(dispositionsFile) : null;
+  const verdict = (f) => (dispositions ? reviewedBy(dispositions, f) : null);
+  if (dispositions) {
+    const per = (reviewed) => Object.fromEntries(TIERS.map((t) => [t, findings.filter((f) => f.tier === t && !!verdict(f) === reviewed).length]));
+    tiers.reviewed = per(true);
+    tiers.unreviewed = per(false);
+  }
   const wanted = args.tier && args.tier !== 'all' ? [args.tier] : (args.json || args.tier === 'all' ? TIERS : SHOW_BY_DEFAULT);
   const inPage = (x) => !args.page || x.page.includes(args.page);
-  const listed = findings.filter((f) => wanted.includes(f.tier) && inPage(f));
+  const visible = (f) => args.includeReviewed || !verdict(f);
+  // What a finding looks like outside this script: the evidence hash is internal, the id only when asked for, and a
+  // reviewed finding that is listed on request carries its verdict.
+  const shape = ({ evidenceHash, id, ...rest }) => ({ ...rest, ...(args.ids ? { id } : {}), ...(args.includeReviewed && verdict({ id }) ? { reviewed: (({ disposition, reviewer, date, note }) => ({ disposition, reviewer, date, ...(note ? { note } : {}) }))(verdict({ id })) } : {}) });
+  const listed = findings.filter((f) => wanted.includes(f.tier) && inPage(f) && visible(f));
   // Gapped quotes with the most skipped words first: that is where a spliced
   // passage is likeliest to hide among the header-and-timestamp noise.
   const skipped = (f) => f.inserted.join(' ').split(' ').filter(Boolean).length;
   listed.sort((x, y) => (x.tier === 'gapped' && y.tier === 'gapped' ? skipped(y) - skipped(x) : 0));
   const shownStyle = style.filter(inPage);
 
-  const near = args.near ? nearMatches(vaultPath, graph, findings.filter(inPage)) : null;
+  const near = args.near ? nearMatches(vaultPath, graph, findings.filter((f) => inPage(f) && visible(f))) : null;
 
   if (args.json) {
-    const out = listed.map((f) => (f.tier === 'gapped' ? { ...f, insertedWords: skipped(f) } : f));
-    console.log(JSON.stringify({ tiers, findings: out, style: shownStyle, ...(near ? { near } : {}) }, null, 2));
-    return { findings: listed, tiers, style: shownStyle, ...(near ? { near } : {}) };
+    const out = listed.map((f) => (f.tier === 'gapped' ? { ...shape(f), insertedWords: skipped(f) } : shape(f)));
+    console.log(JSON.stringify({ tiers, ...(scope ? { scope: scope.info } : {}), findings: out, style: shownStyle, ...(near ? { near } : {}) }, null, 2));
+    return { findings: out, tiers, ...(scope ? { scope: scope.info } : {}), style: shownStyle, ...(near ? { near } : {}) };
   }
 
   console.log(`Content lint (warn-only — flags for review, never scored)`);
+  if (scope) console.log(`Scope: ${scope.text}`);
   console.log(`
 Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${tiers.convention} convention, ${tiers.gapped} gapped, ${tiers.unverified} unverified`);
+  if (dispositions) {
+    const part = (o) => TIERS.filter((t) => o[t]).map((t) => `${t} ${o[t]}`).join(', ') || 'none';
+    console.log(`Reviewed (${DISPOSITIONS_FILE}): ${part(tiers.reviewed)}; not yet reviewed: ${part(tiers.unreviewed)}`);
+  }
   console.log(`  matched a clipping title: ${tiers.title} (counted, not listed; the quote is wholly the title of a clipping the page cites, which the body check cannot see)`);
   console.log(`  convention: the evidence has these words in this order; markup, punctuation or extraction spacing differ (counted, listed with --tier=convention)`);
   console.log(`  gapped: every word is in the evidence in order, with extra evidence words between them — extraction noise, or a silent omission; read the inserted words`);
@@ -336,9 +394,11 @@ Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${tiers.con
     console.log(`
 ${label}: ${args.page ? `${rows.length} on matching pages (${tiers[tier]} vault-wide)` : rows.length}`);
     for (const f of rows) {
-      console.log(`  ${f.page}
+      console.log(`  ${f.page}${args.ids ? ` [${f.id}]` : ''}
     "${clip(f.quote, args.full)}" (checked ${f.checked} sources)`);
       if (f.tier === 'gapped') console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
+      const v = args.includeReviewed ? verdict(f) : null;
+      if (v) console.log(`    reviewed: ${v.disposition} by ${v.reviewer} on ${v.date}${v.note ? ` (${v.note})` : ''}`);
     }
   }
   if (near) {
@@ -360,22 +420,31 @@ Style flags: ${shownStyle.length}`);
     for (const f of fs.slice(0, 5)) console.log(`    ${f.page} — ${f.word}`);
     if (fs.length > 5) console.log(`    ... and ${fs.length - 5} more`);
   }
-  return { findings: listed, tiers, style: shownStyle };
+  return { findings: listed.map(shape), tiers, ...(scope ? { scope: scope.info } : {}), style: shownStyle };
 }
 
 const USAGE = [
   `usage: node scripts/lint.mjs [--json] [--full] [--near] [--tier=<${[...TIERS, 'all'].join('|')}>] [--page=<path>]`,
+  '                             [--paths-file=<ledger>] [--updated-since=<YYYY-MM-DD>] [--ids] [--include-reviewed]',
   '',
   'Content lint: warn-only flags for review (quotes, run-of-spaces, near matches), never scored.',
   '  --json         machine-readable output',
   '  --full         do not shorten quotes in the listing',
   '  --near         add the word diff of each unverified quote against its raw clipping',
   '  --tier=<name>  list one quote tier only',
-  '  --page=<path>  limit the report to one page',
+  '  --page=<path>  limit the report to pages whose path contains this text (the whole vault is still examined)',
+  '  --paths-file=<ledger>      examine only the pages a JSON array of vault-relative paths names',
+  '  --updated-since=<date>     examine only pages whose `updated` is on or after the date; with --paths-file, both must hold',
+  '  --ids          show the id of each finding, which lint-disposition.mjs takes',
+  '  --include-reviewed         list findings that have a recorded verdict too, with the verdict',
+  'When lint-dispositions.jsonl exists in the vault, findings with a recorded verdict are not listed and the summary counts them.',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
 ].join('\n');
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (helpRequested()) exitWithHelp(USAGE);
-  else main();
+  else {
+    try { main(); }
+    catch (err) { console.error(`lint: ${err.message}`); process.exitCode = 2; }
+  }
 }
