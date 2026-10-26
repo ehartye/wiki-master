@@ -96,7 +96,7 @@ The dispositions a row offers depend on its kind. Clip failures (`failed`, `gone
 | `reconsider` | the decline is expiring and they want it re-evaluated — treat as a discovery candidate |
 | `keep-declined` | re-record the decline to reset its TTL |
 | `acceptable` | fidelity is good enough; no action beyond noting it |
-| `reclip` | re-clip via the right path (`clip-pdf` / `clip-docx`) rather than the HTML clipper |
+| `reclip` | re-clip with the clipper that matches the file (`clip-pdf`, `clip-docx` or `clip-xlsx`) rather than the HTML clipper |
 | `quarantine` | do not cite this source; note the restriction on any page that already does |
 | `ingest` | run `/wiki-ingest` scoped to that source |
 | `ignore` / `skip` | no action; the disposition itself is the record |

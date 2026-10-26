@@ -168,7 +168,7 @@ A checkout made before the policy still has CRLF in its working tree. With nothi
 
 ### Releasing
 
-A release changes the version in ten places: the nine JSON fields listed in `VERSION_FIELDS` in `test/drift-guard.test.mjs` (seven files; `package-lock.json` and `.github/plugin/marketplace.json` each carry it twice) plus the `CHANGELOG.md` heading. `test/drift-guard.test.mjs` fails if any JSON field differs from `package.json` or if a manifest gains a version field that `VERSION_FIELDS` does not list.
+A release changes the version in ten places: the nine JSON fields listed in `VERSION_FIELDS` (`scripts/lib/version-fields.mjs`; seven files, and `package-lock.json` and `.github/plugin/marketplace.json` each carry it twice) plus the `CHANGELOG.md` heading. Do not edit them by hand: `node scripts/bump-version.mjs <x.y.z>` shows what it would change, and `--apply` changes all of them together and adds `## x.y.z — date` at the top of `CHANGELOG.md` (`--changelog-entry <file>` puts your entry under it, `--date` overrides today). It edits the files as text, so their line endings and formatting stay, and it parses the result to prove that only the listed fields changed. It refuses, and writes nothing, when the fields already disagree, when the new version is not greater, or when another entry in a file shares the old version number. `test/drift-guard.test.mjs` fails if any JSON field differs from `package.json`, if a manifest gains a version field that `VERSION_FIELDS` does not list, or if the newest `CHANGELOG.md` heading is not the package version or has no bullet under it.
 
 ### Catalog refresh
 
