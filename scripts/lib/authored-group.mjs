@@ -80,10 +80,16 @@ export function groupByKind(pages = []) {
 // docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md §3.
 export const BACKLOG_STATUS_ORDER = ['in-progress', 'planned', 'blocked', 'shipped', 'dropped'];
 
-// Unlike groupByKind, an item with no/unrecognized backlogStatus is simply excluded — never
+// Unlike groupByKind, an item with no/unrecognized backlogStatus is excluded here — never
 // bucketed under an "Other" catch-all. A backlog item without a real status is a data-entry gap
 // worth fixing at the source, not something a generated view should paper over with a vague
-// bucket.
+// bucket. The caller says what was left out: backlog-gen.mjs lists those items, found with
+// unrecognizedBacklogItems below, under their own heading so the roadmap never hides them.
+// The items groupByBacklogStatus leaves out, so a caller can say so instead of dropping them.
+export function unrecognizedBacklogItems(items = []) {
+  return items.filter((it) => !BACKLOG_STATUS_ORDER.includes(it?.backlogStatus));
+}
+
 export function groupByBacklogStatus(items = []) {
   const byStatus = new Map();
   for (const it of items) {

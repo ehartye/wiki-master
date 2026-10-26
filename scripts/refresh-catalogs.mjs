@@ -50,6 +50,7 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
     graphMs: Math.round(graphMs), elapsedMs: Math.round(performance.now() - started),
     changed: [...backlog.changed, ...moc.changed, ...(index.changed ? ['index.md'] : [])],
     projects: { backlog: backlog.written, moc: moc.written },
+    ...(backlog.unrecognized.length ? { unrecognized: backlog.unrecognized } : {}),
   };
 }
 

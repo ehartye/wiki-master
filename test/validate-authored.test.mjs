@@ -516,6 +516,39 @@ test('validateAuthored rejects an unsafe ledger the same way the command does', 
 
 // -------------------------------------------------------------- the contract --
 
+// The code spans in a reference that LIST a vocabulary: they start with `key:` and hold more than
+// one value, separated by `|`. A span with one value is ordinary prose about that value and is not
+// compared. Each span carries the line it begins on and may wrap across lines. `drift` holds the
+// lists whose words differ from the vocabulary (a list cut down to one value is not detected).
+function vocabularyDrift(text, key, expected) {
+  const words = s => s.split(/[\s|,#]+/).filter(Boolean).sort();
+  const spans = [...text.matchAll(new RegExp('`' + key + ':\\s*([^`|]*\\|[^`]*)`', 'g'))]
+    .map(m => ({ line: text.slice(0, m.index).split('\n').length, span: m[0], words: words(m[1]) }));
+  const want = JSON.stringify([...expected].sort());
+  return { found: spans.length, drift: spans.filter(s => JSON.stringify(s.words) !== want) };
+}
+
+const VOCABULARY = ['dropped', 'blocked', 'in-progress', 'planned', 'shipped'];
+
+test('prose that names one status in a code span is not a vocabulary list', () => {
+  const text = ['The list is `backlog-status: planned | in-progress | shipped | blocked | dropped`.', '', 'A shipped item keeps `backlog-status: shipped` until it is dropped.', ''].join('\n');
+  const r = vocabularyDrift(text, 'backlog-status', VOCABULARY);
+  assert.equal(r.found, 1, 'only the list counts');
+  assert.deepEqual(r.drift, []);
+});
+
+test('a vocabulary list that drops a value fails, and names the span and its line', () => {
+  const text = ['Intro.', '', 'Set `backlog-status: planned | in-progress |', 'shipped | blocked` on an item.', ''].join('\n');
+  const r = vocabularyDrift(text, 'backlog-status', VOCABULARY);
+  assert.equal(r.drift.length, 1);
+  assert.equal(r.drift[0].line, 3);
+  assert.match(r.drift[0].span, /planned \| in-progress/);
+});
+
+test('a reference with no vocabulary list at all is reported as none found', () => {
+  assert.equal(vocabularyDrift('No lists here, only `backlog-status: planned` once.', 'backlog-status', VOCABULARY).found, 0);
+});
+
 test('the vocabulary the validator uses is the vocabulary written in the schema, the templates and the authoring reference', () => {
   const read = file => readFileSync(join(ROOT, file), 'utf8');
   const words = text => text.split(/[\s|,#]+/).filter(Boolean).sort();
@@ -535,8 +568,11 @@ test('the vocabulary the validator uses is the vocabulary written in the schema,
 
   const authoring = read('skills/wiki-maintainer/references/authoring.md');
   assert.deepEqual(one(authoring, /`kind:`[^`]*?one of\s+`([^`]+)`/, 'authoring kind'), kinds);
-  for (const list of every(authoring, /`decision-status:\s*([^`]+)`/g, 'authoring decision-status')) assert.deepEqual(list, decisions);
-  for (const list of every(authoring, /`backlog-status:\s*([^`]+)`/g, 'authoring backlog-status')) assert.deepEqual(list, backlog);
+  for (const [key, expected] of [['decision-status', decisions], ['backlog-status', backlog]]) {
+    const r = vocabularyDrift(authoring, key, expected);
+    assert.ok(r.found, `authoring ${key}: no vocabulary list found`);
+    assert.deepEqual(r.drift.map(d => `line ${d.line}: ${d.span}`), [], `authoring ${key}: a list differs from the vocabulary`);
+  }
 
   assert.deepEqual(one(read('templates/_templates/authored-decision.md'), /<!--\s*([a-z-]+(?:\s*\|\s*[a-z-]+)+)/, 'decision template'), decisions);
   assert.deepEqual(one(read('templates/_templates/authored-backlog-item.md'), /\(([a-z-]+(?:\s*\|\s*[a-z-]+){2,})\)/, 'backlog template'), backlog);

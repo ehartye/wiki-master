@@ -78,6 +78,8 @@
 
   **A backlog item can say what it waits on.** List its prerequisites under `depends-on` as quoted wikilinks to other backlog items of the same project, for example `depends-on: ["[[other-item]]"]` (one scalar or a block sequence also works). A prerequisite is met once its item is shipped or dropped. The relation never changes the item's own status: a `blocked` item you set by hand stays under Blocked. The generated roadmap notes "waiting on" after each open item that has an unmet prerequisite, and lists every planned item whose declared prerequisites are all met under a trailing "Ready to start" section. An item that declares nothing is startable and is not listed there. A prerequisite in another project is rejected; keep the relation inside one project and link across projects in the item's text.
 
+  **A friction item says what produced its observation.** When an item states a behavior as tested or observed, paste the exact call arguments (or the script name) and the exact log or error text beside the claim, and mark a fact whose reading of the source disagrees with the run as unsettled until a run decides. Without them the claim cannot be reconciled with the source later without a rerun.
+
   When `backlog-gen.mjs` (or `refresh-catalogs.mjs`) creates a roadmap that does not exist, the page starts with `type: authored`, `created`, `updated`, `status: draft`, `sources: []`, `ai-generated: true`, `project` and `kind: roadmap`. `reviewed` is omitted on purpose: nobody has reviewed a page a script just wrote. `created` and `updated` are the UTC day of the run and cannot be set from the command line. A dry run creates no page and no temp file. An existing roadmap is never rewritten outside the generated fence.
 
   `node "<absolute-plugin-root>/scripts/health.mjs"`'s `monolith candidates` line (a `wiki/authored/`
@@ -127,9 +129,9 @@ with the vault set as in the access reference.
 of vault-relative paths with `/` separators (no drive prefix, backslash, empty segment,
 `.` or `..`), for example `["wiki/authored/demo/guides/user.md","wiki/authored/demo/roadmap.md"]`.
 No helper builds it; write it with your file tool from the pages this task created or
-edited, under `.wiki-master/` or outside the vault. A path whose letter case differs
-from the file on disk is reported as `missing-file`, because a case-insensitive disk
-would otherwise drop that page's link checks without a word.
+edited, under `.wiki-master/` or outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
+does not exist, or one whose letter case or Unicode form differs from the file on disk,
+because a case-insensitive disk would otherwise drop that page's link checks without a word.
 
 **The result.** The command writes nothing and reads the whole vault (ambiguity is
 vault-wide), but reports only ledger pages; `health.mjs` stays the whole-vault check.
@@ -139,7 +141,7 @@ sorted by path then line, then `validate-authored: N pages checked, M defects`, 
 `, K skipped` appended only when K is above zero (checked plus skipped is the number of
 distinct ledger paths). `--json` prints
 `{"version":1,"checked":N,"skipped":K,"defects":[{"path","line","rule","message"}]}`
-instead. An absent frontmatter key is reported at line 1; a blank key at its own line.
+instead, which is exactly what `validateAuthored()` in `scripts/validate-authored.mjs` returns. An absent frontmatter key is reported at line 1; a blank key at its own line.
 
 Under `wiki/authored/`:
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderBacklogCatalog, regenerateBacklogRoadmaps, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
+import { renderBacklogCatalog, regenerateBacklogRoadmaps, roadmapStub, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
 import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
 import { REQUIRED_KEYS, PROJECT_KEYS } from '../scripts/lib/authored-contract.mjs';
@@ -336,4 +336,78 @@ test('regenerating from files renders the annotation and the ready list from fro
   const out = readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
   assert.ok(out.includes('- [[later]] — waiting on [[next]]'));
   assert.ok(out.includes('## Ready to start\n- [[next]]'));
+});
+
+// ---------------------------------------------------- unrecognized status --
+// A generator that filters its input says what it filtered: an item whose status is outside the
+// vocabulary, or missing, is listed under its own heading instead of vanishing from the roadmap.
+
+test('an item whose status is outside the vocabulary is listed under Unrecognized status, with the value and the allowed words', () => {
+  const catalog = renderBacklogCatalog({ pages: [item('wiki/authored/demo/backlog/a.md', 'demo', 'planned'), item('wiki/authored/demo/backlog/idea.md', 'demo', 'proposed')] });
+  assert.ok(catalog.includes('## Unrecognized status'));
+  assert.ok(catalog.includes('- [[idea]] — `proposed`'));
+  assert.ok(catalog.includes('in-progress, planned, blocked, shipped, dropped'));
+  assert.ok(catalog.indexOf('## Planned') < catalog.indexOf('## Unrecognized status'));
+});
+
+test('an item with no status at all is listed as having none', () => {
+  const catalog = renderBacklogCatalog({ pages: [item('wiki/authored/demo/backlog/bare.md', 'demo', undefined)] });
+  assert.ok(catalog.includes('- [[bare]] — no backlog-status'));
+});
+
+test('a catalog whose items all have a recognized status has no Unrecognized status section', () => {
+  const catalog = renderBacklogCatalog({ pages: [item('wiki/authored/demo/backlog/a.md', 'demo', 'planned'), item('wiki/authored/demo/backlog/b.md', 'demo', 'dropped')] });
+  assert.ok(!catalog.includes('Unrecognized'));
+});
+
+test('regenerating from files writes the section and names the item in the result', () => {
+  const v = tempVault();
+  writeItem(v, 'ok', 'demo', 'planned');
+  writeItem(v, 'idea', 'demo', 'proposed');
+  const r = regenerateBacklogRoadmaps(v, { apply: true });
+  assert.deepEqual(r.unrecognized, ['wiki/authored/demo/backlog/idea.md']);
+  const out = readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
+  assert.ok(out.includes('## Unrecognized status\n'));
+  assert.ok(out.includes('- [[idea]] — `proposed`'));
+});
+
+test('a dry run also names the unrecognized items, and a clean vault names none', () => {
+  const v = tempVault();
+  writeItem(v, 'idea', 'demo', 'open');
+  assert.deepEqual(regenerateBacklogRoadmaps(v).unrecognized, ['wiki/authored/demo/backlog/idea.md']);
+  const clean = tempVault();
+  writeItem(clean, 'ok', 'demo', 'shipped');
+  assert.deepEqual(regenerateBacklogRoadmaps(clean).unrecognized, []);
+});
+
+// ------------------------------------------------- project names in a stub --
+// The project is a YAML value. A name that is not a plain scalar must be quoted, or parseNote
+// reads a truncated or different value (a ` #` starts a comment, a `: ` splits a key).
+
+const STUB_DAY = new Date('2026-10-25T00:00:00Z');
+
+test('a plain project name is written unquoted, as before', () => {
+  assert.match(roadmapStub('demo', STUB_DAY), /\nproject: demo\n/);
+  assert.match(roadmapStub('acme/tool', STUB_DAY), /\nproject: acme\/tool\n/);
+  assert.match(roadmapStub('anika-valley 2', STUB_DAY), /\nproject: anika-valley 2\n/);
+  assert.match(roadmapStub('café', STUB_DAY), /\nproject: café\n/);
+});
+
+test('a project name that is not a plain scalar round-trips through parseNote', () => {
+  for (const name of ['a: b', 'a #b', 'x:', '- x', '"quoted" name', "it's", 'back\slash', ' lead', 'trail ', '[x]', '#x', '@x', '*x', '!x', 'a, b', '% x', '`x`', '{x}', '> x', '| x']) {
+    assert.equal(parseNote(roadmapStub(name, STUB_DAY)).metadata.project, name, JSON.stringify(name));
+  }
+});
+
+test('a project folder with a comment marker in its name gets a stub that validates and names the folder', () => {
+  const v = tempVault();
+  mkdirSync(join(v, 'wiki', 'authored', 'demo #1', 'backlog'), { recursive: true });
+  writeFileSync(join(v, 'wiki', 'authored', 'demo #1', 'backlog', 'item-a.md'),
+    `---\ntype: authored\nsources: []\nproject: ${JSON.stringify('demo #1')}\nkind: backlog-item\nbacklog-status: planned\n---\n# item-a\n\nbody\n`);
+  const r = regenerateBacklogRoadmaps(v, { apply: true });
+  assert.deepEqual(r.written, ['demo #1']);
+  const rel = 'wiki/authored/demo #1/roadmap.md';
+  const text = readFileSync(join(v, ...rel.split('/')), 'utf8');
+  assert.equal(parseNote(text).metadata.project, 'demo #1');
+  assert.deepEqual(validateAuthored(v, [rel]).defects, []);
 });

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeProject, projectKey, KIND_ORDER, OTHER, groupByProject, groupByKind,
-  BACKLOG_STATUS_ORDER, groupByBacklogStatus,
+  BACKLOG_STATUS_ORDER, groupByBacklogStatus, unrecognizedBacklogItems,
 } from '../scripts/lib/authored-group.mjs';
 
 // A project is free text an authoring agent puts in frontmatter (spec
@@ -150,4 +150,12 @@ test('an item with no/unrecognized backlogStatus is excluded — the caller deci
 
 test('an empty item list produces no backlog-status groups', () => {
   assert.deepEqual(groupByBacklogStatus([]), []);
+});
+test('unrecognizedBacklogItems returns exactly the items groupByBacklogStatus leaves out', () => {
+  const items = [{ backlogStatus: 'planned' }, { backlogStatus: 'proposed' }, {}, { backlogStatus: 'shipped' }, { backlogStatus: 'open' }];
+  const left = unrecognizedBacklogItems(items);
+  assert.deepEqual(left.map(i => i.backlogStatus), ['proposed', undefined, 'open']);
+  const grouped = groupByBacklogStatus(items).flatMap(g => g.pages);
+  assert.equal(grouped.length + left.length, items.length);
+  assert.deepEqual(unrecognizedBacklogItems([]), []);
 });
