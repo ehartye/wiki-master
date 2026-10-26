@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
-import { prepareDocument, classifyFragments, DECLARES_ABSENT } from './lib/quote-match.mjs';
+import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
+import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no
@@ -191,6 +192,38 @@ export function checkQuotes(vaultPath, graph) {
   return classifyQuotes(vaultPath, graph).findings.map(({ page, quote, checked }) => ({ page, quote, checked }));
 }
 
+// Opt-in triage of the unverified tier (--near). For each unverified quote of NEAR_MIN_WORDS or more, the
+// best alignment with a raw clipping on the page's evidence path; at NEAR_THRESHOLD or better it is listed as
+// a word diff. A quote whose only close match is a wiki page is counted, not listed: a summary can match a
+// quote closely without being the source. Changes no tier.
+export function nearMatches(vaultPath, graph, findings) {
+  const byName = buildNameIndex(graph.pages);
+  const pages = new Map(graph.pages.map((p) => [p.path, p]));
+  const docFor = makeDocCache(vaultPath);
+  const evidenceFor = new Map();
+  const listed = [];
+  let summaryOnly = 0;
+  for (const f of findings) {
+    if (f.tier !== 'unverified') continue;
+    const q = tokenize(f.quote);
+    if (q.length < NEAR_MIN_WORDS) continue;
+    if (!evidenceFor.has(f.page)) evidenceFor.set(f.page, evidencePaths(pages.get(f.page), byName, pages).sort());
+    let raw = null, other = null;
+    for (const path of evidenceFor.get(f.page)) {
+      const m = bestWindow(q, docFor(path));
+      if (!m) continue;
+      const isRaw = path.startsWith('raw/');
+      const best = isRaw ? raw : other;
+      if (!best || m.score > best.m.score) { if (isRaw) raw = { path, m }; else other = { path, m }; }
+    }
+    if (raw && raw.m.score >= NEAR_THRESHOLD) {
+      listed.push({ page: f.page, quote: f.quote, score: Math.round(raw.m.score * 100) / 100, document: raw.path, kind: 'raw clipping', diff: renderDiff(raw.m.ops) });
+    } else if (other && other.m.score >= NEAR_THRESHOLD) summaryOnly++;
+  }
+  listed.sort((a, b) => b.score - a.score || (a.page < b.page ? -1 : a.page > b.page ? 1 : 0) || (a.quote < b.quote ? -1 : a.quote > b.quote ? 1 : 0));
+  return { listed, summaryOnly, threshold: NEAR_THRESHOLD, minWords: NEAR_MIN_WORDS };
+}
+
 // WTW-seeded word lists (flags, not bans). Seeded from MOS:WTW categories.
 const STYLE = {
   editorializing: ['clearly', 'obviously', 'notably', 'importantly', 'interestingly',
@@ -256,7 +289,7 @@ function parseArgs(argv) {
   const opt = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
   const tier = opt('tier');
   if (tier && tier !== 'all' && !TIERS.includes(tier)) throw new Error(`--tier must be one of: ${[...TIERS, 'all'].join(', ')}`);
-  return { json: argv.includes('--json'), full: argv.includes('--full'), tier, page: opt('page') };
+  return { json: argv.includes('--json'), full: argv.includes('--full'), near: argv.includes('--near'), tier, page: opt('page') };
 }
 
 const clip = (q, full, n = 80) => (full || q.length <= n ? q : `${q.slice(0, n)}...`);
@@ -278,10 +311,12 @@ export function main(argv = process.argv.slice(2)) {
   listed.sort((x, y) => (x.tier === 'gapped' && y.tier === 'gapped' ? skipped(y) - skipped(x) : 0));
   const shownStyle = style.filter(inPage);
 
+  const near = args.near ? nearMatches(vaultPath, graph, findings.filter(inPage)) : null;
+
   if (args.json) {
     const out = listed.map((f) => (f.tier === 'gapped' ? { ...f, insertedWords: skipped(f) } : f));
-    console.log(JSON.stringify({ tiers, findings: out, style: shownStyle }, null, 2));
-    return { findings: listed, tiers, style: shownStyle };
+    console.log(JSON.stringify({ tiers, findings: out, style: shownStyle, ...(near ? { near } : {}) }, null, 2));
+    return { findings: listed, tiers, style: shownStyle, ...(near ? { near } : {}) };
   }
 
   console.log(`Content lint (warn-only — flags for review, never scored)`);
@@ -301,6 +336,16 @@ ${label}: ${args.page ? `${rows.length} on matching pages (${tiers[tier]} vault-
       console.log(`  ${f.page}
     "${clip(f.quote, args.full)}" (checked ${f.checked} sources)`);
       if (f.tier === 'gapped') console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
+    }
+  }
+  if (near) {
+    console.log(`
+Near matches (--near): ${near.listed.length} unverified quote(s) of ${near.minWords}+ words align with a raw clipping at ${near.threshold} or better; ${near.summaryOnly} more match only a wiki page (not evidence, not listed)`);
+    console.log(`  [-word-] is in the page's quote and not in the clipping; {+word+} is in the clipping only; a~b is a word and its longer form`);
+    for (const f of near.listed) {
+      console.log(`  ${f.score.toFixed(2)}  ${f.page}
+    -> ${f.document} (${f.kind})
+    ${f.diff}`);
     }
   }
   const byCat = {};
