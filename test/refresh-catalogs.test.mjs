@@ -123,3 +123,64 @@ test('an invalid now fails before any catalog is written', t => {
   assert.ok(!existsSync(join(root, 'moc')));
   assert.ok(!existsSync(join(root, 'index.md')));
 });
+
+// ---------------------------------------- catalogs another project left stale --
+// A page whose file name another project already uses turns that project's generated bare link
+// into an ambiguous one, and a refresh scoped to the new page's project does not touch the other
+// project's catalog. The refresh cannot know which other catalogs to regenerate, so it names them.
+function twoProjects(t) {
+  const root = mkdtempSync(join(tmpdir(), 'wm-stale-')); t.after(() => rmSync(root, { recursive: true, force: true }));
+  const put = (project, rel, kind, extra = '') => {
+    const file = join(root, 'wiki/authored', project, rel);
+    mkdirSync(join(file, '..'), { recursive: true });
+    writeFileSync(file, `---\ntype: authored\nproject: ${project}\nkind: ${kind}\n${extra}sources: []\n---\n# ${rel}\n`);
+  };
+  put('one', 'overview.md', 'overview');
+  put('one', 'reference/runbook.md', 'reference');
+  put('one', 'backlog/task.md', 'backlog-item', 'backlog-status: planned\n');
+  refreshCatalogs(root, { apply: true });
+  put('two', 'overview.md', 'overview');
+  put('two', 'reference/runbook.md', 'reference');
+  put('two', 'backlog/task.md', 'backlog-item', 'backlog-status: planned\n');
+  return root;
+}
+
+test('a scoped refresh names the other project catalogs whose bare link a new page made ambiguous', t => {
+  const root = twoProjects(t);
+  assert.match(readFileSync(join(root, 'moc/one.md'), 'utf8'), /\[\[runbook\]\]/, 'bare while the name was unique');
+  const r = refreshCatalogs(root, { project: 'two', apply: true });
+  assert.deepEqual(r.staleCatalogs, [
+    { path: 'moc/one.md', names: ['overview', 'roadmap', 'runbook'] },
+    { path: 'wiki/authored/one/roadmap.md', names: ['task'] },
+  ]);
+  assert.ok(!r.changed.includes('moc/one.md'), 'it reports; it does not edit another project');
+});
+
+test('refreshing the named project clears the report', t => {
+  const root = twoProjects(t);
+  refreshCatalogs(root, { project: 'two', apply: true });
+  const fixed = refreshCatalogs(root, { project: 'one', apply: true });
+  assert.equal(fixed.staleCatalogs, undefined);
+  assert.match(readFileSync(join(root, 'moc/one.md'), 'utf8'), /wiki\/authored\/one\/reference\/runbook\|runbook/);
+  assert.equal(refreshCatalogs(root, { project: 'two', apply: true }).staleCatalogs, undefined);
+});
+
+test('an unscoped refresh regenerates everything, so nothing is stale; a dry run still reports', t => {
+  const root = twoProjects(t);
+  const dry = refreshCatalogs(root, { project: 'two' });
+  assert.deepEqual(dry.staleCatalogs.map(x => x.path), ['moc/one.md', 'wiki/authored/one/roadmap.md']);
+  assert.equal(refreshCatalogs(root, { apply: true }).staleCatalogs, undefined);
+});
+
+test('the selected project own catalogs are never reported, and a hand-written link is not a catalog', t => {
+  const root = twoProjects(t);
+  writeFileSync(join(root, 'wiki/authored/one/notes.md'), '---\ntype: authored\nproject: one\nkind: note\nsources: []\n---\nSee [[runbook]].\n');
+  const r = refreshCatalogs(root, { project: 'one', apply: true });
+  assert.equal(r.staleCatalogs, undefined);
+});
+
+test('a dry run does not report the selected project own catalogs, which the same run would regenerate', t => {
+  const root = twoProjects(t);
+  const dry = refreshCatalogs(root, { project: 'one' });
+  assert.equal(dry.staleCatalogs, undefined);
+});

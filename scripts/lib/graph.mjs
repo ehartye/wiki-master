@@ -73,6 +73,10 @@ export function isFigureAsset(path) {
   return path.startsWith('raw/figures/');
 }
 
+// A generated catalog (moc-authored-gen writes moc/<project>.md for every project). It is navigation
+// with no content of its own, so a page of the same name outranks it when a reader follows a link.
+export function isMoc(path) { return path.startsWith('moc/'); }
+
 export function isContent(path) {
   if (!path.endsWith('.md')) return false;
   if (SYSTEM_FILES.has(path)) return false;
@@ -360,11 +364,12 @@ export function buildNameIndex(pages) {
     if (!byName.has(exactKey)) byName.set(exactKey, p.path);
     const navKey = name + NAV;
     const navPrior = byName.get(navKey);
-    if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path))) byName.set(navKey, p.path);
+    if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path)) || (isMoc(navPrior) && isContent(p.path) && !isMoc(p.path))) byName.set(navKey, p.path);
     const fullKey = p.path.replace(/\.md$/i, '').toLowerCase();
     if (!byName.has(fullKey)) byName.set(fullKey, p.path);
   }
   const labels = new Map();
+  const stemOf = new Map(pages.map(p => [p.path, normalizeIdentity(p.name)]));
   const identityPages = pages.filter(p => isContent(p.path) || isEvidencePath(p.path));
   for (const p of identityPages) {
     const additional = [...(p.aliases ?? [])];
@@ -384,9 +389,18 @@ export function buildNameIndex(pages) {
     if (pages.some(p => p.path.replace(/\.md$/i, '').toLowerCase() === key.replace(/\.md$/i, ''))) continue;
     const raw = [...paths].filter(path => path.startsWith('raw/'));
     const content = [...paths].filter(isContent);
-    const unique = candidates => candidates.length === 1 ? candidates[0] : undefined;
-    byName.set(key, unique(raw.length ? raw : content));
-    byName.set(key + NAV, unique(content.length ? content : raw));
+    // Within one channel: a generated MOC yields to real content in navigation, and a file whose
+    // NAME is the link outranks files that only share its title or an alias. Two files with the
+    // same stem stay ambiguous. The channels are never merged.
+    const unique = (candidates, nav) => {
+      let c = candidates;
+      if (nav && c.length > 1) { const real = c.filter(path => !isMoc(path)); if (real.length) c = real; }
+      if (c.length === 1) return c[0];
+      const named = c.filter(path => stemOf.get(path) === key);
+      return named.length === 1 ? named[0] : undefined;
+    };
+    byName.set(key, unique(raw.length ? raw : content, false));
+    byName.set(key + NAV, unique(content.length ? content : raw, true));
   }
   return byName;
 }

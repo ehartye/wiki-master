@@ -238,3 +238,76 @@ test('authored empty-source disclosure tolerates YAML comments', t => {
   });
   assert.equal(f.scan().defectCount, 0);
 });
+
+// ----------------------------------------------- name beats a shared title --
+// Some sites serve every part of a document under one HTML <title> (Cornell LII gives a case's
+// syllabus and opinion the same title). The clipper keeps the title in `title:` and names the files
+// differently, so a link by title had two candidates. The file whose NAME equals the link is the one
+// Obsidian opens and the one a consumer app loads, so it outranks files that only share the title.
+// The two channels stay separate: the rule picks within the raw files for a citation and within the
+// content pages for navigation.
+const clip = (title, body = 'The document text.') => `---\ntitle: ${JSON.stringify(title)}\nsource: "https://example.org/x"\n---\n${body}\n`;
+const CASE = 'Smith v. Jones, 1 U.S. 1 (1990).';
+const CASE_PAIR = {
+  [`raw/clippings/${CASE}.md`]: clip(CASE, 'Syllabus.'),
+  'raw/clippings/90-1.ZO.html.md': clip(CASE, 'The full opinion.'),
+};
+
+test('a citation by title resolves to the clipping whose filename equals it, not to a clipping that only shares the title', t => {
+  const f = fixture(t, {
+    ...CASE_PAIR,
+    'wiki/sources/Smith summary.md': note(SUBSTANTIVE, `type: source\nstatus: maintained\nsources: ["[[${CASE}]]"]`),
+    'wiki/concepts/Doctrine.md': note(`${SUBSTANTIVE} [[${CASE}]]`),
+  });
+  const r = f.scan();
+  assert.deepEqual(r.issues.map(x => `${x.rule} ${x.source}`), []);
+  assert.equal(r.defectCount, 0);
+});
+
+test('two files with the same filename stem stay ambiguous even when a third only shares the title', t => {
+  const f = fixture(t, {
+    [`raw/clippings/${CASE}.md`]: clip(CASE),
+    [`raw/clippings/other/${CASE}.md`]: clip(CASE, 'A second capture with the same name.'),
+    'raw/clippings/90-1.ZO.html.md': clip(CASE),
+    'wiki/sources/Smith summary.md': note(SUBSTANTIVE, `type: source\nstatus: maintained\nsources: ["[[${CASE}]]"]`),
+  });
+  const rules = f.scan().issues.map(x => x.rule);
+  assert.ok(rules.includes('ambiguous-link'));
+});
+
+test('in navigation, the content page named for a link outranks another content page that only has that title', t => {
+  const f = fixture(t, {
+    'wiki/concepts/Alpha.md': note(SUBSTANTIVE),
+    'wiki/concepts/Beta.md': note(SUBSTANTIVE, 'type: concept\nstatus: maintained\ntitle: "Alpha"\nsources: []'),
+    'wiki/concepts/Hub.md': note(`${SUBSTANTIVE} [[Alpha]]`),
+  });
+  assert.deepEqual(f.scan().issues.filter(x => x.rule === 'ambiguous-link'), []);
+});
+
+// ------------------------------------------ a generated MOC and its entity --
+// moc-authored-gen writes moc/<project>.md for every authored project. When the vault also has an
+// entity page for the project, the two share a basename and every bare mention became ambiguous. A
+// catalog is navigation with no content of its own, so in navigation the entity wins.
+const MOC = '---\ntype: moc\n---\n# Catalog\n- [[wiki/authored/proj/overview]]\n';
+
+test('a bare link to a project name reaches the entity page, not the generated MOC with the same name', t => {
+  const f = fixture(t, {
+    'moc/proj.md': MOC,
+    'wiki/entities/proj.md': note(SUBSTANTIVE, 'type: entity\nstatus: maintained\nsources: []'),
+    'wiki/concepts/Mentions proj.md': note(`${SUBSTANTIVE} The plugin [[proj]] maintains this.`),
+  });
+  assert.deepEqual(f.scan().issues.filter(x => x.rule === 'ambiguous-link'), []);
+});
+
+test('the MOC is still reachable by its path, and two non-MOC pages with one name stay ambiguous', t => {
+  const f = fixture(t, {
+    'moc/proj.md': MOC,
+    'wiki/entities/proj.md': note(SUBSTANTIVE, 'type: entity\nstatus: maintained\nsources: []'),
+    'wiki/concepts/Path link.md': note(`${SUBSTANTIVE} See [[moc/proj]].`),
+    'wiki/concepts/two/same.md': note(SUBSTANTIVE),
+    'wiki/entities/same.md': note(SUBSTANTIVE, 'type: entity\nstatus: maintained\nsources: []'),
+    'wiki/concepts/Uses same.md': note(`${SUBSTANTIVE} [[same]]`),
+  });
+  const amb = f.scan().issues.filter(x => x.rule === 'ambiguous-link');
+  assert.deepEqual(amb.map(x => x.target), ['same']);
+});

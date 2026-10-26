@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildGraph, citationBody, isContent, isEvidencePath, isStub } from './graph.mjs';
+import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } from './graph.mjs';
 import { normalizeIdentity, parseNote, withoutComment } from './note.mjs';
 
 const blank = text => text.replace(/[^\r\n]/g, ' ');
@@ -90,6 +90,7 @@ function prepare(page, markdown) {
 
 function resolver(pages) {
   const exact = new Map(), stems = new Map(), labels = new Map();
+  const names = new Map(pages.map(p => [p.path, normalizeIdentity(p.name)]));
   const add = (map, key, path) => {
     key = normalizeIdentity(key);
     if (!map.has(key)) map.set(key, new Set());
@@ -108,9 +109,16 @@ function resolver(pages) {
     if (exact.has(key)) return [...exact.get(key)].sort();
     if (stems.has(key)) return [...stems.get(key)].sort();
     if (key.includes('/')) return [];
-    const candidates = [...(labels.get(key) ?? labels.get(key.replace(/\.md$/i, '')) ?? [])];
-    const preferred = candidates.filter(path => nav ? isContent(path) : path.startsWith('raw/'));
-    return (preferred.length ? preferred : candidates).sort();
+    const label = labels.has(key) ? key : key.replace(/\.md$/i, '');
+    const candidates = [...(labels.get(label) ?? [])];
+    let preferred = candidates.filter(path => nav ? isContent(path) : path.startsWith('raw/'));
+    if (!preferred.length) preferred = candidates;
+    // Within the channel: a generated MOC yields to real content in navigation, then a file whose
+    // NAME is the link outranks files that only share its title or an alias. Two files with the
+    // same stem stay ambiguous.
+    if (nav && preferred.length > 1) { const real = preferred.filter(path => !isMoc(path)); if (real.length) preferred = real; }
+    if (preferred.length > 1) { const named = preferred.filter(path => names.get(path) === label); if (named.length === 1) preferred = named; }
+    return preferred.sort();
   };
 }
 

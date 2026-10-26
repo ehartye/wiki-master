@@ -44,7 +44,8 @@ Steps:
    scan for the project's backlog, MOC and global index). With concurrent writers pass
    `--paths-file <ledger>` to omit their untracked additions. Inspect the returned
    `changed` paths and add the safe catalog paths to the ledger; when the refresh added
-   paths, rerun step 5's check.
+   paths, rerun step 5's check. If the result lists `staleCatalogs`, other projects' generated
+   catalogs now hold a bare link your pages made ambiguous: refresh each named project too.
 7. Complete the shared operations contract: one relink log entry, then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`.
    Verify the commit and index-refresh notices, push with `wiki-sync.mjs`, and

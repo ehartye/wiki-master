@@ -57,6 +57,8 @@
   citing `21 CFR Part 11`'s source page). A link from *within* the same
   project's own pages can stay bare.
 
+  Two rules decide a bare name before it counts as ambiguous. A file whose own name equals the link outranks files that only share that name as a `title:` or alias (a site that serves a case's syllabus and opinion under one title gives two clippings one title; the clipping named for the link is the one Obsidian opens). And in navigation a project's generated hub MOC (`moc/<project>.md`) yields to a page of the same name, so a bare `[[<project>]]` reaches the entity page; the MOC is still reached by `[[moc/<project>]]`. Two files with the same name stay ambiguous. After a refresh scoped to one project, the result's `staleCatalogs` names other projects' generated catalogs whose bare link your new pages made ambiguous; refresh each named project.
+
   **The backlog is a folder of small items, never one growing document.** A
   tracked item is its own file, `<project>/backlog/<item-slug>.md`
   (`kind: backlog-item`, `backlog-status: planned | in-progress | shipped |
