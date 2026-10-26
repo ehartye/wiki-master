@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
-import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import {
   parseFigureArgs, renderFigures, resolveFigureTools, setClippingFigures, figureSummary,
@@ -396,20 +397,7 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
 export function main(argv) {
   const pdfPath = argv[0];
   if (!pdfPath) {
-    console.error('usage: clip-pdf.mjs <file.pdf> [--source="<url-or-path>"] [--quality=high|medium|low]');
-    console.error('                          [--mode=auto|reading-order|table] [--ocr] [--ocr-lang=eng]');
-    console.error('                          [--topic="<research topic>"] [--decline="reason"] [--doctor]');
-    console.error('                          [--figures[=auto|all|3,5-7]] [--figures-max=N]');
-    console.error('       clip-pdf.mjs <file.pdf> --figures-only --clipping <raw/clippings/x.md> [--figures=...]');
-    console.error('');
-    console.error('  --mode   reading mode. auto (default) lets the tabular detector choose;');
-    console.error('           reading-order and table override it when it gets a document wrong.');
-    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
-    console.error('           without it, /wiki-triage can never group this clipping by run.');
-    console.error('  --figures render figure pages to raw/figures (poppler pdftoppm). auto = pages with embedded');
-    console.error('           rasters or vector drawings; all = every page; or a page list. Cap 40 (--figures-max).');
-    console.error('  --figures-only  add figures to an EXISTING clipping from the PDF you supply (frontmatter only).');
-    console.error('  --doctor report which external tools are installed, then exit.');
+    for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
     process.exit(2);
   }
   let readingMode;
@@ -475,7 +463,7 @@ export function main(argv) {
 
   if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
 
-  const title = titleFromPdf(pdfPath);
+  const title = titleFromArgs(argv, titleFromPdf(pdfPath));
   const forceOcr = argv.includes('--ocr');
   const langArg = argv.find((a) => a.startsWith('--ocr-lang='));
   const lang = langArg ? langArg.split('=')[1] : 'eng';
@@ -551,7 +539,9 @@ export function main(argv) {
   // it — silently losing a distinct source is worse than a suffixed slug.
   // Case-insensitive to match the filesystem and Obsidian's wikilink resolution.
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
-  const slug = disambiguateSlug(slugify(title), clip.hash, (s) => taken.has(s.toLowerCase()));
+  const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
+  if (claim.clash) return { status: 'clash', existing: claim.existing };
+  const slug = claim.slug;
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
@@ -569,4 +559,7 @@ export function main(argv) {
   return { status: 'clipped', slug, file, figures };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-pdf']);
+  main(process.argv.slice(2));
+}
