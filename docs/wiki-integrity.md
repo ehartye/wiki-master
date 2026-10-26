@@ -20,6 +20,7 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 | `unresolved-citation` | A wikilink in `sources:` or an explicit factual-body link into `raw/` or `wiki/sources/` has no target. Links in Related/Relationships sections are navigation. |
 | `ambiguous-link` | The selected navigation/evidence identity has multiple candidates; qualify the intended path. |
 | `malformed-link` | An actual wikilink is unclosed, empty, or crosses a line break. |
+| `malformed-frontmatter` | A page opens with a frontmatter fence but its metadata is not read: the fence line carries a stray carriage return (`---\r\r\n`) or is never closed, or the block holds a carriage return that is not half of a CRLF. Carriage returns in the body are not this rule. It replaces the `missing-evidence` the unread `sources:` would otherwise cause. |
 | `missing-evidence` | A substantive derived page lacks its evidence route. Source summaries need a direct raw citation; other derived pages need a route within three evidence hops. |
 
 Actual citation defects apply even to stubs. Missing-evidence checks exempt declared

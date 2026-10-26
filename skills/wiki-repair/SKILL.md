@@ -35,7 +35,9 @@ of a source is a citation contract even on a stub.
    verify the supported claim. A unique matching source hash can establish the
    clipping's identity; similarity cannot. For `ambiguous-link`, read candidates
    and qualify the intended canonical path. For `malformed-link`, establish the
-   intended syntax/target before editing. For `missing-evidence`, inspect substantive
+   intended syntax/target before editing. For `malformed-frontmatter`, the page's
+   metadata was not read: look at the bytes of its fence lines, normalise only the
+   damaged line ending (or close the fence) and change no text. For `missing-evidence`, inspect substantive
    claims and their provenance; missing support needs evidence work, not invented
    citations. Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
