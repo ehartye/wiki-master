@@ -86,16 +86,16 @@ test('parseTopicArg normalizes exactly as normalizeTopic does', () => {
 // Guards the regression that motivated this change: the usage text is the only
 // place a human learns the flag exists.
 test('every clipper advertises --topic in its usage text', async () => {
+  // The usage text of every clipper lives in lib/clip-args.mjs and is what each one prints, both when
+  // its target is missing and for --help (test/clip-args.test.mjs runs them). Check the text itself.
+  const { CLIP_SPECS } = await import('../scripts/lib/clip-args.mjs');
   const { readFileSync } = await import('node:fs');
   const { fileURLToPath } = await import('node:url');
   const root = fileURLToPath(new URL('../scripts/', import.meta.url));
-  for (const f of ['clip-pdf.mjs', 'clip-docx.mjs', 'clip-xlsx.mjs', 'clip.mjs']) {
-    const src = readFileSync(root + f, 'utf8');
-    // The help block is the console.error run around the `usage:` line -- the
-    // flag list wraps onto continuation lines, so a single-line grep would miss
-    // a flag that is genuinely documented.
-    const help = src.split('\n').filter((l) => l.includes('console.error(')).join('\n');
-    assert.match(help, /usage: clip/, `${f} has no usage line`);
-    assert.match(help, /--topic/, `${f} help text must advertise --topic`);
+  for (const [name, spec] of Object.entries(CLIP_SPECS)) {
+    const help = spec.usage.join('\n');
+    assert.match(help, new RegExp(`usage: ${name}\\.mjs`), `${name} has no usage line`);
+    assert.match(help, /--topic/, `${name} help text must advertise --topic`);
+    assert.match(readFileSync(root + `${name}.mjs`, 'utf8'), new RegExp(`CLIP_SPECS\\['${name}'\\]\\.usage`), `${name} must print the shared usage text`);
   }
 });

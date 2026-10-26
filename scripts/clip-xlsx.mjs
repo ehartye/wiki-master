@@ -5,10 +5,11 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
-import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
+import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -62,11 +63,7 @@ function sofficeReachable() {
 export function main(argv) {
   const xlsxPath = argv[0];
   if (!xlsxPath) {
-    console.error('usage: clip-xlsx.mjs <file.xlsx> [--source="<url-or-path>"] [--quality=high|medium|low]');
-    console.error('                           [--topic="<research topic>"] [--decline="reason"]');
-    console.error('');
-    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
-    console.error('           without it, /wiki-triage can never group this clipping by run.');
+    for (const line of CLIP_SPECS['clip-xlsx'].usage) console.error(line);
     process.exit(2);
   }
   const srcArg = argv.find((a) => a.startsWith('--source='));
@@ -114,7 +111,7 @@ export function main(argv) {
     return { status: 'failed' };
   }
 
-  const title = titleFromXlsx(xlsxPath);
+  const title = titleFromArgs(argv, titleFromXlsx(xlsxPath));
   const clip = xlsxClipContent({ title, source, text, quality, topic });
 
   if (clip.wordCount < THIN_WORD_FLOOR) {
@@ -138,7 +135,9 @@ export function main(argv) {
   // A slug collision that is NOT a hash match is a DIFFERENT workbook sharing a
   // title. Disambiguate rather than drop.
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
-  const slug = disambiguateSlug(slugify(title), clip.hash, (s) => taken.has(s.toLowerCase()));
+  const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
+  if (claim.clash) return { status: 'clash', existing: claim.existing };
+  const slug = claim.slug;
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
@@ -146,4 +145,7 @@ export function main(argv) {
   return { status: 'clipped', slug, file };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-xlsx']);
+  main(process.argv.slice(2));
+}

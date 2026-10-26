@@ -1,17 +1,18 @@
-import { readFileSync, existsSync, writeFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
-import { clipSafeName } from './lib/clip-names.mjs';
+import { slugify, slugFromUrl, chooseClipSlug, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -64,28 +65,8 @@ const DEFAULT_USER_AGENT =
 // the vault is not English; it is the one knob.
 const CLIP_LANG = 'en';
 
-export function slugify(title) {
-  const s = clipSafeName((title || '')
-    .replace(/[\\/:*?"<>|#^[\]]/g, '-')
-    .replace(/\s+/g, ' ')
-    .replace(/-+/g, '-')
-    .trim());
-  return s.slice(0, 120).replace(/[-\s]+$/, '') || 'untitled';
-}
-
-// Fallback slug when a page's <title> collides with an existing clipping — some
-// sites (e.g. iquilezles.org) reuse one <title> across every article, so the
-// title-derived slug is not unique. The URL's last path segment is.
-export function slugFromUrl(url) {
-  try {
-    const { pathname, hostname } = new URL(url);
-    const segs = pathname.split('/').filter(Boolean);
-    const last = segs.length ? decodeURIComponent(segs[segs.length - 1]) : hostname;
-    return slugify(last);
-  } catch {
-    return 'untitled';
-  }
-}
+// slugify and slugFromUrl live in lib/clip-slug.mjs with the rest of the naming rule; same exports.
+export { slugify, slugFromUrl };
 
 // Resolve a slug collision without losing the clipping. Same-source re-clips are
 // already caught upstream (isDuplicateUrl), so a collision reaching here is a
@@ -236,6 +217,61 @@ export function knownSourceUrls(vaultPath) {
     if (m) urls.push(m[1].trim());
   }
   return urls;
+}
+
+// The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
+// holds. Only the head of each file is read: the frontmatter is at the top.
+export function clippingTitles(vaultPath) {
+  const dir = join(vaultPath, 'raw', 'clippings');
+  const titles = new Set();
+  if (!existsSync(dir)) return titles;
+  const buf = Buffer.alloc(32768);
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.md')) continue;
+    let head = '';
+    try {
+      const fd = openSync(join(dir, f), 'r');
+      try { head = buf.toString('utf8', 0, readSync(fd, buf, 0, buf.length, 0)); } finally { closeSync(fd); }
+    } catch { continue; }
+    const m = head.match(/^title:[ \t]*(.*)$/m);
+    if (!m) continue;
+    let value = m[1].trim();
+    if (value.startsWith('"')) { try { value = JSON.parse(value); } catch { /* keep the raw text */ } }
+    if (value) titles.add(String(value).trim().toLowerCase());
+  }
+  return titles;
+}
+
+const MAX_WRITE_ATTEMPTS = 5;
+
+// `--title=<text>` for the clippers whose title otherwise comes from the file name. An empty value keeps
+// the fallback.
+export function titleFromArgs(argv, fallback) {
+  const arg = argv.find((a) => a.startsWith('--title='));
+  const value = arg ? arg.slice('--title='.length).trim() : '';
+  return value || fallback;
+}
+
+// The name for a document clipping (PDF, DOCX, PPTX, XLSX). Without --slug: the title's slug, made unique
+// with the content hash as before. With --slug: exactly that name, and a name that is taken is a clash,
+// recorded for triage, with nothing written and nothing suffixed.
+export function chooseDocumentSlug({ vaultPath, argv, title, hash, taken, source, topic }) {
+  const arg = argv.find((a) => a.startsWith('--slug='));
+  const wanted = arg ? arg.slice('--slug='.length).trim() : '';
+  if (!wanted) return { slug: disambiguateSlug(slugify(title), hash, (s) => taken.has(s.toLowerCase())) };
+  const slug = slugify(wanted);
+  if (!taken.has(slug.toLowerCase())) return { slug };
+  const reason = `raw/clippings/${slug}.md already exists and no alternative name could be written; nothing was written`;
+  recordIssue(vaultPath, { url: source, kind: 'attention', reason, topic, source: `raw/clippings/${slug}.md` });
+  console.log(`clash: ${source}: ${reason}`);
+  return { clash: true, existing: slug };
+}
+
+// Create `<slug>.md` only if no file of that name exists: a clip that loses a race to another session
+// must not overwrite the winner. Returns false when the name was taken.
+export function writeClippingExclusive(dir, slug, text) {
+  try { writeFileSync(join(dir, `${slug}.md`), text, { flag: 'wx' }); return true; }
+  catch (e) { if (e.code === 'EEXIST') return false; throw e; }
 }
 
 // The ladder crosses two axes: how to launch Defuddle, and whether to claim to be
@@ -408,9 +444,9 @@ export function extractionAvailable() {
   return false;
 }
 
-export function main(argv, { extract = runDefuddleJson } = {}) {
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive } = {}) {
   const url = argv[0];
-  if (!url) { console.error('usage: clip.mjs <url> [--quality=high|medium|low] [--topic="..."] [--decline="reason"]'); process.exit(2); }
+  if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
@@ -549,27 +585,47 @@ export function main(argv, { extract = runDefuddleJson } = {}) {
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
   }
 
+  const clippingsDir = join(vaultPath, 'raw', 'clippings');
+  // A title is an identity in this vault: a new clip does not take one another clipping already holds.
+  const title = uniqueTitle({ title: data.title, url, taken: clippingTitles(vaultPath) });
   const created = today();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({
-    title: data.title, source: url, author: data.author,
+    title, source: url, author: data.author,
     published: data.published, created, quality, hash, topic, extraction,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
   });
-  let slug = slugify(data.title);
-  let file = join(vaultPath, 'raw', 'clippings', `${slug}.md`);
-  if (existsSync(file)) {
-    // Same-URL re-clips are already caught above by isDuplicateUrl, so a slug
-    // clash here means a *different* page shares this title. Disambiguate via
-    // the URL path before giving up as a duplicate.
-    const altSlug = slugFromUrl(url);
-    const altFile = join(vaultPath, 'raw', 'clippings', `${altSlug}.md`);
-    if (existsSync(altFile)) { console.log(`exists (slug clash): ${slug}`); return { status: 'duplicate' }; }
-    slug = altSlug;
-    file = altFile;
+  // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
+  // exclusive create so a clip never overwrites a file another session just made. A name nobody can
+  // take is a `clash`, never a `duplicate`: it is recorded and named so the document is not lost silently.
+  const slugArg = argv.find((a) => a.startsWith('--slug='));
+  const ownerSlug = slugArg && slugArg.slice('--slug='.length).trim() ? slugify(slugArg.slice('--slug='.length)) : null;
+  // lowercase name -> the name as it is on disk, so a clash can name the file that is really there
+  const names = new Map((existsSync(clippingsDir) ? readdirSync(clippingsDir) : []).filter((f) => f.toLowerCase().endsWith('.md')).map((f) => [f.slice(0, -3).toLowerCase(), f.slice(0, -3)]));
+  const exists = (s) => names.has(s.toLowerCase());
+  const heading = firstHeading(md);
+  const content = `${fm}\n\n${md}\n`;
+  let slug = null;
+  let clashWith = null;
+  for (let lost = 0; ;) {
+    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : chooseClipSlug({ title, heading, url, exists });
+    if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
+    if (writeClipping(clippingsDir, pick.slug, content)) { slug = pick.slug; break; }
+    // Lost a race: the name was free when we looked and taken when we wrote.
+    names.set(pick.slug.toLowerCase(), pick.slug);
+    if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+      closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
+      console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
+    }
+    if (++lost >= MAX_WRITE_ATTEMPTS) { clashWith = names.get(pick.slug.toLowerCase()) ?? pick.slug; break; }
   }
-
-  writeFileSync(file, `${fm}\n\n${md}\n`);
+  if (slug === null) {
+    const reason = `raw/clippings/${clashWith}.md already exists and no alternative name could be written; nothing was written`;
+    recordIssue(vaultPath, { url, kind: 'attention', reason, topic, source: `raw/clippings/${clashWith}.md` });
+    console.log(`clash: ${url}: ${reason} (choose a name with --slug=<name>)`);
+    return { status: 'clash', existing: clashWith };
+  }
+  const file = join(clippingsDir, `${slug}.md`);
   // Written first, closed second: a row must never be marked resolved by a clip
   // that then failed to land. Ordering it this way makes the worst case a stale
   // OPEN row (visible, re-runnable) instead of a silently closed one.
@@ -583,4 +639,7 @@ export function main(argv, { extract = runDefuddleJson } = {}) {
   return { status: 'clipped', slug, file };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip']);
+  main(process.argv.slice(2));
+}

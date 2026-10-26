@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
@@ -580,22 +581,7 @@ export function main(argv) {
       }
       return { status: 'ok' };
     }
-    console.error('usage: clip-gh.mjs <owner/repo | github-url> [--ref=<branch>] [--quality=high|medium|low]');
-    console.error('                        [--topic="<research topic>"] [--max-files=N] [--force-full]');
-    console.error('                        [--max-groups=N]');
-    console.error('                        [--decline="reason"]');
-    console.error('       clip-gh.mjs --doctor   (check whether gh is installed and authenticated)');
-    console.error('');
-    console.error('  Clones the repo to a temp directory (never into the vault), then writes ONE');
-    console.error('  clipping per included source file to raw/clippings/gh/<owner>/<repo>/ — never');
-    console.error('  one giant dump of the whole repo. Excludes dependency/build directories,');
-    console.error('  binaries, lockfiles, and oversized files by default.');
-    console.error('');
-    console.error('  A repo over the per-file cap (default 300) switches to DIGEST mode instead of');
-    console.error('  refusing: a manifest + bounded per-module file listings + a small set of full');
-    console.error('  anchor clips (README, LICENSE, top-level manifests), never one file per source');
-    console.error('  file. Pass --force-full (with a raised --max-files) to force the old exhaustive');
-    console.error('  per-file behavior on a large repo instead.');
+    for (const line of CLIP_SPECS['clip-gh'].usage) console.error(line);
     process.exit(2);
   }
 
@@ -708,4 +694,7 @@ export function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-gh']);
+  main(process.argv.slice(2));
+}

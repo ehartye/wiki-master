@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
+import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
@@ -90,12 +91,7 @@ function runConfluencerPage(scriptsDir, target, { run = execFileSync } = {}) {
 export function main(argv) {
   const target = argv[0];
   if (!target) {
-    console.error('usage: clip-confluence.mjs <confluence-url-or-page-id> [--quality=high|medium|low]');
-    console.error('                                 [--topic="<research topic>"] [--decline="reason"]');
-    console.error('       clip-confluence.mjs --doctor   (check whether confluencer is installed)');
-    console.error('');
-    console.error('  --topic  the research run this clip belongs to. Recorded going forward only:');
-    console.error('           without it, /wiki-triage can never group this clipping by run.');
+    for (const line of CLIP_SPECS['clip-confluence'].usage) console.error(line);
     process.exit(2);
   }
 
@@ -236,4 +232,7 @@ export function main(argv) {
   return { status: 'clipped', slug, file, space: parsed.space, pageId: parsed.pageId, version: parsed.version };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-confluence']);
+  main(process.argv.slice(2));
+}

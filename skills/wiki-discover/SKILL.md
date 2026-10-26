@@ -126,6 +126,21 @@ records the decline automatically; report it for manual clipping, don't retry
 blindly. A `failed` result (403/transient) is NOT auto-declined — it may recover,
 and a 180-day TTL would bury a source you still want.
 
+**What a clip result means.** `clip.mjs` prints one result per URL:
+
+| Result | Meaning | What you do |
+|---|---|---|
+| `clipped: raw/clippings/<name>.md` | written | cite that path |
+| `duplicate (already clipped)` | this URL is already in the vault, also when another session wrote it first | nothing; do not clip it again |
+| `clash: <url>: raw/clippings/<name>.md already exists ...` | the URL is new but every name it could have had was taken; **nothing was written** and one `attention` row is queued in triage | open the file named in the line and read its `source:` to see what holds the name, then re-run with `--slug=<name>`, or leave the row for `/wiki-triage` |
+| `declined`, `blocked`, `thin content`, `failed` | see below | see below |
+
+A taken file name is a `clash`, never a `duplicate`: a `duplicate` always means the same URL.
+
+**Names.** A page's title names its file. A document with no title and no heading is named from its URL path, nearest folder first, so `.../skills/one/SKILL.md` is `one-SKILL.md` and `.../skills/two/SKILL.md` is `two-SKILL.md`; the bare last segment is used only after the folders. The frontmatter `title:` stays exactly what the extractor returned, so `title: ""` on such a clipping is not a defect. A new clipping never ends `.md.md`; an older one may, and its name is still valid. A title another clipping already holds gets the distinguishing URL part added, for example `Smith v. Jones (93-1260.ZO)`. `--slug=<name>` chooses the file name without `.md`; a taken name is a clash and is never suffixed. `clip-pdf`, `clip-docx`, `clip-pptx` and `clip-xlsx` also take `--title="<text>"`, for a file whose name is not its title (`valve.pdf`), and `--slug=<name>`.
+
+An option a clipper does not know exits 2 with its usage and clips nothing; `--help` prints the usage and clips nothing.
+
 **Every unresolved link is queued for triage automatically.** `clip.mjs` records
 `failed`, `thin`, and `wrong-node` outcomes to `.wiki-master/triage.jsonl`, so a
 link that needs a human survives the terminal scrollback. Do not rely on your
