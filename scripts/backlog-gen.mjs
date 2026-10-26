@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
-import { groupByProject, groupByBacklogStatus } from './lib/authored-group.mjs';
+import { groupByProject, groupByBacklogStatus, unrecognizedBacklogItems, BACKLOG_STATUS_ORDER } from './lib/authored-group.mjs';
 import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
@@ -63,6 +63,12 @@ export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
     return p.backlogStatus === 'planned' && a.deps.length > 0 && a.unmet.length === 0 && a.malformed.length === 0;
   });
   if (ready.length) lines.push('## Ready to start', ...ready.sort(byName).map((p) => link(p, ambiguousNames)), '');
+  // An item outside the vocabulary is listed, never dropped: a roadmap that skips it hides open work.
+  const unrecognized = unrecognizedBacklogItems(pages);
+  if (unrecognized.length) {
+    lines.push('## Unrecognized status', `Set backlog-status to one of ${BACKLOG_STATUS_ORDER.join(', ')}.`,
+      ...unrecognized.sort(byName).map((p) => link(p, ambiguousNames) + (p.backlogStatus ? ` — ${code(p.backlogStatus)}` : ' — no backlog-status')), '');
+  }
   return lines.join('\n').trimEnd();
 }
 
@@ -70,10 +76,14 @@ export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
 // a project folder (authored-contract.mjs: REQUIRED_KEYS and PROJECT_KEYS), because the project
 // map groups pages by `project:` and a page without one is never listed there. `reviewed` is left
 // out: nobody has reviewed a page a script just wrote. Both dates are the UTC day of the run.
-// The project is written as a plain YAML scalar, so a name that is not one is not handled.
-function roadmapStub(projectTitle, now) {
+// The project is written bare when it is a plain scalar (letters, digits and `_ . / -` with inner
+// spaces, so `acme/tool` and `anika-valley 2` read as before) and double-quoted otherwise, because a
+// ` #` would start a comment and a `: ` would split a key.
+const isPlainScalar = (s) => /^[\p{L}\p{N}_.][\p{L}\p{N}_. /-]*$/u.test(s) && !s.endsWith(' ');
+export function roadmapStub(projectTitle, now) {
   const day = now.toISOString().slice(0, 10);
-  return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${projectTitle}\nkind: roadmap\n---\n# ${projectTitle} — roadmap\n\n## Summary\n\n`;
+  const project = isPlainScalar(projectTitle) ? projectTitle : JSON.stringify(projectTitle);
+  return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${project}\nkind: roadmap\n---\n# ${projectTitle} — roadmap\n\n## Summary\n\n`;
 }
 
 function writeFenced(path, catalog, projectTitle, now) {
@@ -115,14 +125,16 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: s
   const projects = groupByProject(items);
   const written = [];
   const changed = [];
+  const unrecognized = [];
   for (const { project, pages: projectItems } of projects) {
     if (selectedProject !== undefined && project.toLowerCase() !== selectedProject.toLowerCase()) continue;
     written.push(project);
+    unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
     if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
     if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project, now)) changed.push(relative(vaultPath, roadmapPath).replaceAll('\\', '/'));
   }
-  return { written, changed };
+  return { written, changed, unrecognized };
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -130,7 +142,8 @@ export function main(argv = process.argv.slice(2)) {
   const { apply, project, pathsFile } = catalogArgs(argv);
   if (pathsFile) throw new Error('--paths-file is supported by refresh-catalogs.mjs only');
   const r = regenerateBacklogRoadmaps(vaultPath, { apply, project });
-  console.log(JSON.stringify({ type: 'backlog-gen', applied: apply, projects: r.written, changed: r.changed }));
+  console.log(JSON.stringify({ type: 'backlog-gen', applied: apply, projects: r.written, changed: r.changed, ...(r.unrecognized.length ? { unrecognized: r.unrecognized } : {}) }));
+  if (r.unrecognized.length) console.error(`${r.unrecognized.length} backlog item(s) have a status outside the vocabulary and are listed under "Unrecognized status": ${r.unrecognized.join(', ')}`);
   if (!apply) console.error('dry run — re-run with --apply to write');
   return r;
 }
