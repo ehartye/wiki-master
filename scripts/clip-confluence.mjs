@@ -7,7 +7,8 @@ import { homedir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { recordDecline } from './lib/decline.mjs';
+import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
@@ -138,10 +139,10 @@ export function main(argv) {
     return { status: 'declined' };
   }
 
-  const declines = loadDeclines(vaultPath);
-  if (isDeclined(target, declines)) {
-    const e = declines.find((d) => isDeclined(target, [d]));
-    console.log(`declined previously (${e.date}: ${e.reason}): ${target}`);
+  const gate = declineGate(vaultPath, target, argv);
+  if (gate.blocked) {
+    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    console.log(gate.message);
     return { status: 'declined' };
   }
 
@@ -229,6 +230,7 @@ export function main(argv) {
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, confluence, space=${parsed.space || '?'}, v${parsed.version || '?'})`);
+  gate.finish();
   return { status: 'clipped', slug, file, space: parsed.space, pageId: parsed.pageId, version: parsed.version };
 }
 

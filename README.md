@@ -148,6 +148,10 @@ counterpart (advisory documentation, policy, house style) declares it via
 `project`/`kind` so they group under a generated `moc/<project>.md` hub instead
 of one flat, ungrouped catalog.
 
+### Declines
+
+A source a clipper declines (`--decline="reason"`, or its own thin-content and wrong-node verdicts) is recorded in `.wiki-master/declined.json` for 180 days, and every clipper skips it. Two flags on any clipper lift an active decline, but only after the clipping has been written, so a clip that fails leaves the decline where it was. `--override-decline` lifts a decline the clippers recorded themselves (a reason that starts `thin content`, `thin text` or `likely wrong-node extraction`), for a source obtained another way: a saved file, a print to PDF. A decline someone recorded on purpose is not lifted by it. `--supersede-decline="reason"` lifts any decline and records why. Neither deletes: the entry keeps its original reason and date, gains the new reason and date, and declining the same source again appends to the entry's history instead of replacing it. An older copy of the plugin ignores the new fields and still treats the entry as declined.
+
 ## Development
 
 `npm test` (or `node --test`) runs the unit suite for the deterministic scripts

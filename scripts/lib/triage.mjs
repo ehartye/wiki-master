@@ -57,7 +57,9 @@ function append(vaultPath, event) {
 // gave /wiki-discover. It is carried here as well as in clipping frontmatter
 // because these two populations do not overlap: a clip that 403s never becomes
 // a file, so frontmatter cannot speak for it. See lib/topic.mjs.
-export function recordIssue(vaultPath, { url, kind, reason, title = null, source = null, topic = null }) {
+// `retryable` marks an `attention` row that asks for a person only until a later clip of the same URL lands (a clip that
+// could not be named). Older readers ignore the field and leave such a row open.
+export function recordIssue(vaultPath, { url, kind, reason, title = null, source = null, topic = null, retryable = null }) {
   if (!ISSUE_KINDS.includes(kind)) throw new Error(`unknown issue kind: ${kind}`);
   return append(vaultPath, {
     t: 'issue',
@@ -67,6 +69,7 @@ export function recordIssue(vaultPath, { url, kind, reason, title = null, source
     title,
     source,
     topic: normalizeTopic(topic),
+    ...(retryable ? { retryable } : {}),
     at: new Date().toISOString(),
   });
 }
@@ -124,6 +127,7 @@ export function openIssues(log) {
         // that null overwrite the original attribution would move a row into
         // Unattributed precisely because it recurred.
         topic: e.topic ?? prior?.topic ?? null,
+        ...(e.retryable ? { retryable: e.retryable } : {}),
         firstSeen: prior?.firstSeen ?? e.at,
         lastSeen: e.at,
         occurrences: (prior?.occurrences ?? 0) + 1,
@@ -164,7 +168,7 @@ export function closeIssuesResolvedByClip(vaultPath, url, outcome = 'clipped') {
   const target = key(url, '');
   let closed = 0;
   for (const issue of open) {
-    if (!CLIP_RESOLVES_KINDS.includes(issue.kind)) continue;
+    if (!CLIP_RESOLVES_KINDS.includes(issue.kind) && !(issue.kind === 'attention' && issue.retryable)) continue;
     if (key(issue.url, '') !== target) continue;
     disposeIssue(vaultPath, {
       url: issue.url,

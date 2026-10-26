@@ -90,7 +90,7 @@ The dispositions a row offers depend on its kind. Clip failures (`failed`, `gone
 | disposition | what you do |
 |---|---|
 | `clipped-manually` (shown as "clipped by hand") | confirm a clipping for that URL exists in `raw/clippings/`; if not, say so |
-| `downloaded` | the user saved the source file themselves ("browse — clip this file"): `apply-reclips.mjs` re-clips an existing clipping from it; for a URL with no clipping yet, run the matching document clipper on the saved file with `--source="<url>"` and the run's `--topic` (a URL still in the decline log is skipped there too) |
+| `downloaded` | the user saved the source file themselves ("browse — clip this file"): `apply-reclips.mjs` re-clips an existing clipping from it; for a URL with no clipping yet, run the matching document clipper on the saved file with `--source="<url>"` and the run's `--topic`. A URL still in the decline log is skipped; add `--override-decline` when the decline is an automatic thin or wrong-node one (the clipper lifts it only after the clipping is written), or `--supersede-decline="<why>"` for any other |
 | `retry` | re-run `clip.mjs` for that URL — a transient failure may have cleared |
 | `declined` | `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<reason>"` |
 | `reconsider` | the decline is expiring and they want it re-evaluated — treat as a discovery candidate |

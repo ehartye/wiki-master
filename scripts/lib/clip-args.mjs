@@ -144,6 +144,18 @@ export const CLIP_SPECS = {
   },
 };
 
+// Every clipper takes the two flags that lift an active decline once its clip is written (decline-gate.mjs).
+const DECLINE_USAGE = [
+  '  --override-decline  lift a decline the clippers recorded themselves (thin content, wrong node) once this clip is written',
+  '  --supersede-decline="reason"  lift any decline once this clip is written, and record why',
+];
+for (const spec of Object.values(CLIP_SPECS)) {
+  spec.values.push('supersede-decline');
+  spec.flags.push('override-decline');
+  const at = spec.usage.indexOf('');
+  spec.usage.splice(at < 0 ? spec.usage.length : at + 1, 0, ...DECLINE_USAGE);
+}
+
 // null-safe, side-effect free. Returns { ok: true }, { help: true } or { error }.
 export function checkClipArgs(argv, spec) {
   if (argv.some((a) => a === '--help' || a === '-h')) return { help: true };

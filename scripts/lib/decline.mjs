@@ -19,6 +19,8 @@ function storePath(vaultPath) {
   return join(vaultPath, '.wiki-master', 'declined.json');
 }
 
+// The decline entries that still hold: not expired and not superseded. A superseded entry stays in the file (with the
+// reason it was superseded for) until it expires, so the log can say why a source was clipped after being declined.
 export function loadDeclines(vaultPath) {
   const f = storePath(vaultPath);
   if (!existsSync(f)) return [];
@@ -26,27 +28,58 @@ export function loadDeclines(vaultPath) {
   try { entries = JSON.parse(readFileSync(f, 'utf8')); }
   catch { return []; }
   const cutoff = Date.now() - DECLINE_TTL_DAYS * 86400_000;
-  return entries.filter((e) => new Date(e.date).getTime() >= cutoff);
+  return entries.filter((e) => new Date(e.date).getTime() >= cutoff && !e.superseded);
 }
 
 export function isDeclined(url, declines) {
   const n = normalizeUrl(url).toLowerCase();
-  return declines.some((e) => normalizeUrl(e.url).toLowerCase() === n);
+  return declines.some((e) => !e.superseded && normalizeUrl(e.url).toLowerCase() === n);
+}
+
+// A decline the clippers recorded on their own, from what they read: a thin result or a wrong-node extraction. A
+// decline someone chose (`--decline="reason"`, a discovery verdict) does not match, so it is never lifted by the
+// flag that exists for the automatic kind. Reasons recorded by purge start with `purge`, and do not match either.
+export const AUTOMATIC_REASON = /^(thin (content|text)\b|likely wrong-node extraction)/;
+export function isAutomaticDecline(entry) {
+  return AUTOMATIC_REASON.test(entry?.reason ?? '');
+}
+
+function readAll(vaultPath) {
+  const f = storePath(vaultPath);
+  if (!existsSync(f)) return [];
+  try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return []; }
 }
 
 export function recordDecline(vaultPath, url, reason) {
   const dir = join(vaultPath, '.wiki-master');
   mkdirSync(dir, { recursive: true });
   const f = storePath(vaultPath);
-  let entries = [];
-  if (existsSync(f)) {
-    try { entries = JSON.parse(readFileSync(f, 'utf8')); } catch { entries = []; }
-  }
+  let entries = readAll(vaultPath);
   const n = normalizeUrl(url).toLowerCase();
+  // Declining a URL again keeps what was decided before: the earlier decision joins the entry's history.
+  const before = entries.find((e) => normalizeUrl(e.url).toLowerCase() === n);
   entries = entries.filter((e) => normalizeUrl(e.url).toLowerCase() !== n);
-  entries.push({ url, reason, date: new Date().toISOString().slice(0, 10) });
+  const entry = { url, reason, date: new Date().toISOString().slice(0, 10) };
+  if (before) {
+    const { history = [], url: _url, ...past } = before;
+    entry.history = [...history, past];
+  }
+  entries.push(entry);
   writeFileSync(f, JSON.stringify(entries, null, 2));
   return entries;
+}
+
+// Marks the active decline for `url` superseded with a new reason and date, instead of deleting it. With
+// `onlyAutomatic` a decline someone recorded on purpose is left alone. Returns { done: true } or { done: false, why }.
+export function supersedeDecline(vaultPath, url, reason, { onlyAutomatic = false } = {}) {
+  const entries = readAll(vaultPath);
+  const n = normalizeUrl(url).toLowerCase();
+  const entry = entries.find((e) => normalizeUrl(e.url).toLowerCase() === n && !e.superseded);
+  if (!entry) return { done: false, why: 'none' };
+  if (onlyAutomatic && !isAutomaticDecline(entry)) return { done: false, why: 'not-automatic' };
+  entry.superseded = { reason, date: new Date().toISOString().slice(0, 10) };
+  writeFileSync(storePath(vaultPath), JSON.stringify(entries, null, 2));
+  return { done: true };
 }
 
 // The inverse of recordDecline, for --restore: a file coming back is not a

@@ -9,7 +9,8 @@ import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { recordDecline } from './lib/decline.mjs';
+import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
@@ -472,10 +473,10 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'declined' };
   }
 
-  const declines = loadDeclines(vaultPath);
-  if (isDeclined(url, declines)) {
-    const e = declines.find((d) => isDeclined(url, [d]));
-    console.log(`declined previously (${e.date}: ${e.reason}): ${url}`);
+  const gate = declineGate(vaultPath, url, argv);
+  if (gate.blocked) {
+    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    console.log(gate.message);
     return { status: 'declined' };
   }
 
@@ -625,7 +626,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   }
   if (slug === null) {
     const reason = `raw/clippings/${clashWith}.md already exists and no alternative name could be written; nothing was written`;
-    recordIssue(vaultPath, { url, kind: 'attention', reason, topic, source: `raw/clippings/${clashWith}.md` });
+    recordIssue(vaultPath, { url, kind: 'attention', reason, topic, source: `raw/clippings/${clashWith}.md`, retryable: 'clash' });
     console.log(`clash: ${url}: ${reason} (choose a name with --slug=<name>)`);
     return { status: 'clash', existing: clashWith };
   }
@@ -642,6 +643,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const ignored = data.fidelityAssessment?.ignored ?? [];
   if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
+  gate.finish();
   return { status: 'clipped', slug, file };
 }
 
