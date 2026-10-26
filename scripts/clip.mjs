@@ -88,7 +88,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, extraction, topic }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -111,6 +111,9 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
   if (fidelity && fidelity !== 'high') lines.push(`fidelity: ${fidelity}`);
   if (Number.isInteger(fidelityChecks)) lines.push(`fidelity-checks: ${fidelityChecks}`);
+  // Headings the assessment set aside as page chrome (a feedback widget, a sidebar) rather than counting
+  // them as lost. Recorded so the set-aside is visible in the clipping; omitted when there were none.
+  if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
   lines.push(`source-hash: ${hash}`);
   lines.push('---');
   return lines.join('\n');
@@ -594,6 +597,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     title, source: url, author: data.author,
     published: data.published, created, quality, hash, topic, extraction,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
+    fidelityIgnored: data.fidelityAssessment?.ignored?.length,
   });
   // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
   // exclusive create so a clip never overwrites a file another session just made. A name nobody can
@@ -635,6 +639,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     recordIssue(vaultPath, { url, kind: 'fidelity', reason, topic, source: `raw/clippings/${slug}.md` });
     console.error(`fidelity warning (queued for triage): ${reason}`);
   }
+  const ignored = data.fidelityAssessment?.ignored ?? [];
+  if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
   return { status: 'clipped', slug, file };
 }

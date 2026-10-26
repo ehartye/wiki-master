@@ -44,6 +44,69 @@ function contentRoot(document) {
   const article = document.querySelector('article');
   return description ? (article?.contains(description) ? article : document.body) : (article ?? document.body);
 }
+
+// Site chrome that an extractor removes on purpose is not a loss, but "is this chrome" is a judgement that
+// can hide a real loss, so every rule here is narrow and every exemption is reported (see assessSignals):
+//  - a heading must be short on body text, measured as non-link words up to the next heading;
+//  - a generic name must be the WHOLE heading ("Share", not "Share your results");
+//  - names that are ordinary content elsewhere (About, Labels, Resources) count only on github.com, where
+//    the page layout is known, or inside a container whose id or class says sidebar, menu or dropdown;
+//  - a title the clipping keeps as metadata, and a GitHub comment byline whose comment body was captured.
+const GENERIC_CHROME = new Set(['feedback', 'share', 'read next', 'related posts', 'recent posts', 'stay informed']);
+const GITHUB_CHROME = new Set(['repository navigation', 'repository files navigation', 'conversation', 'latest commit', 'folders and files',
+  'about', 'resources', 'stars', 'watchers', 'forks', 'releases', 'packages', 'contributors', 'languages',
+  'reviewers', 'assignees', 'labels', 'projects', 'milestone', 'development', 'notifications']);
+const COUNTER = /^\d+ (participants?|reviewers?|comments?)$/;
+const BYLINE = /^.{1,60}? commented\b/;
+const CHROME_CONTAINER = new Set(['dropdown', 'menu', 'sidebar', 'toc', 'navigation', 'nav', 'breadcrumb', 'widget', 'promo', 'banner']);
+const CHROME_SECTION_MAX_WORDS = 40;
+const wordCount = text => (text.match(/[\p{L}\p{N}]+/gu) ?? []).length;
+
+// The outermost ancestor below the content root whose id or class names a chrome container (camelCase and
+// separators both split: sidebarSection, discussion-sidebar-item). Above the root nothing counts, so a
+// layout class on <body> cannot exempt a whole page.
+function chromeContainerOf(node, root) {
+  let found = null;
+  for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
+    const tokens = String(p.getAttribute('id') ?? '') + ' ' + String(p.getAttribute('class') ?? '');
+    if (tokens.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).some(token => CHROME_CONTAINER.has(token))) found = p;
+  }
+  return found;
+}
+
+// For each heading: how many non-link words follow it before the next heading (within its container when it
+// has one), the first ten words of the longest run of them (a comment's body, not the badges and dates that
+// precede it; empty when no run has eight words), and whether it sits in a chrome container. One pass in
+// document order.
+function headingSections(root, headings) {
+  const wanted = new Set(headings);
+  const items = [];
+  const walk = (node, inLink) => {
+    if (node.nodeType === 3) { if (node.textContent.trim()) items.push({ text: node.textContent, link: inLink, node }); return; }
+    if (node.nodeType !== 1) return;
+    if (wanted.has(node)) { items.push({ heading: node }); return; }
+    if (node.matches('script, style, svg, nav, button, [hidden], [aria-hidden="true"]')) return;
+    const link = inLink || node.tagName === 'A';
+    for (const child of node.childNodes) walk(child, link);
+  };
+  walk(root, false);
+  const sections = new Map();
+  items.forEach((item, i) => {
+    if (!item.heading) return;
+    const container = chromeContainerOf(item.heading, root);
+    let words = 0, longest = 0, probe = '';
+    for (let j = i + 1; j < items.length && !items[j].heading; j++) {
+      if (container && !container.contains(items[j].node)) break;
+      if (items[j].link) continue;
+      const run = wordCount(items[j].text);
+      words += run;
+      if (run > longest) { longest = run; probe = normalize(items[j].text).split(' ').filter(Boolean).slice(0, 10).join(' '); }
+    }
+    sections.set(item.heading, { words, probe: longest >= 8 ? probe : '', container: !!container });
+  });
+  return sections;
+}
+
 function signals(document) {
   const root = contentRoot(document);
   const candidates = [];
@@ -52,10 +115,13 @@ function signals(document) {
       if (node.closest('nav, footer, [role="navigation"], [hidden], [aria-hidden="true"]')) continue;
       const text = textOf(node).trim();
       if (normalize(text).length < 3) continue;
-      candidates.push({ kind, text, label: text.replace(/\s+/g, ' ').slice(0, 100) });
+      candidates.push({ kind, text, label: text.replace(/\s+/g, ' ').slice(0, 100), ...(kind === 'heading' ? { node } : {}) });
     }
   };
   add('heading', root.querySelectorAll(HEADINGS));
+  const headingNodes = candidates.filter(c => c.kind === 'heading').map(c => c.node);
+  const sections = headingNodes.length ? headingSections(root, headingNodes) : new Map();
+  for (const c of candidates) if (c.node) { c.chrome = sections.get(c.node); delete c.node; }
   add('callout', root.querySelectorAll(CALLOUT));
   add('availability', root.querySelectorAll(AVAILABILITY));
   add('introduction', root.querySelectorAll('.class-description > p, [data-container="lead"] > p'));
@@ -68,23 +134,53 @@ function signals(document) {
   }
   return candidates;
 }
-export function assessFidelity(html, markdown, title = '') {
+// The warnings only (site chrome the extractor removed on purpose is left out); the detailed form also
+// returns what was ignored and why, so nothing is dropped without a record.
+export function assessFidelity(html, markdown, title = '', url = '') {
+  return assessFidelityDetailed(html, markdown, title, url).warnings;
+}
+export function assessFidelityDetailed(html, markdown, title = '', url = '') {
   const { parseHTML } = extractionRuntime();
   const { document } = parseHTML(html);
-  return assessSignals(signals(document), markdown, title);
+  return assessSignalsDetailed(signals(document), markdown, title, url);
 }
-function assessSignals(expected, markdown, title) {
+function chromeReason(signal, context, plain) {
+  const c = signal.chrome;
+  if (signal.kind !== 'heading' || !c) return null;
+  const n = normalize(signal.text);
+  const words = n.split(' ');
+  // The clipping keeps the title in its frontmatter, so a heading that restates it is not lost text.
+  if (words.length >= 3 && words.every(word => context.titleWords.has(word))) { context.titleHeadings.push(n); return 'the page title, which the clipping keeps as metadata'; }
+  if (context.titleHeadings.some(title => n.startsWith(title + ' '))) return 'the page title with a status line, which the clipping keeps as metadata';
+  const light = c.words <= CHROME_SECTION_MAX_WORDS;
+  if (light && GENERIC_CHROME.has(n)) return 'known page chrome (a short heading the extractor removes on purpose)';
+  if (context.github) {
+    if (light && (GITHUB_CHROME.has(n) || COUNTER.test(n))) return 'GitHub page chrome';
+    if (BYLINE.test(n) && c.probe && plain.includes(c.probe)) return 'GitHub comment byline; the comment body was captured';
+  }
+  if (c.container && light) return 'inside a sidebar, menu or dropdown container';
+  return null;
+}
+function assessSignalsDetailed(expected, markdown, title, url = '') {
+  const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
+  const context = { github: host === 'github.com', titleWords: new Set(normalize(title).split(' ').filter(Boolean)), titleHeadings: [] };
+  const ignored = [];
   // Strip Markdown link destinations so an inline link does not interrupt its source sentence.
   const plain = normalize(`${title}\n${markdown.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')}`);
   const literal = markdown.replace(/\r\n?/g, '\n');
-  return expected.filter(signal => {
+  const warnings = expected.filter(signal => {
     // Code punctuation, case and line boundaries are semantic; do not use prose normalization.
     if (signal.kind === 'code-block') return !literal.includes(signal.text.replace(/\r\n?/g, '\n').trim());
     if (['parameter-row', 'endpoint'].includes(signal.kind)) return !plain.includes(normalize(signal.text));
     const words = normalize(signal.text).split(' ');
     // Bounded start/end probes catch selective loss without mistaking link destinations for text.
-    return ![words.slice(0, 14), words.slice(-14)].every(probe => plain.includes(probe.join(' ')));
+    const missing = ![words.slice(0, 14), words.slice(-14)].every(probe => plain.includes(probe.join(' ')));
+    if (!missing) return false;
+    const why = chromeReason(signal, context, plain);
+    if (why) { ignored.push({ kind: signal.kind, label: signal.label, why }); return false; }
+    return true;
   }).map(({ kind, label }) => ({ kind, label }));
+  return { warnings, ignored };
 }
 
 export async function extractHtml(html, url, { extractImpl } = {}) {
@@ -156,6 +252,6 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
     ...(documentation ? { contentSelector: '[data-wiki-content]', removeLowScoring: false, removeExactSelectors: false, removePartialSelectors: false, removeContentPatterns: false } : {}),
   });
   const markdown = data.contentMarkdown ?? '';
-  const fidelityWarnings = assessSignals(expected, markdown, data.title ?? '');
-  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, scope: 'headings, callouts, availability, API introductions, feature lists and recognized REST endpoints, parameters and examples' } };
+  const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
+  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists and recognized REST endpoints, parameters and examples' } };
 }
