@@ -24,7 +24,9 @@ Before the first authorized write, follow the shared operations completion contr
 3. Run the content lint: `node "<absolute-plugin-root>/scripts/lint.mjs"` (warn-only,
    never scored; `--json` for the full list, `--tier=convention|gapped|unverified`,
    `--page=<substr>`, `--full` for untruncated quotes). It sorts each quote the
-   verbatim check cannot place into a tier and leads with the counts:
+   verbatim check cannot place into a tier and leads with the counts. How quotation
+   marks pair (curly marks nest, straight marks alternate) and which spans the style
+   flags skip are in `<absolute-plugin-root>/README.md`, section "Content lint":
    - **convention** — the evidence has the same words in the same order; markup,
      punctuation or extraction spacing differ. Counted, not listed; leave it unless
      the count jumps.
