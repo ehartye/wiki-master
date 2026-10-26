@@ -131,13 +131,18 @@ function makeDocCache(vaultPath) {
 }
 
 // Every quote the verbatim check cannot place, sorted into the tier that says why.
-// Returns { examined, verbatim, findings }; verbatim quotes are counted, not listed.
+// Returns { examined, verbatim, title, findings }; verbatim and title quotes are counted, not listed.
+// A quote that would be unverified but is wholly the title of a clipping the page cites is a title
+// match: the title is part of the captured record, though it is not in the body the check searches.
+// Only the unverified tier is reconsidered, so no verbatim, convention or gapped quote changes tier. A
+// clipping's `source:` URL is not matched: a URL is one whitespace-separated word and a returned quote
+// has at least MIN_QUOTE_WORDS, so no quote can be a substring of one.
 export function classifyQuotes(vaultPath, graph) {
   const byName = buildNameIndex(graph.pages);
   const pages = new Map(graph.pages.map((p) => [p.path, p]));
   const docFor = makeDocCache(vaultPath);
   const findings = [];
-  let examined = 0, verbatim = 0;
+  let examined = 0, verbatim = 0, title = 0;
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
     // A page declaring `sources: []` has, by its own frontmatter, no external
@@ -153,6 +158,7 @@ export function classifyQuotes(vaultPath, graph) {
     const paths = evidencePaths(p, byName, pages);
     const evidence = evidenceBodies(vaultPath, p, byName, pages).map(normalize);
     let docs = null; // prepared only if some quote of this page fails the verbatim check
+    let titles = null; // the cited clippings' titles, read only when a quote would be unverified
     for (const { text: q, raw: written } of quotes) {
       // A sentence that declares its claim unsourced (or absent from the clipped
       // source) is the policy working.
@@ -167,12 +173,16 @@ export function classifyQuotes(vaultPath, graph) {
       if (fragments.every((f) => evidence.some((e) => e.includes(f)))) { verbatim++; continue; }
       docs ??= paths.map(docFor);
       const { tier, inserted } = classifyFragments(raw, docs);
+      if (tier === 'unverified') {
+        titles ??= paths.filter((path) => path.startsWith('raw/')).map((path) => pages.get(path)?.metadata?.title).filter((x) => typeof x === 'string' && x).map(normalize);
+        if (fragments.every((f) => titles.some((t) => t.includes(f)))) { title++; continue; }
+      }
       // Full quote, never truncated: a repair tool re-checking this finding must
       // see the whole span, or a quote whose tail diverges verifies on its prefix.
       findings.push({ page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}) });
     }
   }
-  return { examined, verbatim, findings };
+  return { examined, verbatim, title, findings };
 }
 
 // The strict contract callers (repair-quote-provenance) rely on: every quote the
@@ -255,10 +265,10 @@ export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const { path: vaultPath } = resolveVault();
   const graph = buildGraph(vaultPath);
-  const { examined, verbatim, findings } = classifyQuotes(vaultPath, graph);
+  const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph);
   const style = checkStyle(vaultPath, graph);
   const count = (t) => findings.filter((f) => f.tier === t).length;
-  const tiers = { examined, verbatim, convention: count('convention'), gapped: count('gapped'), unverified: count('unverified') };
+  const tiers = { examined, verbatim, title, convention: count('convention'), gapped: count('gapped'), unverified: count('unverified') };
   const wanted = args.tier && args.tier !== 'all' ? [args.tier] : (args.json || args.tier === 'all' ? TIERS : SHOW_BY_DEFAULT);
   const inPage = (x) => !args.page || x.page.includes(args.page);
   const listed = findings.filter((f) => wanted.includes(f.tier) && inPage(f));
@@ -277,6 +287,7 @@ export function main(argv = process.argv.slice(2)) {
   console.log(`Content lint (warn-only — flags for review, never scored)`);
   console.log(`
 Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${tiers.convention} convention, ${tiers.gapped} gapped, ${tiers.unverified} unverified`);
+  console.log(`  matched a clipping title: ${tiers.title} (counted, not listed; the quote is wholly the title of a clipping the page cites, which the body check cannot see)`);
   console.log(`  convention: the evidence has these words in this order; markup, punctuation or extraction spacing differ (counted, listed with --tier=convention)`);
   console.log(`  gapped: every word is in the evidence in order, with extra evidence words between them — extraction noise, or a silent omission; read the inserted words`);
   console.log(`  unverified: a word is changed, added, reordered or negated, or the evidence trail does not hold the text`);
