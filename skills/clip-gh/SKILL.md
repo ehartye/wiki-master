@@ -166,6 +166,12 @@ changed file is updated in place rather than copied. The run reports it as `rena
 Citations of the old name are repointed by
 `scripts/rename-unsafe-clippings.mjs` (see the maintenance reference).
 
+**No doubled extension.** A repo file is clipped as `README.md`, not `README.md.md`, and a source file
+keeps its own extension (`src/a.js` is `src-a.js.md`). A doubled file that already exists for a path is kept
+and updated in place on a re-clip, never copied beside a new one, so no citation breaks;
+`scripts/rename-doubled-extension-clippings.mjs` renames it together with its citations. If two paths
+in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the doubled form so neither is lost.
+
 ## Steps
 
 1. **Preflight** (once, or whenever a clip fails unexpectedly):
