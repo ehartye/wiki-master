@@ -7,6 +7,7 @@ import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { parseNote } from './lib/note.mjs';
 import { parseTerms, scanText, BUILTIN_RULES } from './lib/private-terms.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import {
@@ -34,14 +35,7 @@ const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 // The same shape op-commit enforces for an explicit operation scope.
 export function checkLedger(paths) {
-  if (!Array.isArray(paths) || !paths.length) throw new InputError('the ledger must be a non-empty JSON array of vault-relative paths');
-  for (const p of paths) {
-    if (typeof p !== 'string' || !p || p.includes('\\') || p.includes('\0') || /^[A-Za-z]:/.test(p) ||
-        p.split('/').some(part => !part || part === '.' || part === '..')) {
-      throw new InputError(`invalid ledger path ${JSON.stringify(p)}: use vault-relative paths with / separators and no empty, "." or ".." segment, drive prefix or NUL`);
-    }
-  }
-  return [...new Set(paths)];
+  try { return checkLedgerPaths(paths); } catch (error) { throw new InputError(error.message); }
 }
 
 // Does the file exist under exactly this spelling? A case-insensitive file system
@@ -228,11 +222,7 @@ function termDefects(texts, rules, projects) {
 }
 
 function readLedgerFile(file) {
-  let text;
-  try { text = readFileSync(file, 'utf8'); }
-  catch (error) { throw new InputError(`cannot read --paths-file ${file}: ${error.code ?? error.message}`); }
-  try { return JSON.parse(withoutBom(text)); }
-  catch (error) { throw new InputError(`--paths-file ${file} is not valid JSON: ${error.message}`); }
+  try { return readLedger(file); } catch (error) { throw new InputError(error.message); }
 }
 
 export function summary(result) {

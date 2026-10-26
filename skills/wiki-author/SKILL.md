@@ -19,7 +19,7 @@ Steps:
    (the topic, and the key terms of the claim) and report "not found by these queries",
    naming them; when a query returns a source page, cite it. Open before writing:
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink`.
-   Save the token using the PowerShell or POSIX example in the operations reference.
+   Save the token using the PowerShell or POSIX example in the operations reference. Create new files only after opening, never before: a page written first counts as already dirty, and `op-commit` refuses it until you pass `--include`.
 3. Use `_templates/authored-note.md`, `_templates/authored-decision.md`, or
    `_templates/authored-backlog-item.md` as appropriate. Set `type: authored`,
    `sources: []`, honest `ai-generated`, and matching `project:`/`kind:` metadata.

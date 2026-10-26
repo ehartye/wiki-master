@@ -6,6 +6,7 @@ import { buildGraph, findAmbiguousNames, isContent } from './lib/graph.mjs';
 import { parseNote } from './lib/note.mjs';
 import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { resolveVault } from './lib/vault.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { regenerateBacklogRoadmaps } from './backlog-gen.mjs';
 import { regenerateAuthoredMocs, projectSlug } from './moc-authored-gen.mjs';
 import { regenerateIndex } from './index-gen.mjs';
@@ -64,10 +65,8 @@ export function staleCatalogLinks(vaultPath, pages, { project, ownedPaths } = {}
 // `now` is the date a newly created roadmap is stamped with; omitted or undefined means the current time.
 export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph, now } = {}) {
   validateProject(project);
-  if (ownedPaths !== undefined && (!Array.isArray(ownedPaths) || ownedPaths.some(p =>
-    typeof p !== 'string' || !p || p.includes('\\') || p.includes(':') || p.includes('\0') ||
-    p.split('/').some(x => !x || x === '.' || x === '..')))) {
-    throw new Error('ownedPaths must be exact vault-relative paths');
+  if (ownedPaths !== undefined) {
+    try { checkLedgerPaths(ownedPaths); } catch { throw new Error('ownedPaths must be exact vault-relative paths'); }
   }
   const started = performance.now();
   const graph = buildGraphImpl(vaultPath);
@@ -98,7 +97,7 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
 
 export function main(argv = process.argv.slice(2)) {
   const options = catalogArgs(argv);
-  const ownedPaths = options.pathsFile ? JSON.parse(readFileSync(options.pathsFile, 'utf8')) : undefined;
+  const ownedPaths = options.pathsFile ? readLedger(options.pathsFile) : undefined;
   const result = refreshCatalogs(resolveVault().path, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
   if (result.staleCatalogs) console.error(`${result.staleCatalogs.length} generated catalog(s) of other projects now hold a bare link to a name this project made ambiguous; refresh each with refresh-catalogs.mjs --project <its project> --apply: ${result.staleCatalogs.map(x => `${x.path} (${x.names.join(', ')})`).join('; ')}`);
