@@ -82,7 +82,7 @@ export function isGitRepo(cwd) {
 // index.lock, a rejecting hook, a permissions error. Reading the third as the second
 // made op-commit report "made no changes" and delete its token while the
 // operation's files sat uncommitted (0.41.1, observed twice).
-export function commitPaths(cwd, paths, message) {
+export function commitPaths(cwd, paths, message, { verify } = {}) {
   if (!isGitRepo(cwd)) return { committed: false, reason: 'not a git repository' };
   if (!paths.length) return { committed: false, reason: 'nothing to commit' };
 
@@ -127,6 +127,17 @@ export function commitPaths(cwd, paths, message) {
   }
   if (!stageable.some((p) => staged.has(p))) {
     return { committed: false, reason: 'nothing to commit' };
+  }
+
+  // A caller that must certify the bytes it commits (evidence-bytes.mjs) checks the staged state here,
+  // after git's own conversions have run and before anything is committed. A refusal unstages exactly
+  // the paths this call staged, so the index is left as it was.
+  if (verify) {
+    const check = verify();
+    if (!check.ok) {
+      try { git(cwd, ['reset', '-q', '--pathspec-from-file=-', '--pathspec-file-nul'], { input }); } catch { /* the refusal is what matters */ }
+      return { committed: false, failed: true, refused: true, reason: check.reason, evidence: check };
+    }
   }
 
   try {

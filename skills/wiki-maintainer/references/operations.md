@@ -33,6 +33,16 @@ because its file was deleted; account for the work and verify the outcome.
    newly dirty delta and reports other new paths as outside scope. It does not
    override pre-dirty exclusions or isolate simultaneous edits to the same file.
    Without explicit scope, subtraction alone can include another writer's new edits.
+   When the ledger carries a receipt that records its own byte length and SHA-256
+   (captured JSON or log evidence), also pass `--evidence-map <file>`: a JSON object
+   of ledger path to `{ "bytes": N, "sha256": "<64 lower-case hex>" }`, kept beside
+   the ledger. After staging and before committing, `op-commit` compares each staged
+   blob with its declaration. On a mismatch it commits nothing, unstages, keeps the
+   token, and names the file, the declared and stored size and hash, and the exact
+   `.gitattributes` line (`<path> -text`) that keeps the bytes. Add that one line,
+   list `.gitattributes` in the ledger and rerun. It never edits an attribute itself,
+   and ordinary Markdown keeps the vault's text policy. A pass is reported as its own
+   `evidence:` line, separate from the index notice.
    An existing enclosing operation may own delegated clips and triage bookkeeping;
    record who closes it rather than opening a second operation unnecessarily.
 3. **Edit and validate.** Check the requested behavior/content, valid frontmatter,
