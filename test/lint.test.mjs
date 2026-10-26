@@ -198,7 +198,7 @@ const runLint = (...args) => execFileSync(process.execPath, [join(dirname(fileUR
 
 test('lint --json emits tier counts, tiered findings and style flags', () => {
   const out = JSON.parse(runLint('--json'));
-  assert.deepEqual(Object.keys(out.tiers).sort(), ['convention', 'examined', 'gapped', 'unverified', 'verbatim']);
+  assert.deepEqual(Object.keys(out.tiers).sort(), ['convention', 'examined', 'gapped', 'title', 'unverified', 'verbatim']);
   assert.equal(out.tiers.convention, out.findings.filter((f) => f.tier === 'convention').length);
   assert.equal(out.tiers.gapped, out.findings.filter((f) => f.tier === 'gapped').length);
   assert.equal(out.tiers.unverified, out.findings.filter((f) => f.tier === 'unverified').length);
