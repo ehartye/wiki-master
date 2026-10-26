@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { syncVault, main as syncMain } from '../scripts/wiki-sync.mjs';
 import { obsidianGitAutoCommit } from '../scripts/lib/obsidian-git.mjs';
@@ -11,9 +11,12 @@ import { obsidianGitAutoCommit } from '../scripts/lib/obsidian-git.mjs';
 // clones of it is the same shape: each clone is a machine, `origin` is the remote.
 const sh = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
+// A machine lives inside its world's root (the remote's directory), so the world's cleanup removes it.
+// core.autocrlf is pinned off at clone time: the tests assert on bytes, and a global autocrlf would add
+// a "LF will be replaced by CRLF" warning to every add.
 function machine(remote, name) {
-  const dir = mkdtempSync(join(tmpdir(), `wm-sync-${name}-`));
-  execFileSync('git', ['clone', '-q', remote, dir]);
+  const dir = mkdtempSync(join(dirname(remote), `${name}-`));
+  execFileSync('git', ['clone', '-q', '-c', 'core.autocrlf=false', remote, dir], { stdio: ['ignore', 'pipe', 'ignore'] });
   sh(dir, 'config', 'user.email', `${name}@example.com`);
   sh(dir, 'config', 'user.name', name);
   return dir;

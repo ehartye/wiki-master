@@ -1,1 +1,5 @@
+# Text files are LF in the repository and in every working tree, whatever the machine's core.autocrlf
+# says. Scripts that edit multi-line text, byte comparisons and hashed fixtures then behave the same on
+# Windows, macOS and Linux. Binary files are detected by git and left alone.
+* text=auto eol=lf
 test/fixtures/** text=auto eol=lf
