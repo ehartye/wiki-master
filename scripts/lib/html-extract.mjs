@@ -1,5 +1,16 @@
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
 import { dirname, join, delimiter, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// What to tell whoever hit the missing runtime. A development checkout (it has a .git entry; an installed plugin copy
+// does not) holds its dependencies only after `npm ci`, which the message used to leave out, so a fresh worktree's
+// extraction tests failed like a regression. An installed copy is run through the pinned npm exec launcher.
+export function runtimeUnavailableMessage(root = fileURLToPath(new URL('../..', import.meta.url)), exists = existsSync) {
+  return exists(join(root, '.git'))
+    ? 'HTML extraction runtime unavailable: this is a development checkout without its dependencies; run `npm ci` in it'
+    : 'HTML extraction runtime unavailable; run through the pinned npm exec launcher';
+}
 
 // Local npm installation in development; npm exec exposes its pinned runtime through PATH.
 export function extractionRuntime() {
@@ -14,7 +25,7 @@ export function extractionRuntime() {
         fetch: resolve(join(dirname(entry), 'fetch.js')) };
     } catch { /* try the next explicit runtime directory */ }
   }
-  throw new Error('HTML extraction runtime unavailable; run through the pinned npm exec launcher');
+  throw new Error(runtimeUnavailableMessage());
 }
 
 const CALLOUT = '.ghd-alert, .starlight-aside, .admonition, .markdown-alert';

@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFrontmatter } from '../scripts/clip.mjs';
+import { VERSION_FIELDS, LOCK_FILE, MANIFEST_FILES, pathLabel, valueAt, changelogProblem } from '../scripts/lib/version-fields.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,33 +63,11 @@ test('clipping frontmatter contract: schema template and clip.mjs agree', () => 
   }
 });
 
-// Every place a release version is written. The table is the single list a
-// version bump must touch; the discovery test below fails when a manifest grows
-// a `version` field that is not listed here, so the table cannot go stale
-// silently. package-lock.json lists every dependency's version too: only its
-// root `version` and the `packages[""]` entry describe this plugin.
-const VERSION_FIELDS = [
-  { file: 'package.json', path: ['version'] },
-  { file: 'package-lock.json', path: ['version'] },
-  { file: 'package-lock.json', path: ['packages', '', 'version'] },
-  { file: 'plugin.json', path: ['version'] },
-  { file: '.claude-plugin/plugin.json', path: ['version'] },
-  { file: '.claude-plugin/marketplace.json', path: ['plugins', 0, 'version'] },
-  { file: '.codex-plugin/plugin.json', path: ['version'] },
-  { file: '.github/plugin/marketplace.json', path: ['metadata', 'version'] },
-  { file: '.github/plugin/marketplace.json', path: ['plugins', 0, 'version'] },
-];
-const LOCK_FILE = 'package-lock.json';
-const MANIFEST_FILES = [...new Set(VERSION_FIELDS.map((r) => r.file))];
-
+// The table of version fields is shared with scripts/bump-version.mjs (scripts/lib/version-fields.mjs): the
+// discovery test below fails when a manifest grows a `version` field that is not listed there, so the table cannot
+// go stale silently.
 const readManifest = (file) => JSON.parse(readFileSync(join(ROOT, file), 'utf8'));
 
-const pathLabel = (path) => path.reduce(
-  (acc, k) => (typeof k === 'number' ? `${acc}[${k}]`
-    : k === '' ? `${acc}[""]`
-      : acc ? `${acc}.${k}` : k), '');
-
-const valueAt = (json, path) => path.reduce((o, k) => (o == null ? undefined : o[k]), json);
 
 // Paths of every `version` key in a manifest. In the lockfile only the root and
 // the `packages[""]` entry count; the other entries are dependencies.
@@ -144,6 +123,13 @@ test('version is identical in every field of the manifests (Claude + Copilot + C
     .filter((r) => r.v !== expected);
   assert.deepEqual(stale, [],
     `version fields differ from package.json (${expected}): ${stale.map((r) => `${r.file} ${pathLabel(r.path)}=${r.v}`).join(', ')}`);
+});
+
+test('the newest CHANGELOG.md entry is the package version, with an entry under it', () => {
+  // The heading is changed together with the fields by scripts/bump-version.mjs, so a release that bumps one and not
+  // the other (or adds a heading and never describes it) fails here.
+  const version = valueAt(readManifest('package.json'), ['version']);
+  assert.equal(changelogProblem(readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8'), version), null);
 });
 
 test('every version field in the manifests is listed in VERSION_FIELDS', () => {

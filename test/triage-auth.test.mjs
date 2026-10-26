@@ -2,6 +2,7 @@
 // reads or writes vault state must prove the caller holds the session token.
 // These boot the real server and speak real HTTP: an auth gate asserted by
 // grepping the source would pass while the gate was wired up wrong.
+import { readJsonWhenReady } from './helpers/wait-file.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -33,12 +34,16 @@ async function boot(env = {}) {
   proc.stderr.on('data', (chunk) => { stderr += chunk; });
   const infoPath = join(dir, 'state', 'server-info');
   for (let i = 0; i < 100 && !existsSync(infoPath); i++) await sleep(50);
-  if (!existsSync(infoPath)) {
+  let info;
+  try {
+    // The file exists once the server has begun writing it; wait until it also parses (see readJsonWhenReady).
+    if (existsSync(infoPath)) info = await readJsonWhenReady(infoPath, { timeoutMs: 5000, intervalMs: 25 });
+  } catch { /* reported below with the server's stderr */ }
+  if (!info) {
     try { proc.kill(); } catch {}
     try { rmSync(root, { recursive: true, force: true }); } catch {}
     throw new Error(`server never wrote server-info (exit ${proc.exitCode ?? 'running'}): ${stderr.trim() || 'no stderr'}`);
   }
-  const info = JSON.parse(readFileSync(infoPath, 'utf8'));
   const stop = () => { try { proc.kill(); } catch {} try { rmSync(root, { recursive: true, force: true }); } catch {} };
   return { info, dir, vault, root, proc, stop, base: `http://127.0.0.1:${info.port}` };
 }

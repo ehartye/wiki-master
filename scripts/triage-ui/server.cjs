@@ -15,6 +15,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { bindWithFallback } = require('./listen.cjs');
+const { writeFileAtomic } = require('./atomic-write.cjs');
+
 
 // ========== WebSocket (RFC 6455, text frames only) ==========
 
@@ -551,7 +553,7 @@ function startServer() {
         vault: VAULT_PATH,
       });
       console.log(info);
-      fs.writeFileSync(path.join(STATE_DIR, 'server-info'), info + '\n');
+      writeFileAtomic(path.join(STATE_DIR, 'server-info'), info + '\n');
     },
   });
 }

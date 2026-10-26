@@ -266,42 +266,44 @@ function group(title, why, rows, acts = []) {
 </div>`;
 }
 
+// The dispositions each kind of row offers. Exported so that test/triage-skill-table.test.mjs can check that the
+// table in skills/wiki-triage/SKILL.md names every id the queue writes and no id it does not.
+// `downloaded` is the answer to a paywall: you fetched the source by hand, and
+// the disposition itself is the work order — `apply-reclips --from=<dir>` picks
+// it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping
+// already exists and asks only for confirmation.
+export const CLIP_ACTS = [
+  { id: 'downloaded', label: 'browse — clip this file', browse: true },
+  { id: 'clipped-manually', label: 'clipped by hand' },
+  { id: 'retry', label: 'retry' },
+  { id: 'declined', label: 'decline', danger: true },
+  { id: 'ignore', label: 'ignore' },
+];
+export const FIDELITY_ACTS = [
+  { id: 'acceptable', label: 'acceptable' },
+  { id: 'reclip', label: 're-clip' },
+  { id: 'downloaded', label: 'browse — clip this file', browse: true },
+  { id: 'quarantine', label: 'do not cite', danger: true },
+];
+export const EXPIRY_ACTS = [
+  { id: 'keep-declined', label: 'keep declined' },
+  { id: 'reconsider', label: 'reconsider' },
+];
+export const BACKLOG_ACTS = [
+  { id: 'ingest', label: 'ingest next' },
+  { id: 'ignore', label: 'skip' },
+];
+
+export const HUB_STUB_ACTS = [
+  { id: 'ingest', label: 'find sources' },
+  { id: 'ignore', label: 'leave stub' },
+];
+
 export function renderScreen(data) {
   // Reset per render so a screen's group ids are deterministic — otherwise two
   // renders of identical data produce different markup, which makes diffing
   // screens and asserting on them needlessly awkward.
   groupSeq = 0;
-
-  // `downloaded` is the answer to a paywall: you fetched the source by hand, and
-  // the disposition itself is the work order — `apply-reclips --from=<dir>` picks
-  // it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping
-  // already exists and asks only for confirmation.
-  const CLIP_ACTS = [
-    { id: 'downloaded', label: 'browse — clip this file', browse: true },
-    { id: 'clipped-manually', label: 'clipped by hand' },
-    { id: 'retry', label: 'retry' },
-    { id: 'declined', label: 'decline', danger: true },
-    { id: 'ignore', label: 'ignore' },
-  ];
-  const FIDELITY_ACTS = [
-    { id: 'acceptable', label: 'acceptable' },
-    { id: 'reclip', label: 're-clip' },
-    { id: 'downloaded', label: 'browse — clip this file', browse: true },
-    { id: 'quarantine', label: 'do not cite', danger: true },
-  ];
-  const EXPIRY_ACTS = [
-    { id: 'keep-declined', label: 'keep declined' },
-    { id: 'reconsider', label: 'reconsider' },
-  ];
-  const BACKLOG_ACTS = [
-    { id: 'ingest', label: 'ingest next' },
-    { id: 'ignore', label: 'skip' },
-  ];
-
-  const HUB_STUB_ACTS = [
-    { id: 'ingest', label: 'find sources' },
-    { id: 'ignore', label: 'leave stub' },
-  ];
 
   const stats = [
     ['clip failures', data.clipFailures.length],
