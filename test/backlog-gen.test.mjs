@@ -257,9 +257,9 @@ test('a dry run creates no stub and no temp file, and never reads now', (t) => {
   const before = readdirSync(join(v, 'wiki', 'authored', 'demo')).sort();
   const r = regenerateBacklogRoadmaps(v, { now: NOW });
   assert.deepEqual(r.written, ['demo']);
-  assert.deepEqual(r.changed, []);
+  assert.deepEqual(r.changed, ['wiki/authored/demo/roadmap.md'], 'a dry run names the roadmap an apply would create');
   assert.deepEqual(readdirSync(join(v, 'wiki', 'authored', 'demo')).sort(), before);
-  assert.deepEqual(regenerateBacklogRoadmaps(v, { apply: false, now: new Date('nope') }).changed, []);
+  assert.deepEqual(regenerateBacklogRoadmaps(v, { apply: false, now: new Date('nope') }).changed, ['wiki/authored/demo/roadmap.md']);
 });
 
 test('a second apply at a later now rewrites nothing: the stub dates are written once', (t) => {

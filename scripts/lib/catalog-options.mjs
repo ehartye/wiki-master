@@ -11,8 +11,8 @@ export function validateProject(project) {
 
 export function catalogArgs(argv) {
   const { values } = parseArgs({ args: argv, options: {
-    apply: { type: 'boolean' }, project: { type: 'string' }, 'paths-file': { type: 'string' },
+    apply: { type: 'boolean' }, project: { type: 'string' }, 'paths-file': { type: 'string' }, diff: { type: 'boolean' },
   } });
   validateProject(values.project);
-  return { apply: values.apply ?? false, project: values.project, pathsFile: values['paths-file'] };
+  return { apply: values.apply ?? false, project: values.project, pathsFile: values['paths-file'], diff: values.diff ?? false };
 }

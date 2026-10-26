@@ -159,20 +159,17 @@ const also = lines => (lines.length > 1 ? ` (lines ${lines.join(', ')})` : '');
 const flat = text => String(text).replace(/\r?\n/g, '\\n');
 const clip = (text, max = 80) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
 
-function linkDefects(scan, ledger) {
+function linkDefects(scan) {
   const out = [];
   const take = (item, rule, message) => out.push({ path: item.source, line: item.line, rule, message: message + also(item.lines) });
   for (const issue of scan.issues) {
-    if (!ledger.has(issue.source)) continue;
     if (issue.rule === 'ambiguous-link') take(issue, 'ambiguous-link', `[[${issue.target}]] matches ${issue.candidates.length} pages (${issue.candidates.join(', ')}); qualify the path`);
     else if (issue.rule === 'malformed-link') take(issue, 'malformed-link', `${clip(flat(issue.evidence))} is malformed (unclosed, empty, or split across lines)`);
     else if (issue.rule === 'unresolved-citation') take(issue, 'unresolved-citation', `${issue.channel} citation [[${issue.target}]] matches no page`);
     else take(issue, issue.rule, issue.evidence);
   }
   // health leaves these as unscored forward links; a task must not leave a dead link.
-  for (const link of scan.forwardLinks) {
-    if (ledger.has(link.source)) take(link, 'unresolved-link', `[[${link.target}]] matches no page`);
-  }
+  for (const link of scan.forwardLinks) take(link, 'unresolved-link', `[[${link.target}]] matches no page`);
   return out;
 }
 
@@ -201,7 +198,7 @@ export function validateAuthored(vaultPath, paths, { termRules = null, termProje
   for (const [path, markdown] of texts) defects.push(...frontmatterDefects(path, markdown));
   if (termRules) defects.push(...termDefects(texts, termRules, termProjects));
   defects.push(...dependencyDefects(vaultPath, texts));
-  if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath), present));
+  if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath, { sources: present })));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
   return { version: 1, checked, skipped, defects };
 }

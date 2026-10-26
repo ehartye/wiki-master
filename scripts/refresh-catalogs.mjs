@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,16 +9,32 @@ import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { regenerateBacklogRoadmaps } from './backlog-gen.mjs';
 import { regenerateAuthoredMocs, projectSlug } from './moc-authored-gen.mjs';
 import { regenerateIndex } from './index-gen.mjs';
+import { committedPaths } from './lib/catalog-scope.mjs';
 
-// Refresh generated nodes only; a second full scan would undo the benefit.
-function updateSnapshot(vaultPath, graph, paths) {
-  for (const path of paths) {
-    const { metadata } = parseNote(readFileSync(join(vaultPath, path), 'utf8'));
+// Refresh generated nodes only; a second full scan would undo the benefit. The text comes from the
+// planned output, not from disk, so a dry run sees what an apply would have written and the later
+// phases (the index lists the roadmap and the map) plan the same in both modes.
+function updateSnapshot(graph, outputs) {
+  for (const { path, next } of outputs) {
+    const { metadata } = parseNote(next);
     const page = { ...metadata, path, name: basename(path, '.md').toLowerCase(), title: basename(path, '.md') };
     const i = graph.pages.findIndex(p => p.path === path);
     if (i < 0) graph.pages.push(page);
     else graph.pages[i] = { ...graph.pages[i], ...page };
   }
+}
+
+// The lines a file loses and gains, each counted once per occurrence. Order is not reported: a generated
+// fence is sorted, so a changed line is a removal beside an addition.
+export function lineDiff(previous, next) {
+  const count = (text) => {
+    const m = new Map();
+    for (const line of (text ?? '').split(/\r?\n/)) m.set(line, (m.get(line) ?? 0) + 1);
+    return m;
+  };
+  const a = count(previous), b = count(next);
+  const take = (from, other) => [...from].flatMap(([line, n]) => Array(Math.max(0, n - (other.get(line) ?? 0))).fill(line)).filter((line) => line !== '');
+  return { removed: take(a, b), added: take(b, a) };
 }
 
 // A page whose file name another project already uses turns that project's generated bare link into an
@@ -63,43 +78,54 @@ export function staleCatalogLinks(vaultPath, pages, { project, ownedPaths } = {}
 }
 
 // `now` is the date a newly created roadmap is stamped with; omitted or undefined means the current time.
-export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph, now } = {}) {
+// A dry run plans the same outputs an apply would write and reports the same `changed` list; with `diff`
+// it also returns the lines each changed file would lose and gain. The ledger keeps another writer's
+// uncommitted pages out of the catalogs, but a line a catalog already holds for one stays (catalog-scope.mjs).
+export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph, now, diff = false } = {}) {
   validateProject(project);
   if (ownedPaths !== undefined) {
     try { checkLedgerPaths(ownedPaths); } catch { throw new Error('ownedPaths must be exact vault-relative paths'); }
   }
   const started = performance.now();
   const graph = buildGraphImpl(vaultPath);
+  let excluded = [];
   if (ownedPaths !== undefined) {
-    // NUL delimiters preserve spaces, Unicode and literal pathspec characters.
-    const tracked = new Set(execFileSync('git', ['ls-files', '-z'], {
-      cwd: vaultPath, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-    }).split('\0').filter(Boolean));
+    const committed = committedPaths(vaultPath);
     const owned = new Set(ownedPaths);
-    graph.pages = graph.pages.filter(p => tracked.has(p.path) || owned.has(p.path));
+    excluded = graph.pages.filter(p => !committed.has(p.path) && !owned.has(p.path));
+    graph.pages = graph.pages.filter(p => committed.has(p.path) || owned.has(p.path));
   }
   const graphMs = performance.now() - started;
-  const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now });
-  if (apply) updateSnapshot(vaultPath, graph, backlog.changed);
-  const moc = regenerateAuthoredMocs(vaultPath, { project, apply, graph });
-  if (apply) updateSnapshot(vaultPath, graph, moc.changed);
-  const index = regenerateIndex(vaultPath, { graph, apply });
+  const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now, excluded });
+  updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
+  const moc = regenerateAuthoredMocs(vaultPath, { project, apply, graph, excluded });
+  updateSnapshot(graph, moc.outputs.filter(o => moc.changed.includes(o.path)));
+  const index = regenerateIndex(vaultPath, { graph, apply, excluded });
   const stale = staleCatalogLinks(vaultPath, graph.pages, { project, ownedPaths });
+  const changedOutputs = [
+    ...backlog.outputs.filter(o => backlog.changed.includes(o.path)),
+    ...moc.outputs.filter(o => moc.changed.includes(o.path)),
+    ...(index.changed ? [{ path: 'index.md', previous: index.previous, next: index.next }] : []),
+  ];
   return {
     applied: apply, project: project ?? null, pages: graph.pages.length, graphBuilds: 1,
     graphMs: Math.round(graphMs), elapsedMs: Math.round(performance.now() - started),
-    changed: [...backlog.changed, ...moc.changed, ...(index.changed ? ['index.md'] : [])],
+    changed: changedOutputs.map(o => o.path),
     projects: { backlog: backlog.written, moc: moc.written },
     ...(backlog.unrecognized.length ? { unrecognized: backlog.unrecognized } : {}),
     ...(stale.length ? { staleCatalogs: stale } : {}),
+    ...(diff ? { diffs: changedOutputs.map(o => ({ path: o.path, ...lineDiff(o.previous, o.next) })) } : {}),
   };
 }
 
 export function main(argv = process.argv.slice(2)) {
   const options = catalogArgs(argv);
   const ownedPaths = options.pathsFile ? readLedger(options.pathsFile) : undefined;
-  const result = refreshCatalogs(resolveVault().path, { ...options, ownedPaths });
+  const { diffs, ...result } = refreshCatalogs(resolveVault().path, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
+  // One block per changed file, after the one-line JSON, on stderr so the JSON on stdout keeps its shape.
+  for (const d of diffs ?? []) console.error([`diff ${d.path}`, ...d.removed.map(l => `- ${l}`), ...d.added.map(l => `+ ${l}`)].join('\n'));
+  if (!result.applied) console.error(result.changed.length ? `dry run — ${result.changed.length} file(s) would change; re-run with --apply` : 'dry run — nothing would change');
   if (result.staleCatalogs) console.error(`${result.staleCatalogs.length} generated catalog(s) of other projects now hold a bare link to a name this project made ambiguous; refresh each with refresh-catalogs.mjs --project <its project> --apply: ${result.staleCatalogs.map(x => `${x.path} (${x.names.join(', ')})`).join('; ')}`);
   return result;
 }

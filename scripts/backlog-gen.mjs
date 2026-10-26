@@ -21,6 +21,7 @@ import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs'
 import { groupByProject, groupByBacklogStatus, unrecognizedBacklogItems, BACKLOG_STATUS_ORDER } from './lib/authored-group.mjs';
 import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
 import { parseNote } from './lib/note.mjs';
+import { keptByMention } from './lib/catalog-scope.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
 export const END_MARK = '%% END GENERATED CATALOG %%';
@@ -112,9 +113,12 @@ export function shippedStub(projectTitle, now) {
   return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${project}\nkind: reference\n---\n# ${projectTitle} — shipped backlog items\n\nGenerated from the project's backlog by backlog-gen.mjs; edit the items, not this list.\n\n`;
 }
 
-function writeFenced(path, catalog, projectTitle, now, stub = roadmapStub) {
+// Reads only: `previous` is the file's text, or null when it does not exist yet; `next` is what the file
+// would hold. Nothing is created, not even a directory, so a dry run can call it.
+function planFenced(path, catalog, projectTitle, now, stub = roadmapStub) {
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : stub(projectTitle, now);
+  const previous = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  const existing = previous ?? stub(projectTitle, now);
   let next;
   const begin = existing.indexOf(BEGIN_MARK);
   const end = existing.indexOf(END_MARK);
@@ -125,13 +129,16 @@ function writeFenced(path, catalog, projectTitle, now, stub = roadmapStub) {
     // index-gen.mjs/moc-authored-gen.mjs exactly (see module comment).
     next = `${existing.trimEnd()}\n\n${fenced}\n`;
   }
-  if (next === existing) return false;
+  return { previous, next };
+}
+
+// Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
+function commitFenced(path, next) {
   const dir = join(path, '..');
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(path)}.tmp-${process.pid}`);
   writeFileSync(tmp, next);
   renameSync(tmp, path);
-  return true;
 }
 
 // The first heading of each item's page, by path. Read only for a project that asked for titles.
@@ -144,14 +151,18 @@ function headingsOf(vaultPath, items) {
   return titles;
 }
 
-// Dry run by default (apply: false) — matches every other repair/generation script in this
-// repo. Returns { written: [project, ...] } either way, so a caller can inspect what WOULD
-// happen without writing anything. A project with zero backlog items is skipped entirely —
-// there is nothing to index, and creating an empty roadmap.md would be pure ceremony.
-export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: selectedProject, graph, now = new Date() } = {}) {
+const validDate = (d) => d instanceof Date && !Number.isNaN(d.getTime());
+
+// Plans every selected project's roadmap without writing. A project with zero backlog items is skipped
+// entirely — there is nothing to index, and creating an empty roadmap.md would be pure ceremony.
+// `outputs` lists each file with its text now (`previous`, null when missing) and after (`next`).
+// `excluded` is the pages a scoped refresh left out of `graph`; an item the current roadmap already
+// lists stays listed (see lib/catalog-scope.mjs).
+export function planBacklogRoadmaps(vaultPath, { project: selectedProject, graph, now = new Date(), excluded = [] } = {}) {
   validateProject(selectedProject);
-  // Read only when a stub may be written, so a dry run never depends on it.
-  if (apply && !(now instanceof Date && !Number.isNaN(now.getTime()))) throw new TypeError('now must be a valid Date');
+  // The stub date never changes whether a file changes (a missing file always does), so a plan with an
+  // unusable `now` borrows the current time; only an apply, which writes the stub, insists on a valid one.
+  if (!validDate(now)) now = new Date();
   const { pages } = graph ?? buildGraph(vaultPath);
   // Computed from the WHOLE vault, before filtering to backlog items — a backlog
   // item slug can collide with another project's just as easily as
@@ -159,35 +170,51 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: s
   const ambiguousNames = findAmbiguousNames(pages);
   const items = pages.filter((p) => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item');
   const projects = groupByProject(items);
+  const leftOut = new Map(groupByProject(excluded.filter((p) => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item')).map((g) => [g.key, g.pages]));
   const written = [];
-  const changed = [];
+  const outputs = [];
   const unrecognized = [];
-  for (const { project, pages: projectItems } of projects) {
+  for (const { project, key, pages: groupItems } of projects) {
     if (selectedProject !== undefined && project.toLowerCase() !== selectedProject.toLowerCase()) continue;
     written.push(project);
-    unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
-    if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
+    let projectItems = groupItems;
+    if (leftOut.has(key) && existsSync(roadmapPath)) {
+      const kept = keptByMention(leftOut.get(key), [...pages, ...excluded], readFileSync(roadmapPath, 'utf8'));
+      if (kept.length) projectItems = [...groupItems, ...kept];
+    }
+    unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
     const settings = existsSync(roadmapPath) ? parseNote(readFileSync(roadmapPath, 'utf8')).metadata : {};
     const titles = settings['backlog-titles'] === 'true' ? headingsOf(vaultPath, projectItems) : undefined;
     const collapse = settings['backlog-shipped'] === 'collapse' && projectItems.some((p) => p.backlogStatus === 'shipped');
     const shippedPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap-shipped.md');
     const shipped = collapse ? { link: `wiki/authored/${project}/roadmap-shipped` } : undefined;
     const rel = (p) => relative(vaultPath, p).replaceAll('\\', '/');
-    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames, titles, shipped }), project, now)) changed.push(rel(roadmapPath));
-    if (collapse && writeFenced(shippedPath, renderShippedCatalog({ pages: projectItems, ambiguousNames, titles }), project, now, shippedStub)) changed.push(rel(shippedPath));
+    outputs.push({ path: rel(roadmapPath), abs: roadmapPath, ...planFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames, titles, shipped }), project, now) });
+    if (collapse) outputs.push({ path: rel(shippedPath), abs: shippedPath, ...planFenced(shippedPath, renderShippedCatalog({ pages: projectItems, ambiguousNames, titles }), project, now, shippedStub) });
   }
-  return { written, changed, unrecognized };
+  return { written, outputs, unrecognized };
+}
+
+// Dry run by default (apply: false) — matches every other repair/generation script in this repo.
+// `changed` lists the files a run would change, or changed when apply is true; a dry run writes nothing.
+export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project, graph, now = new Date(), excluded } = {}) {
+  if (apply && !validDate(now)) throw new TypeError('now must be a valid Date');
+  const { written, outputs, unrecognized } = planBacklogRoadmaps(vaultPath, { project, graph, now, excluded });
+  const changed = outputs.filter((o) => o.next !== o.previous);
+  if (apply) for (const o of changed) commitFenced(o.abs, o.next);
+  return { written, changed: changed.map((o) => o.path), outputs: outputs.map(({ path, previous, next }) => ({ path, previous, next })), unrecognized };
 }
 
 export function main(argv = process.argv.slice(2)) {
   const { path: vaultPath } = resolveVault();
-  const { apply, project, pathsFile } = catalogArgs(argv);
+  const { apply, project, pathsFile, diff } = catalogArgs(argv);
   if (pathsFile) throw new Error('--paths-file is supported by refresh-catalogs.mjs only');
+  if (diff) throw new Error('--diff is supported by refresh-catalogs.mjs only');
   const r = regenerateBacklogRoadmaps(vaultPath, { apply, project });
   console.log(JSON.stringify({ type: 'backlog-gen', applied: apply, projects: r.written, changed: r.changed, ...(r.unrecognized.length ? { unrecognized: r.unrecognized } : {}) }));
   if (r.unrecognized.length) console.error(`${r.unrecognized.length} backlog item(s) have a status outside the vocabulary and are listed under "Unrecognized status": ${r.unrecognized.join(', ')}`);
-  if (!apply) console.error('dry run — re-run with --apply to write');
+  if (!apply) console.error(r.changed.length ? `dry run — ${r.changed.length} file(s) would change; re-run with --apply` : 'dry run — nothing would change');
   return r;
 }
 
