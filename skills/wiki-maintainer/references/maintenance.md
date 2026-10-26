@@ -110,6 +110,23 @@ mentions of an old path without rewriting them, and refuses a rename whose targe
 Pages are rewritten before files are renamed, so an interrupted run is finished by running
 it again.
 
+**Renaming clippings whose names double the extension.** Before 0.58.0 a clipping of
+`README.md` was filed `README.md.md`, and a title-less raw document `SKILL.md.md`; new clippings
+no longer end `.md.md`. Rename the existing ones from the plugin root with
+`node "<absolute-plugin-root>/scripts/rename-doubled-extension-clippings.mjs" --list-out <review.tsv>`
+(dry run, writes nothing to the vault), review the listing, then `--apply --paths-out <ledger.json>`
+inside an operation and close with `op-commit --paths-file <ledger.json>`. A `clip-gh` file
+under `raw/clippings/gh/<owner>/<repo>/` loses its second `.md`; a top-level clipping with an empty
+title is renamed from its source URL, nearest folder first, as new clips are. The contract is
+the one above (bytes and `source-hash` untouched, full-path wikilinks only, `raw/` and `log/`
+never rewritten, a rename onto an existing name refused), plus three more. A link to the
+extension-stripped path is repointed only when no existing file has exactly that path (a vault
+may hold both `Build.md` and `build.md.md`; a link to `Build.md` means the real file). The apply
+refuses to start when any file it would change has uncommitted changes in the vault's git, because
+another writer may be editing it, and changes nothing. `--flag=<prefix>` lists the pages under a prefix
+for review and `--exclude=<prefix>` reports them without rewriting (both repeatable): use them for pages
+whose citations an app reads by title. A bare-name link such as `[[README.md]]` is not rewritten.
+
 **Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
 whose authored pages predate this convention has none of it set. Repair from the
 plugin root: `node "<absolute-plugin-root>/scripts/backfill-authored-metadata.mjs"` (dry-run) then `--apply`

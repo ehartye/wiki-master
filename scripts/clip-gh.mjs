@@ -133,6 +133,22 @@ export function slugifyRepoPath(relPath) {
 }
 
 // Build one file's clipping. Pure: no IO, no git, no gh — the testable core.
+// The file name for one repo file. A new clipping never doubles the extension: README.md is README.md,
+// not README.md.md. Two cases keep the older doubled form. A doubled file already on disk for this path
+// stays where it is and keeps being written to: renaming it here would break the citations to it, and the
+// rename migration (rename-doubled-extension-clippings.mjs) moves it together with them. And a path whose
+// new name another path in the same run has already claimed (LICENSE and LICENSE.md) takes the doubled
+// form, so neither file is lost. `existing` and `claimed` hold lowercase file names.
+export function repoClipFileName(relPath, { existing = new Set(), claimed = new Set() } = {}) {
+  const slug = slugifyRepoPath(relPath);
+  const next = `${slug.replace(/\.md$/i, '')}.md`;
+  const doubled = `${slug}.md`;
+  if (doubled.toLowerCase() === next.toLowerCase()) return next;
+  if (existing.has(doubled.toLowerCase()) && !existing.has(next.toLowerCase())) return doubled;
+  if (claimed.has(next.toLowerCase())) return doubled;
+  return next;
+}
+
 // A `.md` file is stored AS-IS, never re-fenced (fencing a markdown file
 // would nest its own headings and code fences inside an outer fence and
 // break both); every other file is wrapped in a language-hinted fence so it
@@ -463,13 +479,18 @@ export function writeFileClips({ owner, repo, resolvedRef, included, quality, to
   // check, so a re-clip converges on the safe name whether or not the content
   // changed, instead of leaving the old file beside a new copy.
   const legacyNames = legacyNameMap(readdirSync(outDir));
+  const existing = new Set(readdirSync(outDir).map((n) => n.toLowerCase()));
+  const claimed = new Set();
   let clipped = 0; let unchanged = 0; let thin = 0; let renamed = 0;
   for (const relPath of included) {
     const content = readFileSync(join(tmp, relPath), 'utf8');
     const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
     if (clip.wordCount < THIN_WORD_FLOOR) { thin++; continue; }
-    const fileName = `${slugifyRepoPath(relPath)}.md`;
-    if (adoptLegacyName(outDir, legacyNames, fileName)) renamed++;
+    // A hidden or backtick-named legacy file is adopted under its safe (doubled) name first; nothing cites it.
+    const doubledName = `${slugifyRepoPath(relPath)}.md`;
+    if (adoptLegacyName(outDir, legacyNames, doubledName)) { renamed++; existing.add(doubledName.toLowerCase()); }
+    const fileName = repoClipFileName(relPath, { existing, claimed });
+    claimed.add(fileName.toLowerCase());
     if (existingHashes.has(clip.hash)) { unchanged++; continue; }
     writeFileSync(join(outDir, fileName), clip.body);
     clipped++;
@@ -517,14 +538,18 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
   // under its current name first. Without this, an unchanged one would be skipped by
   // the hash check below and then pruned as stale: the file would be deleted.
   const legacyNames = legacyNameMap(readdirSync(outDir));
+  const existing = new Set(readdirSync(outDir).map((n) => n.toLowerCase()));
+  const claimed = new Set();
   let anchorsClipped = 0; let anchorsUnchanged = 0; let anchorsThin = 0; let anchorsRenamed = 0;
   for (const relPath of anchorPaths) {
     const content = readFileSync(join(tmp, relPath), 'utf8');
     const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
     if (clip.wordCount < THIN_WORD_FLOOR) { anchorsThin++; continue; }
-    const anchorFilename = `${slugifyRepoPath(relPath)}.md`;
+    const doubledName = `${slugifyRepoPath(relPath)}.md`;
+    if (adoptLegacyName(outDir, legacyNames, doubledName)) { anchorsRenamed++; existing.add(doubledName.toLowerCase()); }
+    const anchorFilename = repoClipFileName(relPath, { existing, claimed });
+    claimed.add(anchorFilename.toLowerCase());
     expectedFilenames.add(anchorFilename);
-    if (adoptLegacyName(outDir, legacyNames, anchorFilename)) anchorsRenamed++;
     if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
     writeFileSync(join(outDir, anchorFilename), clip.body);
     anchorsClipped++;
@@ -698,3 +723,4 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-gh']);
   main(process.argv.slice(2));
 }
+

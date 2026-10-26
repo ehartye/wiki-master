@@ -32,7 +32,7 @@ const common = { owner: 'o', repo: 'r', resolvedRef: 'abc123', quality: 'medium'
 test('a fresh clip of a dot-leading file is written under a name Obsidian can see', (t) => {
   const f = setup(t, { '.github/workflows/ci.yml': WORDS, 'README.md': WORDS });
   const r = writeFileClips({ ...common, included: ['.github/workflows/ci.yml', 'README.md'], outDir: f.outDir, tmp: f.tmp });
-  assert.deepEqual(f.names(), ['README.md.md', 'dot-github-workflows-ci.yml.md']);
+  assert.deepEqual(f.names(), ['README.md', 'dot-github-workflows-ci.yml.md']); // a new README is not doubled
   assert.deepEqual([r.clipped, r.unchanged, r.renamed], [2, 0, 0]);
 });
 

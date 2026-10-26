@@ -8,12 +8,17 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // escape `\|` are kept as written, and so is the form of the target. Links inside
 // code fences, inline code and comments are examples, not citations, and stay.
 // Matching is by full vault path (never by bare name), case-insensitively.
-export function rewriteLinkTargets(text, renames) {
+// `existing` is the set of lowercase paths of the files that exist. A link to the extension-stripped path
+// of a renamed file (`raw/clippings/build` for `build.md.md`, or `raw/clippings/build.md`) is not
+// repointed when a file of exactly that path exists, because the resolver gives an exact file priority over
+// another file's stripped path: that link means the existing file.
+export function rewriteLinkTargets(text, renames, { existing } = {}) {
   if (!renames.length) return { text, count: 0 };
   const forms = new Map();
   for (const { from, to } of renames) {
     forms.set(from.toLowerCase(), to);
-    forms.set(stemOf(from).toLowerCase(), stemOf(to));
+    const stem = stemOf(from).toLowerCase();
+    if (!existing?.has(stem)) forms.set(stem, stemOf(to));
   }
   // prose() treats a backtick pair as a code span, which would also blank the
   // target of a link to a backtick-named file. Neutralise the backticks inside the
