@@ -1,3 +1,5 @@
+import { prose } from './prose.mjs';
+
 // A wikilink is inline Markdown/Obsidian syntax — it can never legitimately span a
 // line break. When hard-wrapped prose (a common paragraph-formatting habit, whether
 // hand- or LLM-authored) happens to wrap mid-[[Target]], the bracket span survives
@@ -9,7 +11,12 @@
 // mode don't hyphenate body text either), but plain paragraph word-wrap.
 //
 // Detection is a structural fact, not a heuristic: there is no legitimate multi-line
-// wikilink, so a raw newline inside a `[[...]]` span is unambiguously a defect.
+// wikilink, so a raw newline inside a link span is unambiguously a defect. A SPAN is
+// a `[[` that is not inside code or a comment, up to the next `]]`, with no other `[[`
+// and no blank line between: a `[[` named in a code span ("no residue (`[[`)") is not
+// an opener, and a paragraph break ends any link. Without that, a page that mentioned
+// "`[[`" had a thousand characters of paragraphs, headings and list items collapsed
+// into one line by the repair.
 // Repair is the mechanical REVERSAL of the wrap — collapse the whitespace run that
 // contains the newline back to the single space paragraph-wrapping replaced. Nothing
 // is invented for the ordinary case, only undone.
@@ -26,12 +33,20 @@
 // one that resolves against the REAL page index — report, never guess, when zero or
 // both do.
 
-const LINK_RE = /\[\[([^\]]+)\]\]/g;
+// The content of a span: no `]`, no nested `[[`, and no blank line (a paragraph break ends any link).
+// A stray opener fails here and the next `[[` gets its own attempt.
+const LINK_RE = /\[\[((?:(?!\[\[)(?!\r?\n[ \t]*\r?\n)[^\]])+)\]\]/g;
+
+// Every span in the text, found on the text with code and comments blanked (offsets preserved) and read
+// back from the original.
+function spans(text) {
+  return [...prose(text).matchAll(LINK_RE)].map(m => ({ index: m.index, full: text.slice(m.index, m.index + m[0].length), raw: text.slice(m.index + 2, m.index + m[0].length - 2) }));
+}
 // A non-space character immediately before a hyphen, then optional trailing
 // spaces/tabs, then the newline: "...Diagno-\n..." and "...Wizards-\n..." both
 // match (the hyphen is glued to the word before the break); "...Trunk-Based\n..."
 // does not (the hyphen is mid-line — the character right before the break is "d").
-const HYPHEN_BREAK_RE = /(\S)-[ \t]*\n[ \t]*/;
+const HYPHEN_BREAK_RE = /(\S)-[ \t]*\r?\n[ \t]*/;
 
 export function isWrappedTarget(target) {
   return typeof target === 'string' && target.includes('\n');
@@ -45,7 +60,7 @@ export function isWrappedTarget(target) {
 // is never applied to a hyphenAdjacent span without checking candidateDewraps/
 // resolveDewrap first.
 export function dewrapWhitespace(raw) {
-  return raw.replace(/[ \t]*\n[ \t]*/g, ' ');
+  return raw.replace(/[ \t]*\r?\n[ \t]*/g, ' ');
 }
 
 export function hyphenAdjacent(raw) {
@@ -61,7 +76,7 @@ export function candidateDewraps(raw) {
   // Remove the hyphen-adjacent break entirely (no separator at all — "Diagno-\nstics"
   // rejoins to "Diagnostics", not "Diagno stics"); any OTHER wrap elsewhere in the
   // same span still gets the ordinary space-collapse.
-  const removed = raw.replace(HYPHEN_BREAK_RE, (_, before) => before).replace(/[ \t]*\n[ \t]*/g, ' ');
+  const removed = raw.replace(HYPHEN_BREAK_RE, (_, before) => before).replace(/[ \t]*\r?\n[ \t]*/g, ' ');
   return [kept, removed];
 }
 
@@ -86,10 +101,9 @@ export function resolveDewrap(raw, { resolves = () => false } = {}) {
 // (health.mjs / classifyBrokenLinks) and as the basis for dewrapText's rewrite.
 export function findWrappedLinks(text, opts = {}) {
   const found = [];
-  for (const m of text.matchAll(LINK_RE)) {
-    const raw = m[1];
-    if (!isWrappedTarget(raw)) continue;
-    found.push({ match: m[0], raw, index: m.index, ...resolveDewrap(raw, opts) });
+  for (const s of spans(text)) {
+    if (!isWrappedTarget(s.raw)) continue;
+    found.push({ match: s.full, raw: s.raw, index: s.index, ...resolveDewrap(s.raw, opts) });
   }
   return found;
 }
@@ -101,15 +115,18 @@ export function findWrappedLinks(text, opts = {}) {
 export function dewrapText(text, opts = {}) {
   let fixed = 0;
   const skippedSpans = [];
-  const next = text.replace(LINK_RE, (full, raw) => {
-    if (!isWrappedTarget(raw)) return full;
-    const { chosen } = resolveDewrap(raw, opts);
+  let next = '', cursor = 0;
+  for (const s of spans(text)) {
+    if (!isWrappedTarget(s.raw)) continue;
+    const { chosen } = resolveDewrap(s.raw, opts);
     if (chosen === null) {
-      skippedSpans.push(full);
-      return full;
+      skippedSpans.push(s.full);
+      continue;
     }
     fixed += 1;
-    return `[[${chosen}]]`;
-  });
+    next += text.slice(cursor, s.index) + `[[${chosen}]]`;
+    cursor = s.index + s.full.length;
+  }
+  next += text.slice(cursor);
   return { text: next, fixed, skipped: skippedSpans.length, skippedSpans };
 }
