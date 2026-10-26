@@ -90,6 +90,21 @@ scripts tolerate it and never flagged it as a defect. Repair from the plugin roo
 surgery — it recognizes and reorders only that exact shape and is a no-op on
 anything else — idempotent and safe to re-run.
 
+**Repairing ambiguous bare links.** A bare `[[architecture]]` is an `ambiguous-link` defect when two pages
+share the name. From the plugin root: `node "<absolute-plugin-root>/scripts/repair-ambiguous-links.mjs"` (dry
+run, with the plan and the report) then `--apply`; `--project=<slug>` bounds it. On its own it applies one rule:
+the page lives in a project's folder (`wiki/authored/<project>/`) and exactly one candidate does too, so the
+link is rewritten to that path with the displayed text kept (`[[wiki/authored/<project>/architecture.md|architecture]]`;
+`\|` inside a table row; an existing alias or `#heading` kept; a `sources:` entry takes the full path with no
+alias). Links in code, comments and a generated catalog fence stay. Every other class is reported with its
+reason, not guessed: a page outside every project folder (`shared-page`), several candidates or none in the
+page's project (`needs-reading`), a title shared by two clippings (`title-citation`, repaired by retitling the
+clippings, not from the citing page), an occurrence only inside a generated catalog (`catalog-line`, repaired by
+regenerating it). A reviewed `--mapping=<file>` of `{ "target", "path", "page"? }` settles the ones that need a
+reading, and only with a path that is a candidate. A page an application reads by title, where a path in a
+citation would break it, is left alone with `--exclude=<path-prefix>` (repeatable). It sets `updated` to the run
+date, leaves `reviewed`, and checks line by line that only wikilinks changed.
+
 **Renaming clippings that Obsidian hides or a wikilink cannot carry.** Obsidian does
 not index a dot-prefixed file, and `graph.mjs` skips the same names, so a clipping
 filed as `.github-workflows-build.yml.md` is invisible: every citation of it is an

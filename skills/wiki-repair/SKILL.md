@@ -34,7 +34,9 @@ of a source is a citation contract even on a stub.
    numbers can move. For `unresolved-citation`, locate the intended evidence and
    verify the supported claim. A unique matching source hash can establish the
    clipping's identity; similarity cannot. For `ambiguous-link`, read candidates
-   and qualify the intended canonical path. For `malformed-link`, establish the
+   and qualify the intended canonical path; `repair-ambiguous-links.mjs` (dry run first)
+   does the one safe case, a project page with a single candidate in its own project,
+   and reports the rest with a reason. For `malformed-link`, establish the
    intended syntax/target before editing. For `malformed-frontmatter`, the page's
    metadata was not read: look at the bytes of its fence lines, normalise only the
    damaged line ending (or close the fence) and change no text. For `missing-evidence`, inspect substantive
