@@ -23,6 +23,8 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 | `malformed-frontmatter` | A page opens with a frontmatter fence but its metadata is not read: the fence line carries a stray carriage return (`---\r\r\n`) or is never closed, or the block holds a carriage return that is not half of a CRLF. Carriage returns in the body are not this rule. It replaces the `missing-evidence` the unread `sources:` would otherwise cause. |
 | `missing-evidence` | A substantive derived page lacks its evidence route. Source summaries need a direct raw citation; other derived pages need a route within three evidence hops. |
 
+**Stray carriage returns (unscored).** A carriage return anywhere in a content page that is not half of a CRLF (a doubled `\r\r\n`, or one left by a tool that wrote `\r \r`) is listed in `strayCarriageReturns` (page and first line) and in one report line, `Stray carriage returns: N page(s)`, printed only when N is above zero. It is not a defect and does not move the count or the status: the page stays readable, and damage to the frontmatter is the named `malformed-frontmatter` rule above. An all-CRLF page, and anything under `raw/` or `log/`, is never listed. Normalise a listed page with a checked repair (the line sequence must be unchanged), as the `wiki-repair` skill does for frontmatter.
+
 Actual citation defects apply even to stubs. Missing-evidence checks exempt declared
 stubs, pages under the existing ten-word stub floor, MOCs, and original authored
 pages explicitly declaring `sources: []`. A substantive concept or source cannot

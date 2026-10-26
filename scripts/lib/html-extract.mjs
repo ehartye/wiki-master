@@ -66,9 +66,29 @@ function contentRoot(document) {
 const GENERIC_CHROME = new Set(['feedback', 'share', 'read next', 'related posts', 'recent posts', 'stay informed']);
 const GITHUB_CHROME = new Set(['repository navigation', 'repository files navigation', 'conversation', 'latest commit', 'folders and files',
   'about', 'resources', 'stars', 'watchers', 'forks', 'releases', 'packages', 'contributors', 'languages',
-  'reviewers', 'assignees', 'labels', 'projects', 'milestone', 'development', 'notifications']);
+  'reviewers', 'assignees', 'labels', 'projects', 'milestone', 'development', 'notifications', 'choose a reason for hiding this comment']);
 const COUNTER = /^\d+ (participants?|reviewers?|comments?)$/;
 const BYLINE = /^.{1,60}? commented\b/;
+// The clipper writes a GitHub comment as "**author** · 2023-10-01" followed by the comment, so the heading text
+// ("author commented Oct 1, 2023", or "author left a comment") is never found. The header it wrote is the proof.
+const BYLINE_HEADER = /^(.{1,60}?) (?:commented(?: on)?|left a comment)\b\s*(.*)$/i;
+function bylineHeaderCaptured(text, literal) {
+  const m = BYLINE_HEADER.exec(String(text).replace(/\s+/g, ' ').trim());
+  if (!m) return false;
+  const [, author, rest] = m;
+  if (!literal.includes(`**${author}**`)) return false;
+  if (!rest) return true;
+  const time = Date.parse(`${rest} UTC`);
+  return !Number.isNaN(time) && literal.includes(new Date(time).toISOString().slice(0, 10));
+}
+// A heading whose whole section text (links included) appears in the clipping, in order, has lost only its label.
+// The proof is every non-overlapping five-word window of that text, in a section of 10 to 150 words (so at least two
+// windows; a shorter section gives none and never qualifies).
+const LABEL_ONLY_MIN_WORDS = 10;
+const LABEL_ONLY_MAX_WORDS = 150;
+// Only a structural section title may go: short and without a digit. A comment byline ("author commented Oct 1")
+// carries who said it and when, which is information, so a missing byline is never just a label.
+const labelOnlyEligible = (text) => { const n = normalize(text); return n.split(' ').length <= 3 && !/\d/.test(n); };
 const CHROME_CONTAINER = new Set(['dropdown', 'menu', 'sidebar', 'toc', 'navigation', 'nav', 'breadcrumb', 'widget', 'promo', 'banner']);
 const CHROME_SECTION_MAX_WORDS = 40;
 const wordCount = text => (text.match(/[\p{L}\p{N}]+/gu) ?? []).length;
@@ -106,14 +126,19 @@ function headingSections(root, headings) {
     if (!item.heading) return;
     const container = chromeContainerOf(item.heading, root);
     let words = 0, longest = 0, probe = '';
+    const sectionText = [];
     for (let j = i + 1; j < items.length && !items[j].heading; j++) {
       if (container && !container.contains(items[j].node)) break;
+      sectionText.push(items[j].text);
       if (items[j].link) continue;
       const run = wordCount(items[j].text);
       words += run;
       if (run > longest) { longest = run; probe = normalize(items[j].text).split(' ').filter(Boolean).slice(0, 10).join(' '); }
     }
-    sections.set(item.heading, { words, probe: longest >= 8 ? probe : '', container: !!container });
+    const flat = normalize(sectionText.join(' ')).split(' ').filter(Boolean);
+    const windows = [];
+    if (flat.length >= LABEL_ONLY_MIN_WORDS && flat.length <= LABEL_ONLY_MAX_WORDS) for (let k = 0; k + 5 <= flat.length; k += 5) windows.push(flat.slice(k, k + 5).join(' '));
+    sections.set(item.heading, { words, probe: longest >= 8 ? probe : '', container: !!container, windows });
   });
   return sections;
 }
@@ -168,13 +193,16 @@ function chromeReason(signal, context, plain) {
   if (context.github) {
     if (light && (GITHUB_CHROME.has(n) || COUNTER.test(n))) return 'GitHub page chrome';
     if (BYLINE.test(n) && c.probe && plain.includes(c.probe)) return 'GitHub comment byline; the comment body was captured';
+    if (bylineHeaderCaptured(signal.text, context.literal)) return 'GitHub comment byline; the author and date were captured in the comment header';
   }
   if (c.container && light) return 'inside a sidebar, menu or dropdown container';
+  const spaced = ` ${plain} `;
+  if (labelOnlyEligible(signal.text) && c.windows.length > 0 && c.windows.every(w => spaced.includes(` ${w} `))) return 'only the heading label is missing; the whole section text was captured';
   return null;
 }
 function assessSignalsDetailed(expected, markdown, title, url = '') {
   const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
-  const context = { github: host === 'github.com', titleWords: new Set(normalize(title).split(' ').filter(Boolean)), titleHeadings: [] };
+  const context = { github: host === 'github.com', literal: markdown, titleWords: new Set(normalize(title).split(' ').filter(Boolean)), titleHeadings: [] };
   const ignored = [];
   // Strip Markdown link destinations so an inline link does not interrupt its source sentence.
   const plain = normalize(`${title}\n${markdown.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')}`);
