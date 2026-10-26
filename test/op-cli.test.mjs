@@ -15,6 +15,7 @@ import { main as commitMain, commitOp } from '../scripts/op-commit.mjs';
 function tempRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'wm-op-'));
   execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
   writeFileSync(join(dir, '.gitignore'), '.wiki-master/\n');

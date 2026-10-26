@@ -267,6 +267,7 @@ function buildPdf(out) {
 function tempVault() {
   const dir = mkdtempSync(join(tmpdir(), 'wm-fig-'));
   execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'T'], { cwd: dir });
   writeFileSync(join(dir, '.gitignore'), '.wiki-master/\n');
