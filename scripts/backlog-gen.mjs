@@ -20,6 +20,7 @@ import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByBacklogStatus, unrecognizedBacklogItems, BACKLOG_STATUS_ORDER } from './lib/authored-group.mjs';
 import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
+import { parseNote } from './lib/note.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
 export const END_MARK = '%% END GENERATED CATALOG %%';
@@ -32,15 +33,22 @@ const STATUS_HEADING = {
   dropped: '## Dropped',
 };
 
-function link(p, ambiguousNames) {
-  return `- [[${wikilinkTarget(p, ambiguousNames)}]]`;
+// A heading becomes the link's text when the project opts in (titles). It is cleaned first: a pipe or
+// a bracket in it would end the link early. An ambiguous name keeps its full-path target.
+const cleanTitle = (text) => text.replace(/[|[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+function link(p, ambiguousNames, titles) {
+  const title = titles?.get(p.path);
+  const shown = title ? cleanTitle(title) : '';
+  if (!shown) return `- [[${wikilinkTarget(p, ambiguousNames)}]]`;
+  return `- [[${wikilinkTarget(p, ambiguousNames).split('|')[0]}|${shown}]]`;
 }
 
 // A prerequisite never moves an item: each stays under the status its author set. An item that
 // is not closed notes what it still waits on, and a planned item whose declared prerequisites
 // are all closed is listed once more under "Ready to start". Items that declare nothing render
 // exactly as before. A prerequisite that does not resolve is plain text, never a dead link.
-export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
+export function renderBacklogCatalog({ pages, ambiguousNames = new Set(), titles, shipped }) {
+  const ln = (p) => link(p, ambiguousNames, titles);
   const { byPath } = analyzeBacklog(pages);
   const pageAt = new Map(pages.map((p) => [p.path, p]));
   const code = (text) => `\`${text}\``;
@@ -56,20 +64,30 @@ export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
   const lines = [];
   for (const { status, pages: group } of groupByBacklogStatus(pages)) {
     lines.push(STATUS_HEADING[status] ?? `## ${status}`);
-    lines.push(...[...group].sort(byName).map((p) => link(p, ambiguousNames) + waitingOn(p)), '');
+    if (status === 'shipped' && shipped?.link) {
+      lines.push(`${group.length} shipped item${group.length === 1 ? '' : 's'}: [[${shipped.link}|all shipped items]]`, '');
+      continue;
+    }
+    lines.push(...[...group].sort(byName).map((p) => ln(p) + waitingOn(p)), '');
   }
   const ready = pages.filter((p) => {
     const a = byPath.get(p.path);
     return p.backlogStatus === 'planned' && a.deps.length > 0 && a.unmet.length === 0 && a.malformed.length === 0;
   });
-  if (ready.length) lines.push('## Ready to start', ...ready.sort(byName).map((p) => link(p, ambiguousNames)), '');
+  if (ready.length) lines.push('## Ready to start', ...ready.sort(byName).map(ln), '');
   // An item outside the vocabulary is listed, never dropped: a roadmap that skips it hides open work.
   const unrecognized = unrecognizedBacklogItems(pages);
   if (unrecognized.length) {
     lines.push('## Unrecognized status', `Set backlog-status to one of ${BACKLOG_STATUS_ORDER.join(', ')}.`,
-      ...unrecognized.sort(byName).map((p) => link(p, ambiguousNames) + (p.backlogStatus ? ` — ${code(p.backlogStatus)}` : ' — no backlog-status')), '');
+      ...unrecognized.sort(byName).map((p) => ln(p) + (p.backlogStatus ? ` — ${code(p.backlogStatus)}` : ' — no backlog-status')), '');
   }
   return lines.join('\n').trimEnd();
+}
+
+// Every shipped item, for the page a project that collapses Shipped keeps beside its roadmap.
+export function renderShippedCatalog({ pages, ambiguousNames = new Set(), titles }) {
+  const shipped = pages.filter((p) => p.backlogStatus === 'shipped').sort((a, b) => a.path.localeCompare(b.path));
+  return shipped.length ? ['## Shipped', ...shipped.map((p) => link(p, ambiguousNames, titles))].join('\n') : '';
 }
 
 // The page a roadmap starts as. It carries every key validate-authored.mjs requires of a page in
@@ -86,9 +104,17 @@ export function roadmapStub(projectTitle, now) {
   return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${project}\nkind: roadmap\n---\n# ${projectTitle} — roadmap\n\n## Summary\n\n`;
 }
 
-function writeFenced(path, catalog, projectTitle, now) {
+// The page a collapsed Shipped list lives on. Same keys as a roadmap (it sits in the project folder),
+// kind reference: it is a generated list, not a plan.
+export function shippedStub(projectTitle, now) {
+  const day = now.toISOString().slice(0, 10);
+  const project = isPlainScalar(projectTitle) ? projectTitle : JSON.stringify(projectTitle);
+  return `---\ntype: authored\ncreated: ${day}\nupdated: ${day}\nstatus: draft\nsources: []\nai-generated: true\nproject: ${project}\nkind: reference\n---\n# ${projectTitle} — shipped backlog items\n\nGenerated from the project's backlog by backlog-gen.mjs; edit the items, not this list.\n\n`;
+}
+
+function writeFenced(path, catalog, projectTitle, now, stub = roadmapStub) {
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : roadmapStub(projectTitle, now);
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : stub(projectTitle, now);
   let next;
   const begin = existing.indexOf(BEGIN_MARK);
   const end = existing.indexOf(END_MARK);
@@ -106,6 +132,16 @@ function writeFenced(path, catalog, projectTitle, now) {
   writeFileSync(tmp, next);
   renameSync(tmp, path);
   return true;
+}
+
+// The first heading of each item's page, by path. Read only for a project that asked for titles.
+function headingsOf(vaultPath, items) {
+  const titles = new Map();
+  for (const p of items) {
+    try { const h = parseNote(readFileSync(join(vaultPath, ...p.path.split('/')), 'utf8')).body.match(/^#[ \t]+(.+?)[ \t]*$/m)?.[1]; if (h) titles.set(p.path, h); }
+    catch { /* an unreadable item keeps its bare link */ }
+  }
+  return titles;
 }
 
 // Dry run by default (apply: false) — matches every other repair/generation script in this
@@ -132,7 +168,14 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false, project: s
     unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
     if (!apply) continue;
     const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
-    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames }), project, now)) changed.push(relative(vaultPath, roadmapPath).replaceAll('\\', '/'));
+    const settings = existsSync(roadmapPath) ? parseNote(readFileSync(roadmapPath, 'utf8')).metadata : {};
+    const titles = settings['backlog-titles'] === 'true' ? headingsOf(vaultPath, projectItems) : undefined;
+    const collapse = settings['backlog-shipped'] === 'collapse' && projectItems.some((p) => p.backlogStatus === 'shipped');
+    const shippedPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap-shipped.md');
+    const shipped = collapse ? { link: `wiki/authored/${project}/roadmap-shipped` } : undefined;
+    const rel = (p) => relative(vaultPath, p).replaceAll('\\', '/');
+    if (writeFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames, titles, shipped }), project, now)) changed.push(rel(roadmapPath));
+    if (collapse && writeFenced(shippedPath, renderShippedCatalog({ pages: projectItems, ambiguousNames, titles }), project, now, shippedStub)) changed.push(rel(shippedPath));
   }
   return { written, changed, unrecognized };
 }
@@ -149,3 +192,4 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+

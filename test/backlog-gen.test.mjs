@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderBacklogCatalog, regenerateBacklogRoadmaps, roadmapStub, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
+import { renderBacklogCatalog, renderShippedCatalog, regenerateBacklogRoadmaps, roadmapStub, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
 import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
 import { REQUIRED_KEYS, PROJECT_KEYS } from '../scripts/lib/authored-contract.mjs';
@@ -410,4 +410,106 @@ test('a project folder with a comment marker in its name gets a stub that valida
   const text = readFileSync(join(v, ...rel.split('/')), 'utf8');
   assert.equal(parseNote(text).metadata.project, 'demo #1');
   assert.deepEqual(validateAuthored(v, [rel]).defects, []);
+});
+
+// ------------------------------------------- titles and a collapsed Shipped --
+// Both are opt-in per project, from the project's own roadmap.md frontmatter. A project that opts
+// in to neither regenerates exactly as before.
+
+const at = (slug, status) => item(`wiki/authored/demo/backlog/${slug}.md`, 'demo', status);
+const titlesOf = (pairs) => new Map(pairs.map(([slug, t]) => [`wiki/authored/demo/backlog/${slug}.md`, t]));
+
+test('with titles on, a link shows the item heading, ordering unchanged', () => {
+  const catalog = renderBacklogCatalog({ pages: [at('b', 'shipped'), at('a', 'planned')], titles: titlesOf([['a', 'Alpha work'], ['b', 'Beta done']]) });
+  assert.equal(catalog, '## Planned\n- [[a|Alpha work]]\n\n## Shipped\n- [[b|Beta done]]');
+});
+
+test('an item with no heading keeps its bare link when titles are on', () => {
+  const catalog = renderBacklogCatalog({ pages: [at('a', 'planned'), at('b', 'planned')], titles: titlesOf([['a', 'Alpha work']]) });
+  assert.equal(catalog, '## Planned\n- [[a|Alpha work]]\n- [[b]]');
+});
+
+test('an ambiguous name still links by full path, with the heading as its text', () => {
+  const catalog = renderBacklogCatalog({ pages: [at('a', 'planned')], titles: titlesOf([['a', 'Alpha work']]), ambiguousNames: new Set(['a']) });
+  assert.equal(catalog, '## Planned\n- [[wiki/authored/demo/backlog/a|Alpha work]]');
+});
+
+test('a heading with link syntax in it cannot break the link', () => {
+  const catalog = renderBacklogCatalog({ pages: [at('a', 'planned')], titles: titlesOf([['a', 'Fix `a|b` and [[c]]']]) });
+  assert.equal(catalog, '## Planned\n- [[a|Fix `a b` and c]]');
+});
+
+test('with Shipped collapsed, the main catalog keeps a count and a link instead of the list', () => {
+  const pages = [at('p', 'planned'), at('s1', 'shipped'), at('s2', 'shipped'), at('s3', 'shipped')];
+  const catalog = renderBacklogCatalog({ pages, shipped: { link: 'wiki/authored/demo/roadmap-shipped' } });
+  assert.ok(catalog.includes('## Planned\n- [[p]]'));
+  assert.ok(catalog.includes('## Shipped\n3 shipped items: [[wiki/authored/demo/roadmap-shipped|all shipped items]]'));
+  assert.ok(!catalog.includes('[[s1]]'));
+  assert.ok(renderBacklogCatalog({ pages: [at('s1', 'shipped')], shipped: { link: 'x/y' } }).includes('1 shipped item: '));
+  assert.ok(!renderBacklogCatalog({ pages: [at('p', 'planned')], shipped: { link: 'x/y' } }).includes('Shipped'));
+});
+
+test('the shipped page lists every shipped item, with headings when titles are on, and nothing else', () => {
+  const pages = [at('p', 'planned'), at('s2', 'shipped'), at('s1', 'shipped'), at('d', 'dropped')];
+  assert.equal(renderShippedCatalog({ pages }), '## Shipped\n- [[s1]]\n- [[s2]]');
+  assert.equal(renderShippedCatalog({ pages, titles: titlesOf([['s1', 'One']]) }), '## Shipped\n- [[s1|One]]\n- [[s2]]');
+  assert.equal(renderShippedCatalog({ pages: [at('p', 'planned')] }), '');
+});
+
+function optedVault(frontmatterExtra) {
+  const v = tempVault();
+  const file = (name, status, heading) => writeFileSync(join(v, 'wiki', 'authored', 'demo', 'backlog', `${name}.md`),
+    `---\ntype: authored\nsources: []\nproject: demo\nkind: backlog-item\nbacklog-status: ${status}\n---\n# ${heading}\n\nbody\n`);
+  file('open-one', 'planned', 'Open work one');
+  file('old-one', 'shipped', 'Finished work one');
+  file('old-two', 'shipped', 'Finished work two');
+  writeFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), `---\ntype: authored\ncreated: 2026-10-26\nupdated: 2026-10-26\nstatus: draft\nsources: []\nai-generated: true\nproject: demo\nkind: roadmap\n${frontmatterExtra}---\n# demo — roadmap\n\nHand-written framing.\n`);
+  return v;
+}
+const roadmapText = (v) => readFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), 'utf8');
+const shippedPath = (v) => join(v, 'wiki', 'authored', 'demo', 'roadmap-shipped.md');
+
+test('a project with both settings gets titled links, a collapsed Shipped and a valid sibling page, idempotently', () => {
+  const v = optedVault('backlog-titles: true\nbacklog-shipped: collapse\n');
+  const r = regenerateBacklogRoadmaps(v, { apply: true });
+  assert.deepEqual(r.changed.sort(), ['wiki/authored/demo/roadmap-shipped.md', 'wiki/authored/demo/roadmap.md']);
+  const main = roadmapText(v);
+  assert.ok(main.includes('- [[open-one|Open work one]]'));
+  assert.ok(main.includes('2 shipped items: [[wiki/authored/demo/roadmap-shipped|all shipped items]]'));
+  assert.ok(!main.includes('old-one'));
+  assert.ok(main.includes('Hand-written framing.'));
+  const shipped = readFileSync(shippedPath(v), 'utf8');
+  assert.ok(shipped.includes('- [[old-one|Finished work one]]') && shipped.includes('- [[old-two|Finished work two]]'));
+  assert.equal(parseNote(shipped).metadata.project, 'demo');
+  assert.deepEqual(validateAuthored(v, ['wiki/authored/demo/roadmap-shipped.md']).defects, []);
+  assert.deepEqual(regenerateBacklogRoadmaps(v, { apply: true }).changed, []);
+});
+
+test('titles alone do not create a shipped page, and collapse alone keeps bare links', () => {
+  const titles = optedVault('backlog-titles: true\n');
+  regenerateBacklogRoadmaps(titles, { apply: true });
+  assert.ok(roadmapText(titles).includes('- [[old-one|Finished work one]]'));
+  assert.ok(!existsSync(shippedPath(titles)));
+  const collapse = optedVault('backlog-shipped: collapse\n');
+  regenerateBacklogRoadmaps(collapse, { apply: true });
+  assert.ok(roadmapText(collapse).includes('- [[open-one]]'));
+  assert.ok(readFileSync(shippedPath(collapse), 'utf8').includes('- [[old-one]]'));
+});
+
+test('a project that opts in to neither regenerates exactly the default catalog and writes no extra page', () => {
+  const v = optedVault('');
+  regenerateBacklogRoadmaps(v, { apply: true });
+  const text = roadmapText(v);
+  const fenced = text.slice(text.indexOf(BEGIN_MARK) + BEGIN_MARK.length + 1, text.indexOf(END_MARK) - 1);
+  assert.equal(fenced, '## Planned\n- [[open-one]]\n\n## Shipped\n- [[old-one]]\n- [[old-two]]');
+  assert.ok(!existsSync(shippedPath(v)));
+});
+
+test('turning collapse off lists Shipped on the roadmap again and leaves the old sibling page alone', () => {
+  const v = optedVault('backlog-shipped: collapse\n');
+  regenerateBacklogRoadmaps(v, { apply: true });
+  writeFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), roadmapText(v).replace('backlog-shipped: collapse\n', ''));
+  regenerateBacklogRoadmaps(v, { apply: true });
+  assert.ok(roadmapText(v).includes('- [[old-one]]'));
+  assert.ok(existsSync(shippedPath(v)));
 });

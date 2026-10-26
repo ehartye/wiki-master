@@ -7,6 +7,7 @@ import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { parseNote } from './lib/note.mjs';
 import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
+import { readBacklogItems } from './lib/backlog-read.mjs';
 import {
   AUTHORED_ROOT, BACKLOG_STATUSES, DECISION_STATUSES, KINDS, KIND_STATUS_KEY, PROJECT_KEYS, REQUIRED_KEYS,
   placement, projectProblem,
@@ -108,26 +109,7 @@ function frontmatterDefects(path, markdown) {
 }
 
 // A backlog item's prerequisites are resolved among the items of its own project only, so reading
-// that one backlog folder is enough: no second whole-vault graph is built for them.
-function backlogItems(vaultPath, dir) {
-  const items = [];
-  (function walk(abs, rel) {
-    let entries;
-    try { entries = readdirSync(abs, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      if (e.name.startsWith('.')) continue;
-      if (e.isDirectory()) walk(join(abs, e.name), `${rel}/${e.name}`);
-      else if (e.name.endsWith('.md')) {
-        let markdown;
-        try { markdown = readFileSync(join(abs, e.name), 'utf8'); } catch { continue; }
-        const { metadata } = parseNote(markdown);
-        if (metadata.kind === 'backlog-item') items.push({ path: `${rel}/${e.name}`, backlogStatus: metadata['backlog-status'], metadata });
-      }
-    }
-  })(join(vaultPath, ...dir.split('/')), dir);
-  return items;
-}
-
+// that one backlog folder (readBacklogItems) is enough: no second whole-vault graph is built.
 const slug = path => path.slice(path.lastIndexOf('/') + 1).replace(/.md$/, '');
 const DEPENDENCY_PROBLEMS = {
   dangling: ['dependency-dangling', target => `[[${target}]] matches no backlog item in this project`],
@@ -142,7 +124,7 @@ function dependencyDefects(vaultPath, texts) {
     const place = placement(path);
     const dir = place?.project ? `${AUTHORED_ROOT}${place.project}/backlog` : null;
     if (!analyses.has(dir)) {
-      const items = dir ? backlogItems(vaultPath, dir) : [];
+      const items = dir ? readBacklogItems(vaultPath, dir) : [];
       analyses.set(dir, { items, analysis: null });
     }
     const entry = analyses.get(dir);
