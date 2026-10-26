@@ -70,6 +70,14 @@ export function frontmatterDamage(markdown) {
   return { line, text: `Frontmatter has a carriage return that is not part of a CRLF line ending (line ${line}); ${match ? 'the block may be read wrongly' : 'no metadata was read'}.` };
 }
 
+// The line (counting from 1) of the first carriage return anywhere in the text that is not half of a CRLF, or 0.
+// Unlike frontmatterDamage this looks at the whole page: a stray return in the body leaves the page readable, so it
+// is only reported (health, unscored), never counted as a defect.
+export function strayCarriageReturn(markdown) {
+  const at = markdown.search(STRAY_CR);
+  return at < 0 ? 0 : markdown.slice(0, at).split('\n').length;
+}
+
 export function parseNote(markdown) {
   const match = markdown.match(FRONTMATTER);
   const metadata = {};

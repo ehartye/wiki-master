@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } from './graph.mjs';
-import { frontmatterDamage, normalizeIdentity, parseNote, withoutComment } from './note.mjs';
+import { frontmatterDamage, normalizeIdentity, parseNote, strayCarriageReturn, withoutComment } from './note.mjs';
 import { blank, prose } from './prose.mjs';
 
 export { prose };
@@ -56,6 +56,7 @@ function prepare(page, markdown) {
     evidenceTargets: factualLinks.filter(x => !x.malformed).map(x => x.target),
     declaresNoSources: Array.isArray(metadata.sources) && metadata.sources.length === 0,
     frontmatterDamage: frontmatterDamage(markdown),
+    strayCarriageReturn: strayCarriageReturn(markdown),
     words: (prose(body).match(/\S+/g) ?? []).length,
     provenanceLine: start < 0 ? offset + 1 : start + 1,
   };
@@ -168,6 +169,8 @@ export function scanIntegrity(vaultPath) {
   const findings = sorted(issues);
   return { version: 1, status: !content.length ? 'empty' : findings.length ? 'defects' : 'clear',
     defectCount: findings.length, issues: findings, forwardLinks: sorted(forwards),
+    // Unscored: a page with a carriage return that is not half of a CRLF. It stays readable, so it is not a defect.
+    strayCarriageReturns: content.filter(p => p.strayCarriageReturn).map(p => ({ page: p.path, line: p.strayCarriageReturn })).sort((a, b) => compare(a.page, b.page)),
     coverage: { contentPages: content.length, provenanceEligible, stubs: content.filter(isStub).length,
       checks: Object.keys(VERIFY),
       notChecked: ['factual correctness', 'external URLs', 'heading/block anchors', 'historical moves/deletions', 'Markdown-style links'],
@@ -180,6 +183,7 @@ export function integrityReport(r) {
     `Scanned ${r.coverage.contentPages} content pages; ${r.coverage.provenanceEligible} require evidence; ${r.coverage.stubs} stubs.`,
     `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`];
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
+  if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
   for (const issue of r.issues) lines.push(`  ${issue.id} ${issue.rule} ${issue.source}:${issue.line}${issue.target ? ` -> ${JSON.stringify(issue.target)}` : ''}`, `    ${issue.evidence.replace(/\s+/g, ' ')}`, `    Verify: ${issue.verification}`);
   lines.push('Structural integrity only; factual truth and completeness require separate review.',
     'Use --json for the full worklist, --backlog for ingest, --legacy for the historical score.');
