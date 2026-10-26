@@ -36,6 +36,11 @@ Before the first authorized write, follow the shared operations completion contr
      restore the words or add an ellipsis. Read each inserted run.
    - **unverified** — a word is changed, added, reordered or negated (so is a dropped
      negation or operator), or the page's evidence trail does not hold the text.
+     `--near` prints, for unverified quotes of six or more words that align with a
+     raw clipping at 0.85 or better, a word diff (`[-word-]` the page added,
+     `{+word+}` only the clipping has): read those first. Each is a quotation with a
+     small difference; a corrected typo is benign, a changed meaning is not. A quote
+     it does not list is usually the page's own wording, but a low score is no proof.
      Adjudicate a bounded sample and report its size: real drift gets fixed against
      the clipping (guardrail #5); the wiki's own wording, mention quotes and
      retracted claims are conventions to ignore; claims the vault genuinely doesn't

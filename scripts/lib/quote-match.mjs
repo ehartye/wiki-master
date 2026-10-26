@@ -52,7 +52,7 @@ export const DECLARES_ABSENT = /unsourced|not in the (?:clipped |captured )?(?:s
 // symbols are the ones `tokenize` keeps ("3 × 4" must not match "3 + 4", and a
 // dropped "%" turns 40% into 40).
 const SYMBOLS = '<>=+×÷±≤≥≠\u2212%$€£';
-const NO_SKIP = new Set([
+export const NO_SKIP = new Set([
   'not', 'no', 'never', 'nor', 'neither', 'none', 'nothing', 'nobody', 'nowhere', 'without', 'cannot',
   't', 'don', 'doesn', 'didn', 'isn', 'aren', 'wasn', 'weren', 'won', 'wouldn', 'couldn', 'shouldn',
   'hasn', 'haven', 'hadn', 'ain', 'mustn', 'needn', 'shan', 'mightn', 'oughtn',
