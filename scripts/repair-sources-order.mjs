@@ -20,6 +20,8 @@ import { join } from 'node:path';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { fixSourcesOrder } from './lib/backfill.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
 const { path: vault } = resolveVault();

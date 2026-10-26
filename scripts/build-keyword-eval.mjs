@@ -23,6 +23,8 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { inScope, noteIdentity } from './lib/retrieval.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const STOP = new Set(['about', 'above', 'after', 'again', 'against', 'also', 'because', 'before', 'being', 'between', 'could', 'during', 'each', 'every', 'from', 'have', 'into', 'more', 'most', 'only', 'other', 'over', 'same', 'should', 'some', 'such', 'than', 'that', 'their', 'then', 'there', 'these', 'they', 'this', 'those', 'through', 'under', 'very', 'were', 'what', 'when', 'where', 'which', 'while', 'will', 'with', 'would', 'your']);
 

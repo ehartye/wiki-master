@@ -22,6 +22,8 @@ import { groupByProject, groupByBacklogStatus, unrecognizedBacklogItems, BACKLOG
 import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
 import { parseNote } from './lib/note.mjs';
 import { keptByMention } from './lib/catalog-scope.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
 export const END_MARK = '%% END GENERATED CATALOG %%';

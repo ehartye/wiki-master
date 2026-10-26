@@ -6,6 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isGitRepo } from './lib/git.mjs';
 import { dirtySet } from './lib/op.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Same flags scripts/lib/git.mjs's internal git() wrapper uses on every call:
 // core.quotePath=false keeps non-ASCII bytes literal (dirtySet only strips the

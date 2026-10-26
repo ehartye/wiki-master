@@ -59,7 +59,7 @@ export function pptxToText(pptxPath) {
 // WindowsApps\python3.exe App Execution Alias that is always on PATH and exits
 // nonzero with "Python was not found", so a correctly-installed python-pptx
 // reported itself missing. Candidates are therefore probed by RUNNING them.
-const PYTHON_CANDIDATES = ['python3', 'python', 'py'];
+export const PYTHON_CANDIDATES = ['python3', 'python', 'py'];
 
 // Pure resolution core — `probe(cmd, args) -> boolean` says whether `cmd args` ran
 // successfully. Two passes, so a working interpreter that lacks the library never

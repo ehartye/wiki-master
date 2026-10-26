@@ -7,6 +7,8 @@ import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 import { buildGraph, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { parseNote } from './lib/note.mjs';
 import { chunkMarkdown } from './lib/chunk.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const DEFAULT_THRESHOLD = 0.5;
 const MAX_CHARS = 1200;

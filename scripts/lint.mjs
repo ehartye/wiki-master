@@ -6,6 +6,8 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
 // review, never fix, never score (Wikipedia's own WTW rule: "There are no

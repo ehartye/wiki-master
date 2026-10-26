@@ -10,6 +10,8 @@ import { regenerateBacklogRoadmaps } from './backlog-gen.mjs';
 import { regenerateAuthoredMocs, projectSlug } from './moc-authored-gen.mjs';
 import { regenerateIndex } from './index-gen.mjs';
 import { scopeGraph } from './lib/catalog-scope.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Refresh generated nodes only; a second full scan would undo the benefit. The text comes from the
 // planned output, not from disk, so a dry run sees what an apply would have written and the later

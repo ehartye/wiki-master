@@ -12,6 +12,8 @@ import { isContent } from './lib/graph.mjs';
 import { findWrappedLinks } from './lib/dewrap-links.mjs';
 import { checkEvidenceMap, verifyStagedEvidence } from './lib/evidence-bytes.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
 function statusPorcelain(cwd) {

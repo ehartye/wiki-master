@@ -2,6 +2,8 @@ import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { buildGraph } from './lib/graph.mjs';
 import { resolveVault } from './lib/vault.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const FOLDERS = new Set(['concepts', 'entities', 'sources', 'syntheses', 'authored']);
 const TYPE_FOLDER = { concept: 'concepts', entity: 'entities', source: 'sources', synthesis: 'syntheses', authored: 'authored', moc: '../moc' };

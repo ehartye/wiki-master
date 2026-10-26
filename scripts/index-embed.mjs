@@ -31,6 +31,8 @@ import { hash } from './lib/embed-cache.mjs';
 import { embed as ollamaEmbed, isAvailable, modelPresent } from './lib/embed.mjs';
 import { encodeVectors, decodeVectors, planRefresh, neededHashes, coverage } from './lib/vector-index.mjs';
 import { noteIdentity, METADATA_VERSION, inScope } from './lib/retrieval.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';

@@ -11,6 +11,8 @@ import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
 import { commitPaths, isGitRepo, uncommittedElsewhere } from './lib/git.mjs';
 import { main as searchMain } from './search.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 export function sha256(text) {
   return createHash('sha256').update(text).digest('hex');

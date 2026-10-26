@@ -7,6 +7,8 @@ import { cosine } from './lib/embed.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { readManifestFile, readVectorStore } from './index-embed.mjs';
 import { auditIdentity } from './identity-audit.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const pairKey = (a, b) => [a, b].sort().join('\0');
 const compare = (a, b) => b.score - a.score || a.from.localeCompare(b.from) || a.to.localeCompare(b.to);

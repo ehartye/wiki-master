@@ -7,6 +7,8 @@ import {
 } from './lib/git.mjs';
 import { obsidianGitAutoCommit } from './lib/obsidian-git.mjs';
 import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Brings this machine's vault and the shared remote to the same state, or says
 // precisely why it could not. The plugin owns the vault's git: operations commit

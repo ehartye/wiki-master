@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { extractHtml, extractionRuntime } from './lib/html-extract.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Keep Defuddle's bounded, charset-aware, proxy-aware fetch and bot retry.
 export async function extractSource(payload, userAgent, { runtime = extractionRuntime(), extract = extractHtml } = {}) {

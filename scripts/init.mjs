@@ -4,6 +4,8 @@ import { extractionAvailable } from './clip.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
               'wiki/syntheses', 'wiki/authored', 'moc', 'log', '_templates', '.wiki-master'];

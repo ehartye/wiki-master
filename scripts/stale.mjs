@@ -4,6 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseNote } from './lib/note.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const DAY = 86_400_000;
 const THRESHOLDS = { fresh: 30, aging: 90, stale: 180 }; // days; beyond stale => rotten

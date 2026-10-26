@@ -12,6 +12,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { assessFidelity } from './clip-pdf.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // A fidelity flag is only clearable if it can be RE-DERIVED from the stored
 // text. Table-derived flags cannot: `extraction: table-aware` means the rows

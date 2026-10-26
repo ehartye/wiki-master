@@ -21,6 +21,8 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { renameClippings, runRenameCli } from './rename-unsafe-clippings.mjs';
 import { planDoubledExtensionRenames } from './lib/clip-rename-plan.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // The title and source of a clipping, from the head of its file.
 function headOf(vaultPath, rel) {

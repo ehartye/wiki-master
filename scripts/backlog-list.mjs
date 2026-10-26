@@ -5,6 +5,8 @@ import { resolveVault } from './lib/vault.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { analyzeBacklog } from './lib/backlog-deps.mjs';
 import { BACKLOG_STATUS_ORDER, projectKey } from './lib/authored-group.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // Lists backlog items by their lifecycle (`backlog-status`), which is not the page `status`
 // (draft or maintained) that a plain search for `status:` finds. Read-only, scoped to

@@ -7,6 +7,8 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 

@@ -14,6 +14,8 @@ import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, buildNameIndex, resolveLinkTarget, evidencePaths } from './lib/graph.mjs';
 import { checkQuotes, normalize, quoteFragments } from './lint.mjs';
 import { insertSources } from './lib/backfill.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
 const { path: vault } = resolveVault();

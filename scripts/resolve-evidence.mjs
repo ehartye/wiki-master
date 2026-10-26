@@ -20,6 +20,8 @@
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, buildNameIndex, evidenceRoutes } from './lib/graph.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 // search.mjs only ever appends `:<line>` for a chunk-semantic hit (never for
 // a keyword-only or --include-raw hit) — see its own renderResult(). No

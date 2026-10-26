@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { buildGraph, buildNameIndex, evidencePaths, isEvidencePath, resolveLinkTarget } from './lib/graph.mjs';
 import { resolveVault } from './lib/vault.mjs';
+import { cliGuard } from './lib/cli-guard.mjs';
+cliGuard(import.meta.url);
 
 const normalize = value => String(value).trim().replace(/^\[\[|\]\]$/g, '').split(/[|#]/)[0].replace(/\\/g, '/');
 const canonical = value => { const path = normalize(value); return path.endsWith('.md') ? path : `${path}.md`; };
