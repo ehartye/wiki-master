@@ -80,7 +80,8 @@ test('alias and declared title collisions stay ambiguous while canonical paths r
 test('declared titles resolve uniquely but cannot shadow another page basename', t => {
   const g = fixture(t, { 'wiki/concepts/A.md': '---\ntitle: Unique display title\n---\nA', 'wiki/concepts/B.md': '---\ntitle: C\n---\nB', 'wiki/concepts/C.md': 'C' });
   assert.equal(resolveLinkTarget(g.byName, '  UNIQUE DISPLAY TITLE  '), 'wiki/concepts/A.md');
-  assert.equal(resolveLinkTarget(g.byName, 'C'), undefined);
+  // B declares the title C, but the page named C is the one a link to C means: a title never shadows a basename.
+  assert.equal(resolveLinkTarget(g.byName, 'C'), 'wiki/concepts/C.md');
 });
 
 test('exact identity preserves punctuation and legacy raw/content basename channel preference', t => {

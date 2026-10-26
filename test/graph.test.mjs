@@ -676,3 +676,42 @@ test('wikilinkTarget matching is case-insensitive, consistent with resolveLinkTa
     'wiki/authored/demo/Architecture|Architecture'
   );
 });
+
+// A file whose NAME equals the link outranks files that only share its title, within a channel.
+// The same rule as the integrity resolver, for the navigation counts and the lint's evidence trail.
+test('buildNameIndex: within the raw channel, the clipping named for a link outranks one that only shares its title', () => {
+  const pages = [
+    { path: 'raw/clippings/90-1.ZO.html.md', name: '90-1.zo.html', metadata: { title: 'Smith v. Jones' } },
+    { path: 'raw/clippings/Smith v. Jones.md', name: 'smith v. jones', metadata: { title: 'Smith v. Jones' } },
+  ];
+  const byName = buildNameIndex(pages);
+  assert.equal(resolveLinkTarget(byName, 'Smith v. Jones'), 'raw/clippings/Smith v. Jones.md');
+  assert.equal(resolveLinkTarget(byName, 'Smith v. Jones', { nav: true }), 'raw/clippings/Smith v. Jones.md');
+});
+
+test('buildNameIndex: two clippings with the same stem stay ambiguous even when the title is shared', () => {
+  const byName = buildNameIndex([
+    { path: 'raw/clippings/a/Same.md', name: 'same', metadata: { title: 'Same' } },
+    { path: 'raw/clippings/b/Same.md', name: 'same', metadata: { title: 'Same' } },
+    { path: 'raw/clippings/c.md', name: 'c', metadata: { title: 'Same' } },
+  ]);
+  assert.equal(resolveLinkTarget(byName, 'Same'), undefined);
+});
+
+test('buildNameIndex: the provenance and navigation channels stay separate when a name beats a title', () => {
+  const byName = buildNameIndex([
+    { path: 'raw/clippings/Foo.md', name: 'foo', metadata: { title: 'Foo' } },
+    { path: 'wiki/concepts/Foo.md', name: 'foo', metadata: { title: 'Foo' } },
+    { path: 'wiki/concepts/Other.md', name: 'other', metadata: { title: 'Foo' } },
+  ]);
+  assert.equal(resolveLinkTarget(byName, 'Foo'), 'raw/clippings/Foo.md');
+  assert.equal(resolveLinkTarget(byName, 'Foo', { nav: true }), 'wiki/concepts/Foo.md');
+});
+
+test('buildNameIndex: in navigation a generated MOC loses to a content page of the same name, in either walk order', () => {
+  const moc = { path: 'moc/proj.md', name: 'proj', type: 'moc' };
+  const entity = { path: 'wiki/entities/proj.md', name: 'proj' };
+  assert.equal(resolveLinkTarget(buildNameIndex([moc, entity]), 'proj', { nav: true }), 'wiki/entities/proj.md');
+  assert.equal(resolveLinkTarget(buildNameIndex([entity, moc]), 'proj', { nav: true }), 'wiki/entities/proj.md');
+  assert.equal(resolveLinkTarget(buildNameIndex([moc, entity]), 'moc/proj', { nav: true }), 'moc/proj.md');
+});
