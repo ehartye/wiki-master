@@ -6,6 +6,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { parseNote } from './lib/note.mjs';
+import { parseTerms, scanText, BUILTIN_RULES } from './lib/private-terms.mjs';
 import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import {
@@ -17,7 +18,12 @@ import {
 // JSON array of vault-relative paths that op-commit and refresh-catalogs take.
 // Nothing is written: no cache, no .wiki-master directory, no temp file.
 //
-//   node validate-authored.mjs --paths-file <ledger.json> [--json]
+//   node validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <terms.txt> [--terms-projects a,b]]
+//
+// --terms-file also checks the ledger's pages against the owner's private list (the one scan-private-terms.mjs
+// reads) and the built-in machine patterns, for pages that are written for a public repository. A hit is a
+// `private-term` defect with its line and rule number, never the text. --terms-projects limits that check to the
+// pages whose `project:` (its first segment) is named, so a private project's own pages may name themselves.
 //
 // Exit 0 clean, 1 defects, 2 bad input. The integrity scan still reads the whole
 // vault because ambiguity is vault-wide; only the report is scoped to the ledger.
@@ -176,7 +182,7 @@ function linkDefects(scan, ledger) {
   return out;
 }
 
-export function validateAuthored(vaultPath, paths) {
+export function validateAuthored(vaultPath, paths, { termRules = null, termProjects = null } = {}) {
   const entries = checkLedger(paths);
   try { if (!statSync(vaultPath).isDirectory()) throw new Error('not a directory'); }
   catch { throw new InputError(`vault not found: ${vaultPath}`); }
@@ -199,10 +205,26 @@ export function validateAuthored(vaultPath, paths) {
     present.add(path);
   }
   for (const [path, markdown] of texts) defects.push(...frontmatterDefects(path, markdown));
+  if (termRules) defects.push(...termDefects(texts, termRules, termProjects));
   defects.push(...dependencyDefects(vaultPath, texts));
   if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath), present));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
   return { version: 1, checked, skipped, defects };
+}
+
+// Lines are numbered from the top of the file, frontmatter included, as the other defects are.
+function termDefects(texts, rules, projects) {
+  const out = [];
+  for (const [path, markdown] of texts) {
+    if (projects) {
+      const project = String(parseNote(markdown).metadata.project ?? '').split('/')[0].trim();
+      if (!projects.includes(project)) continue;
+    }
+    for (const hit of scanText(markdown, rules)) {
+      out.push({ path, line: hit.line, rule: 'private-term', message: hit.rule }); // the rule number only: the matched text is never shown
+    }
+  }
+  return out;
 }
 
 function readLedgerFile(file) {
@@ -220,9 +242,17 @@ export function summary(result) {
 // Returns the exit code; the process-level guard below sets it.
 export function main(argv = process.argv.slice(2)) {
   try {
-    const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, json: { type: 'boolean' } } });
+    const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, json: { type: 'boolean' }, 'terms-file': { type: 'string' }, 'terms-projects': { type: 'string' } } });
     if (!values['paths-file']) throw new InputError('--paths-file <JSON array of vault-relative paths> is required (usage: node validate-authored.mjs --paths-file <ledger.json> [--json])');
-    const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']));
+    if (values['terms-projects'] && !values['terms-file']) throw new InputError('--terms-projects needs --terms-file');
+    let termRules = null;
+    if (values['terms-file']) {
+      let text;
+      try { text = readFileSync(values['terms-file'], 'utf8'); } catch { throw new InputError('the terms file cannot be read'); }
+      try { termRules = [...BUILTIN_RULES, ...parseTerms(text)]; } catch (error) { throw new InputError(error.message); }
+    }
+    const termProjects = values['terms-projects'] ? values['terms-projects'].split(',').map(s => s.trim()).filter(Boolean) : null;
+    const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']), { termRules, termProjects });
     if (values.json) console.log(JSON.stringify(result, null, 2));
     else {
       for (const d of result.defects) console.log(`${d.path}:${d.line} ${d.rule} ${d.message}`);

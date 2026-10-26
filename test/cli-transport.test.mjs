@@ -55,7 +55,8 @@ test('preflight rejects unsafe requests before acquiring the gate or invoking an
 test('agent proxy rejects oversized payloads and missing commands without touching Obsidian', () => {
   const proxy = fileURLToPath(new URL('../scripts/obsidian.mjs', import.meta.url));
   for (const args of [[], ['create', 'content=' + 'private'.repeat(500)]]) {
-    const r = spawnSync(process.execPath, [proxy, ...args], { encoding: 'utf8', timeout: 3000, windowsHide: true });
+    const env = { ...process.env, WIKI_MASTER_VAULT: join(tmpdir(), 'wm-proxy-probe') }; // named, so the default vault is never resolved
+    const r = spawnSync(process.execPath, [proxy, ...args], { encoding: 'utf8', timeout: 3000, windowsHide: true, env });
     assert.equal(r.status, 1); assert.match(r.stderr, /not sent/i); assert.ok(!r.stderr.includes('private')); assert.equal(r.stdout, '');
   }
 });

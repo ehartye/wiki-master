@@ -214,14 +214,14 @@ test('project is compared with the folder, case-insensitively, with one sub-proj
     [`${DEMO}/notes/upper.md`, page({ project: 'DEMO' })],
     [`${DEMO}/notes/deep/inner/free.md`, page({})],
     [`${DEMO}/misc/free.md`, page({})],
-    ['wiki/authored/sparta/migrator/guides/user.md', page({ project: 'sparta/migrator', kind: 'guide' })],
-    ['wiki/authored/sparta/migrator/overview.md', page({ project: 'Sparta/Migrator', kind: 'overview' })],
+    ['wiki/authored/acme/migrator/guides/user.md', page({ project: 'acme/migrator', kind: 'guide' })],
+    ['wiki/authored/acme/migrator/overview.md', page({ project: 'Acme/Migrator', kind: 'overview' })],
     ['wiki/authored/standalone.md', page({ project: undefined, kind: undefined })],
     ['wiki/authored/standalone-with-project.md', page({ project: 'anything', kind: 'note' })],
   ];
   const wrong = [
     [`${DEMO}/notes/elsewhere.md`, page({ project: 'other' })],
-    ['wiki/authored/sparta/migrator/guides/dev.md', page({ project: 'sparta', kind: 'guide' })],
+    ['wiki/authored/acme/migrator/guides/dev.md', page({ project: 'acme', kind: 'guide' })],
     [`${DEMO}/misc/elsewhere.md`, page({ project: 'other' })],
     ['wiki/authored/a/b/c/notes/deep.md', page({ project: 'a/b/c' })],
   ];
@@ -591,7 +591,7 @@ test('the folder-to-kind table the validator uses is the placement table in the 
 
 test('placement reads the project folder, the kind folder and the exact-file kinds from a path', () => {
   assert.deepEqual(contract.placement('wiki/authored/demo/notes/x.md'), { project: 'demo', strict: true, expectedKind: 'note', folder: 'notes' });
-  assert.deepEqual(contract.placement('wiki/authored/sparta/migrator/guides/user.md'), { project: 'sparta/migrator', strict: true, expectedKind: 'guide', folder: 'guides' });
+  assert.deepEqual(contract.placement('wiki/authored/acme/migrator/guides/user.md'), { project: 'acme/migrator', strict: true, expectedKind: 'guide', folder: 'guides' });
   assert.deepEqual(contract.placement('wiki/authored/demo/cyber/notes/a/b/c.md'), { project: 'demo/cyber', strict: true, expectedKind: 'note', folder: 'notes' });
   assert.deepEqual(contract.placement('wiki/authored/demo/roadmap.md'), { project: 'demo', strict: false, expectedKind: 'roadmap', folder: null });
   assert.deepEqual(contract.placement('wiki/authored/demo/misc/x.md'), { project: 'demo/misc', strict: false, expectedKind: null, folder: null });

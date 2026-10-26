@@ -389,7 +389,7 @@ const STUB_DAY = new Date('2026-10-25T00:00:00Z');
 test('a plain project name is written unquoted, as before', () => {
   assert.match(roadmapStub('demo', STUB_DAY), /\nproject: demo\n/);
   assert.match(roadmapStub('acme/tool', STUB_DAY), /\nproject: acme\/tool\n/);
-  assert.match(roadmapStub('anika-valley 2', STUB_DAY), /\nproject: anika-valley 2\n/);
+  assert.match(roadmapStub('demo-valley 2', STUB_DAY), /\nproject: demo-valley 2\n/);
   assert.match(roadmapStub('café', STUB_DAY), /\nproject: café\n/);
 });
 

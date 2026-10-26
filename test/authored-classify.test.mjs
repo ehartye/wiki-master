@@ -12,96 +12,96 @@ import {
 
 // --- project ------------------------------------------------------------------
 
-test('classifyAuthoredProject: the sparta-migrator sub-project, including the bare overview file', () => {
-  for (const f of ['sparta-migrator', 'sparta-migrator-roadmap', 'sparta-migrator-sf-cli-removal-adr', 'sparta-migrator-gap-analysis']) {
-    assert.equal(classifyAuthoredProject(f), 'sparta-suite/migrator', f);
+test('classifyAuthoredProject: the acme-migrator sub-project, including the bare overview file', () => {
+  for (const f of ['acme-migrator', 'acme-migrator-roadmap', 'acme-migrator-cli-removal-adr', 'acme-migrator-gap-analysis']) {
+    assert.equal(classifyAuthoredProject(f), 'acme-suite/migrator', f);
   }
 });
 
-test('classifyAuthoredProject: the processing-agent/translation sub-project', () => {
-  for (const f of ['processing-agent-translation-overview', 'processing-agent-translation-user-guide']) {
-    assert.equal(classifyAuthoredProject(f), 'processing-agent/translation', f);
+test('classifyAuthoredProject: the widget-agent/translation sub-project', () => {
+  for (const f of ['widget-agent-translation-overview', 'widget-agent-translation-user-guide']) {
+    assert.equal(classifyAuthoredProject(f), 'widget-agent/translation', f);
   }
 });
 
-test('classifyAuthoredProject: processing-agent top-level (not the translation sub-project)', () => {
-  for (const f of ['processing-agent-overview', 'processing-agent-architecture', 'processing-agent-skills']) {
-    assert.equal(classifyAuthoredProject(f), 'processing-agent', f);
+test('classifyAuthoredProject: widget-agent top-level (not the translation sub-project)', () => {
+  for (const f of ['widget-agent-overview', 'widget-agent-architecture', 'widget-agent-skills']) {
+    assert.equal(classifyAuthoredProject(f), 'widget-agent', f);
   }
 });
 
-// Named to match the MOC that already exists (moc/sparta-suite.md), not a
-// shorter unexamined "sparta" guess that would target a different, new file —
+// Named to match the MOC that already exists (moc/acme-suite.md), not a
+// shorter unexamined "acme" guess that would target a different, new file —
 // spec §5.1's naming note.
-test('classifyAuthoredProject: the sparta-suite top-level apps', () => {
-  for (const f of ['sparta-governance', 'sparta-ideas', 'sparta-siop', 'sparta-spartanet', 'sparta-usage-tracker', 'sparta-scope', 'sparta-platform', 'sparta-suite-overview']) {
-    assert.equal(classifyAuthoredProject(f), 'sparta-suite', f);
+test('classifyAuthoredProject: the acme-suite top-level apps', () => {
+  for (const f of ['acme-governance', 'acme-ideas', 'acme-siop', 'acme-acmenet', 'acme-usage-tracker', 'acme-scope', 'acme-platform', 'acme-suite-overview']) {
+    assert.equal(classifyAuthoredProject(f), 'acme-suite', f);
   }
 });
 
 test('classifyAuthoredProject: a sibling-repo note names its parent project by its own content, not its filename prefix', () => {
-  assert.equal(classifyAuthoredProject('HCLS-LABS-SS-migrator-package'), 'sparta-suite/migrator');
+  assert.equal(classifyAuthoredProject('ACME-LABS-migrator-package'), 'acme-suite/migrator');
 });
 
 test('classifyAuthoredProject: cross-cutting research with no project gets none — never guessed', () => {
-  assert.equal(classifyAuthoredProject('sf-cli-local-auth-mechanics'), null);
+  assert.equal(classifyAuthoredProject('cli-local-auth-mechanics'), null);
 });
 
 // --- kind -----------------------------------------------------------------------
 
 test('classifyAuthoredKind: diagram, from any of the three diagram-suffix spellings seen live', () => {
-  for (const f of ['processing-agent-architecture-diagrams', 'processing-agent-process-diagrams', 'processing-agent-translation-diagrams']) {
+  for (const f of ['widget-agent-architecture-diagrams', 'widget-agent-process-diagrams', 'widget-agent-translation-diagrams']) {
     assert.equal(classifyAuthoredKind(f, ''), 'diagram', f);
   }
 });
 
 test('classifyAuthoredKind: guide, for all three audience suffixes', () => {
-  for (const f of ['processing-agent-user-guide', 'processing-agent-administrator-guide', 'processing-agent-developer-guide']) {
+  for (const f of ['widget-agent-user-guide', 'widget-agent-administrator-guide', 'widget-agent-developer-guide']) {
     assert.equal(classifyAuthoredKind(f, ''), 'guide', f);
   }
 });
 
 test('classifyAuthoredKind: reference, for every recognized reference-shaped suffix', () => {
-  for (const f of ['processing-agent-configuration', 'processing-agent-skills', 'processing-agent-llm-integration', 'processing-agent-lwc', 'processing-agent-build-test', 'processing-agent-dashboards', 'sparta-migrator-gap-analysis', 'sparta-migrator-user-journeys', 'sparta-migrator-mission-control-redesign']) {
+  for (const f of ['widget-agent-configuration', 'widget-agent-skills', 'widget-agent-llm-integration', 'widget-agent-lwc', 'widget-agent-build-test', 'widget-agent-dashboards', 'acme-migrator-gap-analysis', 'acme-migrator-user-journeys', 'acme-migrator-mission-control-redesign']) {
     assert.equal(classifyAuthoredKind(f, ''), 'reference', f);
   }
 });
 
 test('classifyAuthoredKind: decision, for both real ADRs', () => {
-  for (const f of ['sparta-migrator-sf-cli-removal-adr', 'sparta-migrator-local-git-dev-mode-adr']) {
+  for (const f of ['acme-migrator-cli-removal-adr', 'acme-migrator-local-git-dev-mode-adr']) {
     assert.equal(classifyAuthoredKind(f, ''), 'decision', f);
   }
 });
 
 test('classifyAuthoredKind: roadmap and architecture and overview suffixes', () => {
-  assert.equal(classifyAuthoredKind('sparta-migrator-roadmap', ''), 'roadmap');
-  assert.equal(classifyAuthoredKind('sparta-scope-roadmap', ''), 'roadmap');
-  assert.equal(classifyAuthoredKind('processing-agent-architecture', ''), 'architecture');
-  assert.equal(classifyAuthoredKind('processing-agent-overview', ''), 'overview');
-  assert.equal(classifyAuthoredKind('processing-agent-translation-overview', ''), 'overview');
+  assert.equal(classifyAuthoredKind('acme-migrator-roadmap', ''), 'roadmap');
+  assert.equal(classifyAuthoredKind('acme-scope-roadmap', ''), 'roadmap');
+  assert.equal(classifyAuthoredKind('widget-agent-architecture', ''), 'architecture');
+  assert.equal(classifyAuthoredKind('widget-agent-overview', ''), 'overview');
+  assert.equal(classifyAuthoredKind('widget-agent-translation-overview', ''), 'overview');
 });
 
 // A bare `<project-name>.md` with no doc-kind suffix at all is resolved
 // structurally, not guessed: confirmed live that every one of these opens
 // `# <slug>` immediately followed by a blank line then `## Summary` — the
-// identical shape sparta-migrator.md itself uses, which is unambiguously that
+// identical shape acme-migrator.md itself uses, which is unambiguously that
 // project's own overview page.
 test('classifyAuthoredKind: bare project-name files resolve to overview via the # title / ## Summary shape', () => {
-  const body = '\n# sparta-governance\n\n## Summary\n\nSome text.\n';
-  for (const f of ['sparta-governance', 'sparta-ideas', 'sparta-siop', 'sparta-spartanet', 'sparta-usage-tracker', 'sparta-scope', 'sparta-platform', 'sparta-migrator']) {
+  const body = '\n# acme-governance\n\n## Summary\n\nSome text.\n';
+  for (const f of ['acme-governance', 'acme-ideas', 'acme-siop', 'acme-acmenet', 'acme-usage-tracker', 'acme-scope', 'acme-platform', 'acme-migrator']) {
     assert.equal(classifyAuthoredKind(f, body), 'overview', f);
   }
 });
 
 test('classifyAuthoredKind: the one file that matches the bare-overview SHAPE but is not one, by explicit exception', () => {
-  // sparta-suite/migrator already has its overview (sparta-migrator.md itself);
+  // acme-suite/migrator already has its overview (acme-migrator.md itself);
   // this is a supporting artifact of that project, not a second front door.
-  const body = '\n# HCLS-LABS-SS-migrator-package\n\n## Summary\n\nA sibling repo...\n';
-  assert.equal(classifyAuthoredKind('HCLS-LABS-SS-migrator-package', body), 'reference');
+  const body = '\n# ACME-LABS-migrator-package\n\n## Summary\n\nA sibling repo...\n';
+  assert.equal(classifyAuthoredKind('ACME-LABS-migrator-package', body), 'reference');
 });
 
 test('classifyAuthoredKind: cross-cutting research with no project defaults to the note escape hatch', () => {
-  assert.equal(classifyAuthoredKind('sf-cli-local-auth-mechanics', 'anything'), 'note');
+  assert.equal(classifyAuthoredKind('cli-local-auth-mechanics', 'anything'), 'note');
 });
 
 test('classifyAuthoredKind: a filename with no recognized suffix and a body that does not match the overview shape resolves to nothing — never guessed', () => {
@@ -133,14 +133,14 @@ test('classifyDecisionStatus: no confident keyword match leaves it unset rather 
 
 test('insertAuthoredMetadata appends only the fields provided, at the end of the frontmatter block', () => {
   const text = '---\ntype: authored\nsources: []\nai-generated: true\n---\nbody\n';
-  const out = insertAuthoredMetadata(text, { project: 'sparta-suite', kind: 'overview' });
-  assert.match(out, /ai-generated: true\nproject: sparta-suite\nkind: overview\n---/);
+  const out = insertAuthoredMetadata(text, { project: 'acme-suite', kind: 'overview' });
+  assert.match(out, /ai-generated: true\nproject: acme-suite\nkind: overview\n---/);
   assert.ok(out.endsWith('---\nbody\n'));
 });
 
 test('insertAuthoredMetadata writes decision-status alongside kind for an ADR', () => {
   const text = '---\ntype: authored\nsources: []\nai-generated: true\n---\nbody\n';
-  const out = insertAuthoredMetadata(text, { project: 'sparta-suite/migrator', kind: 'decision', decisionStatus: 'accepted' });
+  const out = insertAuthoredMetadata(text, { project: 'acme-suite/migrator', kind: 'decision', decisionStatus: 'accepted' });
   assert.match(out, /kind: decision\ndecision-status: accepted/);
 });
 

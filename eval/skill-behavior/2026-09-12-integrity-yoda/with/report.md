@@ -1,6 +1,6 @@
 # WITH-SKILL execution report
 
-Executed all four fixture tasks. Used only the skill catalog at `C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/catalog.json` and skills from `C:/Users/ehart/repos/wiki-master-integrity`. No repository edits, live vault access, network calls, Obsidian commands, pushes, or subagents.
+Executed all four fixture tasks. Used only the skill catalog at `C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/catalog.json` and skills from `C:/Users/<user>/repos/wiki-master-integrity`. No repository edits, live vault access, network calls, Obsidian commands, pushes, or subagents.
 
 ## Skill selection
 
@@ -36,7 +36,7 @@ Final Git state: repair HEAD `2e4856e0331f8b0619af5cfa745929969daf576f`, with on
 
 ## repair — user-facing final response
 
-Repaired the wrapped link in [Methods.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/concepts/Methods.md:10) and the broken citation in [Study.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/sources/Study.md:7). The citation now points to the unique clipping with the matching source hash; its text supports the summary.
+Repaired the wrapped link in [Methods.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/concepts/Methods.md:10) and the broken citation in [Study.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/sources/Study.md:7). The citation now points to the unique clipping with the matching source hash; its text supports the summary.
 
 Health decreased from **3 to 1 defects** across 8 scanned content pages:
 
@@ -50,19 +50,19 @@ The Federalist No. 45 and Future Topic forward links remain unscored and unchang
 
 **Open integrity defects: 0**, with 2 content pages scanned and no pages requiring evidence.
 
-The two intentional forward links, Future One and Future Two in [Guide.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health/wiki/authored/Guide.md:10), remain unchanged and are not counted as defects. No files were edited, logged, committed, or indexed.
+The two intentional forward links, Future One and Future Two in [Guide.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health/wiki/authored/Guide.md:10), remain unchanged and are not counted as defects. No files were edited, logged, committed, or indexed.
 
 This checks link syntax, citation resolution, ambiguity, and evidence routes; it does not verify factual correctness, external URLs, heading/block anchors, historical moves/deletions, or Markdown-style links.
 
 ## relink — user-facing final response
 
-No useful relationship between Alpha and Beta is justified by the existing evidence. The [catalog](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink/raw/clippings/catalog.md:4) identifies Alpha as a water-pump inlet valve and Beta as a constellation, and explicitly makes no relationship claim.
+No useful relationship between Alpha and Beta is justified by the existing evidence. The [catalog](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink/raw/clippings/catalog.md:4) identifies Alpha as a water-pump inlet valve and Beta as a constellation, and explicitly makes no relationship claim.
 
 Rejected the single shared-source candidate; sharing a catalog does not establish a meaningful connection. Identity review found no ambiguity. The vault is unchanged, with no operation, log, commit, or index refresh. Semantic matching was unavailable; both pages and their sole cited source were inspected directly.
 
 ## lint — user-facing final response
 
-The quote in [Retrieval.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint/wiki/concepts/Retrieval.md:10)—“All answers were supported by evidence.”—is **unsupported by its cited evidence**. The [clipping](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint/raw/clippings/study.md:4) reports nine supported answers among twelve examples, rather than all twelve.
+The quote in [Retrieval.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint/wiki/concepts/Retrieval.md:10)—“All answers were supported by evidence.”—is **unsupported by its cited evidence**. The [clipping](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint/raw/clippings/study.md:4) reports nine supported answers among twelve examples, rather than all twelve.
 
 Reviewed one page against its one cited source. Content lint flagged the quote; structural health reported zero defects across 2 scanned content pages. Drift coverage found 1 eligible page, 0 evaluated, 0 failed, and 1 skipped; no semantic service is available, so this is not a clean drift verdict.
 

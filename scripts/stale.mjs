@@ -1,4 +1,5 @@
 import { obsidianJson, resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { pathToFileURL } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -95,4 +96,15 @@ export function main({ vaultPath, today = new Date(), obsidianJsonImpl = obsidia
   return r;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  'usage: node scripts/stale.mjs',
+  '',
+  'Read-only freshness report: which wiki pages have not been reviewed recently. Never writes.',
+  'Takes no options.',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

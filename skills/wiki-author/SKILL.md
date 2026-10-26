@@ -1,7 +1,7 @@
 ---
 name: wiki-author
 description: Use when asked to write or update wiki project documentation, architecture, a guide, an ADR, or a backlog item, or to check the frontmatter, folder placement and links of the pages an authoring task just wrote. Places original content canonically; captured external sources belong to wiki-ingest, not authoring.
-argument-hint: "[what to author, e.g. \"a user guide for sparta-scope\"]"
+argument-hint: "[what to author, e.g. \"a user guide for acme-scope\"]"
 ---
 
 Read [the shared core](../wiki-maintainer/SKILL.md) once per session.

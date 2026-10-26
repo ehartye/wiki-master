@@ -95,7 +95,7 @@ export function renderShippedCatalog({ pages, ambiguousNames = new Set(), titles
 // map groups pages by `project:` and a page without one is never listed there. `reviewed` is left
 // out: nobody has reviewed a page a script just wrote. Both dates are the UTC day of the run.
 // The project is written bare when it is a plain scalar (letters, digits and `_ . / -` with inner
-// spaces, so `acme/tool` and `anika-valley 2` read as before) and double-quoted otherwise, because a
+// spaces, so `acme/tool` and `demo-valley 2` read as before) and double-quoted otherwise, because a
 // ` #` would start a comment and a `: ` would split a key.
 const isPlainScalar = (s) => /^[\p{L}\p{N}_.][\p{L}\p{N}_. /-]*$/u.test(s) && !s.endsWith(' ');
 export function roadmapStub(projectTitle, now) {

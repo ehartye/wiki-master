@@ -201,8 +201,8 @@ Specific blockers at which I stop instead and ask:
 
 Files I read in this run, in full and exclusively:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/skill-catalog.snapshot.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/prompts.json`
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/skill-catalog.snapshot.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/prompts.json`
 
 No other file in the repo or elsewhere was opened.
 
@@ -223,7 +223,7 @@ Inherited exposure I could not opt out of, disclosed for completeness:
   2026-09-11) and the **git status snapshot** in context: branch `main`, clean tree, and five
   recent commit subject lines, several of which mention clip and triage work. I used none of
   it to shape the plan above beyond platform and date.
-- `C:/Users/ehart/.claude/CLAUDE.md` (global user instructions) and the auto-memory file
+- `C:/Users/<user>/.claude/CLAUDE.md` (global user instructions) and the auto-memory file
   `…/wiki-master/memory/MEMORY.md`, both injected into context by the harness rather than
   read by me. The memory entries are about dependency honesty and verifying against real
   documents; the CLAUDE.md line "the wiki is the source of truth" is general standing

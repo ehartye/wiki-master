@@ -1,10 +1,43 @@
-import { homedir } from 'node:os';
-import { join, basename } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join, basename, resolve, relative, isAbsolute } from 'node:path';
 import { serializedExecFileSync, validateCliRequest } from './cli-transport.mjs';
 
-export function resolveVault() {
-  const path = process.env.WIKI_MASTER_VAULT || join(homedir(), '.wiki-master-vault');
-  const name = process.env.WIKI_MASTER_VAULT_NAME || basename(path);
+// True when `path` is `dir` or inside it, also by its real path (macOS temp is a symlink).
+export function isUnder(path, dir) {
+  const roots = new Set([resolve(dir)]);
+  try { roots.add(realpathSync(dir)); } catch { /* a missing directory has only its given spelling */ }
+  const target = resolve(path);
+  return [...roots].some((root) => {
+    const rel = relative(root, target);
+    return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  });
+}
+
+export const isUnderTemp = (path, temp = tmpdir()) => isUnder(path, temp);
+
+const PLUGIN_ROOT = fileURLToPath(new URL('../..', import.meta.url));
+
+const refuseAndExit = (message) => { console.error(message); process.exit(2); };
+
+// The vault is WIKI_MASTER_VAULT, else the owner's real vault. Two guards keep that default from being reached
+// by accident: WIKI_MASTER_REQUIRE_VAULT=1 makes a script stop (exit 2, one line) when no vault is named, and
+// under `node --test` (NODE_TEST_CONTEXT is set, and a child process inherits it) a vault outside the temp
+// directory and the plugin's own folder (where fixture vaults live) throws, so a test that forgets to name
+// one fails instead of acting on the real vault.
+export function resolveVault(env = process.env, { onRefuse = refuseAndExit } = {}) {
+  const named = env.WIKI_MASTER_VAULT;
+  const required = env.WIKI_MASTER_REQUIRE_VAULT;
+  if (!named && required && required !== '0') {
+    onRefuse('wiki-master: WIKI_MASTER_REQUIRE_VAULT is set and WIKI_MASTER_VAULT is not, so no vault is chosen; set WIKI_MASTER_VAULT to the vault to act on');
+    throw new Error('no vault chosen');
+  }
+  const path = named || join(homedir(), '.wiki-master-vault');
+  if (env.NODE_TEST_CONTEXT && !isUnderTemp(path) && !isUnder(path, PLUGIN_ROOT)) {
+    throw new Error(`wiki-master: the vault ${path} is outside the temporary directory and the plugin folder, and a test run may only use a temporary or fixture vault; set WIKI_MASTER_VAULT to a directory under ${tmpdir()}`);
+  }
+  const name = env.WIKI_MASTER_VAULT_NAME || basename(path);
   return { path, name };
 }
 

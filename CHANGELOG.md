@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.68.0 — 2026-10-26
+
+- A script no longer acts on the real vault by accident. With `WIKI_MASTER_REQUIRE_VAULT=1` and no `WIKI_MASTER_VAULT`, `resolveVault()` stops the script (exit 2, one line) before it reads or writes anything. Under `node --test` (`NODE_TEST_CONTEXT`, which a child process inherits) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails. `resolveVault(env)` now takes an environment object, and `test/helpers/temp-vault.mjs` gives a test a temporary vault and puts the environment back. Both guards are off in ordinary use.
+- `--help` on a script no longer does its work. [measured] On a throwaway vault and home directory, all 51 scripts were run with `--help`: four changed things (`index-gen` rebuilt the index, `index-embed` refreshed the semantic index, `triage` started its server, `init` scaffolded a vault) and two ran in full (`lint`, `stale`). Those six now print their usage from `scripts/lib/help.mjs` before any vault is resolved, and a test compares a vault and a home directory before and after `--help` on every script. The other scripts reject `--help` as an unknown option or run as a dry run.
+- New `scripts/scan-private-terms.mjs` (and `scripts/lib/private-terms.mjs`): scans the tracked and untracked (not ignored) text files of a repository for names that belong in the wiki, and exits 1 on a hit. Built in: a home-directory path, a GPU model, and invisible characters. With `--terms-file` (or `WIKI_MASTER_PRIVATE_TERMS_FILE`) it also checks a private list kept outside the repository, one term per line or a `/pattern/flags` regular expression. It reports path, line and rule number and never the matched text. `--known <path>` lists files with hits still to be sanitised: their hits do not fail the scan, a hit elsewhere does, and an entry with no hit left does too, so the list only shrinks. The test suite runs the built-in patterns over the repository on every run.
+- [measured] First run on this repository: 421 built-in hits in 40 files (a home-directory path with an account name in recorded evaluation outputs and in four design documents) and three raw invisible characters in source (two in code, one in a test). All are fixed: the account segment is `<user>` in 37 files (362 replacements, JSON still valid), and the characters are written as escapes. A private list of project and machine names then found 287 hits in 36 files; the names are now neutral stand-ins everywhere outside six evaluation files (68 hits), which record questions asked of a private vault and cannot be reworded without re-running those measurements; they are named in `test/private-terms-known.txt`. Git history still holds the earlier text.
+- The one-time authored-pages backfill (`authored-classify.mjs` and its test) and the design documents about it used the maintainer's real project names; they now use neutral ones (`acme`, `widget-agent`), with no change in behaviour for any other input.
+- `validate-authored.mjs --terms-file <path>` runs the same private list and the built-in patterns over the pages of one ledger and reports each hit as a `private-term` defect with its line and rule number, never the text; `--terms-projects a,b` limits it to the pages of those projects (the first segment of `project:`). Without `--terms-file` the output is unchanged.
+- Documentation: README "Tests and the vault" and "Public-repository hygiene", the two new environment variables, the access reference, and a "Public pages" paragraph in the authoring reference.
+- Evidence: 28 new tests in four files (the suite is 1,614 passing and one skipped, the check that needs the private list; it was 1,586); 42 mutations were applied and each fails a test (two survivors of the first run, a path on another drive and the `-h` flag, each got a test). Of the 13 existing tests the test guard first flagged, none changed anything in a vault: they only resolved the default path (for a name, a comparison or a path check).
+
 ## 0.67.0 — 2026-10-26
 
 - New `scripts/repair-ambiguous-links.mjs`: a dry-run-first helper for `ambiguous-link` defects (a bare `[[architecture]]` when two pages share the name), replacing a throwaway script that two lints in a row had reinvented. On its own it applies one rule: the page lives in a project's folder (`wiki/authored/<project>/`) and exactly one candidate does too. The link is rewritten to that path with the displayed text kept (`[[wiki/authored/<project>/architecture.md|architecture]]`); an existing alias and `#heading` are kept; a link in a table row uses `\|`; a `sources:` entry takes the full path with no alias. Links in code spans, fences, comments and a generated catalog fence stay as written. `--apply` writes, `--project=<slug>` bounds the run, `--json` prints the plan.
@@ -119,7 +130,7 @@
 
 - Fixed: a backlog item whose `backlog-status` is outside the vocabulary (`proposed`, `done`, `open`) or missing was left out of the generated roadmap without a word. `backlog-gen.mjs` now lists it under `## Unrecognized status` with its value and the allowed words, `regenerateBacklogRoadmaps` returns the item paths as `unrecognized`, and the `backlog-gen.mjs` and `refresh-catalogs.mjs` commands name them (the key is present only when there are some). [tested] On the maintainer's vault the 0.55.0 and the new generator render byte-identical catalogs for 55 of 59 projects; the 4 that differ are the 4 projects holding 10 such items (9 `done`, 1 `proposed`). `proposed` was not added to the vocabulary; the heading names the five allowed words.
 - Not done: `health.mjs` and `lint.mjs` still do not report such pages, because a new integrity rule would change the health worklist contract. Tracked as its own item.
-- Fixed: a roadmap stub for a project whose name is not a plain YAML scalar (a ` #` or `: ` in it, a leading `-`, quotes and so on) now writes the name double-quoted, so it parses back to the folder name and validates. Plain names (`demo`, `acme/tool`, `anika-valley 2`, `café`) are written bare as before. The `: ` case is tested on the function only, because Windows cannot create such a folder.
+- Fixed: a roadmap stub for a project whose name is not a plain YAML scalar (a ` #` or `: ` in it, a leading `-`, quotes and so on) now writes the name double-quoted, so it parses back to the folder name and validates. Plain names (`demo`, `acme/tool`, `demo-valley 2`, `café`) are written bare as before. The `: ` case is tested on the function only, because Windows cannot create such a folder.
 - Tests: the vocabulary contract test compared every code span that begins with `backlog-status:` against the full list, so ordinary prose naming one status failed it with an array diff. It now compares only spans that list values with `|`, and a drifted list is reported with its line and span (tested against the real reference with a value removed). A list cut down to a single value is not detected.
 - Skill text: `wiki-author` step 5 is split into validate, refresh catalogs (rerun the check when the refresh added paths) and complete; its description now says "check the frontmatter, folder placement and links of the pages an authoring task just wrote". Before writing that the vault holds no source on a topic, it must run two bounded searches and report "not found by these queries". The authoring reference states that `missing-file` also covers a page that does not exist or a different Unicode form, and that `--json` is what `validateAuthored()` returns; it and the backlog-item template now ask that a behavior stated as tested carries the exact call arguments and log text.
 - Evidence for the text changes, from reading and not from a live session: nine questions answered by one reader per text from the text alone, old against new. The new text answered all nine (one hedged); the old answered seven, and the two it could not answer are the two added rules. Routing: eight prompts against the old and the new descriptions, 8 of 8 each time with the same skill chosen. One reader per condition, so noise is not measured.
@@ -555,7 +566,7 @@ All three catalog generators — `moc-authored-gen.mjs` (per-project MOC),
 `index-gen.mjs` (vault-wide index.md), and `backlog-gen.mjs` (per-project
 roadmap.md, itemizing `backlog/*.md`) — wrote plain bare `- [[title]]` links
 regardless, in direct violation of that documented contract. Live impact:
-with 12+ sparta-suite/chewie/adc sub-projects each carrying their own
+with 12+ acme-suite/gadget/adc sub-projects each carrying their own
 `architecture.md`/`data-flow.md`/`roadmap.md`, only 1-of-12 same-named pages
 ever received its intended inbound link from a generated MOC — the rest read
 as orphans no matter how many project MOCs "linked" them.
@@ -1516,7 +1527,7 @@ things metadata alone cannot fix.
   the same fenced-region contract `index.md` and the per-project MOC already use.
 - **`scripts/lib/roadmap-split.mjs`** — a pure, mechanical extractor that splits a monolithic
   roadmap into individual items verbatim (never a rewrite). Applied to the real vault: the
-  1,261-line, ~9,500-word `sparta-migrator-roadmap.md` became 32 individual backlog-item files
+  1,261-line, ~9,500-word `acme-migrator-roadmap.md` became 32 individual backlog-item files
   plus a ~200-word `roadmap.md` (renamed to the canonical bare name), verified 100% byte-exact
   against the source before trusting it. `health.mjs`'s `monolithCandidates` is now empty.
 - **`skills/wiki-author/SKILL.md`** — a new dedicated skill wrapping the placement table,
@@ -1528,7 +1539,7 @@ things metadata alone cannot fix.
   `architecture.md`/`roadmap.md` — these names are deliberately reused across projects, so a bare
   `[[roadmap]]` link becomes ambiguous the moment a second project has one. Documented in both
   skill docs; two real, previously-unresolved bare `[[roadmap]]` references in the vault
-  (comparing to sparta-migrator's roadmap structure) converted to the explicit piped form.
+  (comparing to acme-migrator's roadmap structure) converted to the explicit piped form.
 - Fixed a bug found while validating the above against the real vault: both
   `moc-authored-gen.mjs`'s per-project catalog and `index-gen.mjs`'s whole-vault catalog were
   listing every `kind: backlog-item` page individually — recreating, one layer up, the exact

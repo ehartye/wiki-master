@@ -2,6 +2,7 @@ import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node
 import { join } from 'node:path';
 import { extractionAvailable } from './clip.mjs';
 import { resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
@@ -41,4 +42,15 @@ export function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  'usage: node scripts/init.mjs',
+  '',
+  'Scaffolds a vault (folders, schema, templates, bases) at the vault path. Existing files are kept.',
+  'Takes no options.',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

@@ -1,4 +1,4 @@
-Repaired the wrapped link in [Methods.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/concepts/Methods.md:10) and the broken citation in [Study.md](C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/sources/Study.md:7). The citation now points to the unique clipping with the matching source hash; its text supports the summary.
+Repaired the wrapped link in [Methods.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/concepts/Methods.md:10) and the broken citation in [Study.md](C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/wiki/sources/Study.md:7). The citation now points to the unique clipping with the matching source hash; its text supports the summary.
 
 Health decreased from **3 to 1 defects** across 8 scanned content pages:
 

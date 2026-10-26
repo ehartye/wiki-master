@@ -17,8 +17,8 @@ import {
 const page = (path, project, kind) => ({ path, project, kind });
 
 test('projectSlug flattens a project value into a filesystem-safe moc filename stem', () => {
-  assert.equal(projectSlug('sparta-suite'), 'sparta-suite');
-  assert.equal(projectSlug('sparta-suite/migrator'), 'sparta-suite-migrator');
+  assert.equal(projectSlug('acme-suite'), 'acme-suite');
+  assert.equal(projectSlug('acme-suite/migrator'), 'acme-suite-migrator');
 });
 
 test('renderProjectCatalog groups a project\'s pages by KIND_ORDER, one bare bullet per page', () => {
@@ -183,11 +183,11 @@ test('MIN_PAGES is 2 — the documented, adjustable threshold', () => {
 // (skills/wiki-maintainer/SKILL.md) whenever a page's basename collides.
 test('renderProjectCatalog emits a piped full-path link for a basename ambiguous vault-wide', () => {
   const catalog = renderProjectCatalog({
-    pages: [page('wiki/authored/sparta-suite/migrator/architecture.md', 'sparta-suite/migrator', 'architecture')],
+    pages: [page('wiki/authored/acme-suite/migrator/architecture.md', 'acme-suite/migrator', 'architecture')],
     ambiguousNames: new Set(['architecture']),
   });
   assert.ok(
-    catalog.includes('[[wiki/authored/sparta-suite/migrator/architecture|architecture]]'),
+    catalog.includes('[[wiki/authored/acme-suite/migrator/architecture|architecture]]'),
     `expected a piped full-path link, got: ${catalog}`
   );
 });

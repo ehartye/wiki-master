@@ -8,11 +8,11 @@ async function parse(markdown) {
 }
 
 test('note parser preserves quoted commas, apostrophes and wikilinks in flow lists', async () => {
-  const n = await parse(`---\ntitle: "Learning: a guide"\naliases: ["Learning, transfer", 'Learner''s guide', O'Brien]\nsources: ["[[raw/clippings/Study, one.md]]", '[[wiki/sources/Author''s study]]']\nproject: sparta/migrator\ndecision-status: accepted\n---\n# Body\n`);
+  const n = await parse(`---\ntitle: "Learning: a guide"\naliases: ["Learning, transfer", 'Learner''s guide', O'Brien]\nsources: ["[[raw/clippings/Study, one.md]]", '[[wiki/sources/Author''s study]]']\nproject: acme/migrator\ndecision-status: accepted\n---\n# Body\n`);
   assert.deepEqual(n.aliases, ['Learning, transfer', "Learner's guide", "O'Brien"]);
   assert.deepEqual(n.sources, ['[[raw/clippings/Study, one.md]]', "[[wiki/sources/Author's study]]"]);
   assert.equal(n.metadata.title, 'Learning: a guide');
-  assert.equal(n.metadata.project, 'sparta/migrator');
+  assert.equal(n.metadata.project, 'acme/migrator');
   assert.equal(n.metadata['decision-status'], 'accepted');
   assert.equal(n.body, '# Body\n');
 });

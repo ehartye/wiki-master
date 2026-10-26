@@ -5,7 +5,7 @@ These are simulations of intended behavior. No application, network, Git, helper
 ## Exposure and limitations
 
 Files loaded:
-- `C:/Users/ehart/repos/wiki-master-cli-guard/eval/cli-safeguards/prompts.json`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/eval/cli-safeguards/prompts.json`
 
 Inherited exposure:
 - The available skill catalog, including skill names, descriptions, and paths, was present in host context. No skill body or skill reference file was loaded.

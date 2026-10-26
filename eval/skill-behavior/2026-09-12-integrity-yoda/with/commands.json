@@ -2,7 +2,7 @@
   "commands": [
     {
       "case": "repair",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
       "result": {
         "chunk_id": "0eb0c9",
         "wall_time_seconds": 0.6601164,
@@ -13,7 +13,7 @@
     },
     {
       "case": "relink",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
       "result": {
         "chunk_id": "38980d",
         "wall_time_seconds": 1.053556,
@@ -24,7 +24,7 @@
     },
     {
       "case": "health",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' ",
       "result": {
         "chunk_id": "1d4b43",
         "wall_time_seconds": 1.4846718,
@@ -35,7 +35,7 @@
     },
     {
       "case": "lint",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' ",
       "result": {
         "chunk_id": "083aa9",
         "wall_time_seconds": 1.8569672000000002,
@@ -46,7 +46,7 @@
     },
     {
       "case": "relink",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --legacy",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --legacy",
       "result": {
         "chunk_id": "585bcc",
         "wall_time_seconds": 1.8314556,
@@ -57,7 +57,7 @@
     },
     {
       "case": "health",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
       "result": {
         "chunk_id": "ec255b",
         "wall_time_seconds": 1.8098691,
@@ -68,7 +68,7 @@
     },
     {
       "case": "lint",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/drift.mjs' --coverage --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/drift.mjs' --coverage --json",
       "result": {
         "chunk_id": "80cbf7",
         "wall_time_seconds": 1.8158557,
@@ -79,7 +79,7 @@
     },
     {
       "case": "relink",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/identity-audit.mjs' --limit=20 --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/identity-audit.mjs' --limit=20 --json",
       "result": {
         "chunk_id": "313854",
         "wall_time_seconds": 1.8317033999999999,
@@ -90,7 +90,7 @@
     },
     {
       "case": "lint",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/lint.mjs' ",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/lint.mjs' ",
       "result": {
         "chunk_id": "ab344d",
         "wall_time_seconds": 1.7300282,
@@ -101,7 +101,7 @@
     },
     {
       "case": "relink",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/relationships.mjs' --limit=10 --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/relationships.mjs' --limit=10 --json",
       "result": {
         "chunk_id": "d04fa4",
         "wall_time_seconds": 1.6286065,
@@ -112,7 +112,7 @@
     },
     {
       "case": "repair",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/op-begin.mjs' --op relink",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/op-begin.mjs' --op relink",
       "result": {
         "chunk_id": "14b097",
         "wall_time_seconds": 1.9306554,
@@ -123,7 +123,7 @@
     },
     {
       "case": "repair",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
       "result": {
         "chunk_id": "7eb5bd",
         "wall_time_seconds": 1.8480733,
@@ -134,7 +134,7 @@
     },
     {
       "case": "repair",
-      "cmd": "git -C 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff --check; git -C 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff; Get-Content -LiteralPath 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/.wiki-master/ops/2c320629db7fe595.json'",
+      "cmd": "git -C 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff --check; git -C 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair' diff; Get-Content -LiteralPath 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair/.wiki-master/ops/2c320629db7fe595.json'",
       "result": {
         "chunk_id": "b8e7a6",
         "wall_time_seconds": 1.8739354000000001,
@@ -145,7 +145,7 @@
     },
     {
       "case": "repair",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; 'Repaired only the requested Methods malformed wikilink and Study citation. Real Page is the unique existing target and describes citation inspection. Study source-hashes uniquely matches raw/clippings/study-evidence.md, whose text supports twelve examples, nine supported answers and individually checked citations. Health: 3 to 1 defects across 8 scanned content pages. Resolved 0d070228c5e912a1fb8a and 70e0bb59de50d9805e5b; remaining b66a74589fa8b0444be3 is outside requested scope. No new defects. Both unscored forward links and existing Human draft edits preserved; reviewed dates preserved. No catalog membership or titles changed; no existing catalog needs regeneration. No semantic index is present. No push authorized or attempted.' | node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/log-entry.mjs' --op relink --title 'Repair requested Methods link and Study citation'",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; 'Repaired only the requested Methods malformed wikilink and Study citation. Real Page is the unique existing target and describes citation inspection. Study source-hashes uniquely matches raw/clippings/study-evidence.md, whose text supports twelve examples, nine supported answers and individually checked citations. Health: 3 to 1 defects across 8 scanned content pages. Resolved 0d070228c5e912a1fb8a and 70e0bb59de50d9805e5b; remaining b66a74589fa8b0444be3 is outside requested scope. No new defects. Both unscored forward links and existing Human draft edits preserved; reviewed dates preserved. No catalog membership or titles changed; no existing catalog needs regeneration. No semantic index is present. No push authorized or attempted.' | node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/log-entry.mjs' --op relink --title 'Repair requested Methods link and Study citation'",
       "result": {
         "chunk_id": "f6f602",
         "wall_time_seconds": 1.8042468,
@@ -156,7 +156,7 @@
     },
     {
       "case": "repair",
-      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/op-commit.mjs' --op relink --title 'Repair requested Methods link and Study citation' --since 2c320629db7fe595",
+      "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/op-commit.mjs' --op relink --title 'Repair requested Methods link and Study citation' --since 2c320629db7fe595",
       "result": {
         "chunk_id": "a556cf",
         "wall_time_seconds": 2.3439797,
@@ -167,7 +167,7 @@
     },
     {
       "case": "all",
-      "cmd": "$auditRoot = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with'; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output \"CASE: $caseName\"; git -C \"$auditRoot/$caseName\" status --short --untracked-files=all; git -C \"$auditRoot/$caseName\" rev-parse HEAD; git -C \"$auditRoot/$caseName\" diff --check; git -C \"$auditRoot/$caseName\" diff -- raw; Get-ChildItem -LiteralPath \"$auditRoot/$caseName\" -Force | Select-Object Name }; git -C \"$auditRoot/repair\" show --stat --oneline HEAD; git -C \"$auditRoot/repair\" diff -- 'wiki/authored/Human draft.md'; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f HEAD --name-only; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f -- raw",
+      "cmd": "$auditRoot = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with'; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output \"CASE: $caseName\"; git -C \"$auditRoot/$caseName\" status --short --untracked-files=all; git -C \"$auditRoot/$caseName\" rev-parse HEAD; git -C \"$auditRoot/$caseName\" diff --check; git -C \"$auditRoot/$caseName\" diff -- raw; Get-ChildItem -LiteralPath \"$auditRoot/$caseName\" -Force | Select-Object Name }; git -C \"$auditRoot/repair\" show --stat --oneline HEAD; git -C \"$auditRoot/repair\" diff -- 'wiki/authored/Human draft.md'; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f HEAD --name-only; git -C \"$auditRoot/repair\" diff aca1282a3e04f1b2be809770f66c6db19779c15f -- raw",
       "result": {
         "chunk_id": "8e0743",
         "wall_time_seconds": 2.6985641,

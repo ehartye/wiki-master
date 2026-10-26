@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
@@ -92,4 +93,15 @@ export function main() {
   return r;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  'usage: node scripts/index-gen.mjs',
+  '',
+  'Regenerates the catalog between the fence markers of index.md. Manual framing outside the fence is kept.',
+  'Takes no options.',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

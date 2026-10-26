@@ -1,12 +1,12 @@
 **********************
 PowerShell transcript start
 Start time: 20260912224002
-Username: NEO-LAPPY\ehart
-RunAs User: NEO-LAPPY\ehart
+Username: HOST\user
+RunAs User: HOST\user
 Configuration Name: 
-Machine: NEO-LAPPY (Microsoft Windows NT 10.0.26200.0)
+Machine: HOST (Microsoft Windows NT 10.0.26200.0)
 Host Application: C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe\pwsh.dll -Command try { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}
-$runRoot = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without'; Start-Transcript -LiteralPath "$runRoot/final-verification.txt"; Get-Content -LiteralPath "$runRoot/report.md" -TotalCount 23; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output "STATUS $caseName"; git -C "$runRoot/$caseName" status --short }; $before = Get-Content -LiteralPath "$runRoot/before-hashes.json" -Raw | ConvertFrom-Json -AsHashtable; foreach ($caseName in @('repair','health','relink','lint')) { $differences = @(); foreach ($record in $before[$caseName]) { $filePath = Join-Path "$runRoot/$caseName" $record.path; if ((Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash -ne $record.hash) { $differences += $record.path } }; [pscustomobject]@{ vault = $caseName; changedFiles = $differences } | ConvertTo-Json }; Stop-Transcript
+$runRoot = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without'; Start-Transcript -LiteralPath "$runRoot/final-verification.txt"; Get-Content -LiteralPath "$runRoot/report.md" -TotalCount 23; foreach ($caseName in @('repair','health','relink','lint')) { Write-Output "STATUS $caseName"; git -C "$runRoot/$caseName" status --short }; $before = Get-Content -LiteralPath "$runRoot/before-hashes.json" -Raw | ConvertFrom-Json -AsHashtable; foreach ($caseName in @('repair','health','relink','lint')) { $differences = @(); foreach ($record in $before[$caseName]) { $filePath = Join-Path "$runRoot/$caseName" $record.path; if ((Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash -ne $record.hash) { $differences += $record.path } }; [pscustomobject]@{ vault = $caseName; changedFiles = $differences } | ConvertTo-Json }; Stop-Transcript
 Process ID: 34424
 PSVersion: 7.6.6
 PSEdition: Core
@@ -18,7 +18,7 @@ PSRemotingProtocolVersion: 2.4
 SerializationVersion: 1.1.0.1
 WSManStackVersion: 3.0
 **********************
-Transcript started, output file is C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without/final-verification.txt
+Transcript started, output file is C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/without/final-verification.txt
 # Without-skill execution report
 
 Executed all four tasks from tasks.json in their named isolated vaults. No SKILL.md files, network services, Obsidian commands, live vaults, repository edits, pushes, or subagents were used. Each helper invocation explicitly set WIKI_MASTER_VAULT to its fixture. Fixture AGENTS.md and vault-schema.md were read.
@@ -33,7 +33,7 @@ Executed all four tasks from tasks.json in their named isolated vaults. No SKILL
 
 ## Shell transcript discrepancy
 
-The initial commands-01.txt contains `Ask Codex to do anything` at the four rg inventory positions, while the tool-returned output for that invocation displayed fixture file paths. The transcript is preserved unchanged. Get-Command resolves rg to C:/Users/ehart/.codex/packages/standalone/releases/0.154.0-x86_64-pc-windows-msvc/codex-path/rg.exe (an application, not a PowerShell alias); the cause of the discrepant display was not established. No further rg calls or intentional nested AI-client launches were made. Independent Get-Content/Get-ChildItem reads established all task evidence, and ordinary Node and Git commands performed and verified the actual work. Their returned outputs contain no such UI text. Get-Command resolves Node and Git to their normal installed executables. diagnostic-commands.json records this follow-up, including one PowerShell parser error that was corrected and rerun. The initial transcript is not relied on as proof that the inventory succeeded.
+The initial commands-01.txt contains `Ask Codex to do anything` at the four rg inventory positions, while the tool-returned output for that invocation displayed fixture file paths. The transcript is preserved unchanged. Get-Command resolves rg to C:/Users/<user>/.codex/packages/standalone/releases/0.154.0-x86_64-pc-windows-msvc/codex-path/rg.exe (an application, not a PowerShell alias); the cause of the discrepant display was not established. No further rg calls or intentional nested AI-client launches were made. Independent Get-Content/Get-ChildItem reads established all task evidence, and ordinary Node and Git commands performed and verified the actual work. Their returned outputs contain no such UI text. Get-Command resolves Node and Git to their normal installed executables. diagnostic-commands.json records this follow-up, including one PowerShell parser error that was corrected and rerun. The initial transcript is not relied on as proof that the inventory succeeded.
 
 ## Actual changes and verification
 

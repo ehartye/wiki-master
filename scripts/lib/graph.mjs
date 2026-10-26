@@ -166,7 +166,7 @@ export function buildGraph(vaultPath) {
         const { status, type, created, updated } = metadata;
         // Project-documentation metadata for wiki/authored/ pages — see
         // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
-        // `project:` may carry one `/` for a sub-project tier (`sparta/migrator`);
+        // `project:` may carry one `/` for a sub-project tier (`acme/migrator`);
         // `kind:` and `decision-status:` are single-word controlled vocabularies.
         // All three are optional and left undefined (never defaulted) when absent.
         const { project, kind } = metadata;

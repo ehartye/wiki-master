@@ -20,7 +20,7 @@ index on top of unchanged files**. `ls wiki/authored/` looks identical to before
 still a flat sibling. And the monolith-detection signal was scoped, in v1's own spec, to detect
 only: *"this needs judgment a lint rule can't supply."* True, but it left the actual complaint —
 one 9,500+ word file that agents keep appending "Update (date): ..." paragraphs to — completely
-unfixed. `sparta-migrator-roadmap.md` is 1,261 lines / ~9,500 words as this spec is written,
+unfixed. `acme-migrator-roadmap.md` is 1,261 lines / ~9,500 words as this spec is written,
 having grown *further* in the hours since v1 shipped.
 
 The user's own follow-up framed the real requirement precisely, and it is the brief this spec
@@ -57,7 +57,7 @@ nesting depth under `wiki/authored/` with **zero code changes** — every one of
 `path.startsWith('wiki/authored/')`, never an exact match, and every wikilink they emit is
 `basename`-only, path-agnostic. This is a filesystem move, not a re-engineering effort.
 
-A page with no `project:` (e.g. `sf-cli-local-auth-mechanics.md`, cross-cutting research
+A page with no `project:` (e.g. `cli-local-auth-mechanics.md`, cross-cutting research
 belonging to no single project) stays at `wiki/authored/`'s root, unmoved — exactly as it already
 declared by carrying no `project:` value in the first place.
 
@@ -67,7 +67,7 @@ This is the mechanism that makes "write a user guide"/"get me a diagram"/"update
 documentation" resolve identically every time, for every current and future project, without
 re-deriving convention from whatever a prior agent happened to name things (a real, live example
 of the drift this prevents: a concurrent session created
-`sparta-migrator Salesforce OAuth Implementation.md` this session — space-separated, no
+`acme-migrator Salesforce OAuth Implementation.md` this session — space-separated, no
 recognizable kind-suffix — which this repo's own v1 classifier could not confidently place).
 
 **Kinds that are singular per project** (exactly one instance makes sense) get a fixed filename at
@@ -89,7 +89,7 @@ subfolder + fixed leaf name:
 | "write an administrator guide" | `<project>/guides/administrator.md` |
 
 **Kinds that are naturally plural/unbounded per project** (a project can legitimately need many
-of these, on different topics — confirmed against the real vault: `processing-agent` alone
+of these, on different topics — confirmed against the real vault: `widget-agent` alone
 already has 9 different `reference`-kind docs) get a fixed subfolder, with a descriptive slug
 filename inside it (never a canonical single leaf name, since more than one must coexist):
 
@@ -110,8 +110,8 @@ apart the way "a file's stated kind" and "a file's actual name" already drifted 
 session (the OAuth-implementation file above).
 
 **Existing filenames are not renamed as part of this move.** Every current filename already
-carries enough of the project prefix to be globally unique (`sparta-migrator-roadmap.md`, not
-`roadmap.md`) — moving it into `sparta-suite/migrator/` alongside a rename to the bare canonical
+carries enough of the project prefix to be globally unique (`acme-migrator-roadmap.md`, not
+`roadmap.md`) — moving it into `acme-suite/migrator/` alongside a rename to the bare canonical
 name would create the exact cross-project basename-collision class this vault has already been
 bitten by twice (`graph.mjs`'s own 0.8.2 changelog entry: *"buildNameIndex decided bare-name
 collisions by filesystem walk order"*). Renaming is deferred, never required, and — if ever
@@ -134,7 +134,7 @@ a numbered "Now" list (8 items, all individually marked done), a "Blocked on pla
 an "Explicitly future" section holding 15 items — several of which carry 100–150+ lines of
 retained interview transcript, verbatim user quotes, PR numbers, and multi-phase shipping history,
 because nothing about the format ever prompted removing superseded narrative once an item shipped.
-This is not a one-off — a second file, `sparta-usage-tracker-roadmap.md` (created concurrently,
+This is not a one-off — a second file, `acme-usage-tracker-roadmap.md` (created concurrently,
 already 1,684 words), is visibly trending the identical way.
 
 **Decision**: a backlog item is its own file, `<project>/backlog/<item-slug>.md`:
@@ -179,7 +179,7 @@ regenerated, not maintained by hand.
 
 ## 4. Migrating the one real monolith — mechanical, not manual, and why
 
-`sparta-migrator-roadmap.md` is the concrete proof this pattern needs to survive contact with.
+`acme-migrator-roadmap.md` is the concrete proof this pattern needs to survive contact with.
 Read in full before deciding how to migrate it (27 top-level items, several individually 100+
 lines, spanning "Now" (numbered, 8 items, all individually marked "✅ done"), "In progress" (1),
 "Known issues" (2), "Blocked on platform" (1), and "Explicitly future, not this initiative" (15,
@@ -193,7 +193,7 @@ as faithful but silently isn't. A parser that locates each top-level list item (
 bulleted) within known backlog-shaped section headings, and cuts its **exact existing text**
 into its own file, cannot introduce that class of error — it moves bytes, it does not rewrite
 them. This also turns a one-time chore into a **standing capability**: the next monolith found in
-this vault (`sparta-usage-tracker-roadmap.md` is already trending toward one) gets the same
+this vault (`acme-usage-tracker-roadmap.md` is already trending toward one) gets the same
 mechanical treatment, not another bespoke manual edit.
 
 Status is inferred per item from its own already-present inline marker (this file already

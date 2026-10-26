@@ -38,10 +38,10 @@ test('unique aliases resolve but colliding aliases require canonical paths', t =
 });
 
 test('quoted metadata is shared consistently', t => {
-  const g = fixture(t, { 'wiki/sources/S.md': "---\ntype: 'source'\nproject: 'sparta/migrator'\nkind: 'overview'\nstatus: 'maintained'\nsources: []\n---\n## Relationships\n[[raw/clippings/R]]", 'raw/clippings/R.md': 'R' });
+  const g = fixture(t, { 'wiki/sources/S.md': "---\ntype: 'source'\nproject: 'acme/migrator'\nkind: 'overview'\nstatus: 'maintained'\nsources: []\n---\n## Relationships\n[[raw/clippings/R]]", 'raw/clippings/R.md': 'R' });
   const p = g.pageByPath.get('wiki/sources/S.md');
   assert.equal(p.type, 'source');
-  assert.equal(p.project, 'sparta/migrator');
+  assert.equal(p.project, 'acme/migrator');
   assert.equal(p.kind, 'overview');
   assert.equal(p.status, 'maintained');
 });
