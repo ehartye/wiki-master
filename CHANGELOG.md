@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.72.1 — 2026-10-26
+
+- `index-gen.mjs` takes `--paths-file <ledger>`, scoped as `refresh-catalogs.mjs` is: a page is listed when it is in the last commit or the ledger names it, and a line the catalog already holds for another writer's page that still exists is kept. Plain `index-gen.mjs`, the command the ingest skill names, lists every page on disk, another writer's uncommitted ones included; the skill now says to pass the ledger when another writer is in the vault. The scoping is one function, `scopeGraph` in `scripts/lib/catalog-scope.mjs`, shared with `refresh-catalogs.mjs`. [Correction to 0.72.0] The index step of a ledger-scoped refresh was already scoped by the ledger; the two ways another writer's pages reached the index that were reproduced are plain `index-gen.mjs` and a page that was staged but not committed.
+- `index-gen.mjs`, `moc-authored-gen.mjs` and `backlog-gen.mjs` print one line and exit 2 for an unknown option, a refused option (`--diff`, `--paths-file` on the two generators) or an unusable ledger, instead of a Node stack trace and exit 1.
+- `refresh-catalogs.mjs --diff` names a file that changed only in order or whitespace with `(same lines, different order or whitespace)` instead of an empty block.
+- Evidence: 7 new tests and one existing test extended (the suite is 1,742 passing and one skipped; it was 1,735); 10 mutations were applied and each fails a test (one survivor of the first run, the ledger path check in `index-gen.mjs`, got a test).
+
 ## 0.72.0 — 2026-10-26
 
 - A scoped catalog refresh no longer deletes what another writer put there, and no longer adds what that writer has not committed. `refresh-catalogs.mjs --paths-file <ledger>` leaves another writer's uncommitted pages out of the roadmap, the project map and the global index, as before, but (1) a line a catalog already holds for such a page that still exists is kept: the index and the maps are regenerated in full, so the other writer's own run used to be undone by the next scoped refresh (a bare `[[name]]` keeps a page only when no other page has that name); a line for a page that is gone is still removed; and (2) a page counts as committed when it is in the last commit or the ledger names it. It used `git ls-files`, which also lists a page another writer has only staged, so such a page was added to the shared index. A repository with no commit yet falls back to what is tracked. New `scripts/lib/catalog-scope.mjs`.
