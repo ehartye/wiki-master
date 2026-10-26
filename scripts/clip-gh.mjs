@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
-import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { recordDecline } from './lib/decline.mjs';
+import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
@@ -638,10 +639,10 @@ export function main(argv) {
     return { status: 'declined' };
   }
 
-  const declines = loadDeclines(vaultPath);
-  if (isDeclined(`github.com/${owner}/${repo}`, declines)) {
-    const e = declines.find((d) => isDeclined(`github.com/${owner}/${repo}`, [d]));
-    console.log(`declined previously (${e.date}: ${e.reason}): ${owner}/${repo}`);
+  const gate = declineGate(vaultPath, `github.com/${owner}/${repo}`, argv);
+  if (gate.blocked) {
+    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    console.log(gate.message);
     return { status: 'declined' };
   }
 
@@ -713,6 +714,7 @@ export function main(argv) {
     if (renamed) console.log(`  renamed (legacy hidden/backtick name -> safe name): ${renamed}`);
     console.log(`  thin (skipped): ${thin}`);
     console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
+    gate.finish();
     return { status: 'clipped', clipped, unchanged, thin, renamed, excluded: excluded.length, outDir };
   } finally {
     rmSync(tmp, { recursive: true, force: true });

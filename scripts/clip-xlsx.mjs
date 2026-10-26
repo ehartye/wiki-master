@@ -7,7 +7,8 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { loadDeclines, isDeclined, recordDecline } from './lib/decline.mjs';
+import { recordDecline } from './lib/decline.mjs';
+import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
@@ -85,10 +86,10 @@ export function main(argv) {
     return { status: 'declined' };
   }
 
-  const declines = loadDeclines(vaultPath);
-  if (isDeclined(source, declines)) {
-    const e = declines.find((d) => isDeclined(source, [d]));
-    console.log(`declined previously (${e.date}: ${e.reason}): ${source}`);
+  const gate = declineGate(vaultPath, source, argv);
+  if (gate.blocked) {
+    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    console.log(gate.message);
     return { status: 'declined' };
   }
 
@@ -142,6 +143,7 @@ export function main(argv) {
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, xlsx)`);
+  gate.finish();
   return { status: 'clipped', slug, file };
 }
 

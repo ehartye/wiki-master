@@ -29,6 +29,14 @@ export function extractionRuntime() {
 }
 
 const CALLOUT = '.ghd-alert, .starlight-aside, .admonition, .markdown-alert';
+// Epic's documentation note, warning and "Prerequisite topics" box. It is checked as a callout and kept as a
+// blockquote. Its presence does not switch a page to the documentation pipeline, which turns off every cleanup and
+// also keeps the page's community footer; it only fixes the content root, because the default content choice cuts
+// off a box above the first section (a box that is mostly links reads as navigation). Measured 2026-10-26 on twelve
+// Epic pages: the box is kept, one banner image comes with the title block, and no footer is added.
+const BLOCK_CALLOUT = 'block-callout';
+// Epic's child-topic cards: a thumbnail, a title and a one-line description inside one link.
+const DOCUMENT_CARD = 'a.document-list-card';
 const AVAILABILITY = '[class*="PermissionsStatement_permissionsBox"]';
 const HEADINGS = 'h1, h2, h3, h4, h5, h6';
 const REST_OPERATION = '[class*="RestOperation_codeBlock"]';
@@ -158,7 +166,7 @@ function signals(document) {
   const headingNodes = candidates.filter(c => c.kind === 'heading').map(c => c.node);
   const sections = headingNodes.length ? headingSections(root, headingNodes) : new Map();
   for (const c of candidates) if (c.node) { c.chrome = sections.get(c.node); delete c.node; }
-  add('callout', root.querySelectorAll(CALLOUT));
+  add('callout', root.querySelectorAll(`${CALLOUT}, ${BLOCK_CALLOUT}`));
   add('availability', root.querySelectorAll(AVAILABILITY));
   add('introduction', root.querySelectorAll('.class-description > p, [data-container="lead"] > p'));
   add('list-item', root.querySelectorAll('.class-description li'));
@@ -227,6 +235,33 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   const { document } = parseHTML(html);
   const expected = signals(document);
   const root = contentRoot(document);
+  // A callout box becomes a blockquote with its own contents. Process children first: replacing a parent clones its
+  // already-converted descendants.
+  const toBlockquote = (node) => {
+    const block = document.createElement('blockquote'); block.innerHTML = node.innerHTML;
+    const label = node.getAttribute('aria-label');
+    if (label && !normalize([...node.childNodes].map(textOf).join('')).startsWith(normalize(label))) {
+      const title = document.createElement('p'); title.textContent = label; block.prepend(title);
+    }
+    for (const child of block.querySelectorAll('*')) {
+      for (const attr of [...child.attributes]) {
+        if (/^(class|id|style|role|aria-.+|data-.+)$/.test(attr.name)) child.removeAttribute(attr.name);
+      }
+    }
+    node.replaceWith(block);
+  };
+  const hasBlockCallout = !!root.querySelector(BLOCK_CALLOUT);
+  for (const node of [...root.querySelectorAll(BLOCK_CALLOUT)].reverse()) toBlockquote(node);
+  // A card is converted to its title as the link text, then its description as plain text after the link, so the
+  // description survives as a sentence beside the title; the thumbnail is decoration and is dropped with the rest.
+  for (const card of root.querySelectorAll(DOCUMENT_CARD)) {
+    const title = card.querySelector('.title');
+    if (!title) continue;
+    const description = card.querySelector('.description');
+    const text = description ? textOf(description).trim() : '';
+    card.textContent = textOf(title).trim();
+    if (text) card.after(document.createTextNode(`: ${text}`));
+  }
   const restReference = !!root.querySelector(REST_OPERATION);
   const documentation = restReference || !!root.querySelector(`.class-description, ${CALLOUT}, ${AVAILABILITY}`);
 
@@ -271,24 +306,12 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
       const div = document.createElement('div'); div.innerHTML = header.innerHTML; header.replaceWith(div);
     }
     // Process children first: replacing a parent clones its already-preserved descendants.
-    for (const node of [...root.querySelectorAll(`${CALLOUT}, ${AVAILABILITY}`)].reverse()) {
-      const block = document.createElement('blockquote'); block.innerHTML = node.innerHTML;
-      const label = node.getAttribute('aria-label');
-      if (label && !normalize([...node.childNodes].map(textOf).join('')).startsWith(normalize(label))) {
-        const title = document.createElement('p'); title.textContent = label; block.prepend(title);
-      }
-      for (const child of block.querySelectorAll('*')) {
-        for (const attr of [...child.attributes]) {
-          if (/^(class|id|style|role|aria-.+|data-.+)$/.test(attr.name)) child.removeAttribute(attr.name);
-        }
-      }
-      node.replaceWith(block);
-    }
+    for (const node of [...root.querySelectorAll(`${CALLOUT}, ${AVAILABILITY}`)].reverse()) toBlockquote(node);
     root.setAttribute('data-wiki-content', '');
-  }
+  } else if (hasBlockCallout) root.setAttribute('data-wiki-content', '');
   const data = await (extractImpl ?? Defuddle)(document.toString(), url, {
     separateMarkdown: true, language: 'en',
-    ...(documentation ? { contentSelector: '[data-wiki-content]', removeLowScoring: false, removeExactSelectors: false, removePartialSelectors: false, removeContentPatterns: false } : {}),
+    ...(documentation ? { contentSelector: '[data-wiki-content]', removeLowScoring: false, removeExactSelectors: false, removePartialSelectors: false, removeContentPatterns: false } : hasBlockCallout ? { contentSelector: '[data-wiki-content]' } : {}),
   });
   const markdown = data.contentMarkdown ?? '';
   const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
