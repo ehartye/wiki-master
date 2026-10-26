@@ -59,7 +59,7 @@ test('individual generators accept project scope and reject invalid selectors',t
 
 test('owned paths exclude foreign untracked pages but never remove tracked pages',async t=>{
  const {execFileSync}=await import('node:child_process');const root=fixture(t);
- execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['add','.'],{cwd:root});
+ execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['config','core.autocrlf','false'],{cwd:root});execFileSync('git',['add','.'],{cwd:root});
  const foreign='wiki/authored/beta/unfinished.md';writeFileSync(join(root,foreign),'---\ntype: authored\nproject: beta\nkind: note\n---\n# Not ours\n');
  const ours='wiki/authored/alpha/ours.md';writeFileSync(join(root,ours),'---\ntype: authored\nproject: alpha\nkind: note\n---\n# Ours\n');
  refreshCatalogs(root,{project:'alpha',apply:true,ownedPaths:[ours]});

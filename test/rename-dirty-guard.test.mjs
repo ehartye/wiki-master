@@ -25,7 +25,7 @@ function gitVault(t) {
   t.after(() => { if (prior === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prior; rmSync(root, { recursive: true, force: true }); });
   for (const [path, text] of Object.entries(FILES)) { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), text); }
   const git = (...a) => execFileSync('git', ['-C', root, '-c', 'user.email=t@t', '-c', 'user.name=t', '-c', 'core.autocrlf=false', ...a], { stdio: 'pipe' });
-  git('init', '-q'); git('add', '-A'); git('commit', '-q', '-m', 'init');
+  git('init', '-q'); git('config', 'core.autocrlf', 'false'); git('add', '-A'); git('commit', '-q', '-m', 'init');
   return { root, git };
 }
 const quiet = (fn) => { const log = console.log, err = console.error; console.log = () => {}; console.error = () => {}; try { return fn(); } finally { console.log = log; console.error = err; } };

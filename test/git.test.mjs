@@ -9,6 +9,7 @@ import { isGitRepo, commitPaths, uncommittedElsewhere } from '../scripts/lib/git
 function tempRepo() {
   const dir = mkdtempSync(join(tmpdir(), 'wm-git-'));
   execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
   return dir;

@@ -23,6 +23,7 @@ test('offline authored workflow commits only its edit and publishes to its confi
   }).trim();
   try {
     git('init', '-q', '--initial-branch=main');
+    git('config', 'core.autocrlf', 'false');
     git('config', 'user.email', 'test@example.com'); git('config', 'user.name', 'Fixture');
     git('init', '-q', '--bare', remote); git('remote', 'add', 'origin', remote);
     const guide = 'wiki/authored/atlas/guides/user.md';

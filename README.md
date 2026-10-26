@@ -148,6 +148,12 @@ of one flat, ungrouped catalog.
 against a fixture vault — no running Obsidian required. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
 
+### Line endings
+
+`.gitattributes` sets `* text=auto eol=lf`: text files are LF in the repository and in every working tree, whatever `core.autocrlf` says, so a Windows checkout no longer holds CRLF copies of LF files (scripted multi-line edits, byte comparisons and `git add` warnings all depended on that). Binary files are left alone. `test/line-endings.test.mjs` pins the policy on throwaway repositories with `core.autocrlf=true`.
+
+A checkout made before the policy still has CRLF in its working tree. With nothing uncommitted, rewrite it once: `git rm --cached -r -q . && git reset --hard`. The index already holds LF, so this changes only the files on disk. Do not run it with uncommitted work; commit or stash first.
+
 ### Releasing
 
 A release changes the version in ten places: the nine JSON fields listed in `VERSION_FIELDS` in `test/drift-guard.test.mjs` (seven files; `package-lock.json` and `.github/plugin/marketplace.json` each carry it twice) plus the `CHANGELOG.md` heading. `test/drift-guard.test.mjs` fails if any JSON field differs from `package.json` or if a manifest gains a version field that `VERSION_FIELDS` does not list.
