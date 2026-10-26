@@ -10,6 +10,7 @@ import { refreshIndex, readManifestFile } from './index-embed.mjs';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL } from './lib/embed.mjs';
 import { isContent } from './lib/graph.mjs';
 import { findWrappedLinks } from './lib/dewrap-links.mjs';
+import { checkEvidenceMap, verifyStagedEvidence } from './lib/evidence-bytes.mjs';
 
 // See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
 function statusPorcelain(cwd) {
@@ -60,13 +61,20 @@ function scanForWrappedLinks(vaultPath, paths) {
 // or not there was anything to commit — an op that ran and found nothing to
 // do, or ran against a vault that isn't a git repo, still finished; it should
 // not leave scratch state behind for the next run to trip over.
-export function commitOp(vaultPath, { op, title, token, paths: onlyPaths }) {
+export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, evidence }) {
   // Dirty-set subtraction cannot identify new edits made by another concurrent writer.
   // An explicit file ledger narrows that delta without claiming ownership of pre-dirty paths.
   if (onlyPaths !== undefined && (!Array.isArray(onlyPaths) || !onlyPaths.length || onlyPaths.some(p =>
     typeof p !== 'string' || !p || p.includes('\\') || p.includes('\0') || /^[A-Za-z]:/.test(p) ||
     p.split('/').some(part => !part || part === '.' || part === '..')))) {
     return { ok: false, reason: 'explicit operation scope requires a nonempty array of vault-relative file paths using / separators' };
+  }
+  // Declared evidence bytes (size and SHA-256) are checked against what git will store, so the ledger
+  // must be explicit: the map covers exactly the paths this operation owns.
+  if (evidence !== undefined) {
+    if (onlyPaths === undefined) return { ok: false, reason: 'an evidence map needs an explicit operation scope (--paths-file)' };
+    const problem = checkEvidenceMap(evidence, onlyPaths);
+    if (problem) return { ok: false, reason: problem };
   }
   // The token is joined straight into a path, and `unlinkSync` runs on it at the
   // end — so a token carrying `../` would both read and DELETE a file outside
@@ -105,7 +113,10 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths }) {
     // array before it runs a single git command (lib/git.mjs), so a local
     // copy of that check would be untested dead weight, not a second layer
     // of defense — confirmed by mutation testing, not assumed.
-    const result = commitPaths(vaultPath, paths, `${op}: ${title}`);
+    const result = commitPaths(vaultPath, paths, `${op}: ${title}`, evidence ? { verify: () => verifyStagedEvidence(vaultPath, evidence) } : undefined);
+    // A refused evidence check is not a git failure and keeps the token the same way: nothing was
+    // committed, the index is as it was, and the same close can be retried once the attribute is fixed.
+    if (result.refused) return { ok: false, refused: true, reason: result.reason };
     // A git failure is not an empty delta. Keep the token and the scoped ledger so
     // the same close can be retried once the cause (a lock, a hook) is gone.
     if (result.failed) {
@@ -120,6 +131,7 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths }) {
       excludedPaths,
       before: [...before].sort(),
       unpushed: result.committed ? unpushedCount(vaultPath) : null,
+      ...(evidence && result.committed ? { evidence: { verified: Object.keys(evidence) } } : {}),
     };
   }
   outcome.wrappedLinks = scanForWrappedLinks(vaultPath, outcome.paths);
@@ -189,7 +201,12 @@ export async function main(argv, refreshDeps) {
   const title = get('--title');
   const token = get('--since');
   if (!op || !title || !token) {
-    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>]');
+    console.error('usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--evidence-map <JSON-file>]');
+    process.exitCode = 1;
+    return;
+  }
+  if (argv.includes('--evidence-map') && !argv.includes('--paths-file')) {
+    console.error('op-commit: --evidence-map needs --paths-file (the map may only name paths in the operation\'s exact ledger)');
     process.exitCode = 1;
     return;
   }
@@ -205,8 +222,20 @@ export async function main(argv, refreshDeps) {
       return;
     }
   }
+  let evidence;
+  if (argv.includes('--evidence-map')) {
+    const file = get('--evidence-map');
+    try {
+      if (!file || file.startsWith('--')) throw new Error('missing JSON file argument');
+      evidence = JSON.parse(readFileSync(file, 'utf8'));
+    } catch (error) {
+      console.error(`op-commit: cannot read --evidence-map: ${error.message}`);
+      process.exitCode = 1;
+      return;
+    }
+  }
   const { path: vaultPath } = resolveVault();
-  const r = commitOp(vaultPath, { op, title, token, paths });
+  const r = commitOp(vaultPath, { op, title, token, paths, evidence });
 
   if (!r.ok) {
     console.error(`op-commit: ${r.reason}`);
@@ -231,6 +260,10 @@ export async function main(argv, refreshDeps) {
   if (r.excludedPaths?.length) {
     console.log(`left alone (outside explicit operation scope): ${r.excludedPaths.length} file(s)`);
     for (const path of r.excludedPaths) console.log(`  ${path}`);
+  }
+  // Reported on its own line: archive integrity is separate from the index refresh below.
+  if (r.evidence?.verified.length) {
+    console.log(`evidence: ${r.evidence.verified.length} file(s) committed byte-identical to their declared size and SHA-256`);
   }
   if (typeof r.unpushed === 'number' && r.unpushed > 0) {
     console.log(`${r.unpushed} commit(s) unpushed. Run \`node scripts/wiki-sync.mjs\` to sync: it rebases onto other machines' work, pushes and verifies.`);
