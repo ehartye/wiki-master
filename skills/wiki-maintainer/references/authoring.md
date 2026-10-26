@@ -76,6 +76,8 @@
   before this pattern existed) is the concrete proof this format is meant to
   prevent recurring.
 
+  **A backlog item can say what it waits on.** List its prerequisites under `depends-on` as quoted wikilinks to other backlog items of the same project, for example `depends-on: ["[[other-item]]"]` (one scalar or a block sequence also works). A prerequisite is met once its item is shipped or dropped. The relation never changes the item's own status: a `blocked` item you set by hand stays under Blocked. The generated roadmap notes "waiting on" after each open item that has an unmet prerequisite, and lists every planned item whose declared prerequisites are all met under a trailing "Ready to start" section. An item that declares nothing is startable and is not listed there. A prerequisite in another project is rejected; keep the relation inside one project and link across projects in the item's text.
+
   When `backlog-gen.mjs` (or `refresh-catalogs.mjs`) creates a roadmap that does not exist, the page starts with `type: authored`, `created`, `updated`, `status: draft`, `sources: []`, `ai-generated: true`, `project` and `kind: roadmap`. `reviewed` is omitted on purpose: nobody has reviewed a page a script just wrote. `created` and `updated` are the UTC day of the run and cannot be set from the command line. A dry run creates no page and no temp file. An existing roadmap is never rewritten outside the generated fence.
 
   `node "<absolute-plugin-root>/scripts/health.mjs"`'s `monolith candidates` line (a `wiki/authored/`
@@ -160,6 +162,14 @@ Under `wiki/authored/`:
   kind when they sit in a project folder. A page directly under `wiki/authored/` has
   no project or kind expectation. A wrong-kind page in `backlog/` gets only
   `kind-folder-mismatch`.
+
+- `dependency-dangling`, `dependency-cross-project`, `dependency-self`, `dependency-cycle`,
+  `dependency-malformed`, `dependency-misplaced`: a `depends-on` entry must be a
+  wikilink to an existing backlog item of the same project (a note in `backlog/` is
+  not an item). The message names the entry; a cycle names the whole loop and is
+  reported on each ledger page in it. `dependency-misplaced` is `depends-on` on a page
+  that is not a backlog item, where it is ignored. Only the item's own project backlog
+  folder is read, so these checks add no second whole-vault scan.
 
 On every wiki content page: `ambiguous-link`, `malformed-link` (a hard-wrapped link
 is one), `unresolved-citation`, `missing-evidence` and `unresolved-link`, which is

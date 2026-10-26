@@ -19,6 +19,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByBacklogStatus } from './lib/authored-group.mjs';
+import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
 
 export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
 export const END_MARK = '%% END GENERATED CATALOG %%';
@@ -35,13 +36,33 @@ function link(p, ambiguousNames) {
   return `- [[${wikilinkTarget(p, ambiguousNames)}]]`;
 }
 
+// A prerequisite never moves an item: each stays under the status its author set. An item that
+// is not closed notes what it still waits on, and a planned item whose declared prerequisites
+// are all closed is listed once more under "Ready to start". Items that declare nothing render
+// exactly as before. A prerequisite that does not resolve is plain text, never a dead link.
 export function renderBacklogCatalog({ pages, ambiguousNames = new Set() }) {
+  const { byPath } = analyzeBacklog(pages);
+  const pageAt = new Map(pages.map((p) => [p.path, p]));
+  const code = (text) => `\`${text}\``;
+  const waitingOn = (p) => {
+    const { unmet, malformed } = byPath.get(p.path);
+    const names = [
+      ...unmet.map((d) => (d.path ? `[[${wikilinkTarget(pageAt.get(d.path), ambiguousNames)}]]` : code(d.target))),
+      ...malformed.map(code),
+    ];
+    return names.length && !CLOSED_STATUSES.includes(p.backlogStatus) ? ` — waiting on ${names.join(', ')}` : '';
+  };
+  const byName = (a, b) => a.path.localeCompare(b.path);
   const lines = [];
   for (const { status, pages: group } of groupByBacklogStatus(pages)) {
     lines.push(STATUS_HEADING[status] ?? `## ${status}`);
-    const sorted = [...group].sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...sorted.map((p) => link(p, ambiguousNames)), '');
+    lines.push(...[...group].sort(byName).map((p) => link(p, ambiguousNames) + waitingOn(p)), '');
   }
+  const ready = pages.filter((p) => {
+    const a = byPath.get(p.path);
+    return p.backlogStatus === 'planned' && a.deps.length > 0 && a.unmet.length === 0 && a.malformed.length === 0;
+  });
+  if (ready.length) lines.push('## Ready to start', ...ready.sort(byName).map((p) => link(p, ambiguousNames)), '');
   return lines.join('\n').trimEnd();
 }
 

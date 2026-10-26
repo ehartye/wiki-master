@@ -15,4 +15,6 @@ backlog-status: planned
 <!-- One item, kept current. Edit this file in place as status changes --
      never append a new dated "Update (...):" paragraph on top of the last one.
      git log/git blame is the changelog now. Flip backlog-status: above when
-     the item's state changes (planned | in-progress | shipped | blocked | dropped). -->
+     the item's state changes (planned | in-progress | shipped | blocked | dropped).
+     Prerequisites, if any, go in a depends-on: line above as quoted wikilinks to other
+     items of this project, e.g. depends-on: ["[[other-item]]"]. Delete the line if none. -->
