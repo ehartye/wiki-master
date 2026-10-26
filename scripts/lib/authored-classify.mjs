@@ -9,34 +9,34 @@
 //
 // Every rule here was checked against the real 34 filenames before being
 // written down (see the spec's §8 and this module's own test file, which uses
-// the real filenames as its cases) — nothing here is a guess extended from one
+// stand-ins for the real filenames as its cases; the real project names live in the owner's wiki, not in this public repository) — nothing here is a guess extended from one
 // example. Where confidence runs out, every function returns null rather than
 // inventing a default: a wrong label is worse than an absent one, since it
 // files a page under a heading nobody will think to double-check.
 
-// Named to match the MOC that already exists (moc/sparta-suite.md) — see the
-// spec's §5.1 naming note for why the shorter, unexamined "sparta" was
-// rejected: it would target a NEW, different moc/sparta.md and miss the hub
+// Named to match the MOC that already exists (moc/acme-suite.md) — see the
+// spec's §5.1 naming note for why the shorter, unexamined "acme" was
+// rejected: it would target a NEW, different moc/acme.md and miss the hub
 // that already exists.
-const SPARTA_SUITE = 'sparta-suite';
-const SPARTA_MIGRATOR = 'sparta-suite/migrator';
-const PROCESSING_AGENT = 'processing-agent';
-const PROCESSING_AGENT_TRANSLATION = 'processing-agent/translation';
+const ACME_SUITE = 'acme-suite';
+const ACME_MIGRATOR = 'acme-suite/migrator';
+const PROCESSING_AGENT = 'widget-agent';
+const PROCESSING_AGENT_TRANSLATION = 'widget-agent/translation';
 
 // A handful of real files carry their own repo/topic name rather than a
 // project-prefixed one — resolved by content, not filename shape, since no
 // mechanical prefix rule reaches them.
 const PROJECT_EXCEPTIONS = {
-  'HCLS-LABS-SS-migrator-package': SPARTA_MIGRATOR, // its own body names it a sibling repo of sparta-migrator
-  'sf-cli-local-auth-mechanics': null, // cross-cutting research, not one project's document
+  'ACME-LABS-migrator-package': ACME_MIGRATOR, // its own body names it a sibling repo of acme-migrator
+  'cli-local-auth-mechanics': null, // cross-cutting research, not one project's document
 };
 
 export function classifyAuthoredProject(filename) {
   if (filename in PROJECT_EXCEPTIONS) return PROJECT_EXCEPTIONS[filename];
-  if (/^sparta-migrator(-.*)?$/.test(filename)) return SPARTA_MIGRATOR;
-  if (/^processing-agent-translation-/.test(filename)) return PROCESSING_AGENT_TRANSLATION;
-  if (/^processing-agent-/.test(filename)) return PROCESSING_AGENT;
-  if (/^sparta-/.test(filename)) return SPARTA_SUITE;
+  if (/^acme-migrator(-.*)?$/.test(filename)) return ACME_MIGRATOR;
+  if (/^widget-agent-translation-/.test(filename)) return PROCESSING_AGENT_TRANSLATION;
+  if (/^widget-agent-/.test(filename)) return PROCESSING_AGENT;
+  if (/^acme-/.test(filename)) return ACME_SUITE;
   return null;
 }
 
@@ -44,8 +44,8 @@ export function classifyAuthoredProject(filename) {
 // than any filename shape — same two exceptions as classifyAuthoredProject,
 // for the same reasons (spec §8).
 const KIND_EXCEPTIONS = {
-  'HCLS-LABS-SS-migrator-package': 'reference', // matches the bare-overview SHAPE below, but sparta-suite/migrator already has its overview (sparta-migrator.md) — this is a supporting artifact, not a second front door
-  'sf-cli-local-auth-mechanics': 'note', // the escape hatch: cross-cutting research fitting no other kind
+  'ACME-LABS-migrator-package': 'reference', // matches the bare-overview SHAPE below, but acme-suite/migrator already has its overview (acme-migrator.md) — this is a supporting artifact, not a second front door
+  'cli-local-auth-mechanics': 'note', // the escape hatch: cross-cutting research fitting no other kind
 };
 
 // Ordered filename-suffix rules — order matters only where a shorter suffix
@@ -64,9 +64,9 @@ const KIND_SUFFIX_RULES = [
 // Every bare `<project-name>.md` with no doc-kind suffix, checked directly
 // against the real vault before writing this: each one opens `# <slug>`, a
 // blank line, then `## Summary` — the identical shape confirmed by reading
-// sparta-migrator.md in full, which is unambiguously that project's own
+// acme-migrator.md in full, which is unambiguously that project's own
 // overview page. Not extended from one example: verified for all seven
-// sparta-suite top-level apps plus sparta-migrator.md itself.
+// acme-suite top-level apps plus acme-migrator.md itself.
 const BARE_OVERVIEW_SHAPE = /^# .+\r?\n\r?\n## Summary\b/m;
 
 export function classifyAuthoredKind(filename, body) {

@@ -24,6 +24,7 @@ import {
 import { join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { isContent } from './lib/graph.mjs';
 import { chunkMarkdown } from './lib/chunk.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -349,4 +350,17 @@ export async function main(argv = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  'usage: node scripts/index-embed.mjs [--rebuild] [--status] [--concurrency=<n>]',
+  '',
+  'Refreshes the semantic search index from the files that changed since its last run.',
+  '  --rebuild          discard the index and embed every page again',
+  '  --status           report the index state and exit without changing it',
+  '  --concurrency=<n>  embedding requests in flight (default 4)',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

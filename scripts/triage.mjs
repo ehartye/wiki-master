@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
@@ -479,4 +480,15 @@ export async function main() {
   return { info, counts };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  'usage: node scripts/triage.mjs [--remote]',
+  '',
+  'Opens the disposition queue in a local browser page and starts its server if none is running.',
+  '  --remote  also listen for connections from other devices on the local network',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

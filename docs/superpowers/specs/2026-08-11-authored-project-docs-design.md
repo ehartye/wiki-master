@@ -31,16 +31,16 @@ Confirmed by reading all 34 files in `wiki/authored/` directly (not sampled):
   belongs to or what kind of document it is.
 - **Two projects have organically formed, one of them two levels deep**, distinguished only by a
   string prefix in the filename:
-  - `processing-agent-*` (18 files), including a `processing-agent-translation-*` sub-cluster
+  - `widget-agent-*` (18 files), including a `widget-agent-translation-*` sub-cluster
     (5 files) — a sub-feature that reads as a sibling in a flat listing.
-  - `sparta-*` (9 files) with a `sparta-migrator-*` sub-project (7 files: overview, roadmap, two
+  - `acme-*` (9 files) with a `acme-migrator-*` sub-project (7 files: overview, roadmap, two
     ADRs, gap-analysis, user-journeys, a redesign doc) plus a sibling-repo note
-    (`HCLS-LABS-SS-migrator-package.md`) and one standalone research note
-    (`sf-cli-local-auth-mechanics.md`) that belongs to neither by name.
+    (`ACME-LABS-migrator-package.md`) and one standalone research note
+    (`cli-local-auth-mechanics.md`) that belongs to neither by name.
 - **A document-kind taxonomy is converging without being designed.** Recurring, unprompted,
   across both projects: an *overview*, an *architecture* doc (with its diagrams organically split
-  into a companion file — confirmed three times independently: `processing-agent-architecture-
-  diagrams`, `processing-agent-process-diagrams`, `processing-agent-translation-diagrams`), one
+  into a companion file — confirmed three times independently: `widget-agent-architecture-
+  diagrams`, `widget-agent-process-diagrams`, `widget-agent-translation-diagrams`), one
   *guide* per audience (user/administrator/developer), a *reference* doc (configuration, skills),
   and — twice now, unprompted — a genuine **ADR** (Status/Context/Decision/Consequences), just
   without a real status field (see §6.2).
@@ -49,13 +49,13 @@ Confirmed by reading all 34 files in `wiki/authored/` directly (not sampled):
   readable at the 20 files it had after the original design; at 34 and climbing it is not, and it
   gets strictly worse every time either project grows.
 - **Hand-maintained MOCs exist specifically to compensate, and are already straining.**
-  `moc/processing-agent.md` and `moc/sparta-suite.md` were built by a previous session as a
-  workaround for the flat catalog. `moc/processing-agent.md` already had to improvise an ad hoc
+  `moc/widget-agent.md` and `moc/acme-suite.md` were built by a previous session as a
+  workaround for the flat catalog. `moc/widget-agent.md` already had to improvise an ad hoc
   "Per-skill deep dives" sub-heading to fit the translation cluster in — the single-level MOC
-  pattern has already needed a second level once. `sparta-migrator`'s 7 satellite docs have **no
-  MOC at all**; `sparta-migrator.md`'s own "## Links" footer is doing that job, on the overview
+  pattern has already needed a second level once. `acme-migrator`'s 7 satellite docs have **no
+  MOC at all**; `acme-migrator.md`'s own "## Links" footer is doing that job, on the overview
   page itself, growing the overview's own word count to carry it.
-- **One file has become a live monolith.** `sparta-migrator-roadmap.md` — 9,542 words, 1,233
+- **One file has become a live monolith.** `acme-migrator-roadmap.md` — 9,542 words, 1,233
   lines — mixes four concerns in one continuously-appended file: forward roadmap, retroactive
   changelog, emoji-tagged live status per item (✅ SHIPPED / 📐 DESIGN SPEC COMPLETE / 🚧 in
   progress), and a running self-correction commentary ("Note for accuracy: ... these were not
@@ -114,17 +114,17 @@ Folder nesting stays available later, never required.
 
 Free-text, normalized exactly like `topic:` (trim, collapse whitespace, case-insensitive key,
 first-seen casing for display) — reusing `normalizeTopic`'s proven shape rather than inventing new
-rules. Supports an optional `/`-separated tier for a sub-project (`sparta-suite/migrator`,
-`processing-agent/translation`) — written, never enforced past one level; nothing in this vault
+rules. Supports an optional `/`-separated tier for a sub-project (`acme-suite/migrator`,
+`widget-agent/translation`) — written, never enforced past one level; nothing in this vault
 needs a third tier today and inventing headroom for one is exactly the ahead-of-need complexity
 §3's own cited precedent explicitly refuses.
 
-**Naming note, settled before backfill rather than after**: the top-level SPARTA project value is
-`sparta-suite`, not the shorter `sparta` an unexamined prefix-strip would suggest — chosen to match
-the MOC that already exists (`moc/sparta-suite.md`, "MOC — SPARTA Suite") rather than introduce a
+**Naming note, settled before backfill rather than after**: the top-level ACME project value is
+`acme-suite`, not the shorter `acme` an unexamined prefix-strip would suggest — chosen to match
+the MOC that already exists (`moc/acme-suite.md`, "MOC — ACME Suite") rather than introduce a
 second, inconsistent name for the same thing. §7's per-project MOC generator derives a project's
-MOC filename directly from its `project:` value (`/` → `-`); had the value been the bare `sparta`,
-the generator would target a new `moc/sparta.md` and silently miss the hub that already exists.
+MOC filename directly from its `project:` value (`/` → `-`); had the value been the bare `acme`,
+the generator would target a new `moc/acme.md` and silently miss the hub that already exists.
 Checked directly against the real filename rather than assumed.
 
 Every existing file's `project:` is mechanically, deterministically inferable from its current
@@ -140,14 +140,14 @@ designed in the abstract:
 
 | `kind:` | What it marks | Live examples |
 |---|---|---|
-| `overview` | A project's front door | `processing-agent-overview`, `sparta-migrator` |
-| `architecture` | System structure/design | `processing-agent-architecture` |
+| `overview` | A project's front door | `widget-agent-overview`, `acme-migrator` |
+| `architecture` | System structure/design | `widget-agent-architecture` |
 | `guide` | Audience-scoped how-to | `*-user-guide`, `*-administrator-guide`, `*-developer-guide` |
 | `reference` | Durable factual lookup | `*-configuration`, `*-skills` |
 | `diagram` | A diagrams-only companion page | `*-architecture-diagrams`, `*-process-diagrams` |
-| `decision` | An ADR | `sparta-migrator-sf-cli-removal-adr` |
-| `roadmap` | A living backlog/plan | `sparta-migrator-roadmap` |
-| `note` | Anything that doesn't fit above | `sf-cli-local-auth-mechanics` |
+| `decision` | An ADR | `acme-migrator-cli-removal-adr` |
+| `roadmap` | A living backlog/plan | `acme-migrator-roadmap` |
+| `note` | Anything that doesn't fit above | `cli-local-auth-mechanics` |
 
 `note` is the deliberate escape hatch — the vocabulary must never block authoring something that
 doesn't fit it. `kind: decision` pages additionally carry `decision-status:` with Nygard's own
@@ -177,13 +177,13 @@ it preserved verbatim. This is the mechanism that resolves the actual tension in
 existing hand-written MOCs already contain real, valuable prose ("Cross-cutting topics", "Related
 vault entities") that a generator cannot invent and must not discard — only their listing sections
 (which a human is currently hand-keeping in sync with the filesystem, and which already drifted
-once — sparta-migrator has none) become generated.
+once — acme-migrator has none) become generated.
 
 ### 5.4 Layer 4 — a detectable signal against the monolith, not a house-style hope
 
 This is the layer §1's framing note bears on directly. A human maintainer might eventually notice
 "this file is huge, I should split it." An agent, invoked to add one more update to
-`sparta-migrator-roadmap.md`, sees only the instruction "update the roadmap" and the file as it
+`acme-migrator-roadmap.md`, sees only the instruction "update the roadmap" and the file as it
 exists *in that turn* — it has no standing memory that this is the twentieth such append, and
 appending is structurally the lowest-friction action available. That is not a hypothetical: it is
 the exact, literal shape of the file today. Prose guidance in a skill doc competes with whatever
@@ -210,7 +210,7 @@ Mirroring the discipline §3's own cited precedent sets, deliberately:
 3. **No change to the provenance mechanism.** `sources: []` is untouched; this is a navigation/
    grouping layer only.
 4. **No automatic back-fill of `kind:`.** Unlike `project:` (§5.1), `kind:` is not always cleanly
-   inferable from a bare filename with full confidence (is `sparta-scope.md` an overview or a
+   inferable from a bare filename with full confidence (is `acme-scope.md` an overview or a
    reference?). The backfill script (§8) infers `kind:` only where a filename suffix names it
    unambiguously, and leaves the small remainder unset for a human/agent to set on next touch
    rather than guess and risk a wrong, silently-misleading label — the same "wrong is worse than
@@ -228,7 +228,7 @@ reliably do without session-crossing memory" as a hard constraint, not a nice-to
   new page can pick a value correctly from the template alone, without needing to have read this
   whole spec.
 - Layer 3 is generated, not hand-maintained, because §2 already shows hand-maintenance failing —
-  not slowly degrading, but never happening at all for `sparta-migrator`.
+  not slowly degrading, but never happening at all for `acme-migrator`.
 - Layer 4 is a lint signal, not a skill-doc paragraph, because a paragraph competes with whatever
   task brought the agent to the file and has no mechanism to win that competition.
 
@@ -238,13 +238,13 @@ Deterministic, mechanical, one-time — matching this repo's established `--appl
 script convention (`backfill-source-hashes.mjs`, `repair-provenance-links.mjs`,
 `repair-sources-order.mjs`). Verified against all 34 real files before writing this, not assumed:
 
-- `project:` — inferred from filename prefix for 33 of 34 files (`sparta-migrator-*` and the bare
-  `sparta-migrator.md` → `sparta-suite/migrator`; `processing-agent-translation-*` →
-  `processing-agent/translation`; `sparta-*` otherwise → `sparta-suite` (see §5.1's naming note —
-  matches the existing `moc/sparta-suite.md`, not a shorter unexamined guess); `processing-agent-*`
-  otherwise → `processing-agent`; `HCLS-LABS-SS-migrator-package.md` → `sparta-suite/migrator` per
-  its own body text naming it a sibling repo of `sparta-migrator`). Left unset on exactly one file:
-  `sf-cli-local-auth-mechanics.md` — cross-cutting research, not one project's document, by its
+- `project:` — inferred from filename prefix for 33 of 34 files (`acme-migrator-*` and the bare
+  `acme-migrator.md` → `acme-suite/migrator`; `widget-agent-translation-*` →
+  `widget-agent/translation`; `acme-*` otherwise → `acme-suite` (see §5.1's naming note —
+  matches the existing `moc/acme-suite.md`, not a shorter unexamined guess); `widget-agent-*`
+  otherwise → `widget-agent`; `ACME-LABS-migrator-package.md` → `acme-suite/migrator` per
+  its own body text naming it a sibling repo of `acme-migrator`). Left unset on exactly one file:
+  `cli-local-auth-mechanics.md` — cross-cutting research, not one project's document, by its
   own content.
 - `kind:` — inferred from an unambiguous filename suffix where one exists (`-architecture-
   diagrams`/`-process-diagrams`/`-diagrams` → `diagram`, `-*-guide` → `guide`, `-configuration`/
@@ -254,20 +254,20 @@ script convention (`backfill-source-hashes.mjs`, `repair-provenance-links.mjs`,
 
   For the remaining bare `<project-name>.md` files with no doc-kind suffix — checked directly, not
   assumed: **every one of them opens `# <slug>` immediately followed by `## Summary`**, the
-  identical shape confirmed by reading `sparta-migrator.md` in full (§2), which is unambiguously
+  identical shape confirmed by reading `acme-migrator.md` in full (§2), which is unambiguously
   that project's own overview page. This is not a guess extended from one example: it holds for
-  all seven (`sparta-governance`, `sparta-ideas`, `sparta-siop`, `sparta-spartanet`, `sparta-
-  usage-tracker`, `sparta-scope`, `sparta-platform`) plus `sparta-migrator.md` itself — each is the
+  all seven (`acme-governance`, `acme-ideas`, `acme-siop`, `acme-acmenet`, `acme-
+  usage-tracker`, `acme-scope`, `acme-platform`) plus `acme-migrator.md` itself — each is the
   front-door overview of its own suite application, named directly after it rather than suffixed
   `-overview`. All eight backfill to `kind: overview`.
 
-  The one file this rule doesn't reach cleanly is `HCLS-LABS-SS-migrator-package.md` — it matches
-  the same opening shape, but `sparta-suite/migrator` already has its overview (`sparta-migrator.md`
+  The one file this rule doesn't reach cleanly is `ACME-LABS-migrator-package.md` — it matches
+  the same opening shape, but `acme-suite/migrator` already has its overview (`acme-migrator.md`
   itself), and its content (a supporting artifact of that project, not a front door to it) reads
   as `reference` rather than a second overview. Backfills to `kind: reference`.
 
   Net result: **`kind:` resolves for all 34 files**, `project:` for 33 of 34 — a materially
-  cleaner outcome than assuming ambiguity without checking. `sf-cli-local-auth-mechanics.md`
+  cleaner outcome than assuming ambiguity without checking. `cli-local-auth-mechanics.md`
   backfills to `kind: note` (project-less by its own content, and `note` is precisely the escape
   hatch for a page that doesn't belong to one project's doc set) — the only field genuinely left
   to a human/agent call is its `project:`, if one is ever assigned.

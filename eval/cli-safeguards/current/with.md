@@ -64,14 +64,14 @@ Stop condition: The exact target contains the verified intended update with unre
 
 Loaded exactly these files:
 
-- `C:/Users/ehart/repos/wiki-master-cli-guard/eval/cli-safeguards/prompts.json`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-maintainer/SKILL.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-author/SKILL.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-search/SKILL.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/obsidian-cli/SKILL.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/access.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/authoring.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/evidence.md`
-- `C:/Users/ehart/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/operations.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/eval/cli-safeguards/prompts.json`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-maintainer/SKILL.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-author/SKILL.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-search/SKILL.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/obsidian-cli/SKILL.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/access.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/authoring.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/evidence.md`
+- `C:/Users/<user>/repos/wiki-master-cli-guard/skills/wiki-maintainer/references/operations.md`
 
 Inherited exposure: the task delegation requesting this simulation and its restrictions; general system/developer tool, collaboration, safety, and writing instructions; the available-skill catalog and tool descriptions; the user-provided AGENTS.md instructions and workspace environment; and the recommended-plugin list. No scenarios.json, test files, evaluation scripts, implementation files, other evaluation artifacts, prior probe transcripts, or real vault contents were loaded or visible in this agent's provided task context. No self-grading or rubric inference was performed.

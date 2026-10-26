@@ -38,7 +38,7 @@ Pure, I/O-free, tested in isolation — mirrors this repo's `scripts/lib/backfil
     existing `slugify` in `scripts/clip.mjs` (reuse it, do not reimplement).
   - Sections to scan are an explicit, passed-in list (not hardcoded) — the function takes
     `{ body, sections: [...] }` so it is reusable against a differently-headed roadmap (e.g. the
-    real `sparta-usage-tracker-roadmap.md`), not hardwired to this one file's heading text.
+    real `acme-usage-tracker-roadmap.md`), not hardwired to this one file's heading text.
 - [x] Green: implement.
 - [x] Verify: `node --test test/roadmap-split.test.mjs`.
 
@@ -80,19 +80,19 @@ existing grouping module) and the exact fence contract from `index-gen.mjs`/`moc
 ## Task 4 — Folder migration (real vault, via `obsidian move`)
 
 Every current `wiki/authored/` page carrying a `project:` value (38 files as of this writing, one
-page — `sf-cli-local-auth-mechanics.md` — correctly excluded, having no `project:`) moves to
+page — `cli-local-auth-mechanics.md` — correctly excluded, having no `project:`) moves to
 `wiki/authored/<project>/[<subproject>/]<existing filename, unchanged>.md`, per spec §2's
 no-rename decision. Executed via `obsidian move file=<name> to=<folder>` (the sanctioned
 vault-write path), not direct file-tool moves.
 
 - [x] Enumerate the real move plan from each page's already-recorded `project:` value (read via
-      `obsidian property:read`, not re-derived): `sparta-suite` → `wiki/authored/sparta-suite/`;
-      `sparta-suite/migrator` → `wiki/authored/sparta-suite/migrator/`; `processing-agent` →
-      `wiki/authored/processing-agent/`; `processing-agent/translation` →
-      `wiki/authored/processing-agent/translation/`. One page
-      (`sparta-migrator Salesforce OAuth Implementation.md`) currently has no `project:`/`kind:`
+      `obsidian property:read`, not re-derived): `acme-suite` → `wiki/authored/acme-suite/`;
+      `acme-suite/migrator` → `wiki/authored/acme-suite/migrator/`; `widget-agent` →
+      `wiki/authored/widget-agent/`; `widget-agent/translation` →
+      `wiki/authored/widget-agent/translation/`. One page
+      (`acme-migrator Salesforce OAuth Implementation.md`) currently has no `project:`/`kind:`
       set (created by a concurrent session after v1's backfill ran) — classify it by reading its
-      content (already confirmed: `sparta-suite/migrator`, `kind: reference`) and set both before
+      content (already confirmed: `acme-suite/migrator`, `kind: reference`) and set both before
       moving it, rather than moving it unclassified.
 - [x] Execute the moves. Verify via `obsidian backlinks` on 3–4 sampled files before/after that no
       inbound link count changed (Obsidian resolves wikilinks by name, not path, so a same-named
@@ -111,23 +111,23 @@ vault-write path), not direct file-tool moves.
 ## Task 5 — Decompose the real monolith
 
 - [x] Run the Task 1 extractor against the real, current
-      `wiki/authored/sparta-suite/migrator/sparta-migrator-roadmap.md` body with the real
+      `wiki/authored/acme-suite/migrator/acme-migrator-roadmap.md` body with the real
       section headings (`Now (this initiative, no external blockers)`, `In progress (not yet
       merged)`, `Known issues (active investigation)`, `Blocked on platform`, `Explicitly future,
       not this initiative`) as the `sections` argument.
 - [x] Write one file per extracted item to
-      `wiki/authored/sparta-suite/migrator/backlog/<slug>.md` via `obsidian create` — verbatim
+      `wiki/authored/acme-suite/migrator/backlog/<slug>.md` via `obsidian create` — verbatim
       body per spec §4, `backlog-status:` per the extractor's own inference, `project:
-      sparta-suite/migrator`, `kind: backlog-item`.
+      acme-suite/migrator`, `kind: backlog-item`.
 - [x] Spot-check several extracted files against the original source lines (diff the extracted
       body text against the exact original line range) to confirm zero content drift — this is
       the concrete verification that "scripted, not manual" actually delivered fidelity, not just
       an assumption.
-- [x] Rewrite `sparta-migrator-roadmap.md` itself down to hand-written framing only (`## Summary`,
+- [x] Rewrite `acme-migrator-roadmap.md` itself down to hand-written framing only (`## Summary`,
       any genuinely evergreen context) plus a `%% BEGIN/END GENERATED CATALOG %%` fence; run
       `scripts/backlog-gen.mjs --apply` to populate it from the new `backlog/*.md` items.
 - [x] `node scripts/health.mjs` — confirm `monolithCandidates` no longer includes
-      `sparta-migrator-roadmap.md` (now well under the word floor) and reports nothing else new.
+      `acme-migrator-roadmap.md` (now well under the word floor) and reports nothing else new.
 
   Result: 32 items extracted (22 shipped, 9 planned, 1 blocked), 100% byte-exact verbatim match
   against source before trusting the extractor for the real migration. Roadmap file: 1,261 lines
@@ -184,13 +184,13 @@ at planning time:
   which completed with no further stalls. Flagged as an operational quirk to watch for in any
   future bulk vault-write, not a solved problem.
 - **A second real, live bare-name-collision risk was found, not just the one anticipated in the
-  spec**: `sparta-scope.md` and `sparta-scope-roadmap.md` already contained bare `[[roadmap]]`
-  links (comparing their own roadmap's structure to sparta-migrator's) that had been silently
+  spec**: `acme-scope.md` and `acme-scope-roadmap.md` already contained bare `[[roadmap]]`
+  links (comparing their own roadmap's structure to acme-migrator's) that had been silently
   unresolved (no note was literally named `roadmap.md` yet) and, the moment this migration's
   rename created that file, would have started resolving correctly only by coincidence — with no
   guarantee of staying correct once a second project's roadmap is ever also named `roadmap.md`.
   Fixed proactively: converted both to the piped-link form
-  (`[[wiki/authored/sparta-suite/migrator/roadmap.md|sparta-migrator's roadmap]]`), and documented
+  (`[[wiki/authored/acme-suite/migrator/roadmap.md|acme-migrator's roadmap]]`), and documented
   the piped-link requirement for any cross-project reference to a bare `overview.md`/
   `architecture.md`/`roadmap.md` in both `wiki-maintainer`'s and `wiki-author`'s skill docs.
 - **`skills/wiki-author/SKILL.md` added, not originally scoped**: the user asked directly,

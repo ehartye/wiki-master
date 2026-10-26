@@ -49,7 +49,14 @@ test('offline authored workflow commits only its edit and publishes to its confi
     assert.equal(git('rev-parse', 'HEAD'), execFileSync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/main'], { encoding: 'utf8' }).trim());
     assert.equal(git('status', '--porcelain'), 'M personal.md');
     const before = readFileSync(join(vault, guide), 'utf8');
-    const r = freshness({ vaultPath: vault, today: new Date('2026-09-08'), obsidianJsonImpl: () => { throw new Error('CLI unavailable'); }, log: () => {} });
+    const savedVault = process.env.WIKI_MASTER_VAULT;
+    process.env.WIKI_MASTER_VAULT = vault;
+    let r;
+    try {
+      r = freshness({ vaultPath: vault, today: new Date('2026-09-08'), obsidianJsonImpl: () => { throw new Error('CLI unavailable'); }, log: () => {} });
+    } finally {
+      if (savedVault === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = savedVault;
+    }
     assert.equal(r.backend, 'filesystem');
     assert.equal(readFileSync(join(vault, guide), 'utf8'), before);
     assert.equal(git('status', '--porcelain'), 'M personal.md');

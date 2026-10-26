@@ -6,7 +6,7 @@
 // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
 //
 // Deliberately mirrors scripts/lib/topic.mjs's shape: pure, I/O-free, and
-// normalization exists only so that "Sparta/Migrator" and "sparta / migrator"
+// normalization exists only so that "Acme/Migrator" and "acme / migrator"
 // are one group instead of two -- never a taxonomy, never enforced at write time.
 //
 // Pure and I/O-free: the graph is built by the caller (scripts/lib/graph.mjs

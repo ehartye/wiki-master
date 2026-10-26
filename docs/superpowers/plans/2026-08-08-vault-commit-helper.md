@@ -190,7 +190,7 @@ N. **Close it.** `node ../../scripts/op-commit.mjs --op <op> --title "<what happ
 
 ### Task 5: verify against the real vault
 
-- [ ] Clone the vault to a **short** temp path (`C:/Users/ehart/AppData/Local/Temp/<short>`). A deep path hits Windows `MAX_PATH` — ~50 files fail with `Filename too long` at ~130 characters of prefix, measured.
+- [ ] Clone the vault to a **short** temp path (`C:/Users/<user>/AppData/Local/Temp/<short>`). A deep path hits Windows `MAX_PATH` — ~50 files fail with `Filename too long` at ~130 characters of prefix, measured.
 - [ ] Run a bracketed operation end to end against the clone. Confirm: the commit contains exactly the operation's files; a file left dirty beforehand stays dirty and is reported; the token file is gone.
 - [ ] Remove the clone. Confirm the real vault is untouched.
 

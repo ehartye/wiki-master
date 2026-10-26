@@ -343,7 +343,7 @@ filenames at 120 characters, and the live vault has many at that cap.
 
 Measured while setting up the end-to-end run: cloning this vault into a deep temp
 directory failed on ~50 files with `Filename too long`, and that path was only ~130
-characters of prefix. For the vault at `C:\Users\ehart\.wiki-master-vault\` the worst
+characters of prefix. For the vault at `C:\Users\<user>\.wiki-master-vault\` the worst
 realistic case is around 250 characters — under the 260 limit, but not by much, and a
 vault at a deeper root or a long topic slug would exceed it.
 

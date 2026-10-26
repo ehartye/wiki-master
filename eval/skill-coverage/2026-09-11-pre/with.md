@@ -629,23 +629,23 @@ explain from the two pages and their evidence.
 
 Files I loaded, and nothing else from this repo:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-catalog.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/prompts.json`
-3. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
-4. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/access.md`
-5. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
-6. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
-7. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/maintenance.md`
-8. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
-9. `C:/Users/ehart/repos/wiki-master/skills/clip-docx/SKILL.md`
-10. `C:/Users/ehart/repos/wiki-master/skills/clip-pdf/SKILL.md`
-11. `C:/Users/ehart/repos/wiki-master/skills/clip-pptx/SKILL.md`
-12. `C:/Users/ehart/repos/wiki-master/skills/wiki-discover/SKILL.md`
-13. `C:/Users/ehart/repos/wiki-master/skills/wiki-purge/SKILL.md`
-14. `C:/Users/ehart/repos/wiki-master/skills/wiki-triage/SKILL.md`
-15. `C:/Users/ehart/repos/wiki-master/skills/wiki-query/SKILL.md`
-16. `C:/Users/ehart/repos/wiki-master/skills/wiki-search/SKILL.md`
-17. `C:/Users/ehart/repos/wiki-master/skills/wiki-relink/SKILL.md`
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-catalog.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/prompts.json`
+3. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
+4. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/access.md`
+5. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
+6. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
+7. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/maintenance.md`
+8. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
+9. `C:/Users/<user>/repos/wiki-master/skills/clip-docx/SKILL.md`
+10. `C:/Users/<user>/repos/wiki-master/skills/clip-pdf/SKILL.md`
+11. `C:/Users/<user>/repos/wiki-master/skills/clip-pptx/SKILL.md`
+12. `C:/Users/<user>/repos/wiki-master/skills/wiki-discover/SKILL.md`
+13. `C:/Users/<user>/repos/wiki-master/skills/wiki-purge/SKILL.md`
+14. `C:/Users/<user>/repos/wiki-master/skills/wiki-triage/SKILL.md`
+15. `C:/Users/<user>/repos/wiki-master/skills/wiki-query/SKILL.md`
+16. `C:/Users/<user>/repos/wiki-master/skills/wiki-search/SKILL.md`
+17. `C:/Users/<user>/repos/wiki-master/skills/wiki-relink/SKILL.md`
 
 That is the complete list — exactly the files I was told to read, no more. I opened
 no other file in the repository, ran no repo-wide search, and read no source under

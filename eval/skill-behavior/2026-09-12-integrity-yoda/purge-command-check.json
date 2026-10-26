@@ -1,5 +1,5 @@
 {
-  "fixture": "C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health",
+  "fixture": "C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health",
   "commands": [
     {
       "command": "node scripts/health.mjs",

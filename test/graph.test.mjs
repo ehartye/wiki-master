@@ -563,7 +563,7 @@ test('buildGraph leaves project/kind/decisionStatus undefined when absent — no
 // ─── monolithCandidates (spec §5.4) — reported, never scored, same treatment as hubStubs ───
 // Calibrated directly against the real vault (not guessed): word count > 3000 AND >= 3
 // dated-update-callout matches together flag exactly the one genuine offender found live
-// (sparta-migrator-roadmap.md, 9,529 words / 5 matches) while correctly sparing a second
+// (acme-migrator-roadmap.md, 9,529 words / 5 matches) while correctly sparing a second
 // large-but-healthy file (5,268 words / 0 matches) and a normal file with one isolated,
 // legitimate update note (998 words / 1 match). Both signals are required together on
 // purpose — word count alone false-positives on the healthy long file; the callout pattern
@@ -630,7 +630,7 @@ test('buildGraph leaves backlogStatus undefined when absent — no invented defa
 // ─── findAmbiguousNames / wikilinkTarget — the fix for a real, live bug: the
 // authored-project-structure v2 design deliberately reuses bare canonical names
 // (overview.md/architecture.md/roadmap.md, one per project) across 12+
-// sparta-suite/chewie/adc sub-projects, but the three catalog GENERATORS
+// acme-suite/gadget/adc sub-projects, but the three catalog GENERATORS
 // (index-gen.mjs, moc-authored-gen.mjs, backlog-gen.mjs) all wrote plain bare
 // `[[title]]` links regardless. Since a bare link resolves to exactly one
 // global winner (see resolveLinkTarget/buildNameIndex above), only 1-of-12
@@ -639,9 +639,9 @@ test('buildGraph leaves backlogStatus undefined when absent — no invented defa
 
 test('findAmbiguousNames flags a basename shared by two content pages, vault-wide', () => {
   const ambiguous = findAmbiguousNames([
-    { path: 'wiki/authored/sparta-suite/migrator/architecture.md' },
-    { path: 'wiki/authored/sparta-suite/other/architecture.md' },
-    { path: 'wiki/authored/sparta-suite/migrator/overview.md' },
+    { path: 'wiki/authored/acme-suite/migrator/architecture.md' },
+    { path: 'wiki/authored/acme-suite/other/architecture.md' },
+    { path: 'wiki/authored/acme-suite/migrator/overview.md' },
   ]);
   assert.ok(ambiguous.has('architecture'));
   assert.ok(!ambiguous.has('overview'), 'a unique basename is not ambiguous');
@@ -662,10 +662,10 @@ test('wikilinkTarget stays bare when the basename is unique', () => {
 });
 
 test('wikilinkTarget switches to the vault\'s documented piped full-path form when the basename is ambiguous', () => {
-  const p = { path: 'wiki/authored/sparta-suite/migrator/architecture.md' };
+  const p = { path: 'wiki/authored/acme-suite/migrator/architecture.md' };
   assert.equal(
     wikilinkTarget(p, new Set(['architecture'])),
-    'wiki/authored/sparta-suite/migrator/architecture|architecture'
+    'wiki/authored/acme-suite/migrator/architecture|architecture'
   );
 });
 

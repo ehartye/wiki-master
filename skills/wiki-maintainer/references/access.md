@@ -2,7 +2,7 @@
 
 Resolve the plugin root from the installed `SKILL.md` location, not the current
 working directory: its containing skill folder's `../../` is the plugin root.
-Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`) and verify the expected
+Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`; with `WIKI_MASTER_REQUIRE_VAULT=1` set and no vault named, a script stops with exit 2 instead of using the default) and verify the expected
 vault layout. Read local `AGENTS.md` and schema before edits. A known root and
 filesystem access are sufficient for the supported operations below; do not ask
 the user to restart Obsidian as a prerequisite for all work.

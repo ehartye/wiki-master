@@ -830,23 +830,23 @@ never needed those contracts and because `docs/` is out of scope for this exerci
 
 Files read, in order:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-behavior/2026-09-11-post/skill-catalog.snapshot.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-behavior/prompts.json`
-3. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
-4. `C:/Users/ehart/repos/wiki-master/skills/wiki-author/SKILL.md`
-5. `C:/Users/ehart/repos/wiki-master/skills/wiki-search/SKILL.md`
-6. `C:/Users/ehart/repos/wiki-master/skills/wiki-stale/SKILL.md`
-7. `C:/Users/ehart/repos/wiki-master/skills/wiki-discover/SKILL.md`
-8. `C:/Users/ehart/repos/wiki-master/skills/wiki-ingest/SKILL.md`
-9. `C:/Users/ehart/repos/wiki-master/skills/obsidian-cli/SKILL.md`
-10. `C:/Users/ehart/repos/wiki-master/skills/wiki-query/SKILL.md` (its read-only
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-behavior/2026-09-11-post/skill-catalog.snapshot.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-behavior/prompts.json`
+3. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
+4. `C:/Users/<user>/repos/wiki-master/skills/wiki-author/SKILL.md`
+5. `C:/Users/<user>/repos/wiki-master/skills/wiki-search/SKILL.md`
+6. `C:/Users/<user>/repos/wiki-master/skills/wiki-stale/SKILL.md`
+7. `C:/Users/<user>/repos/wiki-master/skills/wiki-discover/SKILL.md`
+8. `C:/Users/<user>/repos/wiki-master/skills/wiki-ingest/SKILL.md`
+9. `C:/Users/<user>/repos/wiki-master/skills/obsidian-cli/SKILL.md`
+10. `C:/Users/<user>/repos/wiki-master/skills/wiki-query/SKILL.md` (its read-only
     search-and-evidence workflow is what wiki-stale step 4 delegates to for the
     `freshness` scenario, and it is the named handoff target in `lookup`)
-11. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/access.md`
-12. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
-13. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/authoring.md`
-14. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
-15. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
+11. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/access.md`
+12. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
+13. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/authoring.md`
+14. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
+15. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
 
 Directory listings taken (names only, no file contents): `skills/`,
 `skills/wiki-maintainer/references/`, `scripts/`, `scripts/lib/`. These supplied

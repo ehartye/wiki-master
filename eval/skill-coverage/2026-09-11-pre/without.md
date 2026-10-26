@@ -492,11 +492,11 @@ call it a fix.
 ## Files loaded and inherited exposure
 
 **Files I read in this repo — exactly two, and no others:**
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-catalog.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/prompts.json`
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-catalog.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/prompts.json`
 
 **Files I wrote:**
-- `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/2026-09-11-pre/without.md` (this file)
+- `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/2026-09-11-pre/without.md` (this file)
 
 **Explicit statements:**
 - I did **not** read any file under `skills/` — no `SKILL.md`, no reference file, no script
@@ -517,12 +517,12 @@ call it a fix.
   non-wiki skills (superpowers, agent-stalker, artifact tooling, and similar). This is the
   harness's standard listing, not skill instructions: it carries names and descriptions only,
   at the same level of detail as the catalog I was told to read.
-- `C:/Users/ehart/.claude/CLAUDE.md` (global user instructions: options must spell out
+- `C:/Users/<user>/.claude/CLAUDE.md` (global user instructions: options must spell out
   time/risk/complexity/best-practice/maintainability; never commit to the default branch of the
   main checkout; the wiki is the source of truth). This shaped the branch-not-main and
   ask-before-irreversible-action posture above.
 - The user's auto-memory index at
-  `C:/Users/ehart/.claude/projects/C--Users-ehart-repos-wiki-master/memory/MEMORY.md` — two
+  `C:/Users/<user>/.claude/projects/C--Users-user-repos-wiki-master/memory/MEMORY.md` — two
   one-line entries ("accuracy over dependency count"; "verify against real documents"). Only the
   index lines were in context; I did not open the linked memory files.
 - Repo git status snapshot (branch `main`, clean, recent commit subjects) supplied by the harness.

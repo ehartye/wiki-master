@@ -6,7 +6,7 @@ reviewed:
 status: draft
 sources: []
 ai-generated:
-# project: <slug, e.g. sparta/migrator> — set when this page belongs to a
+# project: <slug, e.g. acme/migrator> — set when this page belongs to a
 #   multi-doc project/sub-project, so it groups with its siblings instead of
 #   sitting in the flat catalog alone. Omit for a standalone note.
 # kind: <one of: overview | architecture | reference | guide | diagram |

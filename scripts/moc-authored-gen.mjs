@@ -43,7 +43,7 @@ const KIND_HEADING = {
   [OTHER]: '## Other',
 };
 
-// `sparta-suite/migrator` -> `sparta-suite-migrator` (a plain filesystem-safe
+// `acme-suite/migrator` -> `acme-suite-migrator` (a plain filesystem-safe
 // stem, one level flat -- moc/ stays a flat folder like the two MOCs that
 // already live there, per spec §4's decision against physical nesting).
 export function projectSlug(project) {

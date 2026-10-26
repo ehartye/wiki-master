@@ -1,7 +1,7 @@
 [
   {
     "case": "repair",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/repair'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
     "result": {
       "chunk_id": "0eb0c9",
       "wall_time_seconds": 0.6601164,
@@ -12,7 +12,7 @@
   },
   {
     "case": "relink",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
     "result": {
       "chunk_id": "38980d",
       "wall_time_seconds": 1.053556,
@@ -23,7 +23,7 @@
   },
   {
     "case": "health",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' ",
     "result": {
       "chunk_id": "1d4b43",
       "wall_time_seconds": 1.4846718,
@@ -34,7 +34,7 @@
   },
   {
     "case": "lint",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' ",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' ",
     "result": {
       "chunk_id": "083aa9",
       "wall_time_seconds": 1.8569672000000002,
@@ -45,7 +45,7 @@
   },
   {
     "case": "relink",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --legacy",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --legacy",
     "result": {
       "chunk_id": "585bcc",
       "wall_time_seconds": 1.8314556,
@@ -56,7 +56,7 @@
   },
   {
     "case": "health",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/health.mjs' --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/health'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/health.mjs' --json",
     "result": {
       "chunk_id": "ec255b",
       "wall_time_seconds": 1.8098691,
@@ -67,7 +67,7 @@
   },
   {
     "case": "lint",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/drift.mjs' --coverage --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/drift.mjs' --coverage --json",
     "result": {
       "chunk_id": "80cbf7",
       "wall_time_seconds": 1.8158557,
@@ -78,7 +78,7 @@
   },
   {
     "case": "relink",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/identity-audit.mjs' --limit=20 --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/identity-audit.mjs' --limit=20 --json",
     "result": {
       "chunk_id": "313854",
       "wall_time_seconds": 1.8317033999999999,
@@ -89,7 +89,7 @@
   },
   {
     "case": "lint",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/lint.mjs' ",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/lint'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/lint.mjs' ",
     "result": {
       "chunk_id": "ab344d",
       "wall_time_seconds": 1.7300282,
@@ -100,7 +100,7 @@
   },
   {
     "case": "relink",
-    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/ehart/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/ehart/repos/wiki-master-integrity/scripts/relationships.mjs' --limit=10 --json",
+    "cmd": "$env:WIKI_MASTER_VAULT = 'C:/Users/<user>/AppData/Local/Temp/wiki-yoda-integrity-3ETQxE/with/relink'; node 'C:/Users/<user>/repos/wiki-master-integrity/scripts/relationships.mjs' --limit=10 --json",
     "result": {
       "chunk_id": "d04fa4",
       "wall_time_seconds": 1.6286065,

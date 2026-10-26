@@ -543,14 +543,14 @@ tricks, or a hand-drawn stand-in graph presented as the live one.
 
 Files I read from the repository — exactly two, and no others:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-catalog.md` — installed skill names and one-line
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-catalog.md` — installed skill names and one-line
    descriptions.
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-behavior/prompts.json` — the 8 scenarios (prompt
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-behavior/prompts.json` — the 8 scenarios (prompt
    plus facts for each).
 
 Files I wrote:
 
-- `C:/Users/ehart/repos/wiki-master/eval/skill-behavior/2026-09-11-pre/without.md` (this file).
+- `C:/Users/<user>/repos/wiki-master/eval/skill-behavior/2026-09-11-pre/without.md` (this file).
 
 Explicit negatives:
 
@@ -567,13 +567,13 @@ Explicit negatives:
 
 Other context inherited (not from repository files I chose to open, but present in my session):
 
-- The user's global `CLAUDE.md` (`C:/Users/ehart/.claude/CLAUDE.md`): the options-presentation
+- The user's global `CLAUDE.md` (`C:/Users/<user>/.claude/CLAUDE.md`): the options-presentation
   rubric, the git discipline rules (never commit to the default branch of the main checkout;
   rebase and squash-merge), and the standing instruction that the wiki is the source of truth and
   should be checked before searching the web or guessing. These shaped the offline-author scenario
   (the branch-rule exemption is a deliberate local override of that global rule) and the
   naming-near-miss scenario (the bounded wiki lookup).
-- The user's auto-memory file (`C:/Users/ehart/.claude/projects/.../memory/MEMORY.md`), two entries:
+- The user's auto-memory file (`C:/Users/<user>/.claude/projects/.../memory/MEMORY.md`), two entries:
   "accuracy over dependency count — name a missing library immediately" and "verify against real
   documents". The first directly shaped how I report the unavailable embedder in the freshness
   scenario.

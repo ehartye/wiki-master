@@ -110,9 +110,9 @@ Stop condition: Report the app-only blocker accurately. No fabricated app succes
 
 ## Files loaded
 
-Scenario input: C:/Users/ehart/repos/wiki-master-skills/eval/skill-behavior/prompts.json
+Scenario input: C:/Users/<user>/repos/wiki-master-skills/eval/skill-behavior/prompts.json
 
-Actual skill bodies, all under C:/Users/ehart/repos/wiki-master-skills/skills/:
+Actual skill bodies, all under C:/Users/<user>/repos/wiki-master-skills/skills/:
 - wiki-maintainer/SKILL.md
 - wiki-author/SKILL.md
 - wiki-search/SKILL.md
@@ -121,7 +121,7 @@ Actual skill bodies, all under C:/Users/ehart/repos/wiki-master-skills/skills/:
 - wiki-ingest/SKILL.md
 - obsidian-cli/SKILL.md
 
-Directly relevant references, all under C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/:
+Directly relevant references, all under C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/:
 - access.md
 - operations.md
 - authoring.md

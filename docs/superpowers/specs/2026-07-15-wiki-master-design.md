@@ -94,7 +94,7 @@ config (see §8).
 
 ## 4. Plugin repository structure
 
-Repo: `C:\Users\ehart\repos\wiki-master`, registered in the
+Repo: `C:\Users\<user>\repos\wiki-master`, registered in the
 `hartye-claude-plugins` marketplace. The vault is **separate** (env-resolved
 path).
 

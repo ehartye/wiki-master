@@ -81,7 +81,7 @@
 
 - [ ] **Step 3: Verify Node runs the test runner (no tests yet)**
 
-Run: `cd C:/Users/ehart/repos/wiki-master && node --test`
+Run: `cd C:/Users/<user>/repos/wiki-master && node --test`
 Expected: exits 0 with "tests 0" (no test files yet) — confirms the runner works.
 
 - [ ] **Step 4: Commit**

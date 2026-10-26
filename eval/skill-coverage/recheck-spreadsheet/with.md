@@ -210,13 +210,13 @@ as a pending ask rather than silently performed or silently skipped.
 
 Files I opened in this run, and nothing else in the repo:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/skill-catalog.snapshot.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/prompts.json`
-3. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
-4. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/access.md`
-5. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
-6. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
-7. `C:/Users/ehart/repos/wiki-master/skills/clip-xlsx/SKILL.md`
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/skill-catalog.snapshot.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-coverage/recheck-spreadsheet/prompts.json`
+3. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
+4. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/access.md`
+5. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
+6. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
+7. `C:/Users/<user>/repos/wiki-master/skills/clip-xlsx/SKILL.md`
 
 I did **not** open any `scenarios.json`, any test file, any other file under `eval/`, anything
 under `docs/`, or any prior evaluation transcript or artifact. I saw none of those.

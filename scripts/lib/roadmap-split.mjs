@@ -6,7 +6,7 @@
 // text cannot drop a PR number or alter a verbatim quote the way a manual transcription risks.
 // It moves bytes; it never rewrites them.
 
-// wiki/authored/'s own filename convention (sparta-migrator-roadmap.md, ...) is all-lowercase,
+// wiki/authored/'s own filename convention (acme-migrator-roadmap.md, ...) is all-lowercase,
 // hyphenated — distinct from clip.mjs's slugify, which preserves case/spaces for raw-clipping
 // filenames (confirmed NOT a match for this convention before writing a separate function).
 export function slugifyKebab(text) {

@@ -30,7 +30,7 @@
   | "add an item to the backlog" | `<project>/backlog/<item-slug>.md` — see below |
 
   Set `project:` (a slug, one `/` deep at most for a sub-project, e.g.
-  `sparta-suite/migrator`) and `kind:` — one of `overview | architecture |
+  `acme-suite/migrator`) and `kind:` — one of `overview | architecture |
   reference | guide | diagram | decision | roadmap | note | backlog-item` —
   matching the folder you placed it in; both are optional and can be omitted
   for a genuinely standalone, project-less note. Use `_templates/authored-note.md`
@@ -74,7 +74,7 @@
   it. This is a direct instruction, not a hope: appending one more update is
   always the lowest-friction move available in the moment for whatever task
   brought you to the file, and nothing else reliably stops it — a monolithic
-  roadmap this vault actually had (`sparta-migrator-roadmap.md`, 1,261 lines
+  roadmap this vault actually had (`acme-migrator-roadmap.md`, 1,261 lines
   before this pattern existed) is the concrete proof this format is meant to
   prevent recurring.
 
@@ -148,6 +148,8 @@ sorted by path then line, then `validate-authored: N pages checked, M defects`, 
 distinct ledger paths). `--json` prints
 `{"version":1,"checked":N,"skipped":K,"defects":[{"path","line","rule","message"}]}`
 instead, which is exactly what `validateAuthored()` in `scripts/validate-authored.mjs` returns. An absent frontmatter key is reported at line 1; a blank key at its own line.
+
+**Public pages.** A page written for a plugin's public repository must not name other projects or machines. `--terms-file <path>` (the owner's private list, kept outside every repository; the file `scripts/scan-private-terms.mjs` reads) adds a `private-term` defect for each ledger page whose text matches a term or a built-in machine pattern (a home-directory path, a GPU model, an invisible character), at its line, naming the rule number and never the text. `--terms-projects a,b` limits the check to pages whose `project:` (first segment) is listed, so a private project's own pages may name themselves. Without `--terms-file` the output is unchanged.
 
 Under `wiki/authored/`:
 

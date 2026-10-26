@@ -42,7 +42,7 @@ const hasFence = (text) => text.includes(BEGIN_MARK) && text.indexOf(END_MARK) >
 // uses the escaped separator. A sources: entry takes the full path with no alias. Returns the new text and the
 // changed lines.
 export function repointBareLinks(text, wanted) {
-  const fm = text.match(/^﻿?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+  const fm = text.match(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
   const split = fm ? fm[0].length : 0;
   let front = text.slice(0, split);
   const body = text.slice(split);
@@ -97,7 +97,7 @@ export const onlyWikilinksChanged = (changes) => changes.every((c) => c.before.r
 export const hasGeneratedFence = hasFence;
 
 export function bumpUpdated(text, day) {
-  const fm = text.match(/^﻿?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
+  const fm = text.match(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/);
   if (!fm) return text;
   const head = fm[0].replace(/^updated: [^\r\n]*$/m, `updated: ${day}`);
   return head + text.slice(fm[0].length);

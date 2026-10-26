@@ -5,7 +5,7 @@ red (failing test written and confirmed failing) before green (implementation) o
 
 ## Task 0 — `graph.mjs`: parse `project:`, `kind:`, `decision-status:` frontmatter
 
-- [x] Red: `test/graph.test.mjs` — a page with `project: sparta-suite/migrator` and `kind: decision` and
+- [x] Red: `test/graph.test.mjs` — a page with `project: acme-suite/migrator` and `kind: decision` and
       `decision-status: accepted` exposes all three on its page object; a page with none of them
       exposes `undefined` for all three (no crash, no default invented).
 - [x] Green: `buildGraph` in `scripts/lib/graph.mjs` reads the three fields with the same
@@ -61,7 +61,7 @@ of one script per repair/generation concern — `backfill-source-hashes.mjs`,
 
 **Design decision, settled here rather than left ambiguous**: a per-project MOC follows the exact
 shape `index.md` already uses successfully — free-form hand-prose *around* a generated fence, not
-instead of it. The two existing hand-written MOCs (`moc/processing-agent.md`, `moc/sparta-
+instead of it. The two existing hand-written MOCs (`moc/widget-agent.md`, `moc/acme-
 suite.md`) already carry real value a generator cannot invent (curated one-line descriptions per
 page, "Cross-cutting topics", "Related vault entities") — that content is preserved verbatim,
 outside the fence, exactly as `index.md`'s own contract already guarantees for its surrounding
@@ -102,10 +102,10 @@ exactly where it already lives today.
 Calibrated directly against the real vault before writing the check, not guessed: word count
 `> 3000` **and** `>= 3` matches of a dated-update-callout pattern
 (`/\*\*[^*\n]{0,80}(?:Update|Milestone|status updated)[^*\n]{0,80}\(\d{4}-\d{2}-\d{2}/gi`) together
-flag exactly one file today (`sparta-migrator-roadmap.md`, 9,529 words / 5 matches) and correctly
-spare a second large-but-healthy file (`sparta-scope-roadmap.md`, 5,268 words / 0 matches — long
+flag exactly one file today (`acme-migrator-roadmap.md`, 9,529 words / 5 matches) and correctly
+spare a second large-but-healthy file (`acme-scope-roadmap.md`, 5,268 words / 0 matches — long
 because it has a lot of current scoped work, not because it never prunes) and a normal file
-carrying one isolated, legitimate update note (`sparta-suite-overview.md`, 998 words / 1 match —
+carrying one isolated, legitimate update note (`acme-suite-overview.md`, 998 words / 1 match —
 under the word floor regardless). Both signals are required together deliberately: word count
 alone would false-positive on the scope-roadmap file; the callout pattern alone would not
 distinguish "one clarifying note" from "a stack that never stops growing."
@@ -131,11 +131,11 @@ New `scripts/backfill-authored-metadata.mjs`, dry-run/`--apply`, matching the es
 convention exactly.
 
 - [x] Red: `test/backfill-authored-metadata.test.mjs` — covers every rule from spec §8 as its own
-      case: filename-prefix → `project:` (including the `sparta-migrator-*`/bare-`sparta-
-      migrator.md` and `processing-agent-translation-*` two-tier cases), suffix → `kind:` for each
+      case: filename-prefix → `project:` (including the `acme-migrator-*`/bare-`acme-
+      migrator.md` and `widget-agent-translation-*` two-tier cases), suffix → `kind:` for each
       recognized suffix, the "bare `<project>.md` opening `# <slug>` / `## Summary`" → `kind:
-      overview` rule, the `HCLS-LABS-SS-migrator-package.md` → `reference` exception (same
-      structural shape, but its project already has an overview), `sf-cli-local-auth-mechanics.md`
+      overview` rule, the `ACME-LABS-migrator-package.md` → `reference` exception (same
+      structural shape, but its project already has an overview), `cli-local-auth-mechanics.md`
       → `kind: note` with `project:` left unset, and: a page that already carries `project:`/
       `kind:` is left untouched (idempotent, no clobbering a value a human/agent already set).
 - [x] Green: implement, writing `project:`/`kind:`/`decision-status:` into frontmatter using the
@@ -152,7 +152,7 @@ convention exactly.
       confirmed the classification end-to-end — 36 files planned (34 assumed while drafting the
       spec; the real count had grown by 2 in the interim, and every rule still resolved cleanly
       with zero surprises), 34 with both `project:` and `kind:` resolved, 2 with `kind:` only
-      (`sf-cli-local-auth-mechanics.md`, by design — no project).
+      (`cli-local-auth-mechanics.md`, by design — no project).
 
 ## Task 6 — Skill doc updates
 
@@ -189,35 +189,35 @@ file-tool writes to `~/.wiki-master-vault`.
       clean on 4 varied cases (an ADR with `decision-status`, a bare-overview file, a two-tier-
       project file, the one project-less `note`) via `obsidian properties`.
 - [x] Run `node scripts/moc-authored-gen.mjs` (dry-run): 4 projects qualified —
-      `processing-agent`, `processing-agent/translation`, `sparta-suite`, `sparta-suite/migrator`.
+      `widget-agent`, `widget-agent/translation`, `acme-suite`, `acme-suite/migrator`.
       The two-tier `project:` values each get their OWN generated MOC file, never folded into
       their parent's — a direct, foreseen consequence of Task 3's per-project-slug rule, not a
-      bug: `processing-agent`'s existing hand-written "Per-skill deep dives" ad hoc sub-heading
+      bug: `widget-agent`'s existing hand-written "Per-skill deep dives" ad hoc sub-heading
       (the very symptom spec §2 named) is superseded by a proper, separate, generated
-      `moc/processing-agent-translation.md` instead of another hand-nested heading.
-- [x] `--apply` for all four. `moc/processing-agent.md` and `moc/sparta-suite.md` each got a new
+      `moc/widget-agent-translation.md` instead of another hand-nested heading.
+- [x] `--apply` for all four. `moc/widget-agent.md` and `moc/acme-suite.md` each got a new
       fence appended; every existing hand-written line (Core documentation/Diagrams/Guides by
       audience/Cross-cutting topics/Related vault entities/Governance/Platform/Applications)
       confirmed byte-identical, fence appended cleanly at the end. Two brand-new files were
       created for the two sub-projects that had zero MOC before this
-      (`moc/sparta-suite-migrator.md`, `moc/processing-agent-translation.md`).
+      (`moc/acme-suite-migrator.md`, `moc/widget-agent-translation.md`).
 - [x] Polish pass, done rather than left optional: the two brand-new MOC files had only the bare
       generated fence and no orienting prose (unlike the two pre-existing hand-written ones) — gave
       each a short hand-written intro paragraph (via `obsidian create ... overwrite`, matching the
       voice of the existing two MOCs), verified idempotent by re-running the generator afterward
       and confirming the intros survived unchanged.
-- [x] `node scripts/health.mjs` — confirm `monolithCandidates` reports `sparta-migrator-roadmap.md`
+- [x] `node scripts/health.mjs` — confirm `monolithCandidates` reports `acme-migrator-roadmap.md`
       and nothing else (**confirmed** — exactly one, matching calibration). **Real, unrelated
       finding, investigated and NOT fixed (out of scope for this pass):** overall score is 25/100,
       not the 100/100 last seen — traced to a completely separate cluster of hard-wrapped
       wikilinks (word-wrap breaking a `[[link]]` across two lines) across `wiki/concepts/`,
       `wiki/sources/`, and `wiki/syntheses/` pages tied to unrelated CPQ-margin-guardrails/
-      sparta-scope content, plus new orphans among unrelated recently-ingested versioned-dataset-
+      acme-scope content, plus new orphans among unrelated recently-ingested versioned-dataset-
       management entities — all landed by other concurrent session(s) on this shared vault in the
       days since this task's own last health check, not by anything in this task. Confirmed by
       direct evidence, not assumed: zero of the 13 orphans and the overwhelming majority of the 25
       broken-link defects are in files this task ever touched; the two `wiki/authored/` files that
-      do show a defect (`sparta-migrator-sf-cli-removal-adr.md`, `sparta-scope.md`) have theirs in
+      do show a defect (`acme-migrator-cli-removal-adr.md`, `acme-scope.md`) have theirs in
       pre-existing body prose, and `insertAuthoredMetadata`/the backfill script provably never
       write to a page's body (verified by reading the exact lines). `provenanceGaps` and
       `unreachableProvenance` — the metrics an earlier pass in this same session's history fixed —

@@ -797,21 +797,21 @@ different thing it is.
 
 Files I read, in full, and nothing else in the repository:
 
-1. `C:/Users/ehart/repos/wiki-master/eval/skill-catalog.md`
-2. `C:/Users/ehart/repos/wiki-master/eval/skill-behavior/prompts.json`
-3. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
-4. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/access.md`
-5. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/authoring.md`
-6. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
-7. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
-8. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/maintenance.md`
-9. `C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
-10. `C:/Users/ehart/repos/wiki-master/skills/wiki-author/SKILL.md`
-11. `C:/Users/ehart/repos/wiki-master/skills/wiki-search/SKILL.md`
-12. `C:/Users/ehart/repos/wiki-master/skills/wiki-stale/SKILL.md`
-13. `C:/Users/ehart/repos/wiki-master/skills/wiki-discover/SKILL.md`
-14. `C:/Users/ehart/repos/wiki-master/skills/wiki-ingest/SKILL.md`
-15. `C:/Users/ehart/repos/wiki-master/skills/obsidian-cli/SKILL.md`
+1. `C:/Users/<user>/repos/wiki-master/eval/skill-catalog.md`
+2. `C:/Users/<user>/repos/wiki-master/eval/skill-behavior/prompts.json`
+3. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/SKILL.md`
+4. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/access.md`
+5. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/authoring.md`
+6. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/evidence.md`
+7. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/efficacy.md`
+8. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/maintenance.md`
+9. `C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/references/operations.md`
+10. `C:/Users/<user>/repos/wiki-master/skills/wiki-author/SKILL.md`
+11. `C:/Users/<user>/repos/wiki-master/skills/wiki-search/SKILL.md`
+12. `C:/Users/<user>/repos/wiki-master/skills/wiki-stale/SKILL.md`
+13. `C:/Users/<user>/repos/wiki-master/skills/wiki-discover/SKILL.md`
+14. `C:/Users/<user>/repos/wiki-master/skills/wiki-ingest/SKILL.md`
+15. `C:/Users/<user>/repos/wiki-master/skills/obsidian-cli/SKILL.md`
 
 I did not open `skills/wiki-maintainer/references/workflows.md`, any other skill
 body, any script under `scripts/`, or any other file in the repository. No file was
@@ -828,10 +828,10 @@ Other context I inherited, not from the repository:
   environment block (Windows 11, PowerShell primary, repo root, scratchpad path),
   today's date, and the bypass-permissions operating note.
 - User-level instruction files surfaced automatically by the harness, which I did
-  not choose to open: `C:/Users/ehart/.claude/CLAUDE.md` (global instructions —
+  not choose to open: `C:/Users/<user>/.claude/CLAUDE.md` (global instructions —
   option-presentation dimensions, git discipline, "the wiki is the source of truth")
   and the auto-memory index at
-  `C:/Users/ehart/.claude/projects/C--Users-ehart-repos-wiki-master/memory/MEMORY.md`
+  `C:/Users/<user>/.claude/projects/C--Users-user-repos-wiki-master/memory/MEMORY.md`
   (two one-line memory summaries; I did not open the linked memory files). A git
   status snapshot and commit-attribution boilerplate also arrived in that block.
 

@@ -35,6 +35,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from '../scripts/stale.mjs';
+import { tempVault } from './helpers/temp-vault.mjs';
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'wiki-stale-'));
@@ -134,6 +135,8 @@ test('missing vault or wiki root fails explicitly instead of reporting healthy e
 });
 
 test('a verified empty wiki is reported explicitly', t => {
+  const named = tempVault(); // the registered vault, so `root` below is an alternate root and is read directly
+  t.after(named.restore);
   const root = mkdtempSync(join(tmpdir(), 'wiki-empty-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'wiki'));

@@ -9,7 +9,7 @@ import { splitRoadmapItems, slugifyKebab, inferBacklogStatus, deriveTitle } from
 // quote" failure mode a manual transcription risks; it moves bytes, never rewrites them.
 
 // --- slugifyKebab -------------------------------------------------------------
-// wiki/authored/'s own convention (sparta-migrator-roadmap.md, processing-agent-user-guide.md,
+// wiki/authored/'s own convention (acme-migrator-roadmap.md, widget-agent-user-guide.md,
 // ...) is all-lowercase, hyphenated -- distinct from clip.mjs's slugify (case/space-preserving,
 // built for raw-clipping filenames, confirmed NOT a match before writing this).
 

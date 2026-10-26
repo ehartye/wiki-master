@@ -6,7 +6,7 @@ A. Use `wiki-author` with `wiki-maintainer`. Tell the user: “I’m using the w
 - Once access is resolved, the intended PowerShell sequence is `$env:WIKI_MASTER_VAULT = 'C:/vault'`; `$wikiOperationToken = node 'C:/plugins/wiki-master/scripts/op-begin.mjs' --op relink`; edit the existing guide; regenerate the affected project hub if applicable; write one `log-entry.mjs --op relink` entry; verify the diff and links; then `op-commit.mjs --op relink --title 'Explain Atlas offline mode' --since $wikiOperationToken`.
 - “Publish” already authorizes pushing, so do not seek another push approval. After committing, push the vault’s configured upstream and verify remote synchronization. That confirms publication, not that the laptop has pulled.
 
-**Actual stop condition under supplied facts:** CLI access remains unavailable; no completed edit or publication claim. Explain that the blocker comes from the explicit access restriction in [wiki-maintainer/SKILL.md](C:/Users/ehart/repos/wiki-master/skills/wiki-maintainer/SKILL.md), rather than filesystem failure or missing publication permission.
+**Actual stop condition under supplied facts:** CLI access remains unavailable; no completed edit or publication claim. Explain that the blocker comes from the explicit access restriction in [wiki-maintainer/SKILL.md](C:/Users/<user>/repos/wiki-master/skills/wiki-maintainer/SKILL.md), rather than filesystem failure or missing publication permission.
 
 B. Use `wiki-search`, not `wiki-query`.
 

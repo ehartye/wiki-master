@@ -107,12 +107,12 @@ test('computeHealth reports monolithCandidates but never penalizes them', () => 
   const clean = computeHealth({ orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [], monolithCandidates: [] });
   const monolithic = computeHealth({
     orphans: [], deadEnds: [], brokenLinks: [], hubStubs: [],
-    monolithCandidates: ['wiki/authored/sparta-migrator-roadmap.md'],
+    monolithCandidates: ['wiki/authored/acme-migrator-roadmap.md'],
   });
   assert.equal(monolithic.score, 100, 'a structurally sound vault stays at 100 regardless of monolith candidates');
   assert.equal(monolithic.score, clean.score);
   assert.ok(monolithic.report.includes('monolith candidates: 1'), 'still reported — informational, not a grade');
-  assert.ok(monolithic.report.includes('wiki/authored/sparta-migrator-roadmap.md'));
+  assert.ok(monolithic.report.includes('wiki/authored/acme-migrator-roadmap.md'));
 });
 
 test('computeHealth returns 100 for a clean vault', () => {

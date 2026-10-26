@@ -123,16 +123,16 @@ Stop condition: the unavailable app action is reported honestly. No app state ch
 
 ## Loaded skill and reference paths
 
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-author/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-search/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-stale/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-discover/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-ingest/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/obsidian-cli/SKILL.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/access.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/authoring.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/evidence.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/operations.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/efficacy.md
-- C:/Users/ehart/repos/wiki-master-skills/skills/wiki-maintainer/references/maintenance.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-author/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-search/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-stale/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-discover/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-ingest/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/obsidian-cli/SKILL.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/access.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/authoring.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/evidence.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/operations.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/efficacy.md
+- C:/Users/<user>/repos/wiki-master-skills/skills/wiki-maintainer/references/maintenance.md

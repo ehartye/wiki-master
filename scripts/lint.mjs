@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
@@ -360,4 +361,19 @@ Style flags: ${shownStyle.length}`);
   return { findings: listed, tiers, style: shownStyle };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+const USAGE = [
+  `usage: node scripts/lint.mjs [--json] [--full] [--near] [--tier=<${[...TIERS, 'all'].join('|')}>] [--page=<path>]`,
+  '',
+  'Content lint: warn-only flags for review (quotes, run-of-spaces, near matches), never scored.',
+  '  --json         machine-readable output',
+  '  --full         do not shorten quotes in the listing',
+  '  --near         add the word diff of each unverified quote against its raw clipping',
+  '  --tier=<name>  list one quote tier only',
+  '  --page=<path>  limit the report to one page',
+  'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
+].join('\n');
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (helpRequested()) exitWithHelp(USAGE);
+  else main();
+}

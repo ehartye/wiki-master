@@ -115,6 +115,8 @@ See [skill reliability](docs/skill-reliability.md) for bounded CLI fallback, sha
 |---|---|---|
 | `WIKI_MASTER_VAULT` | `~/.wiki-master-vault` | Vault path (also the CLI target and embedding-cache home). |
 | `WIKI_MASTER_VAULT_NAME` | vault folder basename | The registered Obsidian vault name the CLI targets. |
+| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` and a script with no `WIKI_MASTER_VAULT` stops with exit 2 and one line instead of acting on the default vault. Set it in any session that must not touch the real vault. |
+| `WIKI_MASTER_PRIVATE_TERMS_FILE` | unset | A file of private terms for `scan-private-terms.mjs` (`PRIVATE_TERMS_FILE` is read too). Keep it outside every repository. |
 | `WIKI_MASTER_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for drift. |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint. |
 
@@ -148,6 +150,16 @@ of one flat, ungrouped catalog.
 against a fixture vault — no running Obsidian required. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
 
+### Tests and the vault
+
+With `WIKI_MASTER_VAULT` unset, a script acts on the default vault, which is the real one. Two guards keep that from happening by accident. `WIKI_MASTER_REQUIRE_VAULT=1` makes a script stop before it reads or writes anything when no vault is named (exit 2, one line). Under `node --test` (the runner sets `NODE_TEST_CONTEXT`, and a child process inherits it) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails instead of acting on the real one. A test that needs a vault uses `tempVault()` from `test/helpers/temp-vault.mjs`, or puts its own temp path in the `env` it gives a child process, and a test that only checks how a path is resolved passes an environment object: `resolveVault({ WIKI_MASTER_VAULT: '/some/path' })`.
+
+`--help` on a script prints its usage and does nothing else. Measured on the 51 scripts: four of them (`index-gen`, `index-embed`, `triage`, `init`) used to act on `--help` and two (`lint`, `stale`) ran in full; those six now answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read.
+
+### Public-repository hygiene
+
+The public repository must not name the owner's other projects or machines: that language belongs in the wiki. `node scripts/scan-private-terms.mjs` scans the tracked and untracked (not ignored) text files for it and exits 1 on a hit. Built in, with nothing to configure: a home-directory path (a Windows `Users` path or a `/Users/` or `/home/` path, placeholders such as `you`, `<name>` or `%USERNAME%` excepted), a GPU model, and the invisible characters that can hide text from a reviewer. With `--terms-file <path>` (or `WIKI_MASTER_PRIVATE_TERMS_FILE`) it also checks the owner's private list: one term per line, matched as a case-insensitive substring, or a `/pattern/flags` line for a regular expression when a word needs whole-word, case-sensitive matching. The report gives the path, the line and the rule number, and never the matched text, so it can be pasted anywhere. `--known <path>` lists files that still hold hits to be sanitised (`test/private-terms-known.txt`): their hits are counted but do not fail the scan, a hit anywhere else does, and an entry with no hit left does too, so the list only shrinks. `test/scan-private-terms.test.mjs` runs the built-in patterns over this repository on every `npm test`, and the owner's list too when the variable is set.
+
 ### Line endings
 
 `.gitattributes` sets `* text=auto eol=lf`: text files are LF in the repository and in every working tree, whatever `core.autocrlf` says, so a Windows checkout no longer holds CRLF copies of LF files (scripted multi-line edits, byte comparisons and `git add` warnings all depended on that). Binary files are left alone. `test/line-endings.test.mjs` pins the policy on throwaway repositories with `core.autocrlf=true`.
@@ -162,7 +174,7 @@ A release changes the version in ten places: the nine JSON fields listed in `VER
 
 Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run. It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` restricts untracked page visibility to the operation's owned additions; tracked pages stay visible. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately. Cross-project ambiguity detection still requires one vault scan.
 
-Use `node scripts/validate-authored.mjs --paths-file <JSON array>` to check only the pages one authoring task wrote, with the same ledger `op-commit.mjs` takes: it is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. The ledger, rules and `--json` shape are in the authoring reference (`skills/wiki-maintainer/references/authoring.md`).
+Use `node scripts/validate-authored.mjs --paths-file <JSON array>` (add `--terms-file <path>` and, to limit it to the plugin projects, `--terms-projects a,b` to run the private list over those pages as `private-term` defects, by line and rule number only) to check only the pages one authoring task wrote, with the same ledger `op-commit.mjs` takes: it is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. The ledger, rules and `--json` shape are in the authoring reference (`skills/wiki-maintainer/references/authoring.md`).
 
 ### Content lint
 

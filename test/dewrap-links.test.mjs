@@ -171,8 +171,8 @@ test('dewrapText fixes multiple wrapped links in one page independently, skippin
 });
 
 test('dewrapText preserves a piped alias while dewrapping the target portion', () => {
-  const text = 'Cross-project cite: [[wiki/authored/sparta-suite/migrator/roadmap.md|sparta-migrator\'s\nroadmap]] here.';
+  const text = 'Cross-project cite: [[wiki/authored/acme-suite/migrator/roadmap.md|acme-migrator\'s\nroadmap]] here.';
   const { text: next, fixed } = dewrapText(text, { resolves: () => false });
   assert.equal(fixed, 1);
-  assert.equal(next, 'Cross-project cite: [[wiki/authored/sparta-suite/migrator/roadmap.md|sparta-migrator\'s roadmap]] here.');
+  assert.equal(next, 'Cross-project cite: [[wiki/authored/acme-suite/migrator/roadmap.md|acme-migrator\'s roadmap]] here.');
 });

@@ -11,8 +11,8 @@ import {
 // collapsed, case folded for the key, first-seen casing kept for display.
 
 test('normalizeProject trims and collapses internal whitespace, keeping original casing', () => {
-  assert.equal(normalizeProject('  sparta/migrator  '), 'sparta/migrator');
-  assert.equal(normalizeProject('sparta /  migrator'), 'sparta / migrator');
+  assert.equal(normalizeProject('  acme/migrator  '), 'acme/migrator');
+  assert.equal(normalizeProject('acme /  migrator'), 'acme / migrator');
 });
 
 test('normalizeProject treats blank and non-string input as no project at all', () => {
@@ -22,7 +22,7 @@ test('normalizeProject treats blank and non-string input as no project at all', 
 });
 
 test('projectKey folds case so one project is one group regardless of spelling', () => {
-  assert.equal(projectKey('Sparta/Migrator'), projectKey('sparta/migrator'));
+  assert.equal(projectKey('Acme/Migrator'), projectKey('acme/migrator'));
 });
 
 // --- groupByProject ----------------------------------------------------------
@@ -31,13 +31,13 @@ const page = (path, project, kind) => ({ path, project, kind });
 
 test('groupByProject returns one entry per distinct project, sorted alphabetically by key', () => {
   const pages = [
-    page('a.md', 'sparta'),
-    page('b.md', 'processing-agent'),
-    page('c.md', 'sparta'),
+    page('a.md', 'acme'),
+    page('b.md', 'widget-agent'),
+    page('c.md', 'acme'),
   ];
   const g = groupByProject(pages);
-  assert.deepEqual(g.map((x) => x.project), ['processing-agent', 'sparta']);
-  assert.equal(g.find((x) => x.project === 'sparta').pages.length, 2);
+  assert.deepEqual(g.map((x) => x.project), ['acme', 'widget-agent']);
+  assert.equal(g.find((x) => x.project === 'acme').pages.length, 2);
 });
 
 test('groupByProject is a lookup order, not a ranking — alphabetical even when counts differ', () => {
@@ -47,16 +47,16 @@ test('groupByProject is a lookup order, not a ranking — alphabetical even when
 });
 
 test('groupByProject excludes pages with no project at all — the caller decides what that means', () => {
-  const pages = [page('a.md', 'sparta'), page('b.md', undefined), page('c.md', null)];
+  const pages = [page('a.md', 'acme'), page('b.md', undefined), page('c.md', null)];
   const g = groupByProject(pages);
-  assert.deepEqual(g.map((x) => x.project), ['sparta']);
+  assert.deepEqual(g.map((x) => x.project), ['acme']);
 });
 
 test('groupByProject folds casing variants into one group, displayed as first seen', () => {
-  const pages = [page('a.md', 'Sparta'), page('b.md', 'sparta'), page('c.md', 'SPARTA')];
+  const pages = [page('a.md', 'Acme'), page('b.md', 'acme'), page('c.md', 'ACME')];
   const g = groupByProject(pages);
   assert.equal(g.length, 1);
-  assert.equal(g[0].project, 'Sparta');
+  assert.equal(g[0].project, 'Acme');
   assert.equal(g[0].pages.length, 3);
 });
 

@@ -42,7 +42,7 @@ test('the same page written with plain LF, plain CRLF or a BOM is clean', t => {
   const r = fixture(t, {
     'wiki/authored/proj/lf.md': page('\n'),
     'wiki/authored/proj/crlf.md': page('\r\n'),
-    'wiki/authored/proj/bom.md': `﻿${page('\n')}`,
+    'wiki/authored/proj/bom.md': `\uFEFF${page('\n')}`,
   }).scan();
   assert.deepEqual(r.issues, []);
 });
