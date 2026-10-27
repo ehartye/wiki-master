@@ -140,7 +140,8 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   };
   const restrict=(value,path,reason)=>{
     const warning=`> Do not cite ${rel(path)}: ${reason}`;
-    const updated=block(value)?metadata(value,{'citation-status':'restricted'}):value;
+    // A retired page already says it is not evidence; the warning is still added, but the marker is not replaced.
+    const updated=block(value)&&scalar(value,'citation-status')!=='retired'?metadata(value,{'citation-status':'restricted'}):value;
     if(updated.includes(warning))return updated;
     const end=block(updated)?.[0].length??0;
     return updated.slice(0,end)+`\n${warning}\n`+updated.slice(end);

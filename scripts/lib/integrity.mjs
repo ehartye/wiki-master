@@ -103,7 +103,13 @@ const VERIFY = {
   'ambiguous-link': 'Read the candidate pages, choose the intended identity, qualify its canonical path and rerun health.',
   'malformed-frontmatter': 'Open the file with its bytes visible, normalise the damaged line ending or close the fence without changing any text, rerun health and verify the page\'s metadata is now read.',
   'missing-evidence': 'Verify the substantive claims against evidence and restore the required citation trail; rerun health. Do not add unrelated citations or weaken status to clear this issue.',
+  'cites-retired-page': 'The cited page is marked citation-status: retired, which says it is a lead and must not be cited as support. Replace the citation with evidence that supports the claim, or drop the claim; do not clear the issue by removing the marker.',
 };
+
+// A page that disclaims itself as evidence ("lead, not evidence") carries `citation-status: retired`. It is not
+// `restricted`: re-clip quarantine writes that on every page that leans on a quarantined clipping, which is working
+// documentation and stays under the evidence check.
+const isRetired = p => /^retired$/i.test(String(p?.metadata?.['citation-status'] ?? '').replace(/^["']|["']$/g, '').trim());
 
 // `sources`, a Set of vault-relative paths, scopes what is reported to those pages; the scan still reads the
 // whole vault, because a link is ambiguous only against every page. With it the result also lists `pages`,
@@ -131,7 +137,9 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
   const evidenceEdges = p => [
     ...(p.fmTargets ?? []).map(t => resolve(t)),
     ...(p.evidenceTargets ?? []).map(t => resolve(t, true)),
-  ].filter(paths => paths.length === 1).map(paths => paths[0]).filter(isEvidencePath);
+  ].filter(paths => paths.length === 1).map(paths => paths[0]).filter(isEvidencePath)
+    // A retired page says it is not evidence, so no route runs through it.
+    .filter(path => !isRetired(byPath.get(path)));
   const reachesRaw = start => {
     const seen = new Set([start.path]);
     let frontier = [start];
@@ -159,11 +167,16 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
           add(issues, rule, p, link, { channel, ...(candidates.length > 1 ? { candidates } : {}) });
           if (citation) citationDefect = true;
         } else if (!candidates.length) add(forwards, 'unresolved-navigation', p, link, { disposition: 'Unscored: may be an intentional forward link. Missing target, age and similarity do not prove damage.' });
+        // A citation of a page that says it must not be cited. A retired page citing another is not reported, a plain
+        // navigation link to one is not a citation, and neither is an entry on a map page, which routes and asserts nothing.
+        if (citation && !rule && candidates.length === 1 && !isRetired(p) && !isMoc(p.path) && isRetired(byPath.get(candidates[0]))) {
+          add(issues, 'cites-retired-page', p, link, { channel, retiredPath: candidates[0] });
+        }
       }
     }
     const sourcePage = p.path.startsWith('wiki/sources/');
     const authoredDisclosure = p.path.startsWith('wiki/authored/') && p.declaresNoSources;
-    if (!p.path.startsWith('wiki/') || isStub(p) || authoredDisclosure) continue;
+    if (!p.path.startsWith('wiki/') || isStub(p) || authoredDisclosure || isRetired(p)) continue;
     provenanceEligible++;
     const hasEvidence = sourcePage ? evidenceEdges(p).some(path => path.startsWith('raw/')) : reachesRaw(p);
     if (!hasEvidence && !citationDefect && !p.frontmatterDamage) add(issues, 'missing-evidence', p, { line: p.provenanceLine,
@@ -181,7 +194,7 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
     // Unscored: a backlog item whose status the generated roadmap cannot place (it lists them under "Unrecognized status").
     unrecognizedBacklogStatus: scoped(unrecognizedBacklogItems(content.filter(p => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item'))
       .map(p => ({ page: p.path, status: p.backlogStatus ?? null })).sort((a, b) => compare(a.page, b.page))),
-    coverage: { contentPages: content.length, provenanceEligible, stubs: content.filter(isStub).length,
+    coverage: { contentPages: content.length, provenanceEligible, stubs: content.filter(isStub).length, retired: content.filter(isRetired).length,
       checks: Object.keys(VERIFY),
       notChecked: ['factual correctness', 'external URLs', 'heading/block anchors', 'historical moves/deletions', 'Markdown-style links'],
       exclusions: ['raw bodies', 'templates', 'logs', 'system files', 'dot-prefixed files and directories', 'code examples', 'comments', 'embeds'] },
@@ -190,7 +203,7 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
 
 export function integrityReport(r) {
   const lines = [`Open integrity defects: ${r.defectCount} (target 0)`,
-    `Scanned ${r.coverage.contentPages} content pages; ${r.coverage.provenanceEligible} require evidence; ${r.coverage.stubs} stubs.`,
+    `Scanned ${r.coverage.contentPages} content pages; ${r.coverage.provenanceEligible} require evidence; ${r.coverage.stubs} stubs.${r.coverage.retired ? ` ${r.coverage.retired} retired.` : ''}`,
     `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`];
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
   if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
