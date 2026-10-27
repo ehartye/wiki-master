@@ -11,6 +11,7 @@ import { swapSourceHash } from './repoint.mjs';
 import { parseNote } from './note.mjs';
 import { buildNameIndex, resolveLinkTarget, wikilinks } from './graph.mjs';
 import { acquireGate, lockAddress } from './cli-transport.mjs';
+import { clippingKind, readPageForReclip, retainedShare, MIN_RETAINED } from './reclip-html.mjs';
 
 const norm = url => issueKey(url, '');
 const layout = text => scalar(text, 'fidelity') === 'tabular' || ['table-aware','table-flattened'].includes(scalar(text,'extraction'));
@@ -31,7 +32,9 @@ function metadata(text, values) {
   return `---\n${header}\n---\n${text.slice(fm[0].length)}`;
 }
 export function mergeReclip(original, clip) {
-  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction});
+  // The page fields are undefined for a PDF clip (so nothing is added or removed); for a page they follow what
+  // clip.mjs writes: the checks counted, the page chrome set aside only when there was some.
+  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
   return updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`;
 }
 export function extractForReclip(path, meta, {mode='auto', plan=planExtraction, readPdf=pdfToText, readOcr=pdfToTextOcr, canOcr=ocrReachable} = {}) {
@@ -105,8 +108,9 @@ export async function runReclips(options={}) {
   }
   try {return await runReclipsOwned(options);} finally {await release();}
 }
-async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',onFailure='reopen',limit=Infinity,from,sourceFile,ownedPaths,quarantineReason,obtain=obtainSource,extract=extractForReclip,write=atomic}={}) {
+async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',kind='auto',onFailure='reopen',limit=Infinity,from,sourceFile,ownedPaths,quarantineReason,obtain=obtainSource,extract=extractForReclip,readPage=readPageForReclip,write=atomic}={}) {
   if (!['auto','reading-order','table'].includes(mode)) throw new Error('Invalid reading mode');
+  if (!['auto','pdf','html'].includes(kind)) throw new Error('Invalid kind (auto, pdf or html)');
   if (!['reopen','quarantine'].includes(onFailure)) throw new Error('Invalid failure policy');
   if (!(limit>0) || (!Number.isInteger(limit) && limit!==Infinity)) throw new Error('Limit must be a positive integer');
   if (ownedPaths!==undefined && (!Array.isArray(ownedPaths)||!ownedPaths.every(x=>typeof x==='string'))) throw new Error('Ownership ledger must be a JSON path array');
@@ -196,7 +200,7 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
       const review=state.fidelity!=='high';
       if(review){report.needsReview.push({path:rel(path),url:state.url,fidelity:state.fidelity});recordIssue(root,{url:state.url,kind:'fidelity',source:rel(path),reason:`Re-clip retained ${state.fidelity} caution; verify against original before accepting`});}
       else settle(state.url,path,'acceptable','Re-clip completed with current extraction policy');
-      report.reclipped++;report.results.push({path:rel(path),url:state.url,status:review?'needs-review':'reclipped',fidelity:state.fidelity,warning:state.warning});
+      report.reclipped++;report.results.push({path:rel(path),url:state.url,status:review?'needs-review':'reclipped',fidelity:state.fidelity,warning:state.warning,...(state.retained!==undefined?{retained:state.retained}:{})});
     }
     rmSync(statePath(path));
   };
@@ -209,16 +213,32 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
       assertOwned([path]);
       if(existsSync(statePath(path))){finish(path,JSON.parse(readFileSync(statePath(path),'utf8')));continue;}
       if(quarantineReason){finish(path,quarantineState(path,text,url,quarantineReason));continue;}
-      resource=await obtain(url,{...requested.get(norm(url)),from,title:scalar(text,'title'),sourceFile});
-      if(!resource?.path)throw new Error('Original source file unavailable');
-      if(resource.local)report.usedLocal++;
-      const clip=extract(resource.path,{title:scalar(text,'title'),source:url,quality:scalar(text,'quality')||'medium',created:scalar(text,'created'),topic:scalar(text,'topic')},{mode});
+      // A page is read again through the clipper's own ladder; a PDF or document is obtained and extracted.
+      const html=clippingKind(text,kind)==='html';
+      let clip;
+      if(html){clip=await readPage(url);}
+      else{
+        resource=await obtain(url,{...requested.get(norm(url)),from,title:scalar(text,'title'),sourceFile});
+        if(!resource?.path)throw new Error('Original source file unavailable');
+        if(resource.local)report.usedLocal++;
+        clip=extract(resource.path,{title:scalar(text,'title'),source:url,quality:scalar(text,'quality')||'medium',created:scalar(text,'created'),topic:scalar(text,'topic')},{mode});
+      }
       if(readFileSync(path,'utf8')!==text)conflict('Concurrent raw edit');
-      if(!Number.isFinite(clip.wordCount)||clip.wordCount<100||!['high','tabular','ocr'].includes(clip.fidelity)||assessFidelity(clip.md).degraded)throw new Error(`Extraction needs fidelity review (${clip.fidelity}, ${clip.wordCount} words)`);
+      // The glyph checks of assessFidelity read a PDF text layer; applied to a page they would trip on URLs and query strings.
+      const allowed=html?['high','partial']:['high','tabular','ocr'];
+      if(!Number.isFinite(clip.wordCount)||clip.wordCount<100||!allowed.includes(clip.fidelity)||(!html&&assessFidelity(clip.md).degraded))throw new Error(`Extraction needs fidelity review (${clip.fidelity}, ${clip.wordCount} words)`);
+      // A page can have changed since it was clipped, and summaries quote the old text: a replacement that loses much of it is refused.
+      let retained;
+      if(html){
+        retained=retainedShare(text.slice(block(text)?.[0].length??0),clip.md);
+        if(retained<MIN_RETAINED)throw new Error(`The page has changed since it was clipped: the new text retains ${Math.round(retained*100)}% of the old, and ${Math.round(MIN_RETAINED*100)}% is needed to replace it; clip it again as a new source if the change is wanted`);
+      }
       const old=scalar(text,'source-hash');
+      // The same body again is not a repair: leave the file, the summaries and the triage rows as they are.
+      if(html&&clip.hash===old){report.alreadyResolved++;report.results.push({path:rel(path),url,status:'unchanged',retained});continue;}
       const summaries=[...markdown(join(root,'wiki','sources'))].filter(p=>old&&readFileSync(p,'utf8').includes(old));
       assertOwned(summaries);
-      const state={kind:'repair',rawPath:rel(path),url,rawBefore:text,rawAfter:mergeReclip(text,clip),fromHash:old,toHash:clip.hash,pages:summaries.map(rel),fidelity:clip.fidelity,warning:clip.warning};
+      const state={kind:'repair',rawPath:rel(path),url,rawBefore:text,rawAfter:mergeReclip(text,clip),fromHash:old,toHash:clip.hash,pages:summaries.map(rel),fidelity:clip.fidelity,warning:clip.warning,...(retained!==undefined?{retained}:{})};
       save(path,state);finish(path,state);
     }catch(err){
       if(err.code==='CONFLICT'||existsSync(statePath(path))||readFileSync(path,'utf8')!==text){report.conflicts.push(rel(path));report.conflictDetails.push({path:rel(path),reason:String(err.message),pending:existsSync(statePath(path))});continue;}
