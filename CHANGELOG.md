@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.79.0 — 2026-10-27
+
+- The keyword-engine question set no longer names private pages. It was the recorded input of a measurement on the maintainer's own vault: 42 questions whose expected pages were real pages there, 19 of them pages of private projects. It is rebuilt over a public corpus, `eval/plugin-docs-vault`, a pinned snapshot of this plugin's own documentation (36 pages: the README, `docs/` and the skills), with the same builder (`build-keyword-eval.mjs --vault eval/plugin-docs-vault --seed 1`): 42 questions, 14 per category (a rare identifier, a conjunction of common terms, a three-word phrase), ground truth by exact substring match. The set that measured the real vault is held outside this repository.
+- The baseline moved, and not usefully. [measured] On the public corpus, keyword-only: page recall at 10 is 1.0 overall and in every category, precision at 3 is 0.619, reciprocal rank 0.988. The corpus is small (the first ten results are 28% of its pages), so recall saturates and cannot tell two engines apart; reciprocal rank and precision at 3 still move. The earlier set read 0.437 to 0.937 on 8,000 pages across engine changes. Measuring an engine change still needs a corpus of thousands of pages, which is the private one for now. `docs/wiki-efficacy.md` records both.
+- `test/private-terms-known.txt` shrinks: 44 known hits in five files, from 68 in six. The five `wiki-efficacy.*` files are still on it.
+- Documentation: `docs/wiki-efficacy.md` (the keyword-engine section) and the comments in `scripts/search.mjs` that cited the old file.
+- Evidence: 6 new tests (the suite is 1,996 passing and one skipped; it was 1,990): the committed questions equal what the builder gives for the corpus and the recorded seed, the ground truth is recomputed independently, and the evaluator reproduces the committed baseline; 5 mutations were applied and each fails a test.
+
 ## 0.78.0 — 2026-10-27
 
 - `apply-reclips.mjs` can repair a web page. A page clipped before an extractor fix could not be repaired by any documented route: `clip.mjs` refuses a URL it already holds, and `apply-reclips` read PDFs only. A clipping made by `clip.mjs` (an http(s) source that does not look like a PDF, no PDF extraction mark) now takes the same transaction (ledger, dry run, journal, quarantine, summary hash propagation) through the clipper's own ladder: a static read, then a browser render when the text is thin, with none of the clipper's side effects (no decline, no triage row). `--kind auto|pdf|html` overrides the routing. Only `source-hash`, `fidelity`, `extraction`, `fidelity-checks` and `fidelity-ignored` change; the title, source, author, dates, tags, quality and topic are kept.
