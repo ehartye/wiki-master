@@ -187,7 +187,8 @@ Under `wiki/authored/`:
 
 On every wiki content page: `ambiguous-link`, `malformed-link` (a hard-wrapped link
 is one), `unresolved-citation`, `malformed-frontmatter` (the page's metadata is not
-read because of a stray carriage return or an unclosed fence), `missing-evidence`
+read because of a stray carriage return or an unclosed fence), `missing-evidence`,
+`cites-retired-page` (the cited page is marked `citation-status: retired`, so it is not support)
 and `unresolved-link`, which is
 stricter than health (it keeps such links as unscored forward links): a task must
 not leave a dead link. Code spans and fences are not scanned. An absent file is

@@ -41,7 +41,10 @@ of a source is a citation contract even on a stub.
    metadata was not read: look at the bytes of its fence lines, normalise only the
    damaged line ending (or close the fence) and change no text. For `missing-evidence`, inspect substantive
    claims and their provenance; missing support needs evidence work, not invented
-   citations. Raw bodies remain immutable. The issue's `verification` gives its
+   citations. For `cites-retired-page`, the cited page is marked
+   `citation-status: retired` and says it must not be cited as support: find evidence
+   that supports the claim or drop the claim, and never clear the issue by removing the
+   marker. Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
 3. **Apply justified repairs.** Before the first authorized write, open
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink` and retain its

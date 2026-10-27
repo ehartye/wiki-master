@@ -168,6 +168,7 @@ function linkDefects(scan) {
     if (issue.rule === 'ambiguous-link') take(issue, 'ambiguous-link', `[[${issue.target}]] matches ${issue.candidates.length} pages (${issue.candidates.join(', ')}); qualify the path`);
     else if (issue.rule === 'malformed-link') take(issue, 'malformed-link', `${clip(flat(issue.evidence))} is malformed (unclosed, empty, or split across lines)`);
     else if (issue.rule === 'unresolved-citation') take(issue, 'unresolved-citation', `${issue.channel} citation [[${issue.target}]] matches no page`);
+    else if (issue.rule === 'cites-retired-page') take(issue, 'cites-retired-page', `${issue.channel} citation [[${issue.target}]] is a retired page (${issue.retiredPath}) that must not be cited as support`);
     else take(issue, issue.rule, issue.evidence);
   }
   // health leaves these as unscored forward links; a task must not leave a dead link.
