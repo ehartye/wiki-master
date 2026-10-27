@@ -84,8 +84,20 @@ Extraction is tuned for academic PDFs:
   it is *flagged*: when mangling is detected, the frontmatter gets
   **`fidelity: degraded`**. Clean captures omit the field. The full set of values a
   clipping can carry is: *(absent)* = high, **`tabular`** = rows reconstructed from
-  layout, **`degraded`** = do not trust verbatim spans. A degraded *assessment*
-  always outranks a tabular one — wrong characters are the worse defect.
+  layout, **`ocr`** = the text was recognised from page images, **`degraded`** = do
+  not trust verbatim spans. Precedence is `degraded` over `ocr` over `tabular`: wrong
+  characters are the worse defect, and recognised text with plausible characters is
+  worse than a reconstructed pairing because nothing in the characters can show what
+  the engine got wrong.
+- **An OCR clipping never claims plain `high` fidelity.** Recognition errors produce
+  well-formed words (`hrst` for `first`), so no check on the text can find them; the
+  clipper declares the floor instead, `extraction: ocr` + **`fidelity: ocr`**, whether
+  OCR was forced with `--ocr` or ran as the automatic fallback. A clean OCR pass is
+  stamped the same as a poor one: the value says *unverified*, not *bad*. Clippings
+  made before the floor existed carry `extraction: ocr` and no grade;
+  `node "<absolute-plugin-root>/scripts/refresh-fidelity.mjs" --ocr-floor` lists them
+  (dry run) and, with `--apply`, sets the floor. `refresh-fidelity.mjs` never clears an OCR flag, because
+  re-reading the characters would call it healthy.
 - **Re-assessment cannot clear a table flag.** `refresh-fidelity.mjs` re-derives
   fidelity from the stored text and drops flags that no longer hold, but a
   table-derived flag has no basis in the characters (a flattened table reads as
@@ -133,6 +145,9 @@ Extraction is tuned for academic PDFs:
      Cell *contents* are verbatim; which cell pairs with which is the reconstruction.
      Verify any code-to-text pairing against the PDF before a wiki page asserts it,
      and do not derive counts from it without checking.
+   - **`fidelity: ocr`** means the text was recognised from page images. Words can be
+     wrong without looking wrong; verify every quoted span, number and identifier
+     (an ISBN, a table value) against the page image before a wiki page asserts it.
    - **`extraction: table-flattened`** means the rows were **lost** and could not be
      recovered on this machine. Do not assert any pairing from such a clipping;
      install the Xpdf tools and re-clip instead.

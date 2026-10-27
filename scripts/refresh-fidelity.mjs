@@ -25,7 +25,10 @@ cliGuard(import.meta.url);
 // Derived from the note's own `extraction:`, not a list of filenames, so a future
 // extraction mode that carries the same property inherits the protection by
 // naming itself here rather than by being remembered.
-const EXTRACTION_DERIVED = new Set(['table-aware', 'table-flattened']);
+//
+// `ocr` is the same case: recognised text is well-formed whatever the engine got wrong, so re-assessing the
+// characters says "healthy" and would delete the only record that nobody verified them.
+const EXTRACTION_DERIVED = new Set(['table-aware', 'table-flattened', 'ocr']);
 
 export function fidelityIsExtractionDerived(frontmatter) {
   const line = String(frontmatter).split('\n').map((l) => l.trim())
@@ -43,6 +46,21 @@ export function clearFidelityLine(fileText) {
   return fm[1] + kept.join('\n') + fm[3] + fileText.slice(fm[0].length);
 }
 
+// A clipping made before the OCR floor existed says `extraction: ocr` and nothing about fidelity. The floor follows
+// from the extraction alone, so it can be set without guessing: returns the text with `fidelity: ocr` inserted after
+// the extraction line, or null when the clipping is not an OCR one, already carries any grade, or has no frontmatter.
+// An existing grade, degraded or not, is never replaced. Line endings are kept.
+export function ocrFloorBackfill(fileText) {
+  const fm = fileText.match(/^---(\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fm) return null;
+  const eol = fm[1];
+  const lines = fm[2].split(/\r?\n/);
+  const at = lines.findIndex((l) => /^extraction:\s*"?ocr"?\s*$/.test(l));
+  if (at < 0 || lines.some((l) => /^fidelity:/.test(l))) return null;
+  lines.splice(at + 1, 0, 'fidelity: ocr');
+  return `---${eol}${lines.join(eol)}${fm[3]}${fileText.slice(fm[0].length)}`;
+}
+
 export function splitBody(fileText) {
   const m = fileText.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
   return m ? fileText.slice(m[0].length) : fileText;
@@ -52,8 +70,10 @@ export function splitBody(fileText) {
 // of this module, so the CLI body ran as a side effect of importing its helpers.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const apply = process.argv.includes('--apply');
+  const ocrFloor = process.argv.includes('--ocr-floor');
   const { path: vault } = resolveVault();
   const dir = join(vault, 'raw', 'clippings');
+  const floored = [];
   const cleared = [];
   const kept = [];
   const preserved = [];
@@ -64,6 +84,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (e.isDirectory()) { walk(p); continue; }
       if (!e.name.endsWith('.md')) continue;
       const text = readFileSync(p, 'utf8');
+      if (ocrFloor) {
+        const next = ocrFloorBackfill(text);
+        if (next === null) continue;
+        if (apply) writeFileSync(p, next);
+        floored.push(p.slice(vault.length + 1).replace(/\\/g, '/'));
+        continue;
+      }
       const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
       if (!fm || !/^fidelity:/m.test(fm[1])) continue;
       // Not ours to re-judge: the basis is the extraction, not the characters.
@@ -79,6 +106,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   };
   if (existsSync(dir)) walk(dir);
+
+  if (ocrFloor) {
+    console.log(JSON.stringify({ type: 'refresh-fidelity', mode: 'ocr-floor', applied: apply, count: floored.length, paths: floored }));
+    if (!apply) console.error('dry run — re-run with --apply to set fidelity: ocr on these clippings');
+    process.exit(0);
+  }
 
   console.log(JSON.stringify({ type: 'refresh-fidelity', applied: apply, cleared: cleared.length, stillDegraded: kept.length, preserved: preserved.length }));
   if (kept.length) console.log(JSON.stringify({ stillDegraded: kept }, null, 2));
