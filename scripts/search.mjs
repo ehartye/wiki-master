@@ -97,7 +97,7 @@ export function mergeRRF(lists) {
 // when the pages that validated as candidates answer the query exactly: 1 to 3 hold the whole query as
 // written, or the query is short (at most 5 terms, a keyword query) and 1 to 3 hold every term in one
 // paragraph. A long natural-language question whose terms happen to share a paragraph does not fire.
-// Measured on the live vault (7,883 pages), page recall@10 hybrid: keyword-engine set 0.722 -> 0.937,
+// Measured on the live vault (7,883 pages), page recall@10 hybrid: the owner-vault keyword-engine set 0.722 -> 0.937,
 // 40-question set 0.938 -> 0.938 (reciprocal rank 0.835 -> 0.823, guard 0.809). Results are flat for a
 // page limit of 3 to 5 and a term limit of 3 to 6. Offline it fires on 8 of 40 general questions and 41 of 42
 // keyword-engine questions; keyword-only recall stays 0.937. Two runs matched per question.
@@ -240,7 +240,7 @@ export async function main(query, options = {}) {
   const semRank = [...semanticByPath.keys()].filter(p => live.get(p)?.semantic);
   // The engine's own order is the third voice: it ranks the exact phrase or identifier first, which
   // lexRank cannot (whole words, alphabetical ties). Scopes vote as equals, then the merged list votes once.
-  // Measured on the live vault (7,883 pages) with eval/keyword-engine.questions.json, page recall@10 before ->
+  // Measured on the live vault (7,883 pages) with the owner-vault keyword-engine set (no longer in this repository), page recall@10 before ->
   // after: keyword-only 0.437 -> 0.937, hybrid 0.399 -> 0.722; the third list alone gave 0.847 and 0.611, the
   // shared tie ranks added the rest. The 40-question set held (recall 0.9375 -> 0.938, MRR 0.809 -> 0.835).
   // Two runs matched per question. Hybrid still trails keyword-only: the semantic list is not tuned here.

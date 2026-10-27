@@ -1,7 +1,6 @@
 # Files that still name something on the owner's private list, to be sanitised (an eval file is the recorded input of a
 # measurement against the owner's own vault, so its questions cannot just be reworded). The scan reports their hits as
 # known, fails on a hit anywhere else, and fails on an entry here that no longer has a hit, so this list only shrinks.
-eval/keyword-engine.questions.json
 eval/wiki-efficacy.after-development.json
 eval/wiki-efficacy.after-heldout.json
 eval/wiki-efficacy.baseline.json
