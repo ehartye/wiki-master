@@ -17,3 +17,16 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+
+  # The plugin ships to macOS, which the suite had never run on. This is a separate job, not a matrix entry on
+  # `test`: a matrix would rename the required check `test` to `test (ubuntu-latest)` and break branch protection.
+  # It is not a required check yet; require it once it has been green for a few weeks.
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
