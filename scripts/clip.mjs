@@ -15,7 +15,7 @@ import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 
-const THIN_WORD_FLOOR = 100;
+export const THIN_WORD_FLOOR = 100;
 
 // A meta <description>'s DISTINCTIVE words (len > 5, so common short function
 // words don't count) must reach this count before it's treated as "substantive"
