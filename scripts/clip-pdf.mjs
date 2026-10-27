@@ -147,6 +147,19 @@ export function pdfClipContent({ title, source, text, quality = 'medium', create
   return { md, wordCount: wordCount(md), fidelity, assessed, extraction, hash, body: `${fm}\n\n${md}\n` };
 }
 
+// OCR's floor. Recognised text is well-formed whatever the engine got wrong (`hrst` for `first`), so no check on the
+// characters can show the damage, and the only code that knows OCR ran is the extraction path. Declare it rather than
+// guess: `ocr` means plausible characters that nobody verified. It outranks a tabular floor, because this text came
+// from recognition and not from the layout, and yields to a degraded one; a degraded ASSESSMENT still outranks both
+// inside pdfClipContent. This helper is the only place that names the extraction, so no OCR path can skip the floor.
+export function ocrFidelityFloor(modeFloor) {
+  return modeFloor === 'degraded' ? 'degraded' : 'ocr';
+}
+
+export function buildOcrClip({ title, source, ocrText, quality, topic, modeFloor, created }) {
+  return pdfClipContent({ title, source, text: ocrText, quality, created, extraction: 'ocr', fidelityFloor: ocrFidelityFloor(modeFloor), topic });
+}
+
 // Extract text via pdftotext (Xpdf or poppler). execFileSync (not a shell)
 // resolves the Windows .exe correctly; '-' writes to stdout.
 //
@@ -476,7 +489,7 @@ export function main(argv) {
       process.exit(1);
     }
     console.log('OCR: rasterizing + recognizing pages (this is slow)…');
-    clip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', topic });
+    clip = buildOcrClip({ title, source, ocrText: pdfToTextOcr(pdfPath, { lang }), quality, topic });
   } else {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
@@ -509,8 +522,7 @@ export function main(argv) {
     // better so escalation can never make the clipping worse.
     if (shouldTryOcr(clip) && ocrReachable()) {
       console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
-      const oclip = pdfClipContent({ title, source, text: pdfToTextOcr(pdfPath, { lang }), quality, extraction: 'ocr', fidelityFloor: mode.fidelityFloor, topic });
-      clip = preferBetterExtraction(clip, oclip);
+      clip = preferBetterExtraction(clip, buildOcrClip({ title, source, ocrText: pdfToTextOcr(pdfPath, { lang }), quality, topic, modeFloor: mode.fidelityFloor }));
     }
   }
 

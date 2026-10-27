@@ -47,8 +47,8 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/purge.mjs [--plan | --apply | --reconcile | --restore] "<topic>" [--seeds a.md,b.md]', '', 'Plans (default), applies, reconciles or restores the removal of a topic from the wiki and its evidence. Applying needs a reviewed plan.', VAULT],
   },
   'refresh-fidelity': {
-    options: ['apply'],
-    usage: ['usage: node scripts/refresh-fidelity.mjs [--apply]', '', 'Re-assesses each clipping\'s cached fidelity verdict from its stored markdown and clears flags that no longer hold.', DRY, VAULT],
+    options: ['apply', 'ocr-floor'],
+    usage: ['usage: node scripts/refresh-fidelity.mjs [--ocr-floor] [--apply]', '', 'Re-assesses each clipping\'s cached fidelity verdict from its stored markdown and clears flags that no longer hold. A clipping whose flag rests on its extraction (a table mode, or OCR) is preserved.', '--ocr-floor instead lists the OCR clippings that carry no fidelity grade and, with --apply, sets fidelity: ocr on them. An existing grade is never replaced.', DRY, VAULT],
   },
   'rename-doubled-extension-clippings': {
     options: ['apply', 'exclude', 'flag', 'list-out', 'paths-out'],

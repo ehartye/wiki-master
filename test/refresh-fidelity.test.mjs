@@ -55,9 +55,11 @@ test('fidelityIsExtractionDerived protects table-derived flags from being cleare
   assert.equal(fidelityIsExtractionDerived(fm('table-aware')), true);
   assert.equal(fidelityIsExtractionDerived(fm('table-flattened')), true);
 
-  // OCR damage and font mangling ARE re-derivable from the characters, so those
-  // stay clearable — the script's original purpose must survive this change.
-  assert.equal(fidelityIsExtractionDerived(fm('ocr')), false);
+  // OCR is extraction-derived too: recognised text is well-formed whatever the engine got wrong, so re-assessing
+  // the characters reads healthy and would delete the only record that nobody verified them (the OCR fidelity
+  // decision measured this on six real documents). Font mangling is re-derivable from the characters, so a flag
+  // with no extraction basis stays clearable — the script's original purpose must survive this change.
+  assert.equal(fidelityIsExtractionDerived(fm('ocr')), true);
   assert.equal(fidelityIsExtractionDerived(fm(null)), false);
 
   // Quoted values, and `extraction` sitting anywhere in the block.
