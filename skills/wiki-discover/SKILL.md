@@ -123,7 +123,7 @@ It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
 `topic`, `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
 records the decline automatically; report it for manual clipping, don't retry
-blindly. A `failed` result (403/transient) is NOT auto-declined — it may recover,
+blindly. A page that is a login form, a consent wall or an age check is not clipped even when it is long: its own vocabulary dominates the text and none of its title is in it (`lib/interstitial.mjs`). It is queued as `wrong-node` and is NOT declined, because a wall is not a verdict on the source; clip it manually from a signed-in browser. A URL that looks like a text file (a checksum manifest, a pinned source file, anything on the raw GitHub host) is kept whole in a fence with `extraction: plaintext`, never judged thin; a binary or a file over 1 MiB served as text is refused and queued as `attention`. A `failed` result (403/transient) is NOT auto-declined — it may recover,
 and a 180-day TTL would bury a source you still want.
 
 **What a clip result means.** `clip.mjs` prints one result per URL:

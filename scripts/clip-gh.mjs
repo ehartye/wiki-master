@@ -10,6 +10,7 @@ import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { looksBinaryBytes } from './lib/binary-content.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
@@ -54,6 +55,8 @@ const EXCLUDED_EXTENSIONS = new Set([
   '.exe', '.dll', '.so', '.dylib', '.class', '.pyc', '.o', '.a', '.jar', '.war', '.whl',
   '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv',
   '.pdf', '.db', '.sqlite', '.sqlite3', '.bin',
+  // 3D models, sprites, layered images and audio the list missed: read as UTF-8 they became clippings of NUL bytes.
+  '.glb', '.fbx', '.aseprite', '.ase', '.psd', '.ogg',
 ]);
 const EXCLUDED_BASENAMES = new Set([
   'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Cargo.lock',
@@ -71,6 +74,22 @@ export function shouldExcludePath(relPath, { size = 0, maxSize = DEFAULT_MAX_FIL
   if (EXCLUDED_EXTENSIONS.has(ext)) return { excluded: true, reason: 'binary/media/archive extension' };
   if (size > maxSize) return { excluded: true, reason: `too large (${size} bytes > ${maxSize})` };
   return { excluded: false, reason: null };
+}
+
+// The files of a clone that are worth clipping, and why each of the rest is not. The name decides first (a dependency
+// directory, a lockfile, a binary extension, a size ceiling); then the bytes: a file with a NUL byte, or mostly undecodable
+// text, is not text whatever its extension says (a model renamed .txt, or a format the list does not know).
+export function partitionRepoFiles(root, relPaths) {
+  const included = [];
+  const excluded = [];
+  for (const relPath of relPaths) {
+    const abs = join(root, relPath);
+    const verdict = shouldExcludePath(relPath, { size: statSync(abs).size });
+    if (verdict.excluded) { excluded.push({ relPath, reason: verdict.reason }); continue; }
+    if (looksBinaryBytes(readFileSync(abs))) { excluded.push({ relPath, reason: 'binary content (a NUL byte or undecodable text)' }); continue; }
+    included.push(relPath);
+  }
+  return { included, excluded };
 }
 
 export function githubBlobUrl(owner, repo, ref, relPath) {
@@ -674,16 +693,7 @@ export function main(argv) {
       meta = { description: parsed.description || null, primaryLanguage: parsed.primaryLanguage?.name || null };
     } catch { /* metadata is a nice-to-have; proceed without it */ }
 
-    const allFiles = walkRepoFiles(tmp);
-    const included = [];
-    const excluded = [];
-    for (const relPath of allFiles) {
-      const abs = join(tmp, relPath);
-      const size = statSync(abs).size;
-      const verdict = shouldExcludePath(relPath, { size });
-      if (verdict.excluded) excluded.push({ relPath, reason: verdict.reason });
-      else included.push(relPath);
-    }
+    const { included, excluded } = partitionRepoFiles(tmp, walkRepoFiles(tmp));
 
     const outDir = join(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
 

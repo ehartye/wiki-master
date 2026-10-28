@@ -8,6 +8,7 @@ import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
+import { looksBinaryText } from './lib/binary-content.mjs';
 cliGuard(import.meta.url);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -60,6 +61,12 @@ export function scanClippings(vaultPath) {
       continue;
     }
     active.push({url,path:`raw/clippings/${f}`});
+    // A GitHub capture that holds a binary file as text (a model, a sprite): NUL bytes and undecodable text under a high quality
+    // mark. Listed by exact path so a person sees it; one row, whatever grade it carries. clip-gh no longer writes these.
+    if (f.startsWith('gh/') && looksBinaryText(head)) {
+      flagged.push({ url: url ?? `file://${f}`, kind: 'fidelity', reason: 'binary content captured as text (NUL bytes or undecodable text); do not cite it', title: f.replace(/\.md$/, ''), topic: topic ?? null, occurrences: 1 });
+      continue;
+    }
     // Read `fidelity` specifically. `extraction:` records HOW the text was read
     // (e.g. ocr) — a method, not a defect — so it must never become a triage
     // item; matching either key also let an earlier `extraction:` line win the
