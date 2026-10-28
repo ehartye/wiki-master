@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,6 +118,35 @@ test('a failed append never changes the result: a directory in the file place st
   const scope = commitOp(dir, { op: 'ingest', title: 't', token: a, paths: ['ours.md'] });
   assert.equal(scope.ok, true, 'a landed close is unaffected');
   assert.equal(recordRefusal(dir, { op: 'x', kind: 'unscoped', paths: 1 }), false, 'the failure is reported to the caller as false, never thrown');
+
+  // The same through the real CLI as a child process: exit status and message must not depend on the record file being writable.
+  const cli = (vaultDir, ...args) => spawnSync(process.execPath, [join(root, 'scripts', 'op-commit.mjs'), ...args], { env: { ...process.env, WIKI_MASTER_VAULT: vaultDir }, encoding: 'utf8' });
+  const normalise = (text, vaultDir, tokens) => tokens.reduce((out, tok, i) => out.split(tok).join(`<token${i}>`), text.split(vaultDir).join('<vault>'));
+  const unscopedClose = (vaultDir) => {
+    const first = beginOp(vaultDir, 'ingest');
+    const second = beginOp(vaultDir, 'relink');
+    put(vaultDir, 'ours.md', 'x\n');
+    const run = cli(vaultDir, '--op', 'ingest', '--title', 't', '--since', first);
+    return { run, first, second, text: normalise(run.stderr, vaultDir, [first, second]) };
+  };
+  const writable = vault(t);
+  const control = unscopedClose(writable);
+  assert.equal(control.run.status, 1, control.run.stderr);
+  assert.match(control.text, /^op-commit: this close has no --paths-file and another operation is open/);
+  assert.equal(lines(writable).length, 1, 'the control vault records its refusal');
+
+  const blocked = vault(t);
+  mkdirSync(refusalsFile(blocked), { recursive: true });
+  const refusedCli = unscopedClose(blocked);
+  assert.equal(refusedCli.run.status, 1, 'a refused close still exits 1 with a directory in the record place');
+  assert.equal(refusedCli.text, control.text, 'and says exactly what it says when the record is writable');
+  assert.ok(existsSync(join(blocked, '.wiki-master', 'ops', `${refusedCli.first}.json`)), 'the token is kept');
+  const ledger = join(blocked, '.wiki-master', 'scope.json');
+  writeFileSync(ledger, JSON.stringify(['ours.md']));
+  const landed = cli(blocked, '--op', 'ingest', '--title', 't', '--since', refusedCli.first, '--paths-file', ledger);
+  assert.equal(landed.status, 0, landed.stderr);
+  assert.match(landed.stdout, /committed [0-9a-f]{7}: 1 file\(s\)/);
+  assert.deepEqual(readdirSync(refusalsFile(blocked)), [], 'a landed close creates no file or line in the record place');
 });
 
 test('the counts read back by kind; damaged lines and unknown kinds count as nothing', (t) => {
