@@ -37,6 +37,7 @@ Before the first authorized write, follow the shared operations completion contr
    `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op relink --title "<summary>"` (details on stdin).
 5. Close the operation:
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`
+   (An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.)
    Relink rewrites links across the graph; committing it as one unit is what makes
    it revertable. The helper does not push; push and verify remote publication through the shared contract. This step also reports any hard-wrapped wikilink
    still present in the files it commits, in case one was introduced after step 1 ran.

@@ -52,7 +52,8 @@ Steps:
    then `op-ledger.mjs show --since <saved-token> --out <ledger>` once more and read what it
    lists as unclaimed, then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token> --paths-file <ledger>`.
-   Verify the commit and index-refresh notices, push with `wiki-sync.mjs`, and
+   A close with no `--paths-file` is refused while another operation is open. Verify the commit and index-refresh notices, push with `wiki-sync.mjs`
+   (or close and push in one command with `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<summary>"`), and
    verify that the update reached the configured upstream. The authoring request
    includes this completion step unless the user explicitly holds publication;
    do not ask another routine permission question or leave the push to the user.

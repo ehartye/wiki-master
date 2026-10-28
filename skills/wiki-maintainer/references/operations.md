@@ -47,7 +47,18 @@ because its file was deleted; account for the work and verify the outcome.
    again with `--include <path>` for each (or `--include-from <file>`); if another writer
    owns it, take it out of the ledger. **Create new files only after `op-begin`**: a page
    written first counts as already dirty. It does not isolate simultaneous edits to the
-   same file. Without explicit scope, subtraction alone can include another writer's new edits.
+   same file.
+   **The guard.** `op-commit` without `--paths-file` commits everything that became
+   dirty since `op-begin`, which cannot tell this operation's new files from another
+   open operation's. So while any other operation token exists, of any age (age cannot
+   show that an operation was abandoned), such a close is refused: `op-commit: this
+   close has no --paths-file and another operation is open: <token> (<op>), ...`. It
+   exits 1, commits nothing, keeps the token, and prints the way out: `op-ledger.mjs
+   show --since <token> --out <ledger>`, then the same `op-commit` with `--paths-file
+   <ledger>`. There is no override flag. A close with `--paths-file` is unchanged, and
+   with no other token open an unscoped close behaves as before. Every refused close
+   (this one, a pre-dirty ledger path, an evidence mismatch) appends a counts-only
+   line to `.wiki-master/op-refusals.jsonl`; see "Refusal record" below.
    When the ledger carries a receipt that records its own byte length and SHA-256
    (captured JSON or log evidence), also pass `--evidence-map <file>`: a JSON object
    of ledger path to `{ "bytes": N, "sha256": "<64 lower-case hex>" }`, kept beside
@@ -72,8 +83,10 @@ because its file was deleted; account for the work and verify the outcome.
    relink. Never append to a shared aggregate log; browse through `log.base`. Pass
    `--since <token>`: the entry's name carries a timestamp known only now, and the
    ledger is how it reaches the close.
-6. **Commit and inspect.** Run `op-commit.mjs --op <op> --title "<title>" --since
-   <token>`. Verify its result and the actual changed paths. Never `git add -A`.
+6. **Commit and inspect.** Run `op-ledger.mjs show --since <token> --out <ledger>`,
+   read what it lists as unclaimed, then `op-commit.mjs --op <op> --title "<title>"
+   --since <token> --paths-file <ledger>`. Without `--paths-file` the close is refused
+   while any other operation is open (the guard, step 2). Verify its result and the actual changed paths. Never `git add -A`.
    The helper attempts a semantic index refresh after committing; inspect notices
    for missing backends, skipped work or partial builds. A commit does not establish
    index freshness. Report a non-git vault as local-only; do not claim a commit.
@@ -105,6 +118,34 @@ because its file was deleted; account for the work and verify the outcome.
    operation; do not use `--commit-local` to sweep another writer's unfinished work.
    When the user explicitly holds publication, retain the local commit and report
    that it is unpushed. Without an upstream, report local-only completion.
+
+   **Close and publish in one command.** `wiki-sync.mjs --op <token>` closes that one
+   operation through the same close `op-commit` makes, then runs the normal sync and
+   verifies against a fresh fetch. The scope is `--paths-file <ledger>` when given;
+   otherwise the paths the operation's writers recorded (`op-ledger.mjs`), when it has
+   any; otherwise an unscoped close, which the guard refuses while another operation
+   is open. `--title "<title>"` is the commit message (default `published with
+   wiki-sync --op`; the subject is `<op>: <title>`). It never closes a token it was not
+   given, and it cannot be combined with `--commit-local` (a usage error, exit 1).
+   Success prints `closed operation <token>: committed <sha7> (<n> file(s))`, then the
+   normal sync lines, exit 0. After a landed close it prints the same hard-wrapped
+   wikilink warning `op-commit` does and refreshes the semantic index. A refused or
+   failed close (token not open, unreadable `--paths-file`, the guard, a pre-dirty
+   path, a git failure) prints a line starting `not committed:` to stderr, exits 1,
+   pushes nothing and keeps the token. A close that landed whose sync then failed
+   prints a line starting `committed, not published:` with the short sha, exits 1, and
+   the token is gone because the commit exists; run `wiki-sync.mjs` again once the
+   cause is fixed. Pass `--paths-file` instead of relying on the recorded paths when
+   you have also written pages with tools that do not record them.
+
+   Without `--op`, `wiki-sync` also prints, for each open operation that has recorded
+   paths still uncommitted, `operation <token> (<op>) has <n> recorded path(s) not
+   committed; if it is yours, close and publish it with: node scripts/wiki-sync.mjs
+   --op <token>`. It is a line, not a failure: a sync cannot know whose operation it
+   is, so the exit code is unchanged and already-committed work is still pushed. It
+   follows the once-per-set, once-a-day rule of the open-operations note, keyed by
+   token and recorded count, so it is said again when an operation records more. An
+   open operation with no recorded paths gets only the existing note.
 
 ## Recovery and token ownership
 
@@ -153,6 +194,20 @@ already gone and removes it only with `--apply --token <that id>`.
 
 **Stopping early.** A session that opened an operation and will not finish it, or whose work landed another way, drops its own token with `node "<absolute-plugin-root>/scripts/op-abort.mjs" --since <token>`. It removes that one token whatever its age and nothing else: the files the operation wrote stay in the working tree, uncommitted, for a later operation to commit. Do not use it on a token another session holds. Open operations are visible without running a sync: `health` and `session-brief` print a line when any are open, and `wiki-sync` mentions other writers' operations once for a given set of tokens, again when the set changes, and once a day while it stays true.
 
+**Refusal record.** Each `op-commit` close that is refused and keeps its token appends
+one JSON line to `.wiki-master/op-refusals.jsonl` (local, Git-ignored): `at` (ISO
+time), `op`, `kind` and `paths`. `paths` is a number and never a path name. `kind` is
+`pre-dirty` (a ledger path already dirty before `op-begin` and not adopted; `paths` is
+how many), `evidence` (a declared size or hash that does not match what git would store;
+`paths` is the size of the evidence map) or `unscoped` (the guard; `paths` is how many
+delta paths the close would have committed). A close that lands appends nothing, and a
+failed append (a directory in the file's place, a read-only disk) changes neither the
+message nor the exit code. `health` prints `Recorded op-commit refusals: N (pre-dirty a,
+evidence b, unscoped c).` only when N is above zero, and `health --json` always carries
+`opRefusals` as `{ total, preDirty, evidence, unscoped }`. Like the open-operations line it
+sits outside the defect count. The file is never trimmed by the plugin and a line that is
+not a record of a known kind counts as nothing.
+
 **Git ownership.** The Obsidian Git plugin stays installed for its source-control view
 and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
 interval 0, commit on file change off, auto push interval 0): they commit half-finished
@@ -187,7 +242,10 @@ Replace absolute path placeholders, title and narrative with the real task. The
 comment marks where the already-authorized edits and checks occur; do not run the
 close step after a failed edit/check. These examples assume a configured upstream
 and no explicit user hold, so they include the push step. For an explicit local-only
-request, omit that step and report the unpushed commit.
+request, omit that step and report the unpushed commit. The close is scoped with
+`--paths-file`; to close and publish in one command, replace the `op-commit` and
+`wiki-sync` lines with `wiki-sync.mjs --op <token> --title 'Task title'` (add
+`--paths-file <ledger>` to scope it explicitly).
 
 ```powershell
 $wikiPriorVault = $env:WIKI_MASTER_VAULT
@@ -196,9 +254,14 @@ try {
   $wikiOpToken = node 'C:/absolute/installed/plugin/scripts/op-begin.mjs' --op relink
   if ($LASTEXITCODE -ne 0) { throw 'Could not open wiki operation' }
   # Perform authorized edits, validate, and refresh affected catalogs here.
-  'Validated task narrative' | node 'C:/absolute/installed/plugin/scripts/log-entry.mjs' --op relink --title 'Task title'
+  # Record each page written with your own file tools: op-ledger.mjs add --since $wikiOpToken <path>...
+  'Validated task narrative' | node 'C:/absolute/installed/plugin/scripts/log-entry.mjs' --op relink --title 'Task title' --since $wikiOpToken
   if ($LASTEXITCODE -ne 0) { throw 'Could not log wiki operation' }
-  node 'C:/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since $wikiOpToken
+  $wikiLedger = Join-Path ([System.IO.Path]::GetTempPath()) "wiki-ledger-$wikiOpToken.json"
+  node 'C:/absolute/installed/plugin/scripts/op-ledger.mjs' show --since $wikiOpToken --out $wikiLedger
+  if ($LASTEXITCODE -ne 0) { throw 'Could not build the wiki operation ledger' }
+  # Read what show listed as unclaimed before closing. An unscoped close is refused while another operation is open.
+  node 'C:/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since $wikiOpToken --paths-file $wikiLedger
   if ($LASTEXITCODE -ne 0) { throw 'Could not commit wiki operation' }
   node 'C:/absolute/installed/plugin/scripts/wiki-sync.mjs'
   if ($LASTEXITCODE -ne 0) { throw 'Wiki update is committed locally but not verified published' }
@@ -212,8 +275,12 @@ try {
   export WIKI_MASTER_VAULT='/absolute/path/to/vault'
   wiki_op_token=$(node '/absolute/installed/plugin/scripts/op-begin.mjs' --op relink) || exit
   # Perform authorized edits, validate, and refresh affected catalogs here.
-  printf '%s\n' 'Validated task narrative' | node '/absolute/installed/plugin/scripts/log-entry.mjs' --op relink --title 'Task title' || exit
-  node '/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since "$wiki_op_token" || exit
+  # Record each page written with your own file tools: op-ledger.mjs add --since "$wiki_op_token" <path>...
+  printf '%s\n' 'Validated task narrative' | node '/absolute/installed/plugin/scripts/log-entry.mjs' --op relink --title 'Task title' --since "$wiki_op_token" || exit
+  wiki_ledger="${TMPDIR:-/tmp}/wiki-ledger-$wiki_op_token.json"
+  node '/absolute/installed/plugin/scripts/op-ledger.mjs' show --since "$wiki_op_token" --out "$wiki_ledger" || exit
+  # Read what show listed as unclaimed before closing. An unscoped close is refused while another operation is open.
+  node '/absolute/installed/plugin/scripts/op-commit.mjs' --op relink --title 'Task title' --since "$wiki_op_token" --paths-file "$wiki_ledger" || exit
   node '/absolute/installed/plugin/scripts/wiki-sync.mjs' || exit
 )
 ```

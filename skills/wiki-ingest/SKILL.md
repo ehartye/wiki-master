@@ -94,4 +94,4 @@ For each source:
    unclaimed (another writer's pages, or one of yours you did not record), then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token> --paths-file <ledger>`
    Commits exactly the pages this ingest touched, as one revertable unit, and
-   reports anything it deliberately left alone. Then follow the shared completion contract to push your updates and verify remote publication.
+   reports anything it deliberately left alone. Without `--paths-file` the close is refused while another operation is open. Then follow the shared completion contract to push your updates (`wiki-sync.mjs`, or `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<what you ingested>"` to close and push in one command) and verify remote publication.
