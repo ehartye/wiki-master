@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "A small sample question set over the public corpus in eval/plugin-docs-vault (a pinned snapshot of this plugin's own documentation). It exists to exercise scripts/evaluate-retrieval.mjs end to end for anyone, with no private vault: exact names, paraphrases, tasks, a complementary pair and a filtered state question, five of them with a labelled passage. It is not a measure of retrieval quality; the corpus is 36 pages, so the first ten results are 28% of it. Every expected page and passage is checked against the corpus by test/evaluator-sample.test.mjs.",
+  "questions": [
+    { "id": "s01", "category": "exact", "split": "development", "query": "wiki-lint", "expectedPages": ["wiki/authored/plugin-docs/skills/wiki-lint.md"] },
+    { "id": "s02", "category": "exact", "split": "development", "query": "clip-xlsx", "expectedPages": ["wiki/authored/plugin-docs/skills/clip-xlsx.md"] },
+    { "id": "s03", "category": "exact", "split": "heldout", "query": "wiki-integrity", "expectedPages": ["wiki/authored/plugin-docs/wiki-integrity.md"] },
+    { "id": "s04", "category": "paraphrase", "split": "development", "query": "which rule says a substantive page has no route back to raw evidence", "expectedPages": ["wiki/authored/plugin-docs/wiki-integrity.md"], "expectedPassages": [{ "path": "wiki/authored/plugin-docs/wiki-integrity.md", "text": "missing-evidence" }] },
+    { "id": "s05", "category": "paraphrase", "split": "development", "query": "how is a scanned PDF with no text layer read", "expectedPages": ["wiki/authored/plugin-docs/skills/clip-pdf.md"], "expectedPassages": [{ "path": "wiki/authored/plugin-docs/skills/clip-pdf.md", "text": "OCR fallback" }] },
+    { "id": "s06", "category": "paraphrase", "split": "heldout", "query": "what stops two repair sessions working on one vault at the same time", "expectedPages": ["wiki/authored/plugin-docs/reclipping.md"], "expectedPassages": [{ "path": "wiki/authored/plugin-docs/reclipping.md", "text": "reserve an OS gate per vault" }] },
+    { "id": "s07", "category": "task", "split": "development", "query": "re-clip a PDF whose table rows came out flattened", "expectedPages": ["wiki/authored/plugin-docs/reclipping.md"], "expectedPassages": [{ "path": "wiki/authored/plugin-docs/reclipping.md", "text": "--include-tabular" }] },
+    { "id": "s08", "category": "task", "split": "development", "query": "capture a GitHub repository as wiki evidence", "expectedPages": ["wiki/authored/plugin-docs/skills/clip-gh.md"] },
+    { "id": "s09", "category": "task", "split": "heldout", "query": "check the pages a writing task produced for dead links", "expectedPages": ["wiki/authored/plugin-docs/skills/wiki-author.md"], "expectedPassages": [{ "path": "wiki/authored/plugin-docs/skills/wiki-author.md", "text": "validate-authored.mjs" }] },
+    { "id": "s10", "category": "complement", "split": "development", "query": "fidelity limits of captured documents", "expectedPages": ["wiki/authored/plugin-docs/clipping-fidelity.md", "wiki/authored/plugin-docs/skills/clip-pdf.md"] },
+    { "id": "s11", "category": "complement", "split": "development", "query": "what to do with a leftover operation token", "expectedPages": ["wiki/authored/plugin-docs/skills/wiki-maintainer-references-operations.md"] },
+    { "id": "s12", "category": "state", "split": "development", "query": "how installation of the plugin is configured for Codex", "expectedPages": ["wiki/authored/plugin-docs/codex.md"], "options": { "project": "plugin-docs", "type": "authored" } }
+  ]
+}
