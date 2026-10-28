@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { runDefuddleJson, renderAttempt, stripArchiveChrome, looksLikePdfUrl, THIN_WORD_FLOOR } from '../clip.mjs';
 import { tokenize } from './quote-match.mjs';
+import { classifyInterstitial } from './interstitial.mjs';
 
 // HTML pages in the re-clip transaction (lib/reclip.mjs). A PDF is fixed; a page is not, so a replacement is only
 // made when the new text still holds nearly all of the old, and the reading of the page is the clipper's own ladder
@@ -71,6 +72,9 @@ export async function readPageForReclip(url, { extract = runDefuddleJson, render
     else if (rendered.unavailable) throw new Error(`the page reads as thin (${words(md)} words) and the browser render is unavailable: ${rendered.reason}`);
   }
   if (words(md) < thinFloor) throw new Error(`the page reads as thin (${words(md)} words), also after a browser render`);
+  // A page that now serves a login or age gate must not replace the evidence it used to be.
+  const shell = classifyInterstitial({ markdown: md, title: data.title });
+  if (shell) throw new Error(shell.reason);
   const warnings = data.fidelityWarnings ?? [];
   return {
     md, wordCount: words(md), hash: createHash('sha256').update(md).digest('hex'),

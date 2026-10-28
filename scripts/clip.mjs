@@ -10,6 +10,8 @@ import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
+import { classifyInterstitial } from './lib/interstitial.mjs';
+import { looksLikePlainTextUrl, fetchPlainText, plainTextPage } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
@@ -448,7 +450,10 @@ export function extractionAvailable() {
   return false;
 }
 
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive } = {}) {
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText } = {}) {
+  // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
+  // extractor, or when it is supplied too.
+  const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
@@ -495,7 +500,19 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // DOM rather than the served html — the same role `extraction: ocr` plays for
   // clip-pdf, and read the same way by triage (a method, not a defect).
   let extraction = 'text';
-  try { data = extract(url); }
+  // A URL that looks like a text file (a checksum manifest, a pinned source file) is kept whole, in a fence: Defuddle cannot read
+  // one, and a short one would be judged thin. A binary or oversized file is refused; anything else that is not text is the ladder's.
+  let plain = null;
+  if (looksLikePlainTextUrl(url)) {
+    plain = readText(url);
+    if (plain.refused) {
+      recordIssue(vaultPath, { url, kind: 'attention', reason: `plain-text capture refused: ${plain.reason}`, topic });
+      console.log(`not clipped (${plain.reason}; triage recorded): ${url}`);
+      return { status: 'thin', reason: plain.reason };
+    }
+    if (plain.ok) extraction = 'plaintext';
+  }
+  try { data = plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
   catch {
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
@@ -554,7 +571,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // run (and succeeded) when extraction === 'rendered'; otherwise it is set by
   // the thin-path attempt just below.
   let renderRan = extraction === 'rendered';
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan) {
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext') {
     const r = renderAttempt(url);
     renderRan = !r.unavailable;
     const rendered = r.ok ? stripArchiveChrome(r.data.contentMarkdown || r.data.content || '') : '';
@@ -565,7 +582,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
   }
 
-  if (wordCount(md) < THIN_WORD_FLOOR) {
+  if (wordCount(md) < THIN_WORD_FLOOR && extraction !== 'plaintext') {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
     if (verdict.kind !== 'short_real_article') {
       // Thin/wrong-node is deterministic given this page's current markup — record
@@ -587,6 +604,16 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       return { status: 'thin', reason: verdict.reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
+  }
+
+  // A page with words enough to clear the floor can still be the gate and not the page: a login form, a consent wall, an age
+  // check. Its own vocabulary, dense, with none of its title in the text, is the signal (lib/interstitial.mjs). It is queued
+  // for a person and not declined: a wall is not a verdict on the source, and a signed-in browser can still clip it.
+  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: data.title });
+  if (shell) {
+    recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
+    console.log(`login, consent or age-gate page (clip manually; triage recorded, not declined): ${url}`);
+    return { status: 'thin', reason: shell.reason };
   }
 
   const clippingsDir = join(vaultPath, 'raw', 'clippings');
