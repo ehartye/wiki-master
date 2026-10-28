@@ -470,3 +470,94 @@ test('the CLI names abandoned operation tokens so they can be cleaned up', async
     assert.ok(r.logs.some(l => /abandoned/.test(l) && /069b07798a127734/.test(l)), r.logs.join('|'));
   } finally { w.cleanup(); }
 });
+
+// The two notes about other writers' operations ("N still open", "abandoned token") describe ambient state, and in a vault with
+// several writers one of them is nearly always true, so every sync repeated them. Each is now said once, again when the set of
+// tokens changes, and again once a day while it stays true. A local file remembers what was said; it is not shared.
+test('the CLI says it once: a second sync with the same operations open stays quiet about them', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, '069b07798a127734', 24 * 40);
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    const first = await runMain(w.a, []);
+    assert.ok(first.logs.some(l => /still open/.test(l) && /fbb32b3279c474d7/.test(l)), first.logs.join('|'));
+    assert.ok(first.logs.some(l => /abandoned/.test(l) && /069b07798a127734/.test(l)), first.logs.join('|'));
+    const second = await runMain(w.a, []);
+    assert.ok(!second.logs.some(l => /still open|abandoned/.test(l)), second.logs.join('|'));
+    assert.ok(second.logs.some(l => /in sync with origin\/main/.test(l)), 'the sync report itself is unchanged');
+  } finally { w.cleanup(); }
+});
+
+test('a new operation, or a changed set of tokens, is said again', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    await runMain(w.a, []);
+    leakedOperation(w.a, 'cccccccccccccccc', 1);
+    const r = await runMain(w.a, []);
+    assert.ok(r.logs.some(l => /2 operation\(s\) still open/.test(l) && /cccccccccccccccc/.test(l)), r.logs.join('|'));
+  } finally { w.cleanup(); }
+});
+
+test('after a day the note is repeated while it is still true, and a stale token is not forgotten', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, '069b07798a127734', 24 * 40);
+    await runMain(w.a, []);
+    const file = join(w.a, '.wiki-master', 'sync-notes.json');
+    const memory = JSON.parse(readFileSync(file, 'utf8'));
+    for (const kind of Object.keys(memory)) memory[kind].at = new Date(Date.now() - 25 * 3600 * 1000).toISOString();
+    writeFileSync(file, JSON.stringify(memory));
+    const r = await runMain(w.a, []);
+    assert.ok(r.logs.some(l => /abandoned/.test(l) && /069b07798a127734/.test(l)), r.logs.join('|'));
+  } finally { w.cleanup(); }
+});
+
+test('when the operations are closed the memory is cleared, so the next one is said', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    await runMain(w.a, []);
+    rmSync(join(w.a, '.wiki-master', 'ops', 'fbb32b3279c474d7.json'));
+    const quiet = await runMain(w.a, []);
+    assert.ok(!quiet.logs.some(l => /still open/.test(l)));
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    const again = await runMain(w.a, []);
+    assert.ok(again.logs.some(l => /still open/.test(l)), again.logs.join('|'));
+  } finally { w.cleanup(); }
+});
+
+test('an unreadable or unwritable memory never hides a note', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    mkdirSync(join(w.a, '.wiki-master', 'sync-notes.json'), { recursive: true }); // a directory where the file should be
+    const r = await runMain(w.a, []);
+    assert.ok(r.logs.some(l => /still open/.test(l)), r.logs.join('|'));
+  } finally { w.cleanup(); }
+});
+
+test('--commit-local still refuses while an operation is open: only the note is deduplicated', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    writeFileSync(join(w.a, 'hand-edit.md'), 'typed in Obsidian\n');
+    await runMain(w.a, []);
+    const r = await syncVault(w.a, { commitLocal: true });
+    assert.equal(r.ok, false);
+    assert.equal(r.code, 'operation-open');
+  } finally { w.cleanup(); }
+});
+
+test('the open note and the abandoned note are remembered separately: a new recent operation repeats only the first', async () => {
+  const w = world();
+  try {
+    leakedOperation(w.a, '069b07798a127734', 24 * 40);
+    leakedOperation(w.a, 'fbb32b3279c474d7', 2);
+    await runMain(w.a, []);
+    leakedOperation(w.a, 'cccccccccccccccc', 1);
+    const r = await runMain(w.a, []);
+    assert.ok(r.logs.some(l => /still open/.test(l) && /cccccccccccccccc/.test(l)), r.logs.join('|'));
+    assert.ok(!r.logs.some(l => /abandoned/.test(l)), 'the stale set did not change, so it is not said again: ' + r.logs.join('|'));
+  } finally { w.cleanup(); }
+});

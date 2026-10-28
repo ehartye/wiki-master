@@ -138,10 +138,11 @@ export function buildBrief({ state, items = [], today = new Date(), staleDays = 
 
 const BY = { remote: 'the repository remote', folder: 'the repository folder name', flag: '--project' };
 
-export function formatBrief({ project, path, by, brief, staleDays = 30 }) {
+export function formatBrief({ project, path, by, brief, staleDays = 30, openOperations = null }) {
   const lines = [`Project: ${project} (${path}), matched by ${BY[by] ?? by}`];
   if (!brief) {
     lines.push(`no state page at ${path}/reference/studio-state.md; run studio-start to create it`);
+    if (openOperations) lines.push('', openOperations);
     return lines.join('\n');
   }
   const extra = [];
@@ -151,5 +152,6 @@ export function formatBrief({ project, path, by, brief, staleDays = 30 }) {
   if (brief.overdue.length) extra.push('Open questions past their gate:', ...brief.overdue.map((q) => `  - ${q.question} (gate ${q.gate}, owner ${q.owner || 'none'})`));
   if (brief.dueNext.length) extra.push('Open questions due at the next gate:', ...brief.dueNext.map((q) => `  - ${q.question} (gate ${q.gate}, owner ${q.owner || 'none'})`));
   lines.push(...brief.report, '', ...(extra.length ? extra : ['No stale artifacts, blocked items or overdue questions.']));
+  if (openOperations) lines.push('', openOperations);
   return lines.join('\n');
 }

@@ -8,6 +8,7 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { validateProject } from './lib/catalog-options.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { findProject, parseStatePage, buildBrief, formatBrief } from './lib/session-brief.mjs';
+import { openOperationsLine } from './lib/open-operations.mjs';
 
 // Read-only: finds the wiki project the current repository belongs to and prints its state. No operation is opened,
 // nothing is written, no semantic index is touched.
@@ -64,7 +65,7 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
     ? buildBrief({ state: parseStatePage(readFileSync(statePath, 'utf8')), items: readBacklogItems(vaultPath, `${chosen.path}/backlog`), today, staleDays })
     : null;
   if (values.json) return { exit: 0, output: JSON.stringify({ project: chosen.project, path: chosen.path, by: chosen.by, statePage: brief ? `${chosen.path}/reference/studio-state.md` : null, ...(brief ?? {}) }, null, 2) };
-  return { exit: 0, output: formatBrief({ ...chosen, brief, staleDays }) };
+  return { exit: 0, output: formatBrief({ ...chosen, brief, staleDays, openOperations: openOperationsLine(vaultPath) }) };
 }
 
 function noMatch(matches, facts, json) {

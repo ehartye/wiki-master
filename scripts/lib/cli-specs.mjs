@@ -34,6 +34,10 @@ export const CLI_SPECS = {
     options: ['op', 'title'],
     usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md. Write it after op-begin and list it in the operation\'s ledger.', VAULT],
   },
+  'op-abort': {
+    options: ['since'],
+    usage: ['usage: node scripts/op-abort.mjs --since <token>', '', 'Drops one operation token without committing: for the session that holds it and stopped early. It removes only the token named; the files the operation wrote stay in the working tree, uncommitted.', VAULT],
+  },
   'op-begin': {
     options: ['op'],
     usage: ['usage: node scripts/op-begin.mjs --op <op>', '', 'Opens a vault operation: records what is already uncommitted and prints the token that op-commit takes as --since.', VAULT],
