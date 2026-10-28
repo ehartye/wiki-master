@@ -2,6 +2,7 @@ import { rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
+import { orphanLedgers, removeWritten } from './lib/op-ledger.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -19,15 +20,24 @@ export function cleanupOperations(vaultPath, { hours = STALE_OPERATION_HOURS, ap
   if (apply && (!Array.isArray(tokens) || !tokens.length)) throw new Error('Explicit --token IDs are required with --apply; age does not prove abandonment');
   const all = listOperations(vaultPath, { staleHours: hours });
   const stale = all.filter((o) => o.stale);
+  // A ledger of the paths an operation's writers recorded (lib/op-ledger.mjs) goes with its token. One whose token is already
+  // gone is listed, and removed only when its token is named, like a token.
+  const orphans = orphanLedgers(vaultPath);
   const removed = [];
+  const removedLedgers = [];
   if (apply) {
     for (const o of stale.filter(o => tokens.includes(o.token))) {
       // force: a token its own op-commit closed a moment ago is already gone, not an error
       rmSync(o.file, { force: true });
+      removeWritten(vaultPath, o.token);
       removed.push(o.token);
     }
+    for (const token of orphans.filter((t) => tokens.includes(t))) {
+      removeWritten(vaultPath, token);
+      removedLedgers.push(token);
+    }
   }
-  return { applied: apply, hours, stale, removed, kept: all.filter((o) => !o.stale).map((o) => o.token) };
+  return { applied: apply, hours, stale, removed, orphanLedgers: orphans, removedLedgers, kept: all.filter((o) => !o.stale).map((o) => o.token) };
 }
 
 export async function main(argv) {
@@ -57,6 +67,11 @@ export async function main(argv) {
   let r;
   try { r = cleanupOperations(vaultPath, { hours, apply, tokens }); }
   catch (err) { console.error(err.message); process.exitCode = 1; return; }
+  if (r.orphanLedgers.length) {
+    const left = r.orphanLedgers.filter((t) => !r.removedLedgers.includes(t));
+    if (r.removedLedgers.length) console.log(`removed ${r.removedLedgers.length} written-paths ledger(s) whose operation was already gone.`);
+    if (left.length) console.log(`written-paths ledger(s) with no operation (${left.join(', ')}): remove each with --apply --token <id> once you have checked its paths were committed or are no longer wanted.`);
+  }
   if (!r.stale.length) {
     console.log(`op-cleanup: no abandoned operation tokens (older than ${hours} hours); ${r.kept.length} recent kept.`);
     return;

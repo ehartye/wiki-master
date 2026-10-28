@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
@@ -485,7 +486,7 @@ function walkRepoFiles(dir, base = dir) {
 // content shape) lives in an already-unit-tested pure function above.
 // One clipping per included repo file, into `outDir`. `tmp` is the checkout the
 // files are read from. Content already clipped (same source-hash) is left alone.
-export function writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp }) {
+export function writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp, record = () => {} }) {
   const existingHashes = new Map();
   if (existsSync(outDir)) {
     for (const f of readdirSync(outDir)) {
@@ -508,17 +509,20 @@ export function writeFileClips({ owner, repo, resolvedRef, included, quality, to
     if (clip.wordCount < THIN_WORD_FLOOR) { thin++; continue; }
     // A hidden or backtick-named legacy file is adopted under its safe (doubled) name first; nothing cites it.
     const doubledName = `${slugifyRepoPath(relPath)}.md`;
-    if (adoptLegacyName(outDir, legacyNames, doubledName)) { renamed++; existing.add(doubledName.toLowerCase()); }
+    const legacyName = legacyNames.get(doubledName.toLowerCase());
+    // A rename is a deletion and an addition to git, so both names are paths this run changed.
+    if (adoptLegacyName(outDir, legacyNames, doubledName)) { renamed++; existing.add(doubledName.toLowerCase()); record([join(outDir, legacyName), join(outDir, doubledName)]); }
     const fileName = repoClipFileName(relPath, { existing, claimed });
     claimed.add(fileName.toLowerCase());
     if (existingHashes.has(clip.hash)) { unchanged++; continue; }
     writeFileSync(join(outDir, fileName), clip.body);
+    record(join(outDir, fileName));
     clipped++;
   }
   return { clipped, unchanged, thin, renamed };
 }
 
-export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups }) {
+export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups, record = () => {} }) {
   const extensionCounts = {};
   for (const p of included) {
     const ext = extname(p).toLowerCase() || '(none)';
@@ -551,6 +555,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     expectedFilenames.add(listingFilename);
     if (existingHashes.has(listing.hash)) { listingsUnchanged++; continue; }
     writeFileSync(join(outDir, listingFilename), listing.body);
+    record(join(outDir, listingFilename));
     listingsWritten++;
   }
 
@@ -566,12 +571,14 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     const clip = fileClipContent({ owner, repo, ref: resolvedRef, relPath, content, quality, topic });
     if (clip.wordCount < THIN_WORD_FLOOR) { anchorsThin++; continue; }
     const doubledName = `${slugifyRepoPath(relPath)}.md`;
-    if (adoptLegacyName(outDir, legacyNames, doubledName)) { anchorsRenamed++; existing.add(doubledName.toLowerCase()); }
+    const legacyName = legacyNames.get(doubledName.toLowerCase());
+    if (adoptLegacyName(outDir, legacyNames, doubledName)) { anchorsRenamed++; existing.add(doubledName.toLowerCase()); record([join(outDir, legacyName), join(outDir, doubledName)]); }
     const anchorFilename = repoClipFileName(relPath, { existing, claimed });
     claimed.add(anchorFilename.toLowerCase());
     expectedFilenames.add(anchorFilename);
     if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
     writeFileSync(join(outDir, anchorFilename), clip.body);
+    record(join(outDir, anchorFilename));
     anchorsClipped++;
   }
 
@@ -581,6 +588,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     excludedCount: excluded.length, anchorFiles: anchorPaths, quality, topic,
   });
   writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
+  record(join(outDir, '_repo-overview.md'));
 
   // Prune LAST, after every current file has actually been written — a
   // stale check run before writing would see a not-yet-created listing as
@@ -588,7 +596,8 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
   // orphaned prior-run file from one this run simply hasn't gotten to.
   const currentFilenames = readdirSync(outDir);
   const staleFilenames = findStaleDigestFiles(currentFilenames, [...expectedFilenames]);
-  for (const f of staleFilenames) rmSync(join(outDir, f));
+  // A deleted file is a path the commit must include, or it stays dirty as a deletion nobody owns.
+  for (const f of staleFilenames) { rmSync(join(outDir, f)); record(join(outDir, f)); }
 
   const totalDocs = 1 + listingsWritten + anchorsClipped;
   console.log(`digest mode: ${included.length} file(s) represented across ${groups.length} module listing(s) — ${owner}/${repo} was over the per-file cap`);
@@ -649,6 +658,7 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -700,7 +710,7 @@ export function main(argv) {
     if (included.length > maxFiles) {
       if (!forceFull) {
         mkdirSync(outDir, { recursive: true });
-        return writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups });
+        return writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups, record });
       }
       console.error(`${included.length} includable files found — over the ${maxFiles}-file cap, and --force-full was given.`);
       console.error(`Re-run with --max-files=${included.length} (or higher) to force full per-file clipping,`);
@@ -711,13 +721,14 @@ export function main(argv) {
 
     mkdirSync(outDir, { recursive: true });
 
-    const { clipped, unchanged, thin, renamed } = writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp });
+    const { clipped, unchanged, thin, renamed } = writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp, record });
 
     const manifest = repoManifestContent({
       owner, repo, ref: resolvedRef, description: meta.description, primaryLanguage: meta.primaryLanguage,
       includedPaths: included, excludedCount: excluded.length, quality, topic,
     });
     writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
+    record(join(outDir, '_repo-overview.md'));
 
     console.log(`clipped: ${clipped} file(s) to raw/clippings/gh/${slugify(owner)}/${slugify(repo)}/ (+ _repo-overview.md)`);
     console.log(`  unchanged (already clipped, same content): ${unchanged}`);

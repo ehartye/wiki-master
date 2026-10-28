@@ -7,6 +7,7 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { keptByMention, scopeGraph } from './lib/catalog-scope.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
 // LLM from writing its index; TheKnowledge's recovery rests on "indexes are
@@ -97,22 +98,25 @@ export function regenerateIndex(vaultPath, { graph, apply = true, excluded = [] 
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' } } });
+  const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, since: { type: 'string' } } });
   const { path: vaultPath } = resolveVault();
   let scoped = {};
   if (values['paths-file'] !== undefined) scoped = scopeGraph(vaultPath, buildGraph(vaultPath), checkLedgerPaths(readLedger(values['paths-file'])));
   const r = regenerateIndex(vaultPath, scoped);
   console.log(`index.md regenerated: ${r.pages} pages cataloged`);
+  // Recorded only when the file changed: an unchanged index is not a path this operation wrote.
+  if (values.since !== undefined && r.changed) writtenRecorder(vaultPath, argv)('index.md');
   return r;
 }
 
 const USAGE = [
-  'usage: node scripts/index-gen.mjs [--paths-file <JSON array>]',
+  'usage: node scripts/index-gen.mjs [--paths-file <JSON array>] [--since <token>]',
   '',
   'Regenerates the catalog between the fence markers of index.md. Manual framing outside the fence is kept.',
   'Without an option it lists every page on disk, another writer\'s uncommitted pages included.',
   '--paths-file <JSON array of vault-relative paths> is the operation\'s ownership ledger: the catalog then lists a page only when it is in',
   'the last commit or the ledger names it, and keeps a line it already holds for another writer\'s page that still exists.',
+  '--since <token> records index.md in the operation\'s written-paths ledger when the file changed (op-ledger.mjs show prints the ledger).',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
 ].join('\n');
 

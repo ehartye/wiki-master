@@ -432,6 +432,12 @@ export function renderFigures({ pdfPath, vaultPath, clippingPath, title, source,
   return { status: 'ok', pageCount, plan, figures, ...result, notes };
 }
 
+// The files a render run wrote, for the operation's ledger: each written sidecar and the image beside it. A figure that was
+// unchanged, hand-cropped or skipped as a duplicate wrote nothing and is not listed.
+export function writtenFigurePaths(r) {
+  return (r.written ?? []).flatMap((rel) => [rel, rel.replace(/\.md$/, '.png')]);
+}
+
 export function figureSummary(r) {
   if (r.status !== 'ok') return r.message || 'figures: none';
   const parts = [`${r.written.length} written`];

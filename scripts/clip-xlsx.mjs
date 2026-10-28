@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -61,7 +62,7 @@ function sofficeReachable() {
   try { execFileSync('soffice', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; }
 }
 
-export function main(argv) {
+export function main(argv, { toText = xlsxToText } = {}) {
   const xlsxPath = argv[0];
   if (!xlsxPath) {
     for (const line of CLIP_SPECS['clip-xlsx'].usage) console.error(line);
@@ -77,6 +78,7 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -100,7 +102,7 @@ export function main(argv) {
   if (!existsSync(xlsxPath)) { console.error(`file not found: ${xlsxPath}`); process.exit(2); }
 
   let text;
-  try { text = xlsxToText(xlsxPath); }
+  try { text = toText(xlsxPath); }
   catch {
     // Distinguish "converter missing" (fatal — fix the install) from "this file
     // failed" (skip, so batch runs continue).
@@ -142,6 +144,7 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  record(file);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, xlsx)`);
   gate.finish();
   return { status: 'clipped', slug, file };

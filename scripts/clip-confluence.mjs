@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -89,7 +90,7 @@ function runConfluencerPage(scriptsDir, target, { run = execFileSync } = {}) {
   });
 }
 
-export function main(argv) {
+export function main(argv, { findScripts = findConfluencerScripts, runPage = runConfluencerPage } = {}) {
   const target = argv[0];
   if (!target) {
     for (const line of CLIP_SPECS['clip-confluence'].usage) console.error(line);
@@ -127,6 +128,7 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
   // --decline never fetches -- it only needs an identity to record against,
   // exactly like clip.mjs and clip-docx.mjs, so it works with no dependency
@@ -155,7 +157,7 @@ export function main(argv) {
   // not an error in wiki-master. Detect it before shelling out, so the
   // failure is one clear line -- never a raw ENOENT, and never a fabricated
   // clipping standing in for content nobody actually fetched.
-  const scriptsDir = findConfluencerScripts();
+  const scriptsDir = findScripts();
   if (!scriptsDir) {
     console.error(`confluencer plugin not found — cannot clip: ${target}`);
     console.error('Looked in ~/.copilot/installed-plugins/*/confluencer/scripts/page.mjs and');
@@ -167,7 +169,7 @@ export function main(argv) {
 
   let raw;
   try {
-    raw = runConfluencerPage(scriptsDir, target);
+    raw = runPage(scriptsDir, target);
   } catch (err) {
     // page.mjs itself failed (bad id, auth, network, config) -- surface the
     // real stderr rather than guessing, and point at confluencer's OWN
@@ -229,6 +231,7 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  record(file);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, confluence, space=${parsed.space || '?'}, v${parsed.version || '?'})`);
   gate.finish();
   return { status: 'clipped', slug, file, space: parsed.space, pageId: parsed.pageId, version: parsed.version };

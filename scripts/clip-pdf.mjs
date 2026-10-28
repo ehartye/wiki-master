@@ -14,8 +14,9 @@ import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFrom
 import { parseTopicArg } from './lib/topic.mjs';
 import {
   parseFigureArgs, renderFigures, resolveFigureTools, setClippingFigures, figureSummary,
-  frontmatterOf, fmScalar, POPPLER_HINT,
+  frontmatterOf, fmScalar, POPPLER_HINT, writtenFigurePaths,
 } from './lib/pdf-figures.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 
 const THIN_WORD_FLOOR = 100;
@@ -401,20 +402,23 @@ export function resolveClippingArg(arg, vaultPath) {
 
 // Render figures for a clipping and record them in the clipping's FRONTMATTER.
 // The body is never touched (raw/ is immutable; source-hash covers the body).
-export function addFiguresToClipping({ pdfPath, vaultPath, clippingRel, fig, source, title }) {
+export function addFiguresToClipping({ pdfPath, vaultPath, clippingRel, fig, source, title, record = () => {}, render = renderFigures }) {
   const abs = join(vaultPath, clippingRel);
-  const r = renderFigures({ pdfPath, vaultPath, clippingPath: clippingRel, title, source, selection: fig });
+  const r = render({ pdfPath, vaultPath, clippingPath: clippingRel, title, source, selection: fig });
   console.log(figureSummary(r));
   if (r.status === 'skipped') console.error(`WARNING: ${r.message}`);
+  // Recorded as soon as written: a render that stops half-way has still left these files in the working tree.
+  const wrote = writtenFigurePaths(r);
+  if (wrote.length) record(wrote);
   if (r.figures?.length) {
     const before = readFileSync(abs, 'utf8');
     const after = setClippingFigures(before, r.figures);
-    if (after !== before) { writeFileSync(abs, after); console.log(`updated frontmatter figures: ${clippingRel} (${r.figures.length})`); }
+    if (after !== before) { writeFileSync(abs, after); record(clippingRel); console.log(`updated frontmatter figures: ${clippingRel} (${r.figures.length})`); }
   }
   return r;
 }
 
-function runFiguresOnly(pdfPath, fig, vaultPath) {
+function runFiguresOnly(pdfPath, fig, vaultPath, record) {
   if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
   const found = resolveClippingArg(fig.clipping, vaultPath);
   if (!found) {
@@ -438,7 +442,7 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
   const fm = frontmatterOf(text);
   const title = fmScalar(fm, 'title') || titleFromPdf(pdfPath);
   const source = fmScalar(fm, 'source') || pdfPath;
-  const r = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: found.rel, fig, source, title });
+  const r = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: found.rel, fig, source, title, record });
   return { status: 'figures', clipping: found.rel, verified, figures: r.figures || [], render: r };
 }
 
@@ -487,8 +491,9 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
-  if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);
+  if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath, record);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -592,6 +597,7 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  record(file);
   const how = clip.extraction === 'ocr' ? 'OCR'
     : clip.extraction === 'table-aware' ? 'text, table-aware'
     : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'
@@ -600,7 +606,7 @@ export function main(argv) {
   let figures;
   if (fig.enabled) {
     // The clipping is already safely on disk; a figure failure must not undo it.
-    try { figures = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: `raw/clippings/${slug}.md`, fig, source, title }); }
+    try { figures = addFiguresToClipping({ pdfPath, vaultPath, clippingRel: `raw/clippings/${slug}.md`, fig, source, title, record }); }
     catch (e) { console.error(`WARNING: figures failed (clipping kept): ${e.message}`); }
   }
   gate.finish();

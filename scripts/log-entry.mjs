@@ -2,6 +2,7 @@ import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -62,7 +63,10 @@ export function main() {
   }
   const body = process.stdin.isTTY ? '' : readFileSync(0, 'utf8');
   const { path: vaultPath } = resolveVault();
-  console.log(writeLogEntry({ vaultPath, op, title, body }));
+  const written = writeLogEntry({ vaultPath, op, title, body });
+  // The name carries a timestamp, so this is the one place it is known. --since puts it in the operation's ledger.
+  writtenRecorder(vaultPath, args)(written);
+  console.log(written);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
