@@ -148,7 +148,7 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'Read-only.', VAULT],
   },
   'wiki-sync': {
-    usage: ['usage: node scripts/wiki-sync.mjs [--commit-local]', '', 'Brings the vault and its shared remote to the same state: rebases onto the upstream, pushes, and checks the remote has the commits, or says exactly why it could not. --commit-local first commits the vault\'s uncommitted changes itself; it refuses while an operation is open.', VAULT],
+    usage: ['usage: node scripts/wiki-sync.mjs [--commit-local | --op <token> [--paths-file <ledger.json>] [--title "<title>"]]', '', 'Brings the vault and its shared remote to the same state: rebases onto the upstream, pushes, and checks the remote has the commits, or says exactly why it could not. --commit-local first commits the vault\'s uncommitted changes itself; it refuses while an operation is open.', '--op <token> first closes that one operation (the close op-commit makes: scoped by --paths-file, else by the paths its writers recorded, else unscoped, which is refused while another operation is open), then syncs and verifies. A refused close prints "not committed:" and pushes nothing; a close that landed but could not be published prints "committed, not published:". --op cannot be combined with --commit-local.', VAULT],
   },
   triage: { options: ['remote'] },
   init: { options: [] },
