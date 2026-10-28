@@ -18,11 +18,11 @@ import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { repointCitation } from './lib/repoint.mjs';
 import { insertSourceHashes } from './lib/backfill.mjs';
 import { recordIssue } from './lib/triage.mjs';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const arg = (n) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
+const arg = (n) => optionValue(process.argv.slice(2), n);
 const FROM = arg('from');
 const apply = process.argv.includes('--apply');
 const LIMIT = arg('limit') ? Number(arg('limit')) : Infinity;

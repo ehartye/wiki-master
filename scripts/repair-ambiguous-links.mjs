@@ -22,7 +22,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { classifyAmbiguous, projectOf, repointBareLinks, onlyWikilinksChanged, bumpUpdated, hasGeneratedFence } from './lib/ambiguous-repair.mjs';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { cliGuard, optionValues } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const lower = (s) => String(s).trim().toLowerCase();
@@ -81,7 +81,7 @@ export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclud
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const opts = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
+  const opts = (name) => optionValues(argv, name);
   const { path: vaultPath } = resolveVault();
   const mappingFile = opts('mapping')[0];
   const mapping = mappingFile ? JSON.parse(readFileSync(mappingFile, 'utf8')) : [];

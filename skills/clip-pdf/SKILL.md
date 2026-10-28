@@ -98,6 +98,7 @@ Extraction is tuned for academic PDFs:
   `node "<absolute-plugin-root>/scripts/refresh-fidelity.mjs" --ocr-floor` lists them
   (dry run) and, with `--apply`, sets the floor. `refresh-fidelity.mjs` never clears an OCR flag, because
   re-reading the characters would call it healthy.
+- **A text layer that drops or shifts letters is `degraded`.** A broken font map can leave only valid letters: some vanish, the whole alphabet shifts, or one letter stands for another. No other check sees it, because the characters are all letters. No Latin-script text lacks an `a` or a `t`, in any language, so a text of at least 5,000 letters whose share of one of fourteen common letters is far below every language's share is stamped `degraded` and sent to OCR. A shorter text, and a text that is not mostly Latin script, are not judged. Clippings made before this check are not re-graded for you: `node "<absolute-plugin-root>/scripts/refresh-fidelity.mjs" --inventory` lists the unmarked ones that now look broken, and only lists.
 - **Re-assessment cannot clear a table flag.** `refresh-fidelity.mjs` re-derives
   fidelity from the stored text and drops flags that no longer hold, but a
   table-derived flag has no basis in the characters (a flattened table reads as
