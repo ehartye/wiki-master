@@ -73,5 +73,6 @@ Before the first authorized write, follow the shared operations completion contr
    `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op lint --title "<summary>"` (details on stdin).
 6. Close the operation:
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op lint --title "<summary>" --since <saved-token>`
+   (An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.)
    A lint that applied fixes and did not commit them leaves the vault changed with
    no record — the failure `/wiki-purge` was built to end. The helper does not push; push and verify remote publication through the shared contract.

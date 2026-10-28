@@ -5,6 +5,7 @@ import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 import { scanIntegrity, integrityReport } from './lib/integrity.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 import { openOperationsLine, openOperationsList } from './lib/open-operations.mjs';
+import { readRefusalCounts, refusalsLine } from './lib/op-refusals.mjs';
 cliGuard(import.meta.url);
 export { scanIntegrity };
 
@@ -127,8 +128,12 @@ export function main(args = process.argv.slice(2)) {
   if (!values.legacy && !values.backlog) {
     const result = scanIntegrity(vaultPath);
     // Operations still open are shown where people look, outside the defect count: an open operation is not damage.
-    const line = openOperationsLine(resolveVault().path);
-    console.log(values.json ? JSON.stringify({ ...result, openOperations: openOperationsList(resolveVault().path) }, null, 2) : integrityReport(result, { extraLines: line ? [line] : [] }));
+    const line = openOperationsLine(vaultPath);
+    // The refusal record is counts only and, like the open operations, sits outside the defect count.
+    const refusals = readRefusalCounts(vaultPath);
+    const refusalLine = refusalsLine(refusals);
+    const extraLines = [line, refusalLine].filter(Boolean);
+    console.log(values.json ? JSON.stringify({ ...result, openOperations: openOperationsList(vaultPath), opRefusals: refusals }, null, 2) : integrityReport(result, { extraLines }));
     return result;
   }
   const metrics = computeGraphMetrics(buildGraph(vaultPath), { now: new Date() });

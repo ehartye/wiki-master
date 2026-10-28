@@ -171,8 +171,8 @@ again, and close with:
 `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token> --paths-file <ledger>`.
 The `<ledger>` file you wrote outlives the close, so the ingest that follows takes its
 clipping set from it.
-Verify the commit and push and verify remote publication through the shared
-contract. If no writes occurred, report that and do not manufacture a log/commit.
+Without `--paths-file` the close is refused while another operation is open. Verify the commit and push and verify remote publication through the shared
+contract (`wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<topic>"` closes and pushes in one command). If no writes occurred, report that and do not manufacture a log/commit.
 Clippings must not remain dirty while waiting for an ingestion decision.
 
 Then use the existing authorization for this exact source set:

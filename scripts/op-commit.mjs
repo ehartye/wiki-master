@@ -13,6 +13,8 @@ import { findWrappedLinks } from './lib/dewrap-links.mjs';
 import { checkEvidenceMap, verifyStagedEvidence } from './lib/evidence-bytes.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { removeWritten } from './lib/op-ledger.mjs';
+import { listOperations } from './lib/op-tokens.mjs';
+import { recordRefusal } from './lib/op-refusals.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -114,12 +116,30 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
   } else {
     const after = dirtySet(statusPorcelain(vaultPath));
     const delta = deltaPaths(before, after);
+    // A close with no ledger commits everything that became dirty since op-begin, and that cannot tell this operation's new
+    // files from another open operation's. So it is refused while any other token exists, of any age: age cannot show that an
+    // operation was abandoned. There is no override; the way out is the ledger. The token is kept.
+    if (onlyPaths === undefined) {
+      const others = listOperations(vaultPath).filter(other => other.token !== token);
+      if (others.length) {
+        recordRefusal(vaultPath, { op, kind: 'unscoped', paths: delta.length });
+        const named = others.map(other => `${other.token} (${other.op ?? 'unknown op'})`).join(', ');
+        return {
+          ok: false, refused: true,
+          reason: `this close has no --paths-file and another operation is open: ${named}. `
+            + 'Without a scope it would commit everything that became dirty since op-begin, which can include the other operation\'s files. '
+            + `Scope it: node scripts/op-ledger.mjs show --since ${token} --out <ledger>, then run the same op-commit again with --paths-file <ledger>. `
+            + 'The token is kept.',
+        };
+      }
+    }
     const scope = onlyPaths === undefined ? null : new Set(onlyPaths);
     const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
     // Ledger paths that were dirty before the operation and still are: left alone before, now refused unless adopted.
     const preexisting = scope ? [...scope].filter(path => before.has(path) && after.has(path)).sort(byCodeUnit) : [];
     const unowned = preexisting.filter(path => !adopt.has(path));
     if (unowned.length) {
+      recordRefusal(vaultPath, { op, kind: 'pre-dirty', paths: unowned.length });
       const shown = unowned.slice(0, 20).join(', ') + (unowned.length > 20 ? `, and ${unowned.length - 20} more` : '');
       return {
         ok: false, refused: true, preexisting: unowned,
@@ -140,7 +160,10 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
     const result = commitPaths(vaultPath, paths, `${op}: ${title}`, evidence ? { verify: () => verifyStagedEvidence(vaultPath, evidence) } : undefined);
     // A refused evidence check is not a git failure and keeps the token the same way: nothing was
     // committed, the index is as it was, and the same close can be retried once the attribute is fixed.
-    if (result.refused) return { ok: false, refused: true, reason: result.reason };
+    if (result.refused) {
+      recordRefusal(vaultPath, { op, kind: 'evidence', paths: Object.keys(evidence ?? {}).length });
+      return { ok: false, refused: true, reason: result.reason };
+    }
     // A git failure is not an empty delta. Keep the token and the scoped ledger so
     // the same close can be retried once the cause (a lock, a hook) is gone.
     if (result.failed) {

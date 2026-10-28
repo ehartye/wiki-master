@@ -63,7 +63,7 @@ of a source is a citation contract even on a stub.
 5. **Complete the operation.** For applied changes, validate affected catalogs,
    write one `log-entry.mjs --op relink` narrative and close with
    `op-commit.mjs --op relink --title "<summary>" --since <saved-token>`, using the
-   absolute helper paths and shell-safe examples in the completion reference.
+   absolute helper paths and shell-safe examples in the completion reference. An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.
    Inspect the actual committed paths and index-refresh notices; push and verify remote
    publication through the shared completion contract. Report before/after defect counts, verified resolved IDs, remaining
    IDs with reasons, new IDs, and commit/sync status. If nothing changed, no operation
