@@ -2,6 +2,7 @@ import { readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
+import { removeWritten } from './lib/op-ledger.mjs';
 import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -19,6 +20,7 @@ export function abortOperation(vaultPath, token, { now = Date.now() } = {}) {
   try { record = JSON.parse(readFileSync(file, 'utf8')); }
   catch { return { ok: false, reason: `no such operation token "${token}"` }; }
   unlinkSync(file);
+  removeWritten(vaultPath, token);
   const startedAt = typeof record.startedAt === 'string' ? record.startedAt : null;
   return {
     ok: true, token, op: typeof record.op === 'string' ? record.op : null, startedAt,

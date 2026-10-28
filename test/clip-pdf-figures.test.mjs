@@ -13,6 +13,7 @@ import {
 import { main as clipMain, pdfClipContent } from '../scripts/clip-pdf.mjs';
 import { beginOp } from '../scripts/op-begin.mjs';
 import { commitOp } from '../scripts/op-commit.mjs';
+import { showLedger } from '../scripts/op-ledger.mjs';
 import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
 import { scanIntegrity } from '../scripts/health.mjs';
 
@@ -414,6 +415,55 @@ test('--figures-only on a clipping with no source-hash warns instead of refusing
     assert.match(errs.join('\n'), /no source-hash/);
     assert.match(readFileSync(join(dir, 'raw', 'figures', 'old-p2.md'), 'utf8'), /source: "https:\/\/x\.test\/old\.pdf"/);
   } finally {
+    if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// The ledger the writers fill is the whole commit scope for a clip with figures: the clipping, each sidecar and each image.
+test('a full clip with --figures and --since records every file it wrote, and the shown ledger closes the operation clean', real, () => {
+  const dir = tempVault();
+  const prev = process.env.WIKI_MASTER_VAULT;
+  const origLog = console.log; const origErr = console.error;
+  try {
+    const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
+    process.env.WIKI_MASTER_VAULT = dir;
+    const token = beginOp(dir, 'discover');
+    console.log = () => {}; console.error = () => {};
+    let res;
+    try { res = clipMain([pdf, '--figures', '--since', token]); } finally { console.log = origLog; console.error = origErr; }
+    assert.equal(res.status, 'clipped');
+    const shown = showLedger(dir, token);
+    assert.deepEqual(shown.unclaimed, [], 'every changed path was recorded by the clipper');
+    assert.deepEqual(shown.paths.slice().sort(), readdirSync(join(dir, 'raw', 'figures')).map((f) => `raw/figures/${f}`).concat(['raw/clippings/in.md']).sort());
+    assert.ok(shown.paths.some((p) => p.endsWith('.png')) && shown.paths.some((p) => /raw\/figures\/.*\.md$/.test(p)));
+    const done = commitOp(dir, { op: 'discover', title: 'clip with figures', token, paths: shown.paths });
+    assert.equal(done.committed, true);
+    assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' }).trim(), '?? in.pdf', 'nothing of the clip is left dirty');
+  } finally {
+    console.log = origLog; console.error = origErr;
+    if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Without --figures nothing else rewrites the clipping, so the clip itself is the only thing that can put it in the ledger.
+test('a plain clip with --since records the clipping, and only it', real, () => {
+  const dir = tempVault();
+  const prev = process.env.WIKI_MASTER_VAULT;
+  const origLog = console.log; const origErr = console.error;
+  try {
+    const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
+    process.env.WIKI_MASTER_VAULT = dir;
+    const token = beginOp(dir, 'discover');
+    console.log = () => {}; console.error = () => {};
+    let res;
+    try { res = clipMain([pdf, '--since', token]); } finally { console.log = origLog; console.error = origErr; }
+    assert.equal(res.status, 'clipped');
+    assert.deepEqual(showLedger(dir, token).paths, ['raw/clippings/in.md']);
+    assert.deepEqual(showLedger(dir, token).unclaimed, []);
+  } finally {
+    console.log = origLog; console.error = origErr;
     if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
     rmSync(dir, { recursive: true, force: true });
   }

@@ -11,6 +11,10 @@
 //   spaced   options that may also take their value as the next token (`--clipping path`)
 //   lead     options allowed as the very first token, where a positional is otherwise expected
 
+import { optionValue } from './cli-guard.mjs';
+import { openOperationProblem } from './op-ledger.mjs';
+import { resolveVault } from './vault.mjs';
+
 export const CLIP_SPECS = {
   "clip": {
     name: "clip.mjs",
@@ -156,6 +160,17 @@ for (const spec of Object.values(CLIP_SPECS)) {
   spec.usage.splice(at < 0 ? spec.usage.length : at + 1, 0, ...DECLINE_USAGE);
 }
 
+// Every clipper also takes the operation it is writing for. The exact path of each file it writes goes into that
+// operation's ledger (lib/op-ledger.mjs), which `op-ledger.mjs show` turns into the op-commit scope. Without it a clip is
+// recorded nowhere, as before. The command-line entry refuses a token that names no open operation before any work is done.
+const SINCE_USAGE = ['  --since  the operation token op-begin printed: records the path of every file this clip writes in the operation\'s ledger'];
+for (const spec of Object.values(CLIP_SPECS)) {
+  spec.values.push('since');
+  spec.spaced.push('since');
+  const at = spec.usage.indexOf('');
+  spec.usage.splice(at < 0 ? spec.usage.length : at + 1, 0, ...SINCE_USAGE);
+}
+
 // null-safe, side-effect free. Returns { ok: true }, { help: true } or { error }.
 export function checkClipArgs(argv, spec) {
   if (argv.some((a) => a === '--help' || a === '-h')) return { help: true };
@@ -186,9 +201,15 @@ export function checkClipArgs(argv, spec) {
 
 // The command-line entry of a clipper calls this before doing anything else. Help prints the usage to
 // stdout and exits 0; an unknown option prints the problem and the usage to stderr and exits 2.
-export function guardClipArgs(argv, spec, { exit = process.exit, out = console.log, err = console.error } = {}) {
+export function guardClipArgs(argv, spec, { exit = process.exit, out = console.log, err = console.error, vaultPath } = {}) {
   const r = checkClipArgs(argv, spec);
   if (r.help) { for (const line of spec.usage) out(line); exit(0); return 'help'; }
   if (r.error) { err(`${spec.name}: ${r.error}`); for (const line of spec.usage) err(line); exit(2); return 'error'; }
+  // A token that names no open operation would record nothing, quietly, for every file of a long run. Said once, here.
+  const since = optionValue(argv, 'since');
+  if (since !== undefined) {
+    const problem = openOperationProblem(vaultPath ?? resolveVault().path, since);
+    if (problem) { err(`${spec.name}: --since: ${problem}`); exit(2); return 'error'; }
+  }
   return null;
 }

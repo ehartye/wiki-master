@@ -138,8 +138,12 @@ with the vault set as in the access reference.
 **The ledger** is the file `op-commit.mjs --paths-file` takes: a non-empty JSON array
 of vault-relative paths with `/` separators (no drive prefix, backslash, empty segment,
 `.` or `..`), for example `["wiki/authored/demo/guides/user.md","wiki/authored/demo/roadmap.md"]`.
-No helper builds it; write it with your file tool from the pages this task created or
-edited, under `.wiki-master/` or outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
+Record each page you wrote with `op-ledger.mjs add --since <token> <path>...` (the log and
+catalog scripts record theirs when given `--since`), then
+`node "<absolute-plugin-root>/scripts/op-ledger.mjs" show --since <token> --out <ledger>`
+writes this file and lists on stderr what the close would get wrong (a path that was already
+dirty before `op-begin`, a path that is not dirty now, a changed path nobody recorded). Writing
+it by hand with your file tool still works. Keep it under `.wiki-master/` or outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
 does not exist, or one whose letter case or Unicode form differs from the file on disk,
 because a case-insensitive disk would otherwise drop that page's link checks without a word.
 

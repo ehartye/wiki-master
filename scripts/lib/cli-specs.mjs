@@ -31,8 +31,8 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/health.mjs [--json | --legacy | --backlog]', '', 'Reports wiki integrity: open defects, unresolved navigation and the unscored notes. --json prints the full worklist, --legacy the historical score, --backlog only the ingest backlog. Choose one.', 'Read-only.', VAULT],
   },
   'log-entry': {
-    options: ['op', 'title'],
-    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md. Write it after op-begin and list it in the operation\'s ledger.', VAULT],
+    options: ['op', 'title', 'since'],
+    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>" [--since <token>]   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md. Write it after op-begin and list it in the operation\'s ledger: --since records its path there (op-ledger.mjs show prints the ledger).', VAULT],
   },
   'op-abort': {
     options: ['since'],
@@ -45,6 +45,10 @@ export const CLI_SPECS = {
   'op-commit': {
     options: ['op', 'title', 'since', 'paths-file', 'include', 'include-from', 'evidence-map'],
     usage: ['usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--include <path>]... [--include-from <JSON-file>] [--evidence-map <JSON-file>]', '', 'Commits one operation\'s changes and closes its token. With --paths-file only the ledger\'s paths are committed; a ledger path that was already uncommitted when the operation opened is refused unless --include (or --include-from) adopts it. Never pushes.', VAULT],
+  },
+  'op-ledger': {
+    options: ['since', 'from', 'out'],
+    usage: ['usage: node scripts/op-ledger.mjs add --since <token> (<path>... | --from <JSON-file>)', '       node scripts/op-ledger.mjs show --since <token> [--out <file>]', '', 'add records paths you wrote yourself in the operation\'s ledger (the clippers, log-entry, refresh-catalogs and index-gen record theirs when given --since). show prints the JSON array op-commit takes as --paths-file (to --out, or stdout) and, on stderr, lists what the close would get wrong: recorded paths that were already dirty before op-begin, recorded paths that are not dirty now, and changed paths nobody recorded. It never claims the last group.', 'show is read-only. Exit 1: no such operation, nothing recorded, or a bad path.', VAULT],
   },
   purge: {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
@@ -132,7 +136,7 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/op-cleanup.mjs [--hours <n>] [--apply]', '', 'Removes operation tokens left behind by operations that never closed. A token older than --hours (default 24, at least 1) is stale; a recent token is never removed.', DRY, VAULT],
   },
   'refresh-catalogs': {
-    usage: ['usage: node scripts/refresh-catalogs.mjs [--project <slug>] [--apply] [--paths-file <ledger>] [--diff]', '', 'Regenerates a project\'s roadmap catalog, project map and the global index from one vault graph.', 'The default is a dry run whose "changed" list is what an apply would change; --diff adds the lines each file would lose and gain on stderr. --paths-file is the operation\'s ownership ledger: another writer\'s uncommitted pages stay out.', VAULT],
+    usage: ['usage: node scripts/refresh-catalogs.mjs [--project <slug>] [--apply] [--paths-file <ledger>] [--diff] [--since <token>]', '', 'Regenerates a project\'s roadmap catalog, project map and the global index from one vault graph.', 'The default is a dry run whose "changed" list is what an apply would change; --diff adds the lines each file would lose and gain on stderr. --paths-file is the operation\'s ownership ledger: another writer\'s uncommitted pages stay out. With --apply, --since records the changed paths in the operation\'s written-paths ledger (op-ledger.mjs show prints it).', VAULT],
   },
   relationships: {
     usage: ['usage: node scripts/relationships.mjs [--vault <dir>] [--limit <n>] [--seed <page>] [--since <date>] [--semantic] [--json]', '', 'Proposes relationship candidates between pages from shared sources and neighbors. A candidate is a reason to inspect two pages, never proof of a relationship.', 'Read-only.', VAULT],

@@ -223,6 +223,19 @@ export function aheadBehind(cwd) {
   return { ahead, behind };
 }
 
+// The porcelain status that op-begin snapshots, op-commit diffs against and op-ledger checks a ledger with, so all three
+// compute the dirty set one way (lib/op.mjs `dirtySet` parses it). --untracked-files=all is not cosmetic: by default git
+// collapses an entirely untracked directory into one line (`?? wiki/`) instead of listing the files in it, and the delta
+// that feeds commitPaths needs the files (a directory path stages fine but then fails commitPaths' own check that OUR paths
+// ended up staged). Not the `git()` wrapper above: it trims trailing whitespace, and this output is fixed-width columns.
+export function statusPorcelain(cwd) {
+  return execFileSync('git', ['-c', 'core.quotePath=false', '--literal-pathspecs', 'status', '--porcelain', '--untracked-files=all'], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  });
+}
+
 // Everything dirty in the working tree. `-z` removes quoting entirely and
 // `--no-renames` keeps a staged rename as two plain paths, so every entry is one
 // path that can go straight back into commitPaths.

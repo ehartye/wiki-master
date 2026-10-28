@@ -1,37 +1,17 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { isGitRepo } from './lib/git.mjs';
+import { isGitRepo, statusPorcelain } from './lib/git.mjs';
 import { dirtySet } from './lib/op.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
-// Same flags scripts/lib/git.mjs's internal git() wrapper uses on every call:
-// core.quotePath=false keeps non-ASCII bytes literal (dirtySet only strips the
-// surrounding quote pair, it does not decode octal escapes); --literal-pathspecs
-// is a no-op for `status` but kept for consistency with the rest of this codebase.
-//
-// --untracked-files=all is NOT cosmetic here: by default git collapses an
-// entirely-untracked directory into one line (`?? wiki/`) instead of listing
-// the files inside it. git.mjs's uncommittedElsewhere doesn't need this flag
-// because it is display-only, but this snapshot feeds deltaPaths, whose
-// output becomes commitPaths's pathspec list — `wiki/` as a literal path
-// stages the directory's contents fine (git add honors the trailing slash)
-// but then fails commitPaths's own "did OUR paths end up staged" check
-// (`git diff --cached --name-only` lists the individual files, never the
-// directory), which made commitPaths report "nothing to commit" while having
-// silently left real files staged. Reproduced against a fresh untracked
-// `wiki/` dir with two new files before this flag was added.
-function statusPorcelain(cwd) {
-  return execFileSync('git', ['-c', 'core.quotePath=false', '--literal-pathspecs', 'status', '--porcelain', '--untracked-files=all'], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  });
-}
+// The status snapshot is lib/git.mjs `statusPorcelain`: core.quotePath=false keeps non-ASCII bytes literal (dirtySet only
+// strips the surrounding quote pair, it does not decode octal escapes), and --untracked-files=all lists the files inside an
+// untracked directory, which the delta that becomes commitPaths' pathspec list needs. Reproduced against a fresh untracked
+// `wiki/` dir with two new files: commitPaths reported "nothing to commit" while real files stayed staged.
 
 // Snapshots what was ALREADY dirty before this operation starts, so op-commit
 // can later exclude it from the operation's own commit — the property that

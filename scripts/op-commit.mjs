@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { isGitRepo, commitPaths } from './lib/git.mjs';
+import { isGitRepo, commitPaths, statusPorcelain } from './lib/git.mjs';
 import { dirtySet, deltaPaths } from './lib/op.mjs';
 import { planAutoRefresh } from './lib/auto-refresh.mjs';
 import { refreshIndex, readManifestFile } from './index-embed.mjs';
@@ -12,17 +12,9 @@ import { isContent } from './lib/graph.mjs';
 import { findWrappedLinks } from './lib/dewrap-links.mjs';
 import { checkEvidenceMap, verifyStagedEvidence } from './lib/evidence-bytes.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { removeWritten } from './lib/op-ledger.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
-
-// See op-begin.mjs for why --untracked-files=all is load-bearing, not cosmetic.
-function statusPorcelain(cwd) {
-  return execFileSync('git', ['-c', 'core.quotePath=false', '--literal-pathspecs', 'status', '--porcelain', '--untracked-files=all'], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  });
-}
 
 // How many local commits have not reached the upstream, so the gap between
 // "committed" and "durable on other machines" stays visible without this
@@ -169,6 +161,8 @@ export function commitOp(vaultPath, { op, title, token, paths: onlyPaths, eviden
   }
   outcome.wrappedLinks = scanForWrappedLinks(vaultPath, outcome.paths);
   unlinkSync(tokenPath);
+  // The paths the writers recorded for this operation go with it. Every early return above keeps the token, and so keeps this.
+  removeWritten(vaultPath, token);
   return outcome;
 }
 

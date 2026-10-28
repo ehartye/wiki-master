@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
@@ -467,6 +468,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
   // Explicit decline (Phase 2 reject): record the decision instead of clipping,
   // so the next discovery run does not re-litigate this URL.
@@ -658,6 +660,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'clash', existing: clashWith };
   }
   const file = join(clippingsDir, `${slug}.md`);
+  // The exclusive create above has succeeded, so this is the one place the path is known to be this clip's own.
+  record(file);
   // Written first, closed second: a row must never be marked resolved by a clip
   // that then failed to land. Ordering it this way makes the worst case a stale
   // OPEN row (visible, re-runnable) instead of a silently closed one.

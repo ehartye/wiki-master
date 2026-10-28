@@ -19,6 +19,14 @@ why this beats hand-diffing `tag:clippings` against `wiki/sources/`.)
 This records what was already uncommitted, so the commit at the end contains your
 work and not the user's in-progress writing. Close it in step 6.
 
+**Keep the ledger as you go.** Record each page you write (`wiki/sources/...`, a concept
+or synthesis you create or change) with
+`node "<absolute-plugin-root>/scripts/op-ledger.mjs" add --since <token> <path>...`, and give
+`--since <token>` to `index-gen.mjs` and `log-entry.mjs`. When this ingest follows a discover
+run, take the clipping set from that run's ledger file (its `raw/clippings/...` entries), not
+from `git show`. Delegated writers get the parent token in their brief and run the same `add`
+for the pages they write; they never close the operation (see the operations reference).
+
 Prefer a named clipping set; two concurrent ingests can overwrite shared concept
 pages, so coordinate overlapping targets rather than processing the global backlog
 in parallel. Update only pages substantively changed by the evidence.
@@ -75,12 +83,15 @@ For each source:
    received only metadata/link edits; stamp it only after factual verification.
 4. Regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`
    (never hand-edit index.md's generated fence). With another writer in the vault,
-   add `--paths-file <ledger>` (the JSON array of pages this ingest wrote) so their
+   add `--paths-file <ledger>` (the JSON array of pages this ingest wrote, from
+   `op-ledger.mjs show --since <token> --out <ledger>`) so their
    uncommitted pages stay out of the catalog and their lines already in it stay in. Write the log entry by piping the
-   narrative to `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<title>"`
+   narrative to `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<title>" --since <token>`
    (creates `log/<timestamp>-ingest-<slug>.md` in the resolved vault).
 5. Never edit anything under `raw/`.
 6. **Close the operation:**
-   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token>`
+   Run `op-ledger.mjs show --since <saved-token> --out <ledger>` and read what it lists as
+   unclaimed (another writer's pages, or one of yours you did not record), then
+   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token> --paths-file <ledger>`
    Commits exactly the pages this ingest touched, as one revertable unit, and
    reports anything it deliberately left alone. Then follow the shared completion contract to push your updates and verify remote publication.

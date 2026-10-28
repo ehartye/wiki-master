@@ -6,6 +6,7 @@ import { parseNote } from './lib/note.mjs';
 import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { regenerateBacklogRoadmaps } from './backlog-gen.mjs';
 import { regenerateAuthoredMocs, projectSlug } from './moc-authored-gen.mjs';
 import { regenerateIndex } from './index-gen.mjs';
@@ -116,10 +117,13 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const options = catalogArgs(argv);
+  const options = catalogArgs(argv, { since: true });
   const ownedPaths = options.pathsFile ? readLedger(options.pathsFile) : undefined;
-  const { diffs, ...result } = refreshCatalogs(resolveVault().path, { ...options, ownedPaths });
+  const { path: vaultPath } = resolveVault();
+  const { diffs, ...result } = refreshCatalogs(vaultPath, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
+  // Only an apply writes, and only what it changed is a path this operation owns.
+  if (result.applied && options.since !== undefined && result.changed.length) writtenRecorder(vaultPath, argv)(result.changed);
   // One block per changed file, after the one-line JSON, on stderr so the JSON on stdout keeps its shape.
   for (const d of diffs ?? []) {
     const body = [...d.removed.map(l => `- ${l}`), ...d.added.map(l => `+ ${l}`)];

@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { writtenRecorder } from './lib/op-ledger.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -82,7 +83,7 @@ function python() {
   return resolvedPython;
 }
 
-export function main(argv) {
+export function main(argv, { toText = pptxToText } = {}) {
   const pptxPath = argv[0];
   if (!pptxPath) {
     for (const line of CLIP_SPECS['clip-pptx'].usage) console.error(line);
@@ -98,6 +99,7 @@ export function main(argv) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  const record = writtenRecorder(vaultPath, argv);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -129,7 +131,7 @@ export function main(argv) {
   }
 
   let text;
-  try { text = pptxToText(pptxPath); }
+  try { text = toText(pptxPath); }
   catch {
     // Distinguish "python-pptx not installed" (fatal — fix the install) from
     // "this file failed" (skip, so batch runs continue).
@@ -178,6 +180,7 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  record(file);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, pptx)`);
   gate.finish();
   return { status: 'clipped', slug, file };
