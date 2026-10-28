@@ -72,7 +72,7 @@ test('stdout is the JSON array and nothing else, so it can be piped to a file', 
   recordWritten(v, token, ['wiki/sources/a.md']);
   const shown = cli(v, 'show', '--since', token);
   assert.equal(shown.status, 0, shown.stderr);
-  assert.deepEqual(JSON.parse(shown.stdout), ['wiki/sources/a.md']);
+  assert.equal(shown.stdout, `${JSON.stringify(['wiki/sources/a.md'], null, 2)}\n`);
 });
 
 test('a forgotten log entry is unclaimed before the close, and recording it clears that', (t) => {

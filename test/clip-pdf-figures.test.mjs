@@ -446,3 +446,25 @@ test('a full clip with --figures and --since records every file it wrote, and th
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Without --figures nothing else rewrites the clipping, so the clip itself is the only thing that can put it in the ledger.
+test('a plain clip with --since records the clipping, and only it', real, () => {
+  const dir = tempVault();
+  const prev = process.env.WIKI_MASTER_VAULT;
+  const origLog = console.log; const origErr = console.error;
+  try {
+    const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
+    process.env.WIKI_MASTER_VAULT = dir;
+    const token = beginOp(dir, 'discover');
+    console.log = () => {}; console.error = () => {};
+    let res;
+    try { res = clipMain([pdf, '--since', token]); } finally { console.log = origLog; console.error = origErr; }
+    assert.equal(res.status, 'clipped');
+    assert.deepEqual(showLedger(dir, token).paths, ['raw/clippings/in.md']);
+    assert.deepEqual(showLedger(dir, token).unclaimed, []);
+  } finally {
+    console.log = origLog; console.error = origErr;
+    if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -71,7 +71,9 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    [Reddit and Medium evidence policy](../wiki-maintainer/references/evidence.md#reddit-and-medium).
 4. **Before the first decline or clip write**, open a discover operation with
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op discover` and retain its
-   token using the host-specific completion example. Reuse that operation below.
+   token using the host-specific completion example. Reuse that operation below, and
+   pass its token as `--since <token>` on every clip: each clipper then records the exact
+   path of every file it writes in the operation's ledger.
    **Record every reject** so it is never re-litigated:
    `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<one-line reason>"`.
    "Seen, considered, declined" must have a representation — an unrecorded reject
@@ -83,7 +85,7 @@ Use the operation opened before the first decline or clip. If no decline was
 recorded, open it now before clipping; never overwrite a saved token.
 
 For each kept candidate:
-`node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`
+`node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>" --since <token>`
 
 **Pass `--topic` on every clip in the run, and use the same string for all of
 them** — it is what lets `/wiki-triage` group this run's leftovers together
@@ -98,9 +100,10 @@ file or a spreadsheet does not go through `clip.mjs` — it goes through
 `/clip-docx` skills), and **every one of those takes `--topic` too**:
 
 ```bash
-node "<absolute-plugin-root>/scripts/clip-pdf.mjs"  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>"
-node "<absolute-plugin-root>/scripts/clip-docx.mjs" "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>"
-node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs"  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>" --since <token>
+node "<absolute-plugin-root>/scripts/clip-docx.mjs" "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>" --since <token>
+node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>" --since <token>
+# clip-pptx.mjs takes the same options; clip-pdf also records the figure files it renders (--figures)
 ```
 
 **A Confluence Cloud URL is HTML but also does not go through `clip.mjs`** — it
@@ -110,7 +113,7 @@ as thin content / gets auto-declined. Route it to `/clip-confluence` instead
 dependency this one clipper alone takes on; see its skill for why):
 
 ```bash
-node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<confluence-url-or-page-id>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<confluence-url-or-page-id>" --quality=<tier> --topic="<topic>" --since <token>
 ```
 
 Forgetting it on the binary paths is the failure mode this run is most likely to
@@ -154,10 +157,20 @@ Show the ranked list (title, url, quality, why), which clips succeeded, and whic
 were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
 `/wiki-triage` and report their counts.
 
-**Finish the capture operation before any decision pause.** Validate returned
-clipping paths, write one discovery log entry naming the clipped/declined/failed
-counts, and close with:
-`node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token>`.
+**Finish the capture operation before any decision pause.** The clipping set is what
+the clippers recorded, not something to rebuild afterwards: run
+`node "<absolute-plugin-root>/scripts/op-ledger.mjs" show --since <saved-token> --out <ledger>`
+and read its `raw/clippings/...` entries, exactly as written (a name with an em dash
+included). The number of `raw/clippings/` entries must equal the number of clippings the
+`clipped:` results reported (one per URL or file; `clip-gh` reports a file count, and
+`clip-pdf --figures` adds `raw/figures/` entries that are not clippings); if it does not,
+stop and find the difference. Never rebuild the set from `git show`, whose default output
+quotes and escapes a non-ASCII name. Write one discovery log entry naming the
+clipped/declined/failed counts (`log-entry.mjs ... --since <saved-token>`), run `show`
+again, and close with:
+`node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token> --paths-file <ledger>`.
+The `<ledger>` file you wrote outlives the close, so the ingest that follows takes its
+clipping set from it.
 Verify the commit and push and verify remote publication through the shared
 contract. If no writes occurred, report that and do not manufacture a log/commit.
 Clippings must not remain dirty while waiting for an ingestion decision.

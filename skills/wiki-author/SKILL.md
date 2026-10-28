@@ -33,21 +33,25 @@ Steps:
    factual content or project behavior was actually verified.
 5. Validate frontmatter, placement and links of exactly the pages this task wrote.
    Use full-path links when crossing project boundaries:
-   `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`. Write the ledger, a JSON
-   array file of the vault-relative paths you created or edited (kept under
-   `.wiki-master/` or outside the vault), and run
+   `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`. Record each page you
+   created or edited with `node "<absolute-plugin-root>/scripts/op-ledger.mjs" add --since <saved-token> <path>...`,
+   then write the ledger, a JSON array file of those vault-relative paths (kept under
+   `.wiki-master/` or outside the vault), with
+   `op-ledger.mjs show --since <saved-token> --out <ledger>`, and run
    `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`
    with the vault set as in the access reference. Exit 1 means defects: fix, rerun,
    then continue. The ledger format, exit codes, rules and limits are in the
    [authoring reference](../wiki-maintainer/references/authoring.md#validating-what-a-task-wrote).
 6. Refresh affected catalogs with `refresh-catalogs.mjs --project <slug> --apply` (one graph
    scan for the project's backlog, MOC and global index). With concurrent writers pass
-   `--paths-file <ledger>` to omit their untracked additions. Inspect the returned
-   `changed` paths and add the safe catalog paths to the ledger; when the refresh added
-   paths, rerun step 5's check. If the result lists `staleCatalogs`, other projects' generated
+   `--paths-file <ledger>` to omit their untracked additions, and `--since <saved-token>`
+   so the paths it changes are recorded. Inspect the returned `changed` paths, rewrite the
+   ledger with `op-ledger.mjs show`, and when the refresh added paths, rerun step 5's check. If the result lists `staleCatalogs`, other projects' generated
    catalogs now hold a bare link your pages made ambiguous: refresh each named project too.
-7. Complete the shared operations contract: one relink log entry, then
-   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`.
+7. Complete the shared operations contract: one relink log entry (with `--since <saved-token>`),
+   then `op-ledger.mjs show --since <saved-token> --out <ledger>` once more and read what it
+   lists as unclaimed, then
+   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token> --paths-file <ledger>`.
    Verify the commit and index-refresh notices, push with `wiki-sync.mjs`, and
    verify that the update reached the configured upstream. The authoring request
    includes this completion step unless the user explicitly holds publication;

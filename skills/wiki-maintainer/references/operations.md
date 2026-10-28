@@ -28,6 +28,17 @@ because its file was deleted; account for the work and verify the outcome.
    pre-existing changes and report exclusions instead of sweeping them into a commit.
    With concurrent writers, maintain an explicit ledger of the exact vault-relative
    files this operation owns, including its log and generated catalogs when safe.
+   Let the writers keep it: give `--since <token>` to every clipper, to `log-entry.mjs`,
+   to `index-gen.mjs` and to `refresh-catalogs.mjs --apply`, each of which records the
+   exact path it writes (unquoted UTF-8, so a name with an em dash survives), and record
+   a page you wrote with your own file tools using `op-ledger.mjs add --since <token>
+   <path>...`. `op-ledger.mjs show --since <token> --out <file>` writes the JSON array
+   `--paths-file` takes and lists on stderr what the close would get wrong: recorded
+   paths that were already dirty before `op-begin`, recorded paths that are not dirty
+   now, and changed paths nobody recorded (another writer's, or one you forgot; it
+   never claims them). Do not rebuild the set from `git show` or `git status`: git
+   prints a non-ASCII name in quotes with octal escapes unless told otherwise, and a
+   name lost that way is lost without an error.
    Pass a JSON array of those paths using `op-commit.mjs --paths-file <file>`;
    keep the manifest under `.wiki-master/` or outside the vault. This narrows the
    newly dirty delta and reports other new paths as outside scope. A ledger path that
@@ -53,12 +64,14 @@ because its file was deleted; account for the work and verify the outcome.
    canonical placement and exact citation/link targets. Preserve raw bodies and
    unrelated changes. `reviewed` advances only for factual verification. On uncertain
    write timeouts inspect the target before retrying; do not make a duplicate page.
-4. **Refresh affected catalogs once.** For project authoring run `node "<absolute-plugin-root>/scripts/refresh-catalogs.mjs" --project <slug> --apply` instead of three separate generators. It builds one vault graph, updates only that project's backlog and MOC, then the global index; unchanged files are not rewritten. Leave out `--apply` for a dry run: it writes nothing and its `changed` list is the list an apply would change, and `--diff` prints each changed file's removed and added lines to stderr. With concurrent writers, pass `--paths-file <JSON ownership ledger>` so another writer's uncommitted pages stay out: a page is listed when it is in the last commit or the ledger names it, and a page another writer has only staged is not. A line the catalog already has for such a page, put there by that writer's own run, is kept. Add the returned `changed` paths to the operation's commit ledger after inspecting them. Without a project selector it refreshes all projects. Standalone generators remain available and the project generators accept `--project`. A global scan is still needed for cross-project ambiguous names.
+4. **Refresh affected catalogs once.** For project authoring run `node "<absolute-plugin-root>/scripts/refresh-catalogs.mjs" --project <slug> --apply` instead of three separate generators. It builds one vault graph, updates only that project's backlog and MOC, then the global index; unchanged files are not rewritten. Leave out `--apply` for a dry run: it writes nothing and its `changed` list is the list an apply would change, and `--diff` prints each changed file's removed and added lines to stderr. With concurrent writers, pass `--paths-file <JSON ownership ledger>` so another writer's uncommitted pages stay out: a page is listed when it is in the last commit or the ledger names it, and a page another writer has only staged is not. A line the catalog already has for such a page, put there by that writer's own run, is kept. Inspect the returned `changed` paths; with `--since <token>`, an `--apply` records them in the operation's ledger (a dry run records nothing). Without a project selector it refreshes all projects. Standalone generators remain available and the project generators accept `--project`. A global scan is still needed for cross-project ambiguous names.
 5. **Log once.** Pipe a concise narrative into `log-entry.mjs --op <op> --title
    "<title>"`. It writes one uniquely named `log/YYYY-MM-DD-HHmmss-<op>-<slug>.md`,
    with date/op/title frontmatter and a grep-friendly heading. Use the existing
    operation vocabulary (ingest, discover, query, lint, relink); authoring uses
-   relink. Never append to a shared aggregate log; browse through `log.base`.
+   relink. Never append to a shared aggregate log; browse through `log.base`. Pass
+   `--since <token>`: the entry's name carries a timestamp known only now, and the
+   ledger is how it reaches the close.
 6. **Commit and inspect.** Run `op-commit.mjs --op <op> --title "<title>" --since
    <token>`. Verify its result and the actual changed paths. Never `git add -A`.
    The helper attempts a semantic index refresh after committing; inspect notices
@@ -110,7 +123,12 @@ because its file was deleted; account for the work and verify the outcome.
   unique log path and recheck the resulting commit instead of relying on its old SHA.
 - **Respect holds and ownership.** Do not close a user-held operation. A delegated
   worker reports its owned paths and validation to its enclosing operation's named
-  owner rather than closing the parent's token. That owner remains responsible for
+  owner rather than closing the parent's token. The hand-off is the ledger: the brief
+  gives the worker the parent's token; the worker records each path it writes with
+  `op-ledger.mjs add --since <parent token> <path>...` (a clipper it runs takes
+  `--since` too) and reports its validation; it never runs `op-commit` or `op-abort`.
+  The owner runs `op-ledger.mjs show --since <parent token>`, resolves whatever it
+  lists as unclaimed, and closes once. That owner remains responsible for
   the scoped commit, push and remote verification; delegation does not drop the
   publication step. Leave other agents' tokens alone unless ownership was explicitly transferred;
   tokens contain an opening dirty-path snapshot, not proof of who owns later edits.
@@ -128,6 +146,10 @@ without another approval. Prefer normal `op-commit` closure when the saved opera
 can be completed. `--hours <n>` changes the age filter, with a one-hour minimum;
 respect that eligibility and verify removal. Never sweep tokens by age or delete
 them manually. Token files are local Git-ignored state, not cross-machine locks.
+The paths an operation's writers recorded sit in `<token>.paths.jsonl` beside the
+token. `op-commit` (when the close lands), `op-abort` and a stale token removed by
+`op-cleanup` take it with them; `op-cleanup` also lists a ledger whose token is
+already gone and removes it only with `--apply --token <that id>`.
 
 **Stopping early.** A session that opened an operation and will not finish it, or whose work landed another way, drops its own token with `node "<absolute-plugin-root>/scripts/op-abort.mjs" --since <token>`. It removes that one token whatever its age and nothing else: the files the operation wrote stay in the working tree, uncommitted, for a later operation to commit. Do not use it on a token another session holds. Open operations are visible without running a sync: `health` and `session-brief` print a line when any are open, and `wiki-sync` mentions other writers' operations once for a given set of tokens, again when the set changes, and once a day while it stays true.
 
