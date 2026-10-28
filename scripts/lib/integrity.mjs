@@ -201,10 +201,10 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
   };
 }
 
-export function integrityReport(r) {
+export function integrityReport(r, { extraLines = [] } = {}) {
   const lines = [`Open integrity defects: ${r.defectCount} (target 0)`,
     `Scanned ${r.coverage.contentPages} content pages; ${r.coverage.provenanceEligible} require evidence; ${r.coverage.stubs} stubs.${r.coverage.retired ? ` ${r.coverage.retired} retired.` : ''}`,
-    `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`];
+    `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`, ...extraLines];
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
   if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
   if (r.unrecognizedBacklogStatus?.length) lines.push(`Backlog items with a missing or unrecognized status: ${r.unrecognizedBacklogStatus.length} (unscored; the project's generated roadmap lists them under "Unrecognized status"): ${r.unrecognizedBacklogStatus.slice(0, 5).map(x => `${x.page} (${x.status ?? 'no status'})`).join(', ')}${r.unrecognizedBacklogStatus.length > 5 ? ', ...' : ''}`);

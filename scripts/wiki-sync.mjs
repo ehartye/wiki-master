@@ -7,6 +7,7 @@ import {
 } from './lib/git.mjs';
 import { obsidianGitAutoCommit } from './lib/obsidian-git.mjs';
 import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
+import { notesDue } from './lib/sync-notes.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -153,10 +154,13 @@ export async function main(argv) {
   } else if (r.obsidianGit?.enabled.length) {
     console.log(`⚠ Obsidian Git is set to commit or push by itself (${r.obsidianGit.enabled.join(', ')}). ${PLUGIN_ADVICE}`);
   }
-  if (r.openOperations.length) {
+  // These two describe other writers' operations, not what this sync did: said once per set of tokens, again when the set
+  // changes and once a day while it stays true (lib/sync-notes.mjs), not on every run.
+  const due = notesDue(vaultPath, { open: r.openOperations, stale: r.staleOperations });
+  if (due.open) {
     console.log(`note: ${r.openOperations.length} operation(s) still open (${r.openOperations.join(', ')}); their files are not committed by this sync.`);
   }
-  if (r.staleOperations.length) {
+  if (due.stale) {
     console.log(`note: ${r.staleOperations.length} abandoned operation token(s) older than ${STALE_OPERATION_HOURS} hours (${r.staleOperations.join(', ')}); age alone does not prove abandonment. Review with: node scripts/op-cleanup.mjs`);
   }
   if (r.committedLocal) {

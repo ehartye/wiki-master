@@ -129,6 +129,8 @@ can be completed. `--hours <n>` changes the age filter, with a one-hour minimum;
 respect that eligibility and verify removal. Never sweep tokens by age or delete
 them manually. Token files are local Git-ignored state, not cross-machine locks.
 
+**Stopping early.** A session that opened an operation and will not finish it, or whose work landed another way, drops its own token with `node "<absolute-plugin-root>/scripts/op-abort.mjs" --since <token>`. It removes that one token whatever its age and nothing else: the files the operation wrote stay in the working tree, uncommitted, for a later operation to commit. Do not use it on a token another session holds. Open operations are visible without running a sync: `health` and `session-brief` print a line when any are open, and `wiki-sync` mentions other writers' operations once for a given set of tokens, again when the set changes, and once a day while it stays true.
+
 **Git ownership.** The Obsidian Git plugin stays installed for its source-control view
 and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
 interval 0, commit on file change off, auto push interval 0): they commit half-finished
