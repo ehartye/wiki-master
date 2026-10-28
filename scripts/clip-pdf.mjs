@@ -86,6 +86,38 @@ export function stripRunningHeadersFooters(text) {
 // The negative lookahead excludes only the capital-letter case, so a genuine
 // FAQ/TOC full of real "?"s stays clean while dense runs of "<digit> ? <digit>"
 // still trip the threshold below.
+// A letter inventory. A broken font map can leave only valid letters: it drops some (a text layer without a `u`), shifts
+// the whole alphabet (`An` read as `$Q`), or swaps one letter for another. Every other check here reads that as healthy,
+// and the clipping is quoted as authoritative. No natural Latin-script text lacks an `a` or a `t`, in any language, so a
+// long enough text whose share of such a letter is far below every language's share is a text layer with a hole in it.
+//
+// The floor for each letter is 40% of the lowest share among English, German, French, Spanish and Italian (published
+// letter-frequency tables), so a text in any of them stays well above it. The checked set leaves out the letters that
+// vary most between languages (k w x y z q j v b f g p). Measured on 836 Latin-script PDF-derived clippings of one
+// vault with at least 5,000 letters each: the first percentile of each checked letter's share is 60% to 84% of its
+// median while the floors are 7% to 40% of it, and one document was below a floor, on six letters at once (a 0.73% against 6.5% for `a`, 0.57% against
+// 2.8% for `c`); it is a text layer shifted by a font offset (`6XVWDLQDEOH` for `Sustainable`) that was cited as a
+// source. At 50% of the lowest share two more were flagged (a 1.24% `u` on exam answers); at 40% none was. A text
+// under the length gate is not judged, and neither is one that is not mostly Latin script (a Cyrillic text has no `a`).
+const INVENTORY_MIN_LETTERS = 5000;
+const INVENTORY_LATIN_SHARE = 0.9;
+const INVENTORY_FLOOR = { a: 0.026, e: 0.0472, i: 0.025, o: 0.01, t: 0.0184, n: 0.0268, s: 0.02, r: 0.024, l: 0.0136, d: 0.0148, c: 0.0112, u: 0.0112, m: 0.0096, h: 0.0028 };
+
+export function letterInventory(text, { minLetters = INVENTORY_MIN_LETTERS } = {}) {
+  const source = String(text);
+  const all = source.match(/\p{L}/gu)?.length ?? 0;
+  const latin = source.match(/\p{Script=Latin}/gu)?.length ?? 0;
+  if (!all || latin / all < INVENTORY_LATIN_SHARE) return { tested: false, suspect: false, letters: 0, low: [] };
+  const folded = source.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().match(/[a-z]/g) ?? [];
+  if (folded.length < minLetters) return { tested: false, suspect: false, letters: folded.length, low: [] };
+  const counts = {};
+  for (const c of folded) counts[c] = (counts[c] ?? 0) + 1;
+  const low = Object.entries(INVENTORY_FLOOR)
+    .map(([letter, floor]) => ({ letter, share: (counts[letter] ?? 0) / folded.length, floor }))
+    .filter((x) => x.share < x.floor);
+  return { tested: true, suspect: low.length > 0, letters: folded.length, low };
+}
+
 export function assessFidelity(text) {
   const words = (text.match(/\S+/g) || []).length || 1;
   const mangledMath = (text.match(/[A-Za-z0-9)\]]\s?\?\s?(?![A-Z])[A-Za-z0-9(]/g) || []).length;
@@ -118,12 +150,14 @@ export function assessFidelity(text) {
   // length decided the verdict, so any long document accumulated 8 ordinary
   // question marks and read as math-mangled forever. Keep the floor so a short
   // snippet is not condemned by one or two hits, but require real density too.
+  const inventory = letterInventory(text);
   const degraded =
     (mangledMath >= 8 && mangledMath / words > 0.005) ||
     cid > 5 ||
     replacement / words > 0.015 ||
-    gibberish;
-  return { degraded, mangledMath, replacement, cid, letterRatio, gibberish };
+    gibberish ||
+    inventory.suspect;
+  return { degraded, mangledMath, replacement, cid, letterRatio, gibberish, inventory };
 }
 
 // Build the clipping note. Pure: no IO, no pdftotext — the testable core.

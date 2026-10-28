@@ -6,7 +6,7 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { evidenceHashOf, findingId, DISPOSITIONS_FILE, loadDispositions, reviewedBy } from './lib/lint-dispositions.mjs';
 cliGuard(import.meta.url);
@@ -299,7 +299,7 @@ const TIERS = ['convention', 'gapped', 'unverified'];
 const SHOW_BY_DEFAULT = ['gapped', 'unverified'];
 
 function parseArgs(argv) {
-  const opt = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  const opt = (name) => optionValue(argv, name);
   const tier = opt('tier');
   if (tier && tier !== 'all' && !TIERS.includes(tier)) throw new Error(`--tier must be one of: ${[...TIERS, 'all'].join(', ')}`);
   const pathsFile = opt('paths-file');

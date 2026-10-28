@@ -37,3 +37,24 @@ export function cliGuard(moduleUrl, { argv = process.argv.slice(2), entry = proc
   const token = spec.options ? unknownOption(argv, spec.options) : null;
   if (token !== null) { err(rejection(name, spec.options, token)); exit(2); }
 }
+
+// The values given to an option, in order, in either spelling the guard accepts: `--name=value` and `--name value`.
+// A token that starts with `--` is not a value, so `--name` with nothing after it (or before another option) gives the
+// empty string, which a script can report as "needs a value". Nothing after a bare `--` is read, and only the whole
+// name matches (`--paths-file-extra=x` is not `--paths-file`). A script that reads its own values with
+// `startsWith('--name=')` finds only the first spelling and silently ignores the second.
+export function optionValues(argv, name) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    const token = argv[i];
+    if (token === '--') break;
+    if (token === `--${name}`) {
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('--')) out.push('');
+      else { out.push(next); i++; }
+    } else if (token.startsWith(`--${name}=`)) out.push(token.slice(name.length + 3));
+  }
+  return out;
+}
+
+export const optionValue = (argv, name) => optionValues(argv, name)[0];

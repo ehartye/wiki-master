@@ -11,7 +11,8 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { assessFidelity } from './clip-pdf.mjs';
+import { assessFidelity, letterInventory } from './clip-pdf.mjs';
+import { clippingKind } from './lib/reclip-html.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -71,8 +72,16 @@ export function splitBody(fileText) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const apply = process.argv.includes('--apply');
   const ocrFloor = process.argv.includes('--ocr-floor');
+  const inventory = process.argv.includes('--inventory');
+  if (inventory && (apply || ocrFloor)) {
+    // A grade on evidence is the owner's call: the inventory only lists.
+    console.error('refresh-fidelity: --inventory only lists the suspect clippings; it has no apply mode and is not combined with --ocr-floor');
+    process.exit(2);
+  }
   const { path: vault } = resolveVault();
   const dir = join(vault, 'raw', 'clippings');
+  const suspects = [];
+  let tested = 0;
   const floored = [];
   const cleared = [];
   const kept = [];
@@ -84,6 +93,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       if (e.isDirectory()) { walk(p); continue; }
       if (!e.name.endsWith('.md')) continue;
       const text = readFileSync(p, 'utf8');
+      if (inventory) {
+        // Only text read from a PDF or a document: the inventory is a check on a text layer, not on a web page.
+        if (clippingKind(text) !== 'pdf') continue;
+        const r = letterInventory(splitBody(text));
+        if (!r.tested) continue;
+        tested++;
+        const marked = /^fidelity:\s*"?degraded"?\s*$/m.test(text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '');
+        if (r.suspect && !marked) {
+          suspects.push({ path: p.slice(vault.length + 1).replace(/\\/g, '/'), letters: r.letters, low: r.low.map((x) => ({ letter: x.letter, share: +x.share.toFixed(4), floor: x.floor })) });
+        }
+        continue;
+      }
       if (ocrFloor) {
         const next = ocrFloorBackfill(text);
         if (next === null) continue;
@@ -106,6 +127,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   };
   if (existsSync(dir)) walk(dir);
+
+  if (inventory) {
+    console.log(JSON.stringify({ type: 'refresh-fidelity', mode: 'inventory', applied: false, tested, count: suspects.length, suspects }));
+    process.exit(0);
+  }
 
   if (ocrFloor) {
     console.log(JSON.stringify({ type: 'refresh-fidelity', mode: 'ocr-floor', applied: apply, count: floored.length, paths: floored }));
