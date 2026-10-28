@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.83.0 — 2026-10-28
+
+- The evaluation inputs that named private pages are no longer in this repository. The 40-question general set (`eval/wiki-efficacy.questions.json`) and its recorded reports (baseline, development, held-out, drift sample, pilot checks, vault checks) were the recorded inputs and results of a measurement on the maintainer's own vault: their expected pages are real pages there, so they could not simply be reworded, and a public fixture of 36 pages would saturate them the way it saturates the keyword set (page recall at 10 is 1.0 on that corpus). The seven files are moved, unchanged and checksummed, to a store outside the repository; the recorded numbers stay in `docs/wiki-efficacy.md` as history. The public repository's git history still holds the earlier text; that was decided separately and is unchanged.
+- A public sample stays: `eval/evaluator-sample.questions.json`, 12 questions over `eval/plugin-docs-vault` (the pinned documentation corpus used by the keyword-engine set), in five categories with five labelled passages, so anyone can exercise `evaluate-retrieval.mjs` end to end. It measures nothing about retrieval quality (the corpus is 36 pages); `test/evaluator-sample.test.mjs` checks every expected page and passage against the corpus and runs the real runner, pinning the shape of a run and not its scores.
+- `test/private-terms-known.txt` is empty: the private-terms scan reports 0 hits and 0 known hits, down from 68 in six files at 0.68.0 and 44 in five at 0.79.0.
+- Documentation: `docs/wiki-efficacy.md`, and the comments in `scripts/build-keyword-eval.mjs` and `scripts/lib/fs-keyword.mjs` that cited the old file.
+- Evidence: 4 new tests (the suite is 2,084 passing and one skipped; it was 2,080); 5 mutations were applied and each fails a test.
+
 ## 0.82.0 — 2026-10-28
 
 - `wiki-sync` no longer repeats the same two notes on every run. "N operation(s) still open" and "abandoned operation token" describe other writers' state, not what the sync did, and in a vault with several writers one of them is nearly always true. Each is now said once for a given set of tokens, again when the set changes, and again once a day while it stays true. A local file, `.wiki-master/sync-notes.json`, remembers what was said (never committed or shared); if it cannot be read or written the note is said, which is the old behaviour. `--commit-local` still refuses while an operation is open; only the note is deduplicated.

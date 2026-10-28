@@ -15,7 +15,7 @@ node scripts/drift.mjs --coverage --json
 node scripts/drift.mjs --limit=10 --json
 node scripts/stale.mjs
 node scripts/index-embed.mjs --status
-node scripts/evaluate-retrieval.mjs --questions eval/wiki-efficacy.questions.json --split development --output eval/development.json
+WIKI_MASTER_VAULT=eval/plugin-docs-vault node scripts/evaluate-retrieval.mjs --questions eval/evaluator-sample.questions.json --keyword-only --output eval/sample-run.json
 ```
 
 Search indexes `wiki/` and `moc/`, combines exact identities, keyword candidates and semantic chunks, and returns current passages with line numbers and metadata. `--project`, `--type`, and `--status` filter results. `--include-raw` adds a separate bounded raw result channel. The keyword channel reads `wiki/`, `moc/` and, with `--include-raw`, `raw/` directly from the Markdown files and ranks candidates by exact phrase, then all query terms, then partial matches (`scripts/lib/fs-keyword.mjs`); it needs no running app. `--include-moc` is retired and ignored. Inspect `tier`, `diagnostics`, and `index` when a backend is unavailable. Indexed freshness describes file versions, not factual correctness. Ollama requests have time limits.
@@ -34,7 +34,7 @@ Task maps are curated entry points around recurring questions, distinct from gen
 
 ## Evaluation and limits
 
-`eval/wiki-efficacy.questions.json` contains 40 real-vault questions: 30 development and 10 held out, covering exact names, aliases, paraphrases, tasks, complementary topics and state. The runner records page recall@10, precision@3, reciprocal rank, labeled passage/evidence outcomes, backend diagnostics, latency and estimated output tokens. Missing ground truth and unavailable labeled metrics make a run incomplete (exit 2); malformed input is an error (exit 1). Evidence correctness evaluates only explicitly judged positive/forbidden citations, not entailment. Most questions currently judge pages; only one labels a passage and two label evidence. Expand those judgments before treating them as broad citation-quality measures.
+A set of 40 real-vault questions (30 development, 10 held out) measured the maintainer's vault. It and its recorded reports name that vault's private pages, so they are held outside this repository, and the tables below are their recorded summaries. `eval/evaluator-sample.questions.json` is a public sample of 12 questions over `eval/plugin-docs-vault` (the same pinned corpus as the keyword-engine set) that exercises the runner for anyone; it measures nothing about retrieval quality, and `test/evaluator-sample.test.mjs` checks it against the corpus. The 40 covered exact names, aliases, paraphrases, tasks, complementary topics and state. The runner records page recall@10, precision@3, reciprocal rank, labeled passage/evidence outcomes, backend diagnostics, latency and estimated output tokens. Missing ground truth and unavailable labeled metrics make a run incomplete (exit 2); malformed input is an error (exit 1). Evidence correctness evaluates only explicitly judged positive/forbidden citations, not entailment. Most questions currently judge pages; only one labels a passage and two label evidence. Expand those judgments before treating them as broad citation-quality measures.
 
 The original Obsidian CLI stopped responding during baseline collection. The saved baseline therefore measures the original semantic-only search, with keyword search disabled. Compare it with the same controlled backend condition; do not describe it as a full hybrid before/after result. Context construction is excluded from new-query latency. Rich passages and diagnostics cost more output tokens than the legacy path-only response. Held-out results are reported after development work, not used to tune query-specific behavior.
 
@@ -60,11 +60,11 @@ Rich JSON output increased from about 306 to 4,296 estimated tokens per question
 
 The live drift sample evaluated 10 pages with zero failures; all ten used partial document/chunk sampling. No sampled page crossed the drift threshold. This is not a clean bill of health for the 1,081 concept/synthesis pages or a factual review of the sampled pages. Ten existing concept review dates were preserved. New maps and source/concept pages have valid citation routes. One existing forward link on the edited RAG page remains deferred.
 
-Reports: [baseline](../eval/wiki-efficacy.baseline.json), [development](../eval/wiki-efficacy.after-development.json), [held-out](../eval/wiki-efficacy.after-heldout.json), [drift sample](../eval/wiki-efficacy.drift-sample.json), [pilot checks](../eval/wiki-efficacy.pilot-check.json).
+Reports (baseline, development, held-out, drift sample, pilot checks, vault checks): held outside this repository with the question set; the numbers in the tables above are their summaries.
 
 Final verification: `node --test` ran 1,004 tests: 1,002 passed, one skipped, and one pre-existing triage-auth startup failure. The same failure reproduces on unchanged code: random port selection can hit a Windows-excluded port, producing EACCES while the server retries only EADDRINUSE (confirmed and fixed in 0.44.1). Independent spec and code-quality review found no outstanding important or critical issues after fixes. `git diff --check` passed.
 
-Stricter citation handling exposed three malformed sources lists, now repaired against matching raw source hashes, and one remaining uncaptured NoteBuddy source. Related navigation no longer disguises that missing evidence. The structural score is therefore not directly comparable to its older, more permissive result; the remaining source gap and five unreachable derived pages are visible in [vault checks](../eval/wiki-efficacy.vault-check.json).
+Stricter citation handling exposed three malformed sources lists, now repaired against matching raw source hashes, and one remaining uncaptured NoteBuddy source. Related navigation no longer disguises that missing evidence. The structural score is therefore not directly comparable to its older, more permissive result; the remaining source gap and five unreachable derived pages are visible in the vault checks (held outside this repository).
 
 ## Keyword-engine questions
 

@@ -11,7 +11,7 @@ import { terms, inScope } from './retrieval.mjs';
 // wiki/, 10ms for moc/ and 1.6s for raw/ (plain sequential loop: 1.1s, 3.2s). The files are the
 // source of truth, so results are never stale.
 //
-// Checked against the 40-question live set (eval/wiki-efficacy.questions.json) on 2026-10-18, this
+// Checked against the 40-question live set of the maintainer's vault (no longer in this repository) on 2026-10-18, this
 // engine vs Obsidian keyword at 0.42.1: page recall@10 0.9375, precision@3 0.325 and reciprocal rank
 // 0.809 identical with no per-question difference; all 40 questions hybrid; mean latency per
 // question 8.7s -> 2.0s; keyword failures 1 -> 0. Identical metrics mean the set does not separate

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Builds eval/keyword-engine.questions.json: questions only a keyword channel can answer.
 //
-// The 40-question set in eval/wiki-efficacy.questions.json is dominated by exact names and
+// The 40-question general set that measured the maintainer's vault (held outside this repository) is dominated by exact names and
 // paraphrases, where the identity and semantic channels carry the result, so two keyword engines
 // score identically on it. These questions have ground truth computed by exact, case-insensitive
 // substring match over the real vault, the same semantics the keyword channel uses, so "expected"
