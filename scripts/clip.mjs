@@ -221,7 +221,7 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
   if (descriptionIsSubstantive && overlapRatio < WRONG_NODE_OVERLAP_CEILING) {
     return {
       kind: 'wrong_node',
-      reason: 'likely wrong-node extraction (description has substantive text absent from the extracted article body — try clipping manually)',
+      reason: 'likely wrong-node extraction (description has substantive text absent from the extracted article body — save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>)',
     };
   }
   return { kind: 'empty_shell', reason: 'thin content (SPA/paywall shell)' };
@@ -654,7 +654,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       const recorded = shouldDeclineThin({ renderRan })
         ? 'decline + triage recorded'
         : 'triage recorded; not declined — browser render unavailable';
-      console.log(`${label} (clip manually; ${recorded}): ${url}`);
+      console.log(`${label} (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; ${recorded}): ${url}`);
       return { status: 'thin', reason: verdict.reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
@@ -668,7 +668,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
     console.log(manual
       ? `not clipped (the supplied file is a login, consent or age-gate page, not the page; triage recorded, not declined): ${url}`
-      : `login, consent or age-gate page (clip manually; triage recorded, not declined): ${url}`);
+      : `login, consent or age-gate page (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; triage recorded, not declined): ${url}`);
     return { status: 'thin', reason: shell.reason };
   }
 
