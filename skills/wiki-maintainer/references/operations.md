@@ -194,25 +194,55 @@ already gone and removes it only with `--apply --token <that id>`.
 
 **Stopping early.** A session that opened an operation and will not finish it, or whose work landed another way, drops its own token with `node "<absolute-plugin-root>/scripts/op-abort.mjs" --since <token>`. It removes that one token whatever its age and nothing else: the files the operation wrote stay in the working tree, uncommitted, for a later operation to commit. Do not use it on a token another session holds. Open operations are visible without running a sync: `health` and `session-brief` print a line when any are open, and `wiki-sync` mentions other writers' operations once for a given set of tokens, again when the set changes, and once a day while it stays true.
 
-**Refusal record.** Each `op-commit` close that is refused and keeps its token appends
+**Refused sync.** `wiki-sync` refuses to integrate while uncommitted edits overlap files
+that the upstream changed: it prints `uncommitted edits overlap incoming changes in
+<files>` and exits 3, the one exit code for this refusal (every other failure exits 1).
+It changes nothing: no commit, stash or checkout, and the files and open tokens are
+untouched. With no operation open the dirty files are hand edits, and the message is that
+one line ending `commit them (or finish the operation) and sync again`. With an operation
+open the message is longer: one line per overlapping file, `<file>: recorded by operation
+<token> (<op>)` when an open operation's recorded ledger names the file and it is still
+dirty, otherwise `<file>: not recorded by any open operation`; then `Open operations:
+<token> (<op>), ...`; then `If you wrote these edits, finish your operation
+(wiki-sync.mjs --op <token>) and sync again.` (the token is filled in only when exactly one
+open operation recorded an overlapping file, otherwise the line shows the literal
+`<token>`); then `If you did not, leave them exactly as they are:
+do not reset, checkout, stash or delete them. Wait for their owner to close the operation, then sync again.` That
+last instruction is the rule: a file you did not write is not yours to reset, check out,
+stash or delete to get the sync through. Wait, and sync again after its owner closes. The
+`recorded by` line is a hint, not proof of ownership. It reads only what writers recorded
+with `--since` or `op-ledger.mjs add` (a generated file such as `index.md` is recorded only
+when `index-gen` ran with `--since`) and ignores a ledger path that is not dirty now, an
+unreadable ledger and the opening snapshot in a token, which says what was already dirty,
+not who wrote it. `not recorded by any open operation` therefore does not mean no one is
+writing the file. Each refusal also appends a counts-only line to the refusal record below.
+
+**Refusal record.** Each `op-commit` close that is refused and keeps its token, and each
+`wiki-sync` that stops on an overlap (see "Refused sync"), appends
 one JSON line to `.wiki-master/op-refusals.jsonl` (local, Git-ignored): `at` (ISO
 time), `op`, `kind` and `paths`. `paths` is a number and never a path name. `kind` is
 `pre-dirty` (a ledger path already dirty before `op-begin` and not adopted; `paths` is
 how many), `evidence` (a declared size or hash that does not match what git would store;
-`paths` is the size of the evidence map) or `unscoped` (the guard; `paths` is how many
-delta paths the close would have committed). A close that lands appends nothing, and a
+`paths` is the size of the evidence map), `unscoped` (the guard; `paths` is how many
+delta paths the close would have committed) or `sync-overlap` (`op` is `wiki-sync`;
+`paths` is how many files overlap). A close that lands appends nothing, and a
 failed append (a directory in the file's place, a read-only disk) changes neither the
-message nor the exit code. `health` prints `Recorded op-commit refusals: N (pre-dirty a,
-evidence b, unscoped c).` only when N is above zero, and `health --json` always carries
-`opRefusals` as `{ total, preDirty, evidence, unscoped }`. Like the open-operations line it
+message nor the exit code. `health` prints `Recorded refusals: N (pre-dirty a,
+evidence b, unscoped c, sync-overlap d).` only when N is above zero, and `health --json`
+always carries `opRefusals` as `{ total, preDirty, evidence, unscoped, syncOverlap }`. The
+line was `Recorded op-commit refusals: N (...)` in 0.85.0. Like the open-operations line it
 sits outside the defect count. The file is never trimmed by the plugin and a line that is
 not a record of a known kind counts as nothing.
 
-**Git ownership.** The Obsidian Git plugin stays installed for its source-control view
-and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
+**Git ownership.** The plugin's scripts make the scoped commits and the sync: `op-commit`
+commits what one operation wrote, and `wiki-sync.mjs` pulls, rebases and pushes. A new
+vault's `vault-schema.md` (written by `wiki-init`) carries the same statement; an existing
+vault keeps its own file. The Obsidian Git plugin stays installed for its source-control
+view and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
 interval 0, commit on file change off, auto push interval 0): they commit half-finished
 operation edits under "vault backup" and leave `op-commit` an empty delta. `wiki-sync`
-warns when they are on. Every machine sharing the vault needs the same setting.
+warns when they are on. Every machine sharing the vault needs the same setting. An
+instruction elsewhere that says Obsidian Git is the sync engine is stale.
 
 **Done only when** the requested change is validated, applicable catalogs and one
 operation log are recorded, the operation commit is verified (or its precise

@@ -57,6 +57,8 @@ Steps:
    verify that the update reached the configured upstream. The authoring request
    includes this completion step unless the user explicitly holds publication;
    do not ask another routine permission question or leave the push to the user.
+   If the sync is refused because uncommitted edits overlap incoming changes (exit 3), read "Refused sync" in the
+   [operations reference](../wiki-maintainer/references/operations.md): never reset, check out, stash or delete a file you did not write.
 
 **Done only when** the requested documentation and affected catalogs are
 validated, its log and operation commit are recorded, and remote publication is
