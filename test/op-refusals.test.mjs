@@ -151,7 +151,7 @@ test('a failed append never changes the result: a directory in the file place st
 
 test('the counts read back by kind; damaged lines and unknown kinds count as nothing', (t) => {
   const dir = vault(t);
-  assert.deepEqual(readRefusalCounts(dir), { total: 0, preDirty: 0, evidence: 0, unscoped: 0 });
+  assert.deepEqual(readRefusalCounts(dir), { total: 0, preDirty: 0, evidence: 0, unscoped: 0, syncOverlap: 0 });
   mkdirSync(join(dir, '.wiki-master'), { recursive: true });
   writeFileSync(refusalsFile(dir), [
     JSON.stringify({ at: 'x', op: 'a', kind: 'pre-dirty', paths: 2 }),
@@ -160,11 +160,12 @@ test('the counts read back by kind; damaged lines and unknown kinds count as not
     JSON.stringify({ at: 'x', op: 'a', kind: 'something-else', paths: 1 }),
     JSON.stringify({ at: 'x', op: 'a', kind: 'unscoped', paths: 4 }),
     JSON.stringify({ at: 'x', op: 'a', kind: 'unscoped', paths: 1 }),
+    JSON.stringify({ at: 'x', op: 'wiki-sync', kind: 'sync-overlap', paths: 2 }),
     '',
   ].join('\n'));
-  assert.deepEqual(readRefusalCounts(dir), { total: 4, preDirty: 1, evidence: 1, unscoped: 2 });
-  assert.equal(refusalsLine({ total: 0, preDirty: 0, evidence: 0, unscoped: 0 }), null);
-  assert.equal(refusalsLine({ total: 4, preDirty: 1, evidence: 1, unscoped: 2 }), 'Recorded op-commit refusals: 4 (pre-dirty 1, evidence 1, unscoped 2).');
+  assert.deepEqual(readRefusalCounts(dir), { total: 5, preDirty: 1, evidence: 1, unscoped: 2, syncOverlap: 1 });
+  assert.equal(refusalsLine({ total: 0, preDirty: 0, evidence: 0, unscoped: 0, syncOverlap: 0 }), null);
+  assert.equal(refusalsLine({ total: 5, preDirty: 1, evidence: 1, unscoped: 2, syncOverlap: 1 }), 'Recorded refusals: 5 (pre-dirty 1, evidence 1, unscoped 2, sync-overlap 1).');
 });
 
 test('health prints the refusals line only above zero and --json always carries opRefusals, with the defect count unchanged', (t) => {
@@ -173,18 +174,18 @@ test('health prints the refusals line only above zero and --json always carries 
   writeFileSync(join(dir, 'wiki/authored/p1/overview.md'), '---\ntype: authored\nstatus: draft\nsources: []\nai-generated: true\nproject: p1\nkind: overview\n---\n\nAn overview with enough words in it to be a substantive page for the integrity scan to read.\n');
   const absent = health(dir);
   assert.equal(absent.status, 0, absent.stderr);
-  assert.doesNotMatch(absent.stdout, /Recorded op-commit refusals/);
+  assert.doesNotMatch(absent.stdout, /Recorded refusals/);
   const base = JSON.parse(health(dir, '--json').stdout);
-  assert.deepEqual(base.opRefusals, { total: 0, preDirty: 0, evidence: 0, unscoped: 0 });
+  assert.deepEqual(base.opRefusals, { total: 0, preDirty: 0, evidence: 0, unscoped: 0, syncOverlap: 0 });
 
   mkdirSync(join(dir, '.wiki-master'), { recursive: true });
   writeFileSync(refusalsFile(dir), '');
-  assert.doesNotMatch(health(dir).stdout, /Recorded op-commit refusals/, 'an empty file prints nothing');
+  assert.doesNotMatch(health(dir).stdout, /Recorded refusals/, 'an empty file prints nothing');
 
-  writeFileSync(refusalsFile(dir), ['pre-dirty', 'evidence', 'unscoped'].map((kind) => JSON.stringify({ at: new Date().toISOString(), op: 'relink', kind, paths: 1 })).join('\n') + '\n');
+  writeFileSync(refusalsFile(dir), ['pre-dirty', 'evidence', 'unscoped', 'sync-overlap'].map((kind) => JSON.stringify({ at: new Date().toISOString(), op: 'relink', kind, paths: 1 })).join('\n') + '\n');
   const shown = health(dir);
-  assert.match(shown.stdout, /^Recorded op-commit refusals: 3 \(pre-dirty 1, evidence 1, unscoped 1\)\.$/m);
+  assert.match(shown.stdout, /^Recorded refusals: 4 \(pre-dirty 1, evidence 1, unscoped 1, sync-overlap 1\)\.$/m);
   const json = JSON.parse(health(dir, '--json').stdout);
-  assert.deepEqual(json.opRefusals, { total: 3, preDirty: 1, evidence: 1, unscoped: 1 });
+  assert.deepEqual(json.opRefusals, { total: 4, preDirty: 1, evidence: 1, unscoped: 1, syncOverlap: 1 });
   assert.equal(json.defectCount, base.defectCount, 'a recorded refusal is not a defect');
 });

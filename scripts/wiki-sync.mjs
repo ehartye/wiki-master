@@ -11,6 +11,7 @@ import { listOperations, STALE_OPERATION_HOURS } from './lib/op-tokens.mjs';
 import { readWritten, openOperationProblem } from './lib/op-ledger.mjs';
 import { readLedger } from './lib/ledger.mjs';
 import { notesDue } from './lib/sync-notes.mjs';
+import { recordRefusal } from './lib/op-refusals.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -45,6 +46,35 @@ function unpublishedWork(vaultPath, operations) {
     if (count) found.push({ token: o.token, op: o.op, count });
   }
   return found;
+}
+
+// The text of the overlap refusal. With no operation open the dirty files are hand edits and the advice is the original one.
+// With operations open, each overlapping file says which open operation's recorded ledger names it (a hint: the ledger is what a
+// writer recorded, nothing else is read as ownership) or that none does, then the open operations, then what to do if the edits
+// are yours and, in plain words, what not to do if they are not. A ledger that cannot be read attributes nothing.
+function overlapMessage(vaultPath, operations, overlap) {
+  const head = `uncommitted edits overlap incoming changes in ${overlap.join(', ')}`;
+  if (!operations.length) return `${head}; commit them (or finish the operation) and sync again`;
+  let dirty;
+  try { dirty = dirtySet(statusPorcelain(vaultPath)); } catch { dirty = new Set(overlap); }
+  const recording = operations.map((o) => {
+    let recorded;
+    try { recorded = readWritten(vaultPath, o.token); } catch { recorded = []; }
+    return { token: o.token, op: o.op, files: new Set(recorded.filter((p) => dirty.has(p))) };
+  });
+  const label = (o) => `${o.token} (${o.op ?? 'unknown op'})`;
+  const fileLines = overlap.map((p) => {
+    const by = recording.filter((o) => o.files.has(p));
+    return by.length ? `${p}: recorded by operation ${by.map(label).join(', ')}` : `${p}: not recorded by any open operation`;
+  });
+  const owners = recording.filter((o) => overlap.some((p) => o.files.has(p)));
+  return [
+    head,
+    ...fileLines,
+    `Open operations: ${recording.map(label).join(', ')}`,
+    `If you wrote these edits, finish your operation (wiki-sync.mjs --op ${owners.length === 1 ? owners[0].token : '<token>'}) and sync again.`,
+    'If you did not, leave them exactly as they are: do not reset, checkout, stash or delete them. Wait for their owner to close the operation, then sync again.',
+  ].join('\n');
 }
 
 // `hooks.beforePush` runs before every push attempt. It exists so a test can move
@@ -99,7 +129,9 @@ export async function syncVault(vaultPath, { commitLocal = false, staleOperation
     const dirty = new Set(dirtyPaths(vaultPath));
     const overlap = incomingFiles(vaultPath).filter((p) => dirty.has(p)).sort();
     if (overlap.length) {
-      return fail('overlap', `uncommitted edits overlap incoming changes in ${overlap.join(', ')}; commit them (or finish the operation) and sync again`, { overlap });
+      // Counts only, never a name; a failed append changes nothing here.
+      recordRefusal(vaultPath, { op: 'wiki-sync', kind: 'sync-overlap', paths: overlap.length });
+      return fail('overlap', overlapMessage(vaultPath, operations, overlap), { overlap });
     }
     const rebased = (hooks.rebaseImpl ?? rebaseOntoUpstream)(vaultPath);
     if (!rebased.ok && rebased.started === false) {
@@ -287,7 +319,13 @@ async function syncAndReport(vaultPath, args, landed) {
   if (!r.ok) {
     if (landed) console.error(`committed, not published: ${landed} is committed in the vault but the sync failed: ${r.reason}. Fix the cause and run: node scripts/wiki-sync.mjs`);
     else console.error(`wiki-sync: ${r.reason}`);
-    for (const p of r.conflicts ?? r.overlap ?? []) console.error(`  ${p}`);
+    // The overlap refusal lists its files inside its message, and is the one failure that exits 3, so a caller can tell a refusal
+    // that changed nothing from a failure.
+    if (r.code === 'overlap') {
+      process.exitCode = 3;
+      return;
+    }
+    for (const p of r.conflicts ?? []) console.error(`  ${p}`);
     process.exitCode = 1;
     return;
   }

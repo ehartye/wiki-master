@@ -150,9 +150,9 @@ test('two writers: an unscoped close is refused, the scoped close lands without 
     const kinds = refusalLines(v).map((r) => r.kind).sort();
     assert.deepEqual(kinds, ['pre-dirty', 'unscoped']);
     const json = healthJson(v);
-    assert.deepEqual(json.opRefusals, { total: 2, preDirty: 1, evidence: 0, unscoped: 1 });
+    assert.deepEqual(json.opRefusals, { total: 2, preDirty: 1, evidence: 0, unscoped: 1, syncOverlap: 0 });
     const text = script(v, 'health.mjs', []);
-    assert.match(text.stdout, /^Recorded op-commit refusals: 2 \(pre-dirty 1, evidence 0, unscoped 1\)\.$/m, text.stdout);
+    assert.match(text.stdout, /^Recorded refusals: 2 \(pre-dirty 1, evidence 0, unscoped 1, sync-overlap 0\)\.$/m, text.stdout);
   } finally { w.cleanup(); }
 });
 
@@ -186,6 +186,6 @@ test('with a single writer open, the unscoped close still lands and nothing is c
     assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
     assert.deepEqual(headFiles(v), [A1]);
     assert.deepEqual(refusalLines(v), []);
-    assert.doesNotMatch(script(v, 'health.mjs', []).stdout, /Recorded op-commit refusals/);
+    assert.doesNotMatch(script(v, 'health.mjs', []).stdout, /Recorded refusals/);
   } finally { w.cleanup(); }
 });

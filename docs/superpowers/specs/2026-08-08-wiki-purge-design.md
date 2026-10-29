@@ -1,3 +1,5 @@
+> Superseded on 2026-10-28: the plugin's scripts own commits and sync; see skills/wiki-maintainer/references/operations.md.
+
 # `/wiki-purge` — topic removal that survives sync — Design Spec
 
 **Date:** 2026-08-08
