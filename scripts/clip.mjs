@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
+import { existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -10,13 +10,14 @@ import { writtenRecorder } from './lib/op-ledger.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
+import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
 import { looksLikePlainTextUrl, fetchPlainText, plainTextPage } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
-import { slugify, slugFromUrl, chooseClipSlug, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
+import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -92,13 +93,15 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
   if (author) lines.push(`author: ${yaml(author)}`);
   if (published) lines.push(`published: ${published}`);
   lines.push(`created: ${created}`);
+  // A dated second capture of a page already clipped names the capture it follows (the newest at the time), as a vault path.
+  if (recaptureOf) lines.push(`recapture-of: ${yaml(recaptureOf)}`);
   lines.push('tags: [clippings]');
   lines.push(`quality: ${quality}`);
   // The research topic this clipping was gathered for. Frontmatter is the
@@ -213,18 +216,8 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
   return { kind: 'empty_shell', reason: 'thin content (SPA/paywall shell)' };
 }
 
-// Existing clipping source: URLs, for dedup.
-export function knownSourceUrls(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return [];
-  const urls = [];
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.md')) continue;
-    const m = readFileSync(join(dir, f), 'utf8').match(/^source:\s*"?([^"\n]+)"?/m);
-    if (m) urls.push(m[1].trim());
-  }
-  return urls;
-}
+// Existing clipping source: URLs, for dedup. The reading lives in lib/known-urls.mjs, shared with the known-URL commands.
+export { knownSourceUrls };
 
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
@@ -451,7 +444,8 @@ export function extractionAvailable() {
   return false;
 }
 
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText } = {}) {
+// `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
@@ -487,7 +481,11 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'declined' };
   }
 
-  if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+  // --recapture: a URL that is already clipped is fetched, extracted and checked like any clip, then written as a dated second
+  // capture beside the first, or not written at all when the text has not changed. Only the flag skips the duplicate check.
+  const recapture = argv.includes('--recapture');
+  const capturesNow = () => (recapture ? clippingsForUrl(vaultPath, url) : []);
+  if (!recapture && isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
     // A url already in the vault closes any row that says it could not be
     // fetched — that row is describing a source sitting on disk. This is the
     // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
@@ -495,6 +493,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
   }
+  if (recapture && capturesNow().length === 0) console.log(`recapture: not clipped yet, clipping it normally: ${url}`);
 
   let data;
   // 'text' when the static ladder produced the content, 'rendered' when a browser
@@ -619,12 +618,25 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   }
 
   const clippingsDir = join(vaultPath, 'raw', 'clippings');
-  // A title is an identity in this vault: a new clip does not take one another clipping already holds.
-  const title = uniqueTitle({ title: data.title, url, taken: clippingTitles(vaultPath) });
-  const created = today();
+  const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
+  // Text identical to any capture already holding this URL is not a new capture: nothing is written.
+  const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
+  const unchanged = (twin) => {
+    closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
+    console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
+    return { status: 'unchanged', existing: twin.name };
+  };
+  const twin = sameText();
+  if (twin) return unchanged(twin);
+  const previous = newestCapture(capturesNow());
+  const recapturing = previous !== null;
+  const suffix = recapturing ? ` (recaptured ${created})` : '';
+  // A title is an identity in this vault: a new clip does not take one another clipping already holds. A recapture's title is
+  // the page's title and the same suffix as its name, so it is never the first capture's title.
+  const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
-    title, source: url, author: data.author,
+    title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
     published: data.published, created, quality, hash, topic, extraction,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length,
@@ -639,15 +651,33 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const exists = (s) => names.has(s.toLowerCase());
   const heading = firstHeading(md);
   const content = `${fm}\n\n${md}\n`;
+  // A recapture's name is the first capture's name and the dated suffix. A name another capture of this URL already holds
+  // (a second recapture the same day) is a clash; a name another document holds moves on to the next candidate.
+  const pickRecapture = () => {
+    const held = capturesNow();
+    const mine = new Set(held.map((e) => e.name.toLowerCase()));
+    const oldest = held.reduce((a, e) => (a === null || (e.created ?? '') < (a.created ?? '') || ((e.created ?? '') === (a.created ?? '') && e.name < a.name) ? e : a), null);
+    const stem = oldest.name.replace(/ \(recaptured \d{4}-\d{2}-\d{2}\)$/, '');
+    const wanted = [stem, ...clipSlugCandidates({ title: data.title, heading, url })].map((n) => `${n}${suffix}`);
+    for (const name of wanted) {
+      if (mine.has(name.toLowerCase())) return { clash: true, existing: name };
+      if (!exists(name)) return { slug: name };
+    }
+    return { clash: true, existing: wanted[0] };
+  };
   let slug = null;
   let clashWith = null;
   for (let lost = 0; ;) {
-    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : chooseClipSlug({ title, heading, url, exists });
+    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title, heading, url, exists });
     if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
     if (writeClipping(clippingsDir, pick.slug, content)) { slug = pick.slug; break; }
     // Lost a race: the name was free when we looked and taken when we wrote.
     names.set(pick.slug.toLowerCase(), pick.slug);
-    if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+    if (recapture) {
+      // The winner may be a capture of this very text: then there is nothing new to write.
+      const winner = sameText();
+      if (winner) return unchanged(winner);
+    } else if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
       closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
       console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
     }

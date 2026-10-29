@@ -19,12 +19,15 @@ export const CLIP_SPECS = {
   "clip": {
     name: "clip.mjs",
     usage: [
-      "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug=<name>]",
+      "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug=<name>] [--recapture]",
       "",
       "  --slug   the file name, without .md. A name that is taken is a clash: nothing is written and nothing is suffixed.",
+      "  --recapture  a URL that is already clipped is clipped again as a dated second capture, beside the first and linked to it by",
+      "           recapture-of; the older clipping is never edited. Text identical to any capture of the URL writes nothing.",
+      "           A URL not clipped yet is clipped as usual. Without this flag a second clip of a URL is a duplicate.",
     ],
     values: ["quality", "topic", "decline", "slug"],
-    flags: [],
+    flags: ["recapture"],
     spaced: [],
     lead: [],
   },

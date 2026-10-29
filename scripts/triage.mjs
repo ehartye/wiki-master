@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
-import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
-import { buildTopicIndex, attributeItems, groupByTopic, topicKey, UNATTRIBUTED } from './lib/topic.mjs';
+import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, quarantineSettledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
+import { buildTopicIndex, attributeItems, groupByTopic, topicKey, olderCaptures, UNATTRIBUTED } from './lib/topic.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 import { looksBinaryText } from './lib/binary-content.mjs';
 cliGuard(import.meta.url);
@@ -51,16 +51,22 @@ export function scanClippings(vaultPath) {
     const srcLine = /^source:\s*(.+)$/m.exec(fm);
     const url = srcLine ? srcLine[1].trim().replace(/^["']|["']$/g, '') : null;
     const topic = /^topic:\s*(.+)$/m.exec(fm)?.[1].trim().replace(/^["']|["']$/g, '');
+    // A recapture is a second, dated clipping of a URL and names the capture it follows. `created` and `recapture-of`
+    // let the consumers tell the newest capture of a URL from an older one; they are carried only when present, so a
+    // first clipping keeps its old shape.
+    const created = /^created:\s*(.+)$/m.exec(fm)?.[1].trim().replace(/^["']|["']$/g, '');
+    const recaptureOf = /^recapture-of:\s*(.+)$/m.exec(fm)?.[1].trim().replace(/^["']|["']$/g, '');
+    const capture = { ...(created ? { created } : {}), ...(recaptureOf ? { recaptureOf } : {}) };
     if (topic) {
       // Keyed by BOTH identities because triage rows arrive as both: an issue
       // carries a URL, while a backlog row is the clipping's own vault path.
-      topics.push({ path: `raw/clippings/${f}`, url, topic });
+      topics.push({ path: `raw/clippings/${f}`, url, topic, ...capture });
     }
     if (/^citation-status:\s*["']?quarantined["']?\s*$/m.test(fm)) {
-      quarantined.push({url,path:`raw/clippings/${f}`});
+      quarantined.push({url,path:`raw/clippings/${f}`,...capture});
       continue;
     }
-    active.push({url,path:`raw/clippings/${f}`});
+    active.push({url,path:`raw/clippings/${f}`,...capture});
     // A GitHub capture that holds a binary file as text (a model, a sprite): NUL bytes and undecodable text under a high quality
     // mark. Listed by exact path so a person sees it; one row, whatever grade it carries. clip-gh no longer writes these.
     if (f.startsWith('gh/') && looksBinaryText(head)) {
@@ -112,10 +118,20 @@ export function collectTriage(
   //    scan resurrect it — "acceptable" never stuck, and the row returned every run.
   const queued = new Set(issues.map((i) => issueKey(i.url, i.kind)));
   const settled = settledKeys(log);
+  // A quarantine disposition is recorded per URL, but it was made about the capture that was quarantined. When a newer
+  // capture of the URL has since been written (it names the quarantined one in `recapture-of`), that disposition says
+  // nothing about the newer text, so it must not hide the newer capture's own flag. Any later disposition still counts.
+  const olderCapturePaths = olderCaptures([...quarantined, ...active], (u) => issueKey(u, ''));
+  const quarantineOfOlder = new Set(quarantined.filter((x) => x.url && olderCapturePaths.has(x.path)).map((x) => issueKey(x.url, '')));
+  const quarantineSettled = quarantineSettledKeys(log);
+  const isSettled = (f) => {
+    const k = issueKey(f.url, f.kind);
+    return settled.has(k) && !(quarantineSettled.has(k) && quarantineOfOlder.has(issueKey(f.url, '')));
+  };
   const pending=new Set(pendingReclips(log).map(x=>issueKey(x.url,'fidelity')));
   const partialUrls=new Set(quarantined.map(x=>x.url).filter(Boolean).map(x=>issueKey(x,'')).filter(x=>activeUrls.has(x)));
   const fidelityOnly = fidelity.filter(
-    (f) => !queued.has(issueKey(f.url, f.kind)) && (!settled.has(issueKey(f.url, f.kind)) || (pending.has(issueKey(f.url,'fidelity')) && partialUrls.has(issueKey(f.url,''))))
+    (f) => !queued.has(issueKey(f.url, f.kind)) && (!isSettled(f) || (pending.has(issueKey(f.url,'fidelity')) && partialUrls.has(issueKey(f.url,''))))
   );
 
   const expiring = declinesNearingExpiry(vaultPath, { withinDays: expiringWithinDays }).filter(x=>!suppressedUrls.has(issueKey(x.url,'')));
