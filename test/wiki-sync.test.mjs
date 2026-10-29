@@ -143,6 +143,7 @@ test('an uncommitted edit that overlaps incoming changes stops before touching a
     assert.equal(r.ok, false);
     assert.equal(r.code, 'overlap');
     assert.deepEqual(r.overlap, ['shared.md']);
+    assert.equal(r.reason, 'uncommitted edits overlap incoming changes in shared.md; commit them (or finish the operation) and sync again', 'no operation is open, so the original advice stays');
     assert.equal(sh(w.a, 'rev-parse', 'HEAD'), head);
     assert.equal(readFileSync(join(w.a, 'shared.md'), 'utf8'), 'one\ntwo\nthree\nunfinished work\n');
     assert.equal(sh(w.a, 'stash', 'list'), '', 'no stash was created');
@@ -374,6 +375,19 @@ test('the CLI exits 1 and names the conflicting files', async () => {
     const r = await runMain(w.a, []);
     assert.equal(r.exitCode, 1);
     assert.ok(r.errs.some(l => /conflict/i.test(l)) && r.errs.some(l => /shared\.md/.test(l)), r.errs.join('|'));
+  } finally { w.cleanup(); }
+});
+
+test('the CLI exits 3 for an overlap refusal, which is not a conflict and not a failure to sync', async () => {
+  const w = world();
+  try {
+    commitFile(w.b, 'shared.md', 'one\ntwo\nthree\nfrom b\n');
+    sh(w.b, 'push', '-q');
+    writeFileSync(join(w.a, 'shared.md'), 'one\ntwo\nthree\nunfinished work\n');
+    const r = await runMain(w.a, []);
+    assert.equal(r.exitCode, 3);
+    assert.equal(r.errs.length, 1, r.errs.join('|'));
+    assert.ok(r.errs[0].endsWith('commit them (or finish the operation) and sync again'), r.errs.join('|'));
   } finally { w.cleanup(); }
 });
 

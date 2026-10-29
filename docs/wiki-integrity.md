@@ -55,14 +55,18 @@ integrity scanner reads current content with its stricter syntax and ambiguity r
 
 Two vault-state lines sit beside the report, outside the defect count, because neither
 is damage. `Open vault operations: N (...)` appears when any operation token is open
-(`openOperations` in `--json`). `Recorded op-commit refusals: N (pre-dirty a, evidence b,
-unscoped c).` appears only when N is above zero; `--json` always carries `opRefusals`
-as `{ total, preDirty, evidence, unscoped }`. The counts come from
+(`openOperations` in `--json`). `Recorded refusals: N (pre-dirty a, evidence b,
+unscoped c, sync-overlap d).` appears only when N is above zero (it was `Recorded op-commit
+refusals` in 0.85.0); `--json` always carries `opRefusals`
+as `{ total, preDirty, evidence, unscoped, syncOverlap }`. The counts come from
 `.wiki-master/op-refusals.jsonl`, which `op-commit` appends to once per refused close
+and `wiki-sync` appends to once per sync refused on an overlap
 (local and Git-ignored; each line holds a time, the operation, the kind and a number,
 never a path name). The kinds are `pre-dirty` (a ledger path already dirty before
-`op-begin`), `evidence` (a declared size or hash that does not match) and `unscoped` (a
-close with no `--paths-file` while another operation was open). The record is a
+`op-begin`), `evidence` (a declared size or hash that does not match), `unscoped` (a
+close with no `--paths-file` while another operation was open) and `sync-overlap` (a
+sync that stopped because uncommitted edits overlap incoming changes; the number is how many
+files). The record is a
 measurement, not a worklist; nothing resolves it, and the plugin never trims it.
 
 ## Scoped validation

@@ -68,3 +68,10 @@ curated task maps. See `_templates/concept-note.md` and `_templates/task-map.md`
   rather than by omission; they are living pages like any other `wiki/` page,
   never requiring a `raw/` counterpart.
 - Links are `[[wikilinks]]`; embeds `![[...]]` are transclusion only.
+
+## Git ownership
+
+The plugin's scripts make the scoped commits and the sync: `op-commit` commits what one
+operation wrote, and `wiki-sync.mjs` pulls, rebases and pushes. Obsidian Git stays installed for its
+source-control view and for pulling, with auto-commit, commit on file change and auto-push
+all off. An instruction anywhere else that says otherwise is stale.

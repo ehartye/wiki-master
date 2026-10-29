@@ -1,3 +1,5 @@
+> Superseded on 2026-10-28: the plugin's scripts own commits and sync; see skills/wiki-maintainer/references/operations.md.
+
 # Vault Commit Helper Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use h-superpowers:subagent-driven-development, h-superpowers:team-driven-development, or h-superpowers:executing-plans to implement this plan (ask user which approach). Steps use checkbox (`- [ ]`) syntax for tracking.

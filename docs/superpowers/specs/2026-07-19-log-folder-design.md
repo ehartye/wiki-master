@@ -1,3 +1,5 @@
+> Superseded on 2026-10-28: the plugin's scripts own commits and sync; see skills/wiki-maintainer/references/operations.md.
+
 # Design: `log/` folder + `log.base` (multi-machine conflict elimination)
 
 **Date:** 2026-07-19
