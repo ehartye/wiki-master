@@ -1,11 +1,12 @@
 import { existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { optionValue } from './lib/cli-guard.mjs';
 import { writtenRecorder } from './lib/op-ledger.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
@@ -13,7 +14,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
-import { looksLikePlainTextUrl, fetchPlainText, plainTextPage } from './lib/plain-text.mjs';
+import { looksLikePlainTextUrl, fetchPlainText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
@@ -93,7 +94,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256 }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -112,7 +113,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   const t = normalizeTopic(topic);
   if (t) lines.push(`topic: ${yaml(t)}`);
   // How the text was obtained: 'ocr' when clip-pdf recognized rasterized pages
-  // (Tesseract) instead of reading the PDF text layer. Omitted for the default.
+  // (Tesseract) instead of reading the PDF text layer; 'manual' when a person saved the page and supplied it
+  // (--from-file). Omitted for the default.
   if (extraction && extraction !== 'text') lines.push(`extraction: ${extraction}`);
   // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
@@ -121,6 +123,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // Headings the assessment set aside as page chrome (a feedback widget, a sidebar) rather than counting
   // them as lost. Recorded so the set-aside is visible in the clipping; omitted when there were none.
   if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
+  // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
+  if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
   lines.push('---');
   return lines.join('\n');
@@ -154,6 +158,13 @@ export function stripArchiveChrome(md) {
 }
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
+
+// A supplied text file is the page text as it is; its title is its first heading, else the last part of the address.
+function suppliedTextPage(url, text) {
+  return { title: firstHeading(text) || plainTextPage(url, '').title, contentMarkdown: text.trimEnd() };
+}
+// What the address says the page is, for the login-form check. The text's own heading would always find itself in the text.
+function addressTitle(url) { return plainTextPage(url, '').title.replace(/[-_.+]+/g, ' '); }
 function today() { return new Date().toISOString().slice(0, 10); }
 function normalizeWord(w) { return String(w).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
@@ -459,6 +470,13 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // never has to know which population a URL is about to land in.
   const topic = parseTopicArg(argv);
 
+  // --from-file: a page a person saved. The file must be one this clipper can read before anything else happens.
+  const fromFile = optionValue(argv, 'from-file');
+  if (fromFile !== undefined) {
+    const problem = suppliedFileProblem(fromFile);
+    if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
+  }
+
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
   const { path: vaultPath } = resolveVault();
@@ -504,7 +522,25 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A URL that looks like a text file (a checksum manifest, a pinned source file) is kept whole, in a fence: Defuddle cannot read
   // one, and a short one would be judged thin. A binary or oversized file is refused; anything else that is not text is the ladder's.
   let plain = null;
-  if (looksLikePlainTextUrl(url)) {
+  // A supplied file is read under the same size and binary guards as a fetched text file. Nothing below fetches for it: the
+  // URL is only the page's address.
+  let manual = null;
+  if (fromFile !== undefined) {
+    const supplied = readSuppliedFile(fromFile);
+    if (supplied.missing) {
+      console.error(`--from-file: ${fromFile}: ${supplied.reason}`);
+      process.exitCode = 2;
+      return { status: 'error', error: supplied.reason };
+    }
+    if (supplied.refused) {
+      recordIssue(vaultPath, { url, kind: 'attention', reason: `supplied file refused: ${supplied.reason}`, topic });
+      console.log(`not clipped (${supplied.reason}; triage recorded): ${url}`);
+      return { status: 'thin', reason: supplied.reason };
+    }
+    manual = { kind: suppliedKind(fromFile), text: supplied.text, sha256: supplied.sha256 };
+    extraction = 'manual';
+  }
+  if (!manual && looksLikePlainTextUrl(url)) {
     plain = readText(url);
     if (plain.refused) {
       recordIssue(vaultPath, { url, kind: 'attention', reason: `plain-text capture refused: ${plain.reason}`, topic });
@@ -513,8 +549,15 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     if (plain.ok) extraction = 'plaintext';
   }
-  try { data = plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
+  try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
   catch {
+    // The extractor could not read the supplied page. It is the person's file, so there is no ladder to try: no fetch, no browser.
+    if (manual) {
+      const reason = 'the supplied page could not be read by the extractor';
+      recordIssue(vaultPath, { url, kind: 'attention', reason, topic });
+      console.log(`clip failed: ${reason} (queued for triage): ${url}`);
+      return { status: 'failed', reason };
+    }
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
     if (!extractionAvailable()) {
@@ -562,7 +605,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // Stripped before anything measures or hashes it: the word floor below must
   // judge the article, not the archive's banner, and the source-hash must
   // describe what the vault will actually quote.
-  let md = stripArchiveChrome(data.contentMarkdown || data.content || '');
+  // Supplied text is the page as the person saved it, so the archive banner is not stripped from it.
+  let md = manual?.kind === 'text' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -572,7 +616,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // run (and succeeded) when extraction === 'rendered'; otherwise it is set by
   // the thin-path attempt just below.
   let renderRan = extraction === 'rendered';
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext') {
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext' && !manual) {
     const r = renderAttempt(url);
     renderRan = !r.unavailable;
     const rendered = r.ok ? stripArchiveChrome(r.data.contentMarkdown || r.data.content || '') : '';
@@ -585,6 +629,15 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
 
   if (wordCount(md) < THIN_WORD_FLOOR && extraction !== 'plaintext') {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
+    if (verdict.kind !== 'short_real_article' && manual) {
+      // A file a person supplied is never declined and never re-fetched: the row says what to supply instead.
+      const reason = verdict.kind === 'wrong_node'
+        ? 'the supplied page has a description whose text is not in the extracted body (likely the wrong part of the page); save the whole page'
+        : `thin content: the supplied file has ${wordCount(md)} words (a page needs ${THIN_WORD_FLOOR})`;
+      recordIssue(vaultPath, { url, kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin', reason, topic });
+      console.log(`not clipped (${reason}; triage recorded, not declined): ${url}`);
+      return { status: 'thin', reason };
+    }
     if (verdict.kind !== 'short_real_article') {
       // Thin/wrong-node is deterministic given this page's current markup — record
       // it so the next run skips without re-fetching. TTL re-litigates eventually.
@@ -610,10 +663,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A page with words enough to clear the floor can still be the gate and not the page: a login form, a consent wall, an age
   // check. Its own vocabulary, dense, with none of its title in the text, is the signal (lib/interstitial.mjs). It is queued
   // for a person and not declined: a wall is not a verdict on the source, and a signed-in browser can still clip it.
-  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: data.title });
+  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
   if (shell) {
     recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
-    console.log(`login, consent or age-gate page (clip manually; triage recorded, not declined): ${url}`);
+    console.log(manual
+      ? `not clipped (the supplied file is a login, consent or age-gate page, not the page; triage recorded, not declined): ${url}`
+      : `login, consent or age-gate page (clip manually; triage recorded, not declined): ${url}`);
     return { status: 'thin', reason: shell.reason };
   }
 
@@ -637,7 +692,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
     title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction,
+    published: data.published, created, quality, hash, topic, extraction, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length,
   });
