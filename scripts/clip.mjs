@@ -1,22 +1,24 @@
-import { readFileSync, existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { optionValue } from './lib/cli-guard.mjs';
 import { writtenRecorder } from './lib/op-ledger.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
+import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
-import { looksLikePlainTextUrl, fetchPlainText, plainTextPage } from './lib/plain-text.mjs';
+import { looksLikePlainTextUrl, fetchPlainText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
-import { slugify, slugFromUrl, chooseClipSlug, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
+import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -92,13 +94,15 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256 }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
   if (author) lines.push(`author: ${yaml(author)}`);
   if (published) lines.push(`published: ${published}`);
   lines.push(`created: ${created}`);
+  // A dated second capture of a page already clipped names the capture it follows (the newest at the time), as a vault path.
+  if (recaptureOf) lines.push(`recapture-of: ${yaml(recaptureOf)}`);
   lines.push('tags: [clippings]');
   lines.push(`quality: ${quality}`);
   // The research topic this clipping was gathered for. Frontmatter is the
@@ -109,7 +113,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   const t = normalizeTopic(topic);
   if (t) lines.push(`topic: ${yaml(t)}`);
   // How the text was obtained: 'ocr' when clip-pdf recognized rasterized pages
-  // (Tesseract) instead of reading the PDF text layer. Omitted for the default.
+  // (Tesseract) instead of reading the PDF text layer; 'manual' when a person saved the page and supplied it
+  // (--from-file). Omitted for the default.
   if (extraction && extraction !== 'text') lines.push(`extraction: ${extraction}`);
   // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
@@ -118,6 +123,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // Headings the assessment set aside as page chrome (a feedback widget, a sidebar) rather than counting
   // them as lost. Recorded so the set-aside is visible in the clipping; omitted when there were none.
   if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
+  // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
+  if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
   lines.push('---');
   return lines.join('\n');
@@ -151,6 +158,13 @@ export function stripArchiveChrome(md) {
 }
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
+
+// A supplied text file is the page text as it is; its title is its first heading, else the last part of the address.
+function suppliedTextPage(url, text) {
+  return { title: firstHeading(text) || plainTextPage(url, '').title, contentMarkdown: text.trimEnd() };
+}
+// What the address says the page is, for the login-form check. The text's own heading would always find itself in the text.
+function addressTitle(url) { return plainTextPage(url, '').title.replace(/[-_.+]+/g, ' '); }
 function today() { return new Date().toISOString().slice(0, 10); }
 function normalizeWord(w) { return String(w).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
@@ -207,24 +221,14 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
   if (descriptionIsSubstantive && overlapRatio < WRONG_NODE_OVERLAP_CEILING) {
     return {
       kind: 'wrong_node',
-      reason: 'likely wrong-node extraction (description has substantive text absent from the extracted article body — try clipping manually)',
+      reason: 'likely wrong-node extraction (description has substantive text absent from the extracted article body — save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>)',
     };
   }
   return { kind: 'empty_shell', reason: 'thin content (SPA/paywall shell)' };
 }
 
-// Existing clipping source: URLs, for dedup.
-export function knownSourceUrls(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
-  if (!existsSync(dir)) return [];
-  const urls = [];
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith('.md')) continue;
-    const m = readFileSync(join(dir, f), 'utf8').match(/^source:\s*"?([^"\n]+)"?/m);
-    if (m) urls.push(m[1].trim());
-  }
-  return urls;
-}
+// Existing clipping source: URLs, for dedup. The reading lives in lib/known-urls.mjs, shared with the known-URL commands.
+export { knownSourceUrls };
 
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
@@ -451,7 +455,8 @@ export function extractionAvailable() {
   return false;
 }
 
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText } = {}) {
+// `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
@@ -464,6 +469,13 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // and the triage log on every path that queues an issue instead. A caller
   // never has to know which population a URL is about to land in.
   const topic = parseTopicArg(argv);
+
+  // --from-file: a page a person saved. The file must be one this clipper can read before anything else happens.
+  const fromFile = optionValue(argv, 'from-file');
+  if (fromFile !== undefined) {
+    const problem = suppliedFileProblem(fromFile);
+    if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
+  }
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
@@ -487,7 +499,11 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'declined' };
   }
 
-  if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+  // --recapture: a URL that is already clipped is fetched, extracted and checked like any clip, then written as a dated second
+  // capture beside the first, or not written at all when the text has not changed. Only the flag skips the duplicate check.
+  const recapture = argv.includes('--recapture');
+  const capturesNow = () => (recapture ? clippingsForUrl(vaultPath, url) : []);
+  if (!recapture && isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
     // A url already in the vault closes any row that says it could not be
     // fetched — that row is describing a source sitting on disk. This is the
     // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
@@ -495,6 +511,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
   }
+  if (recapture && capturesNow().length === 0) console.log(`recapture: not clipped yet, clipping it normally: ${url}`);
 
   let data;
   // 'text' when the static ladder produced the content, 'rendered' when a browser
@@ -505,7 +522,25 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A URL that looks like a text file (a checksum manifest, a pinned source file) is kept whole, in a fence: Defuddle cannot read
   // one, and a short one would be judged thin. A binary or oversized file is refused; anything else that is not text is the ladder's.
   let plain = null;
-  if (looksLikePlainTextUrl(url)) {
+  // A supplied file is read under the same size and binary guards as a fetched text file. Nothing below fetches for it: the
+  // URL is only the page's address.
+  let manual = null;
+  if (fromFile !== undefined) {
+    const supplied = readSuppliedFile(fromFile);
+    if (supplied.missing) {
+      console.error(`--from-file: ${fromFile}: ${supplied.reason}`);
+      process.exitCode = 2;
+      return { status: 'error', error: supplied.reason };
+    }
+    if (supplied.refused) {
+      recordIssue(vaultPath, { url, kind: 'attention', reason: `supplied file refused: ${supplied.reason}`, topic });
+      console.log(`not clipped (${supplied.reason}; triage recorded): ${url}`);
+      return { status: 'thin', reason: supplied.reason };
+    }
+    manual = { kind: suppliedKind(fromFile), text: supplied.text, sha256: supplied.sha256 };
+    extraction = 'manual';
+  }
+  if (!manual && looksLikePlainTextUrl(url)) {
     plain = readText(url);
     if (plain.refused) {
       recordIssue(vaultPath, { url, kind: 'attention', reason: `plain-text capture refused: ${plain.reason}`, topic });
@@ -514,8 +549,15 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     if (plain.ok) extraction = 'plaintext';
   }
-  try { data = plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
+  try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
   catch {
+    // The extractor could not read the supplied page. It is the person's file, so there is no ladder to try: no fetch, no browser.
+    if (manual) {
+      const reason = 'the supplied page could not be read by the extractor';
+      recordIssue(vaultPath, { url, kind: 'attention', reason, topic });
+      console.log(`clip failed: ${reason} (queued for triage): ${url}`);
+      return { status: 'failed', reason };
+    }
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
     if (!extractionAvailable()) {
@@ -563,7 +605,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // Stripped before anything measures or hashes it: the word floor below must
   // judge the article, not the archive's banner, and the source-hash must
   // describe what the vault will actually quote.
-  let md = stripArchiveChrome(data.contentMarkdown || data.content || '');
+  // Supplied text is the page as the person saved it, so the archive banner is not stripped from it.
+  let md = manual?.kind === 'text' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -573,7 +616,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // run (and succeeded) when extraction === 'rendered'; otherwise it is set by
   // the thin-path attempt just below.
   let renderRan = extraction === 'rendered';
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext') {
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext' && !manual) {
     const r = renderAttempt(url);
     renderRan = !r.unavailable;
     const rendered = r.ok ? stripArchiveChrome(r.data.contentMarkdown || r.data.content || '') : '';
@@ -586,6 +629,15 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
 
   if (wordCount(md) < THIN_WORD_FLOOR && extraction !== 'plaintext') {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
+    if (verdict.kind !== 'short_real_article' && manual) {
+      // A file a person supplied is never declined and never re-fetched: the row says what to supply instead.
+      const reason = verdict.kind === 'wrong_node'
+        ? 'the supplied page has a description whose text is not in the extracted body (likely the wrong part of the page); save the whole page'
+        : `thin content: the supplied file has ${wordCount(md)} words (a page needs ${THIN_WORD_FLOOR})`;
+      recordIssue(vaultPath, { url, kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin', reason, topic });
+      console.log(`not clipped (${reason}; triage recorded, not declined): ${url}`);
+      return { status: 'thin', reason };
+    }
     if (verdict.kind !== 'short_real_article') {
       // Thin/wrong-node is deterministic given this page's current markup — record
       // it so the next run skips without re-fetching. TTL re-litigates eventually.
@@ -602,7 +654,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       const recorded = shouldDeclineThin({ renderRan })
         ? 'decline + triage recorded'
         : 'triage recorded; not declined — browser render unavailable';
-      console.log(`${label} (clip manually; ${recorded}): ${url}`);
+      console.log(`${label} (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; ${recorded}): ${url}`);
       return { status: 'thin', reason: verdict.reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
@@ -611,21 +663,36 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A page with words enough to clear the floor can still be the gate and not the page: a login form, a consent wall, an age
   // check. Its own vocabulary, dense, with none of its title in the text, is the signal (lib/interstitial.mjs). It is queued
   // for a person and not declined: a wall is not a verdict on the source, and a signed-in browser can still clip it.
-  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: data.title });
+  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
   if (shell) {
     recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
-    console.log(`login, consent or age-gate page (clip manually; triage recorded, not declined): ${url}`);
+    console.log(manual
+      ? `not clipped (the supplied file is a login, consent or age-gate page, not the page; triage recorded, not declined): ${url}`
+      : `login, consent or age-gate page (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; triage recorded, not declined): ${url}`);
     return { status: 'thin', reason: shell.reason };
   }
 
   const clippingsDir = join(vaultPath, 'raw', 'clippings');
-  // A title is an identity in this vault: a new clip does not take one another clipping already holds.
-  const title = uniqueTitle({ title: data.title, url, taken: clippingTitles(vaultPath) });
-  const created = today();
+  const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
+  // Text identical to any capture already holding this URL is not a new capture: nothing is written.
+  const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
+  const unchanged = (twin) => {
+    closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
+    console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
+    return { status: 'unchanged', existing: twin.name };
+  };
+  const twin = sameText();
+  if (twin) return unchanged(twin);
+  const previous = newestCapture(capturesNow());
+  const recapturing = previous !== null;
+  const suffix = recapturing ? ` (recaptured ${created})` : '';
+  // A title is an identity in this vault: a new clip does not take one another clipping already holds. A recapture's title is
+  // the page's title and the same suffix as its name, so it is never the first capture's title.
+  const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
-    title, source: url, author: data.author,
-    published: data.published, created, quality, hash, topic, extraction,
+    title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
+    published: data.published, created, quality, hash, topic, extraction, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length,
   });
@@ -639,15 +706,33 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const exists = (s) => names.has(s.toLowerCase());
   const heading = firstHeading(md);
   const content = `${fm}\n\n${md}\n`;
+  // A recapture's name is the first capture's name and the dated suffix. A name another capture of this URL already holds
+  // (a second recapture the same day) is a clash; a name another document holds moves on to the next candidate.
+  const pickRecapture = () => {
+    const held = capturesNow();
+    const mine = new Set(held.map((e) => e.name.toLowerCase()));
+    const oldest = held.reduce((a, e) => (a === null || (e.created ?? '') < (a.created ?? '') || ((e.created ?? '') === (a.created ?? '') && e.name < a.name) ? e : a), null);
+    const stem = oldest.name.replace(/ \(recaptured \d{4}-\d{2}-\d{2}\)$/, '');
+    const wanted = [stem, ...clipSlugCandidates({ title: data.title, heading, url })].map((n) => `${n}${suffix}`);
+    for (const name of wanted) {
+      if (mine.has(name.toLowerCase())) return { clash: true, existing: name };
+      if (!exists(name)) return { slug: name };
+    }
+    return { clash: true, existing: wanted[0] };
+  };
   let slug = null;
   let clashWith = null;
   for (let lost = 0; ;) {
-    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : chooseClipSlug({ title, heading, url, exists });
+    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title, heading, url, exists });
     if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
     if (writeClipping(clippingsDir, pick.slug, content)) { slug = pick.slug; break; }
     // Lost a race: the name was free when we looked and taken when we wrote.
     names.set(pick.slug.toLowerCase(), pick.slug);
-    if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+    if (recapture) {
+      // The winner may be a capture of this very text: then there is nothing new to write.
+      const winner = sameText();
+      if (winner) return unchanged(winner);
+    } else if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
       closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
       console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
     }

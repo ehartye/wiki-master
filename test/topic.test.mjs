@@ -102,3 +102,43 @@ test('casing variants of one topic are one group, displayed as first seen', () =
 test('an empty queue produces no groups rather than an empty unattributed one', () => {
   assert.deepEqual(groupByTopic([]), []);
 });
+
+// --- more than one capture of a URL ------------------------------------------
+// A recapture is a second clipping of a page. The URL answers with the newest
+// capture's topic whatever order the directory happened to be read in.
+
+const TWO = [
+  { path: 'raw/clippings/Doc.md', url: 'https://a.test/doc', topic: 'Older topic', created: '2026-01-01' },
+  { path: 'raw/clippings/Doc (recaptured 2026-03-01).md', url: 'https://a.test/doc', topic: 'Newer topic', created: '2026-03-01', recaptureOf: 'raw/clippings/Doc.md' },
+];
+
+test('the newest capture of a URL gives the topic, in whichever order the files were read', () => {
+  for (const entries of [TWO, [...TWO].reverse()]) {
+    assert.equal(attributeItem({ url: 'https://a.test/doc' }, buildTopicIndex(entries)), 'Newer topic');
+  }
+});
+
+test('each capture still answers for its own path', () => {
+  const index = buildTopicIndex(TWO);
+  assert.equal(attributeItem({ url: 'raw/clippings/Doc.md' }, index), 'Older topic');
+  assert.equal(attributeItem({ url: 'raw/clippings/Doc (recaptured 2026-03-01).md' }, index), 'Newer topic');
+});
+
+test('a clipping another one names in recapture-of is older whatever its created says', () => {
+  const skewed = TWO.map((e) => (e.created === '2026-01-01' ? { ...e, created: '2026-09-09' } : e));
+  assert.equal(attributeItem({ url: 'https://a.test/doc' }, buildTopicIndex(skewed)), 'Newer topic');
+});
+
+test('captures with no link between them are ordered by created, then by file name', () => {
+  const plain = (path, created, topic) => ({ path, url: 'https://a.test/x', topic, created });
+  assert.equal(attributeItem({ url: 'https://a.test/x' }, buildTopicIndex([plain('raw/clippings/b.md', '2026-02-01', 'Later'), plain('raw/clippings/a.md', '2026-01-01', 'Earlier')])), 'Later');
+  assert.equal(attributeItem({ url: 'https://a.test/x' }, buildTopicIndex([plain('raw/clippings/b.md', '2026-02-01', 'By name'), plain('raw/clippings/a.md', '2026-02-01', 'Before')])), 'By name');
+});
+
+test('a recapture-of that names a clipping of another URL supersedes nothing', () => {
+  const crossed = [
+    { path: 'raw/clippings/One.md', url: 'https://a.test/one', topic: 'One topic', created: '2026-01-01' },
+    { path: 'raw/clippings/Two.md', url: 'https://a.test/two', topic: 'Two topic', created: '2026-02-01', recaptureOf: 'raw/clippings/One.md' },
+  ];
+  assert.equal(attributeItem({ url: 'https://a.test/one' }, buildTopicIndex(crossed)), 'One topic');
+});

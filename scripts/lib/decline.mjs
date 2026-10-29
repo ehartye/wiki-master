@@ -44,6 +44,18 @@ export function isAutomaticDecline(entry) {
   return AUTOMATIC_REASON.test(entry?.reason ?? '');
 }
 
+// The date a decline stops holding: the day it was recorded plus the TTL.
+export function declineExpiry(entry) {
+  return new Date(new Date(entry.date).getTime() + DECLINE_TTL_DAYS * 86400_000).toISOString().slice(0, 10);
+}
+
+// Every entry in the log, expired and superseded ones too, for the commands that show the log (decline.mjs). The
+// readers that decide whether a source is declined use loadDeclines.
+export function readDeclineLog(vaultPath) {
+  const entries = readAll(vaultPath);
+  return Array.isArray(entries) ? entries : [];
+}
+
 function readAll(vaultPath) {
   const f = storePath(vaultPath);
   if (!existsSync(f)) return [];

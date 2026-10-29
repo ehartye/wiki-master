@@ -22,6 +22,19 @@ export const CLI_SPECS = {
     options: ['from', 'apply', 'limit'],
     usage: ['usage: node scripts/clip-and-repoint.mjs --from=<dir holding the binaries> [--apply] [--limit=N]', '', 'Repair pass: clips each binary a wiki/sources page cites into a .md clipping, in place from the directory given, then repoints the summary at the clipping and stamps its source-hashes.', DRY, VAULT],
   },
+  decline: {
+    options: ['json', 'reason'],
+    usage: [
+      'usage: node scripts/decline.mjs list [--json]',
+      '       node scripts/decline.mjs show <url>',
+      '       node scripts/decline.mjs supersede <url> --reason "<text>"',
+      '',
+      'Reads and clears the decline log (.wiki-master/declined.json) without clipping anything. list prints every entry: the URL, the reason, the date, when it expires and whether it was superseded. show prints the one entry for a URL.',
+      'supersede marks the active decline for a URL superseded, with the reason and the date, whether or not the URL is clipped; a later clip is no longer blocked by it. It writes only the decline file and prints "superseded".',
+      'Exit 1: show or supersede found no entry (supersede: no active decline, and nothing is written). Exit 2: bad input.',
+      VAULT,
+    ],
+  },
   'dedupe-clippings': {
     options: ['apply'],
     usage: ['usage: node scripts/dedupe-clippings.mjs [--apply]', '', 'Removes raw clippings that duplicate another clipping\'s content hash, keeping the copy the vault cites. Groups without a clear keeper are reported, never guessed at.', DRY, VAULT],
@@ -29,6 +42,20 @@ export const CLI_SPECS = {
   health: {
     options: ['json', 'legacy', 'backlog'],
     usage: ['usage: node scripts/health.mjs [--json | --legacy | --backlog]', '', 'Reports wiki integrity: open defects, unresolved navigation and the unscored notes. --json prints the full worklist, --legacy the historical score, --backlog only the ingest backlog. Choose one.', 'Read-only.', VAULT],
+  },
+  'known-urls': {
+    options: ['count', 'check', 'summary', 'topic'],
+    usage: [
+      'usage: node scripts/known-urls.mjs [--count]',
+      '       node scripts/known-urls.mjs --check <url>...',
+      '       node scripts/known-urls.mjs --summary --topic "<topic>"',
+      '',
+      'Answers "is this already in the vault" the way the clippers do (the first source: line of each file directly under raw/clippings, compared after normalizing the URL). With no option it prints the known source URLs, one per line; --count prints how many.',
+      '--check prints one line per URL, in the order given: "new", "clipped raw/clippings/<name>.md" (with " (+N recapture)" when later captures of the page exist), or "declined: <reason>".',
+      '--summary --topic prints how many pages the topic holds, how many per quality tier, its open triage rows by kind, and that declines are not recorded per topic.',
+      'Read-only.',
+      VAULT,
+    ],
   },
   'log-entry': {
     options: ['op', 'title', 'since'],

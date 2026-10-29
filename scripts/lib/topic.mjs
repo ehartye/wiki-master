@@ -43,22 +43,58 @@ export function parseTopicArg(argv = []) {
 
 const lookupKey = (u) => String(u ?? '').trim().toLowerCase();
 
+// A URL can be held by more than one clipping: a recapture is a second, dated
+// clipping of a page, written beside the first and naming it in `recapture-of`.
+// A capture that another clipping of the same URL names there is OLDER; the
+// newest capture is the one nothing supersedes. Returns the set of `path`
+// values (as given) that are older. A `recapture-of` that names a clipping of a
+// different URL, or of nothing, supersedes nothing: the link is only believed
+// when it is consistent.
+//
+// `entries` is [{ path, url, recaptureOf }]; `urlKey` folds a URL for comparison
+// (callers that compare by the clipper's normalization pass their own).
+export function olderCaptures(entries = [], urlKey = lookupKey) {
+  const byPath = new Map();
+  for (const e of entries) if (e?.path) byPath.set(lookupKey(e.path), e);
+  const older = new Set();
+  for (const e of entries) {
+    if (!e?.recaptureOf) continue;
+    const target = byPath.get(lookupKey(e.recaptureOf));
+    if (target && target !== e && urlKey(target.url) === urlKey(e.url)) older.add(target.path);
+  }
+  return older;
+}
+
 // The index is built here rather than assembled by callers so that key
 // normalization has exactly one owner. Both sides of every lookup are folded
 // to lower case: a clipping's `source:` and the URL on a triage event are
 // written by different code paths and routinely disagree on case, and vault
 // paths are case-insensitive on the platform this runs on most.
 //
-// `entries` is [{ path, url, topic }] -- one per clipping that declares a
-// topic. Entries with no topic are skipped rather than stored as null, so a
-// lookup miss and a topicless clipping are the same answer.
+// `entries` is [{ path, url, topic, created?, recaptureOf? }] -- one per
+// clipping that declares a topic. Entries with no topic are skipped rather than
+// stored as null, so a lookup miss and a topicless clipping are the same answer.
+//
+// When several clippings hold one URL, the URL answers with the topic of the
+// newest capture: one that no other clipping names in `recapture-of`, then the
+// latest `created`, then the later file name. That is a total order, so the
+// answer never depends on the order the directory was read in. Every capture
+// still answers for its own path.
 export function buildTopicIndex(entries = []) {
   const byUrl = new Map();
   const byPath = new Map();
-  for (const e of entries) {
-    const topic = normalizeTopic(e?.topic);
-    if (!topic) continue;
-    if (e.url) byUrl.set(lookupKey(e.url), topic);
+  const withTopic = entries
+    .map((e) => ({ e, topic: normalizeTopic(e?.topic) }))
+    .filter((x) => x.topic);
+  const older = olderCaptures(withTopic.map((x) => x.e));
+  // Code-point comparison, not localeCompare: the order must not vary with the machine's locale.
+  const text = (v) => String(v ?? '');
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const ascending = [...withTopic].sort(
+    (a, b) => cmp(text(a.e.created), text(b.e.created)) || cmp(text(a.e.path), text(b.e.path))
+  );
+  for (const { e, topic } of ascending) {
+    if (e.url && !older.has(e.path)) byUrl.set(lookupKey(e.url), topic);
     if (e.path) byPath.set(lookupKey(e.path), topic);
   }
   return { byUrl, byPath };

@@ -44,6 +44,6 @@ export function classifyInterstitial({ markdown, title }) {
   if (titleShare >= MAX_TITLE_SHARE) return null;
   return {
     hits, per100: +per100.toFixed(2), titleShare: +titleShare.toFixed(2),
-    reason: `looks like a login, consent or age-gate page, not the page asked for (${hits} gate phrases, ${per100.toFixed(1)} per 100 words, ${titleShare === 0 ? 'none' : 'little'} of the title in the text); clip it manually from a signed-in browser`,
+    reason: `looks like a login, consent or age-gate page, not the page asked for (${hits} gate phrases, ${per100.toFixed(1)} per 100 words, ${titleShare === 0 ? 'none' : 'little'} of the title in the text); save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>`,
   };
 }

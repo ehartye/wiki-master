@@ -12,6 +12,7 @@ import { parseNote } from './note.mjs';
 import { buildNameIndex, resolveLinkTarget, wikilinks } from './graph.mjs';
 import { acquireGate, lockAddress } from './cli-transport.mjs';
 import { clippingKind, readPageForReclip, retainedShare, MIN_RETAINED } from './reclip-html.mjs';
+import { olderCaptures } from './topic.mjs';
 
 const norm = url => issueKey(url, '');
 const layout = text => scalar(text, 'fidelity') === 'tabular' || ['table-aware','table-flattened'].includes(scalar(text,'extraction'));
@@ -95,7 +96,8 @@ async function obtainSource(url, {file,from,title,sourceFile}={}) {
 
 // A pending journal retains the original hash transition until every dependent update
 // and the raw replacement finish. A retry resumes it rather than extracting again.
-const emptyReport=()=>({selected:0,reclipped:0,quarantined:0,alreadyResolved:0,usedLocal:0,needsReview:[],failed:[],conflicts:[],conflictDetails:[],changed:[],results:[]});
+const SUPPLIED_REFUSAL='The text of this clipping was supplied by a person (extraction: manual), so a re-clip would replace it with a fetched page; to refresh it, save the page again from a signed-in browser and run `clip.mjs <url> --from-file <path> --recapture`';
+const emptyReport=()=>({selected:0,reclipped:0,quarantined:0,alreadyResolved:0,usedLocal:0,needsReview:[],failed:[],refused:[],conflicts:[],conflictDetails:[],changed:[],results:[]});
 export async function runReclips(options={}) {
   if(!options.apply)return runReclipsOwned(options);
   let release;
@@ -127,13 +129,25 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   if(!Array.isArray(files)||!files.every(x=>typeof x==='string'))throw new Error('Targets must be a JSON path array');
   if(targets!==undefined)files=[...new Set(files.map(p=>resolve(root,p)))];
   for(const path of files)if(!path.startsWith(dir+sep)||!path.endsWith('.md')||!realpathSync(path).startsWith(realpathSync(dir)+sep))throw new Error('Target outside clipping scope');
+  // A recapture is a second clipping of a URL that names the first in `recapture-of`. A URL therefore no longer
+  // identifies one capture: a request by URL repairs the newest and leaves the older evidence as it was written.
+  let captures;
+  const captureList=()=>captures??=allRaw.map(p=>{const text=head(p);return {path:rel(p),url:scalar(text,'source'),recaptureOf:scalar(text,'recapture-of')};});
+  let older;
+  const isOlderCapture=path=>(older??=olderCaptures(captureList(),norm)).has(rel(path));
+  // A clipping whose text a person supplied (`extraction: manual`) is never replaced by a fetched page: it is refused here, so
+  // neither a dry run nor an apply lists it as a target. A quarantine only restricts citations and leaves the text alone.
+  const refused=[];
   const selected=files.filter(path=>{
     if(existsSync(statePath(path)))return true;
     const text=head(path);if(scalar(text,'citation-status')==='quarantined')return false;
-    return targets!==undefined||requested.has(norm(scalar(text,'source')))||(includeTabular&&layout(text));
+    const wanted=targets!==undefined||(requested.has(norm(scalar(text,'source')))&&!isOlderCapture(path))||(includeTabular&&layout(text));
+    if(wanted&&!quarantineReason&&scalar(text,'extraction')==='manual'){refused.push({path:rel(path),url:scalar(text,'source'),reason:SUPPLIED_REFUSAL});return false;}
+    return wanted;
   }).slice(0,limit);
   if(sourceFile&&selected.length!==1)throw new Error('--source-file requires exactly one selected clipping');
-  const report={...emptyReport(),selected:selected.length};
+  const report={...emptyReport(),selected:selected.length,refused};
+  for(const r of refused)report.results.push({path:r.path,url:r.url,status:'refused',reason:r.reason});
   const changed=new Set(),mark=path=>changed.add(rel(path));
   let names;
   const citing=(text,path)=>{
@@ -150,7 +164,22 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
     const end=block(updated)?.[0].length??0;
     return updated.slice(0,end)+`\n${warning}\n`+updated.slice(end);
   };
-  const peers=(url,path)=>allRaw.some(p=>p!==path&&norm(scalar(head(p),'source'))===norm(url)&&scalar(head(p),'citation-status')!=='quarantined');
+  // The captures `path` follows, nearest first: they are older evidence of the same page, not other versions of it
+  // that could still need the repair, so they do not keep a request open.
+  const predecessors=path=>{
+    const byPath=new Map(captureList().map(c=>[c.path.toLowerCase(),c]));
+    const seen=new Set([rel(path).toLowerCase()]);
+    for(let c=byPath.get(rel(path).toLowerCase());c?.recaptureOf;){
+      const k=c.recaptureOf.toLowerCase();
+      if(seen.has(k))break;
+      seen.add(k);c=byPath.get(k);
+    }
+    return seen;
+  };
+  const peers=(url,path)=>{
+    const own=predecessors(path);
+    return allRaw.some(p=>p!==path&&!own.has(rel(p).toLowerCase())&&norm(scalar(head(p),'source'))===norm(url)&&scalar(head(p),'citation-status')!=='quarantined');
+  };
   const settle=(url,path,disposition,note)=>{
     // A URL cannot identify one capture when multiple versions share it.
     if(peers(url,path))return;

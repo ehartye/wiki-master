@@ -200,6 +200,17 @@ export function settledKeys(log) {
   return new Set([...latest].filter(([, t]) => t === 'disposition').map(([k]) => k));
 }
 
+// The keys whose latest event is a quarantine disposition. Kept apart from settledKeys because a quarantine is a
+// judgment about one capture, while the key names a URL.
+export function quarantineSettledKeys(log) {
+  const latest = new Map();
+  for (const e of log) {
+    if (!e?.url || !e.kind || (e.t !== 'issue' && e.t !== 'disposition')) continue;
+    latest.set(key(e.url, e.kind), e.t === 'disposition' ? e.disposition : null);
+  }
+  return new Set([...latest].filter(([, d]) => d === 'quarantine').map(([k]) => k));
+}
+
 // Both kinds can ask for a (re)clip: `fidelity` when the extraction was poor, and
 // `failed` when the source could not be fetched at all — a paywalled PDF you then
 // downloaded by hand. `downloaded` and `reclip` are both work orders, so the

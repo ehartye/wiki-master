@@ -1,6 +1,9 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { looksBinaryBytes } from './binary-content.mjs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, extname } from 'node:path';
 
 // A text file is not a web page. Defuddle cannot read one (measured for a checksum manifest, a dotfile and a package.json served
 // as text/plain: the static read fails outright), so a pinned source file or a manifest fell to the browser rung or was queued as
@@ -56,4 +59,42 @@ export function plainTextPage(url, text) {
   const body = String(text).replace(/\r\n/g, '\n').trimEnd();
   const fence = fenceFor(body);
   return { title: name, contentMarkdown: `${fence}\n${body}\n${fence}` };
+}
+
+// A page a person saved from a signed-in browser and supplies with --from-file. The extension decides what it is: a text file is the
+// page text, unchanged; an HTML file is a page and goes through the extractor like a fetched one. Anything else is neither.
+const SUPPLIED_TEXT = new Set(['.md', '.markdown', '.txt']);
+const SUPPLIED_HTML = new Set(['.html', '.htm']);
+// null when --from-file names a file that can be supplied; otherwise what is wrong, for a message and exit 2.
+export function suppliedFileProblem(path) {
+  if (!path) return '--from-file needs a path';
+  if (suppliedKind(path) === null) return `${path}: a supplied file must be .md, .markdown or .txt (text) or .html or .htm (a page)`;
+  try { if (!statSync(path).isFile()) return `${path}: not a file`; }
+  catch (error) { return `${path}: ${error.code === 'ENOENT' ? 'no such file' : String(error.message ?? error).slice(0, 120)}`; }
+  return null;
+}
+
+export function suppliedKind(path) {
+  const ext = extname(String(path ?? '')).toLowerCase();
+  return SUPPLIED_TEXT.has(ext) ? 'text' : SUPPLIED_HTML.has(ext) ? 'html' : null;
+}
+
+// The supplied file's bytes under the same guards as a fetched text file: a size bound (MAX_PLAIN_BYTES) and the binary check
+// (a NUL byte, or text that does not decode). { ok: true, text, sha256 } with the hash of the bytes as supplied |
+// { ok: false, missing: true, reason } for a path that is not a readable file | { ok: false, refused: true, reason }.
+export function readSuppliedFile(path) {
+  let size;
+  try {
+    const info = statSync(path);
+    if (!info.isFile()) return { ok: false, missing: true, reason: 'not a file' };
+    size = info.size;
+  } catch (error) {
+    return { ok: false, missing: true, reason: error.code === 'ENOENT' ? 'no such file' : String(error.message ?? error).slice(0, 120) };
+  }
+  if (size > MAX_PLAIN_BYTES) return { ok: false, refused: true, reason: `supplied file is larger than ${MAX_PLAIN_BYTES / 1024 / 1024} MiB (${size} bytes)` };
+  let bytes;
+  try { bytes = readFileSync(path); }
+  catch (error) { return { ok: false, missing: true, reason: String(error.message ?? error).slice(0, 120) }; }
+  if (looksBinaryBytes(bytes)) return { ok: false, refused: true, reason: 'supplied file is binary (a NUL byte or text that does not decode)' };
+  return { ok: true, text: bytes.toString('utf8').replace(new RegExp('^' + String.fromCharCode(0xFEFF)), ''), sha256: createHash('sha256').update(bytes).digest('hex') };
 }
