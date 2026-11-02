@@ -1,0 +1,92 @@
+{
+  "reviewer": "wp5_review",
+  "phase": "prepared draft independent check",
+  "operation": "4998ae357d45a20a",
+  "drafts": [
+    {
+      "path": "wiki/authored/wiki-master/architecture.md",
+      "bytes": 24756,
+      "sha256": "0bb10d388bf6ca4fc127a4140a390835e5e7e674bd84bbff5f8f9e374d4e3a33",
+      "actualSha256": "0bb10d388bf6ca4fc127a4140a390835e5e7e674bd84bbff5f8f9e374d4e3a33",
+      "normalizedSha256": "0bb10d388bf6ca4fc127a4140a390835e5e7e674bd84bbff5f8f9e374d4e3a33",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/overview.md",
+      "bytes": 3108,
+      "sha256": "54a333d6326a789db22c4e36ff9d98cea5b36dae2ef64a7a1dc397b67675cfe0",
+      "actualSha256": "54a333d6326a789db22c4e36ff9d98cea5b36dae2ef64a7a1dc397b67675cfe0",
+      "normalizedSha256": "54a333d6326a789db22c4e36ff9d98cea5b36dae2ef64a7a1dc397b67675cfe0",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/guides/maintenance.md",
+      "bytes": 4739,
+      "sha256": "c1ecaddfa83af28a7308ece36e9e162c15033d90b5704aa2406dda9c1ccc53d0",
+      "actualSha256": "c1ecaddfa83af28a7308ece36e9e162c15033d90b5704aa2406dda9c1ccc53d0",
+      "normalizedSha256": "c1ecaddfa83af28a7308ece36e9e162c15033d90b5704aa2406dda9c1ccc53d0",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/separate-search-project-and-setup-skills.md",
+      "bytes": 24595,
+      "sha256": "415cd29b3893f1e336d6a1ee3073773959bac1e963ebc5859872372ae366229e",
+      "actualSha256": "415cd29b3893f1e336d6a1ee3073773959bac1e963ebc5859872372ae366229e",
+      "normalizedSha256": "415cd29b3893f1e336d6a1ee3073773959bac1e963ebc5859872372ae366229e",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/roadmap.md",
+      "bytes": 22440,
+      "sha256": "cefb40541b79fd5515ab9810915ed516d47d6a6d9667c99107c07624678820d8",
+      "actualSha256": "cefb40541b79fd5515ab9810915ed516d47d6a6d9667c99107c07624678820d8",
+      "normalizedSha256": "cefb40541b79fd5515ab9810915ed516d47d6a6d9667c99107c07624678820d8",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/init-preserve-customized-templates.md",
+      "bytes": 2553,
+      "sha256": "043402117d3d9a714219040d038abc25ce9f705727265b58df641a2752dd9461",
+      "actualSha256": "043402117d3d9a714219040d038abc25ce9f705727265b58df641a2752dd9461",
+      "normalizedSha256": "043402117d3d9a714219040d038abc25ce9f705727265b58df641a2752dd9461",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/pdf-doctor-render-capability.md",
+      "bytes": 5298,
+      "sha256": "2d54dd7ccdad24a8f742572c8f360a8b0fd2bb186ad3b4ea93350133ffca3471",
+      "actualSha256": "2d54dd7ccdad24a8f742572c8f360a8b0fd2bb186ad3b4ea93350133ffca3471",
+      "normalizedSha256": "2d54dd7ccdad24a8f742572c8f360a8b0fd2bb186ad3b4ea93350133ffca3471",
+      "matchesPrepared": true
+    },
+    {
+      "path": "wiki/authored/wiki-master/notes/six-skill-separation-delivery.md",
+      "bytes": 7437,
+      "sha256": "61c404d2b8dda785aa25274f64b850fa86d2e6ce09eca69f7415617edd825c4a",
+      "actualSha256": "61c404d2b8dda785aa25274f64b850fa86d2e6ce09eca69f7415617edd825c4a",
+      "normalizedSha256": "9ba896ff5b19fde9dbe0ae6dd3c6451865a10d1d2e7b28d900395f1775cdf144",
+      "matchesPrepared": true
+    },
+    {
+      "path": "moc/wiki-master.md",
+      "bytes": 1530,
+      "sha256": "6e916cca2618c7c5aa32dda9af7f9b24d9c333da0c9e8702fa2c22f96567fa65",
+      "actualSha256": "6e916cca2618c7c5aa32dda9af7f9b24d9c333da0c9e8702fa2c22f96567fa65",
+      "normalizedSha256": "6e916cca2618c7c5aa32dda9af7f9b24d9c333da0c9e8702fa2c22f96567fa65",
+      "matchesPrepared": true
+    },
+    {
+      "path": "log/2026-11-02-163821-relink-document-verified-six-skill-separation-and-setup-findings.md",
+      "bytes": 606,
+      "sha256": "b8b88ea15aea8b4df44ded6e24528012513a4aada88f78bb6a6aa571f7a33531",
+      "actualSha256": "b8b88ea15aea8b4df44ded6e24528012513a4aada88f78bb6a6aa571f7a33531",
+      "normalizedSha256": "b8b88ea15aea8b4df44ded6e24528012513a4aada88f78bb6a6aa571f7a33531",
+      "matchesPrepared": true
+    }
+  ],
+  "foreignBeforeCount": 74,
+  "foreignChangedCount": 0,
+  "indexUnchanged": true,
+  "publicHandoffSha256": "e18bcc24d793151a51e39f61ecf08f61ac52135e43f26996fc926d91c5568b3c",
+  "publicationApproved": false
+}
