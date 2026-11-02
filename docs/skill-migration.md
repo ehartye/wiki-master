@@ -1,9 +1,10 @@
 # Six-skill migration
 
-The source candidate exposes exactly six skills: wiki-search, wiki-project,
+Version 0.89.0 exposes exactly six skills: wiki-search, wiki-project,
 wiki-setup, wiki-maintainer, wiki-researcher and wiki-purge. It replaces the
 released 0.88.0 combined user and initialization roles without forwarding aliases.
-This describes source compatibility, not a published release or installation.
+Update the plugin and its maintained callers together; existing host installations
+need a separate update to load the new catalog.
 
 ## Migration from 0.88.0
 
@@ -71,7 +72,8 @@ Known maintained companion migrations cover hartye-skills `spec-plan` and
 `q-master`, agent-game-studio's plugin map, and agent-unreal's names-only
 sibling-skill catalog. The bounded before/after inventory and checks belong to
 `eval/skill-reorganization/`. Deliver compatible companion source changes together
-with this six-skill source; no release versions are assigned by this migration.
+with this six-skill release: hartye-skills 0.9.5, agent-game-studio 0.4.1 and
+agent-unreal 0.38.2.
 Installed caches remain unchanged and require a later host update. The bounded
 inventory reports unavailable sources explicitly and makes no compatibility claim
 for unknown third-party callers.

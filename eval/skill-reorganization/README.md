@@ -1,5 +1,10 @@
 # Six-skill separation delivery handoff
 
+This is the historical pre-release handoff. Its source revisions and unreleased
+status below record the completed implementation stage. Subsequent release
+preparation is recorded in [release preparation](release-preparation.md); current
+version compatibility is in the [migration guide](../../docs/skill-migration.md).
+
 The reviewed implementation exposes exactly six skills: `wiki-search`,
 `wiki-project`, `wiki-setup`, `wiki-maintainer`, `wiki-researcher` and `wiki-purge`.
 The old wiki-user/wiki-init entry folders are removed without forwarding skills.
