@@ -1,39 +1,39 @@
 # Connect concepts and task maps
 
-Read [access and host commands](access.md) before touching the vault. Also read for this operation: [efficacy](efficacy.md), [operations](operations.md).
-Load the rest only when this run reaches it — [evidence](evidence.md) before a relationship claim rests on a cited source; [maintenance](maintenance.md) when repairing wrapped links, citation shapes or ordering.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Read [access](access.md), [identity and relationships](efficacy.md),
+[evidence](evidence.md) and [operation completion](operations.md). Read
+[repair recipes](maintenance.md) only when a specific repair is indicated.
 
-0. For an authorized repair run, open before the first write: `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink` — records
-   what was already uncommitted, so step 5 commits your work and not the user's.
-1. Read unscored forward links with `node "<absolute-plugin-root>/scripts/health.mjs" --json`.
-   For orphan/dead-end navigation opportunities, use the helper's `--legacy` report;
-   its score and fuzzy suggestions are not repair obligations. Route integrity defects
-   to [maintainer repair](repair.md) when repair is authorized.
-   Obsidian's `orphans` includes catalog links and can hide stranded pages.
-   Run `node "<absolute-plugin-root>/scripts/identity-audit.mjs" --limit=20 --json` to separate
-   ambiguous identities from concepts that merely need connections.
-   For a preview-only request, stop after the reports without opening an operation.
+1. Inspect the requested navigation scope using the direct [health/topology check](../../wiki-setup/references/checks.md#health-and-ingest-backlog)
+   and [identity/relationship checks](../../wiki-setup/references/checks.md#identity-and-relationship-checks).
+   Unscored forward links and orphan/dead-end opportunities are not integrity
+   obligations. Route actual integrity defects to [repair](repair.md) when
+   authorized. A preview-only request stops after reports without an operation.
 2. Before creating a page for a frequently mentioned entity, search candidate
    names and equivalent aliases; reuse the canonical page when it already exists.
-   Do not merge related concepts merely because names or embeddings are similar.
-3. Run `node "<absolute-plugin-root>/scripts/relationships.mjs" --limit=10 --json` (optionally
-   `--since=YYYY-MM-DD`, `--seed="wiki/concepts/<page>.md"`, or `--semantic`).
-   Read both candidate pages and their supporting evidence. Choose a role and an
-   explanatory sentence using the efficacy contract. A candidate is unverified;
-   shared evidence and similarity do not establish equivalence or causality.
-   Apply links within the user's authorized scope under `## Relationships`;
-   seek input for uncertain interpretations. Supporting citations stay in
-   `sources:` and factual prose, separate from navigation. Preserve `reviewed`
-   during mechanical linking. Report accepted/rejected candidates and reasons.
-4. Build or refresh a small task MOC when it helps recurring questions: starting
+   Never merge related concepts solely because names or embeddings are similar.
+3. Obtain bounded candidates with
+   `node "<absolute-plugin-root>/scripts/relationships.mjs" --limit=10 --json`
+   (optionally `--since=YYYY-MM-DD`, `--seed="wiki/concepts/<page>.md"`, or `--semantic`).
+   Read both pages and their evidence. Choose a relationship role and explanatory
+   sentence under the identity contract. Shared evidence and similarity do not
+   establish equivalence or causality. Report accepted/rejected candidates and why.
+4. Before an authorized write, open or reuse a **relink** operation. Record every
+   edited page. Apply useful links under `## Relationships` within scope; seek
+   input for uncertain interpretations. Keep supporting citations in `sources:`
+   and factual prose, separate from navigation. Preserve `reviewed` on mechanical edits.
+5. Build or refresh a small task MOC when it helps recurring questions: starting
    points, prerequisites, alternatives, complementary domains and open questions.
-   Use `_templates/task-map.md`; keep generated document catalogs distinct.
-   Confirm new links resolve and a task query can find the map. Write the log entry:
-   `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op relink --title "<summary>"` (details on stdin).
-5. Close the operation:
-   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token>`
-   (An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.)
-   Relink rewrites links across the graph; committing it as one unit is what makes
-   it revertable. The helper does not push; push and verify remote publication through the shared contract. This step also reports any hard-wrapped wikilink
-   still present in the files it commits, in case one was introduced after step 1 ran.
+   Use `_templates/task-map.md`; keep generated document catalogs distinct. Use
+   [project guidance](../../wiki-project/references/authoring.md) for original
+   project pages, and its [catalog procedure](../../wiki-project/references/catalogs.md)
+   for project-generated navigation.
+6. Confirm new links resolve and a task query can retrieve the map. Follow direct
+   [scoped validation](../../wiki-setup/references/validation.md), then finish one
+   relink log, scoped ledger/commit, sync and remote verification through
+   [operations](operations.md). Inspect actual paths and index notices; a local
+   commit alone is not publication.
+
+**Done:** relationships are explained and supported, canonical identity is
+preserved, affected maps are findable, and authorized changes have verified
+completion. A preview remains read-only.

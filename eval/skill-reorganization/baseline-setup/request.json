@@ -1,0 +1,27 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. No skills are loaded for this baseline. You may inspect helper source, CLI help and the vault schema/templates, but do not read any SKILL.md or skills/ reference files. Validate only wiki/authored/beacon/architecture.md and wiki/authored/beacon/backlog/parallel-workers.md. Report vault health, freshness and lint findings, and diagnose why search currently lacks semantic coverage. Do not repair, initialize, install, rebuild indexes, edit files, log operations, commit or sync. Explain actual coverage limits. This is a read-only diagnostic request.",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. No skills are loaded for this baseline. You may inspect helper source, CLI help and the vault schema/templates, but do not read any SKILL.md or skills/ reference files. Validate only wiki/authored/beacon/architecture.md and wiki/authored/beacon/backlog/parallel-workers.md. Report vault health, freshness and lint findings, and diagnose why search currently lacks semantic coverage. Do not repair, initialize, install, rebuild indexes, edit files, log operations, commit or sync. Explain actual coverage limits. This is a read-only diagnostic request.",
+    "--disable-slash-commands",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "without skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\baseline-setup",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "Validate only wiki/authored/beacon/architecture.md and wiki/authored/beacon/backlog/parallel-workers.md. Report vault health, freshness and lint findings, and diagnose why search currently lacks semantic coverage. Do not repair, initialize, install, rebuild indexes, edit files, log operations, commit or sync. Explain actual coverage limits. This is a read-only diagnostic request."
+}

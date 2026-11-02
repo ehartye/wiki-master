@@ -1,0 +1,151 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\ingest.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 27570,
+    "stop_reason": "end_turn",
+    "session_id": "01986698-dc2f-47e4-b786-741f82a89196",
+    "total_cost_usd": 0.1722148,
+    "usage": {
+      "input_tokens": 20,
+      "cache_creation_input_tokens": 28400,
+      "cache_read_input_tokens": 293548,
+      "output_tokens": 2922,
+      "output_tokens_details": {
+        "thinking_tokens": 155
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 28400,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 542,
+          "cache_read_input_tokens": 43555,
+          "cache_creation_input_tokens": 1405,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1405
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 2922,
+        "cacheReadInputTokens": 293548,
+        "cacheCreationInputTokens": 28400,
+        "webSearchRequests": 0,
+        "costUSD": 0.1722148,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 155,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 28400,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 11,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I ingested the one eligible clipping, `raw/clippings/Eligible.md`. The change is committed and pushed to the local bare origin, and local `HEAD` matches `origin/main` at `dac136c`.\n\n**What was left alone**\n- **`raw/clippings/Restricted.md`:** excluded because it is marked `citation-status: restricted`. Its bytes are untouched and no summary was made. It still shows in the backlog report, which is expected.\n- **`raw/clippings/Acknowledgement Basics.md`:** already summarized (a source page records its hash), so it was not touched.\n\n**What I wrote**\n- **`wiki/sources/Eligible.md`:** a new summary that cites the exact raw path and records source hash `6a36bfec…ef0d4`. It says the clipping states that receipts record accepted identifiers and that repeated identifiers don't cause duplicate delivery. The clipping gives no throughput claim, retry budget or timeout.\n- **`wiki/concepts/Message Delivery.md`:** extended with that point and the new source. I reused this page rather than creating a new concept.\n- **`index.md` and one log entry:** the catalog was regenerated and one log file written.\n\n**Checks**\n- **Backlog:** it dropped from 2 to 1, and only `Restricted.md` remains.\n- **Lint:** the quote check found no gapped or unverifiable quotes and no style flags. I did not run a separate citation or frontmatter validation beyond that.\n\n**Limits**\n- I did not run the search helper afterward, because you asked only for ingestion.\n- No semantic index exists, so search would be lexical only.",
+    "ttft_ms": 1515,
+    "type": "result",
+    "duration_ms": 30842,
+    "uuid": "44d2b460-6344-4cfc-88ec-f92ded898b32",
+    "ttft_stream_ms": 919,
+    "time_to_request_ms": 84,
+    "first_content_frame_ms": 920,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 2922,
+        "cacheReadInputTokens": 293548,
+        "cacheCreationInputTokens": 28400,
+        "webSearchRequests": 0,
+        "costUSD": 0.1722148,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 155,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 28400,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

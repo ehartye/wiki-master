@@ -6,11 +6,8 @@ Read [access](access.md),
 Read [repair helpers](maintenance.md) only when a
 finding calls for one. Helpers resolve from this installed skill's plugin root.
 
-**The deterministic worklist owns the metric.** Run
-`node "<absolute-plugin-root>/scripts/health.mjs" --json` and retain the initial
-`issues`, their IDs, `defectCount` and coverage. A scan failure is not zero defects.
-An empty scan establishes nothing about health. This checks structural integrity,
-not factual truth or completeness; see `coverage.notChecked`.
+**Establish the worklist.** Run `node "<absolute-plugin-root>/scripts/health.mjs" --json`
+through the direct [health procedure](../../wiki-setup/references/checks.md#health-and-ingest-backlog). Retain initial issue IDs, defect count and coverage; a failed or empty scan proves nothing about health.
 
 **Preserve intentional forward links.** `forwardLinks` are unscored navigation,
 not repair obligations. Age, demand and name similarity never prove a defect.
@@ -46,7 +43,7 @@ of a source is a citation contract even on a stub.
    assigned pages. Preserve `reviewed` for mechanical edits. If a helper's apply
    mode edits the whole vault, use it only when that full scope is authorized;
    otherwise make the verified edit to the selected page.
-4. **Verify progress, then stop or continue.** Rerun health JSON after each batch.
+4. **Verify progress, then stop or continue.** Rerun the direct [health check](../../wiki-setup/references/checks.md#health-and-ingest-backlog) after each batch.
    Compare issue IDs, not just totals: record resolved, remaining and new IDs.
    Inspect the diff and supporting evidence to ensure resolved IDs represent real
    repairs, not removed claims or weakened declarations. Fix any new defects your
@@ -54,9 +51,9 @@ of a source is a citation contract even on a stub.
    remaining issues need unavailable evidence, user judgment or additional scope.
    Explain the concrete blocker per ID; do not loop on a batch with no verified
    progress. Unresolved navigation stays outside the remaining-defect count.
-5. **Complete the operation.** For applied changes, validate affected catalogs,
+5. **Complete the operation.** For applied changes, [validate changed pages and catalogs](../../wiki-setup/references/validation.md),
    write one `log-entry.mjs --op relink` narrative and close with
-   `op-commit.mjs --op relink --title "<summary>" --since <saved-token>`, using the
+   `op-commit.mjs --op relink --title "<summary>" --since <saved-token> --paths-file <ledger>`, using the
    absolute helper paths and shell-safe examples in the completion reference. An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.
    Inspect the actual committed paths and index-refresh notices; push and verify remote
    publication through the shared completion contract. Report before/after defect counts, verified resolved IDs, remaining

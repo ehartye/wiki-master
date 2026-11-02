@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-02T21:13:01.241Z",
+  "plugin": "h-superpowers",
+  "sourceAlias": "Hartye-superpowers",
+  "revision": "714599c2769f606605d461d13579d48bb8778dc7",
+  "dirty": true,
+  "scan": {
+    "command": [
+      "git",
+      "grep",
+      "-nI",
+      "-E",
+      "wiki-user|wiki-init|wiki-maintainer/references/(health|stale|lint|maintenance)|wiki-maintainer\\\\references\\\\(health|stale|lint|maintenance)",
+      "--",
+      "."
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "coverage": {
+    "scannedSources": 15,
+    "unavailableSources": [
+      "agent-draw"
+    ]
+  }
+}

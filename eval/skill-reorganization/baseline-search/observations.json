@@ -1,0 +1,200 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01SLdPfi7bM3hpT3sKWK3DzT",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-user"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01THnnXsWfGpEuPNBdBBjx7P",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-user\\references\\search.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01Hnx2cgMQj3V9b8c1s1NRo7",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-user\\references\\query.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01UZfcNrwmxJChEh4ck3Z7m2",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\evidence.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 30142,
+    "stop_reason": "end_turn",
+    "session_id": "330b750e-7d49-44c7-9ccc-3f0187cca3e3",
+    "total_cost_usd": 0.12892620000000002,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 21590,
+      "cache_read_input_tokens": 161682,
+      "output_tokens": 2637,
+      "output_tokens_details": {
+        "thinking_tokens": 100
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 21590,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1278,
+          "cache_read_input_tokens": 35509,
+          "cache_creation_input_tokens": 2641,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2641
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2637,
+        "cacheReadInputTokens": 161682,
+        "cacheCreationInputTokens": 21590,
+        "webSearchRequests": 0,
+        "costUSD": 0.12892620000000002,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 100,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 21590,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 10,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "**Beacon does not already ship two dispatcher workers.** It ships one. A second worker is proposed but not implemented. I wrote nothing, logged nothing, refreshed no indexes and repaired no search.\n\n## Lookups\n\n| Request | Result |\n|---|---|\n| \"The copper heron carries seven lanterns\" | `wiki/concepts/Beacon Protocol.md:10`. This is the exact phrase. The page is `maintained` and was reviewed 2026-10-01. |\n| Alias \"Lantern Relay\" | The alias is declared at `wiki/concepts/Beacon Protocol.md:4` (`aliases: [\"Lantern Relay\"]`). It resolves to **Beacon Protocol**, not to Beacon Protocol Draft. The search's identity channel was incomplete, so I confirmed the alias by opening the file. |\n| \"Harbor\" | The title is ambiguous, so I did not pick one. There are two separate pages with the same title: `wiki/concepts/north/Harbor.md:8` (violet signal flags) and `wiki/concepts/south/Harbor.md:8` (amber signal flags). |\n\n`wiki/concepts/Beacon Protocol Draft.md:7` is a similarly named draft page that says a proposal \"uses three lanterns\". It is not the page you asked about, and it has no `reviewed` date.\n\n## Raw evidence for \"quartz otter 817\"\n\n- **Raw hit:** `raw/clippings/Beacon Study.md:8` reads \"Evidence marker quartz otter 817 appears only in raw evidence.\" The raw search returned 1 hit and 1 returned.\n- **Provenance:** `resolve-evidence.mjs` traces `wiki/concepts/Beacon Protocol.md` directly to `raw/clippings/Beacon Study.md`, through `sources:` at line 7.\n- **What that trace supports:** the helper says reachability does not prove the claim. The clipping at `raw/clippings/Beacon Study.md:9` says \"seven lantern messages\" were delivered. It does not mention a copper heron or lanterns being carried. The wiki sentence at line 10 is therefore **not supported** by the raw note.\n- **Source details:** the clipping is `quality: high` and unvetted raw evidence.\n\n## Beacon dispatcher workers\n\nI ran a search scoped with `--project=beacon`.\n\n- `wiki/authored/beacon/architecture.md:14`: \"The deployed relay persists messages in a local queue and dispatches them using one worker. A second worker is proposed, not implemented.\" The page is maintained and was reviewed 2026-10-01.\n- `wiki/authored/beacon/backlog/parallel-workers.md:15`: \"Proposed: introduce a second worker… This has not shipped.\" Its `backlog-status` is `open`.\n- `wiki/authored/beacon/overview.md:15` only points to the architecture page.\n\nThe two pages agree, and they are authored with `sources: []`, so there is no raw evidence behind them. They are the project's own statement of current state.\n\n## Coverage diagnostics\n\n- **Search tier:** lexical only. The index is unavailable (`index-unavailable`), so semantic ranking contributed nothing.\n- **Index metadata:** it is incomplete (`metadata-incomplete`), which is why alias and title lookup was incomplete. I made up for that by opening the files.\n- **Keyword channels:** the `wiki` and `moc` scans were OK in every run, and the `raw` scan was OK in the evidence run.\n- **Ambiguity:** the `ambiguous-identity` diagnostic fired for Harbor.\n- **Open item:** the vault's `overview.md` reports `wiki/authored/beacon/architecture.md` as an unresolved citation. I read `architecture.md` directly, and it exists.",
+    "ttft_ms": 1817,
+    "type": "result",
+    "duration_ms": 32321,
+    "uuid": "1c70b821-a42f-45c6-9994-697f8a41c52a",
+    "ttft_stream_ms": 1634,
+    "time_to_request_ms": 156,
+    "first_content_frame_ms": 1634,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2637,
+        "cacheReadInputTokens": 161682,
+        "cacheCreationInputTokens": 21590,
+        "webSearchRequests": 0,
+        "costUSD": 0.12892620000000002,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 100,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 21590,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

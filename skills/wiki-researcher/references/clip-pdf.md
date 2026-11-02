@@ -19,11 +19,7 @@ attachment.
 
 ## How it works
 
-`clip-pdf.mjs` extracts text with **`pdftotext`** — either the **Xpdf** or the
-**poppler** build, probed at runtime, with Xpdf preferred because only it provides
-the `-table` mode that reads a tabular PDF without destroying its rows (invoked via Node's
-`execFileSync`, which resolves the Windows `.exe` correctly — do **not** shell out
-to `pdftotext` from a Bash tool per the PATHEXT hazard), then writes
+`clip-pdf.mjs` extracts text with **`pdftotext`** (Xpdf or poppler), then writes
 `raw/clippings/<slug>.md` with the standard clipping frontmatter (`source`,
 `created`, `tags:[clippings]`, `quality`, `source-hash`). It skips duplicates and
 prior declines, and records a decline for **thin** extractions (scanned/image PDFs
@@ -56,9 +52,7 @@ Extraction is tuned for academic PDFs:
   `pdftotext` cannot align a document that was detected as tabular, the clipper
   **warns on stderr and stamps `extraction: table-flattened` + `fidelity: degraded`**
   rather than writing a clean-looking clipping whose rows are silently mispaired.
-  Install the [Xpdf command-line tools](https://www.xpdfreader.com/download.html) and
-  re-clip to recover the rows. `-layout` is deliberately **not** used as a fallback:
-  it can stack consecutive keys into a column while their values drift.
+  Follow [PDF diagnosis](../../wiki-setup/references/capture-prerequisites.md#pdf) for missing table support; do not assert reconstructed pairings from flattened output.
 - **OCR fallback (Tesseract).** For a **scanned/image PDF** (no text layer) the
   clipper automatically rasterizes pages with `pdftoppm` and recognizes them with
   **Tesseract** — previously these were just declined. Pass **`--ocr`** to force
@@ -86,11 +80,8 @@ Extraction is tuned for academic PDFs:
   clipper declares the floor instead, `extraction: ocr` + **`fidelity: ocr`**, whether
   OCR was forced with `--ocr` or ran as the automatic fallback. A clean OCR pass is
   stamped the same as a poor one: the value says *unverified*, not *bad*. Clippings
-  made before the floor existed carry `extraction: ocr` and no grade;
-  `node "<absolute-plugin-root>/scripts/refresh-fidelity.mjs" --ocr-floor` lists them
-  (dry run) and, with `--apply`, sets the floor. `refresh-fidelity.mjs` never clears an OCR flag, because
-  re-reading the characters would call it healthy.
-- **A text layer that drops or shifts letters is `degraded`.** A broken font map can leave only valid letters: some vanish, the whole alphabet shifts, or one letter stands for another. No other check sees it, because the characters are all letters. No Latin-script text lacks an `a` or a `t`, in any language, so a text of at least 5,000 letters whose share of one of fourteen common letters is far below every language's share is stamped `degraded` and sent to OCR. A shorter text, and a text that is not mostly Latin script, are not judged. Clippings made before this check are not re-graded for you: `node "<absolute-plugin-root>/scripts/refresh-fidelity.mjs" --inventory` lists the unmarked ones that now look broken, and only lists.
+  made before the floor existed may be ungraded; use the direct [fidelity diagnosis](../../wiki-setup/references/capture-prerequisites.md#pdf) for inventory and authorized correction. Reassessment cannot establish OCR accuracy from clean-looking characters.
+- **A text layer that drops or shifts letters is `degraded`.** A broken font map can leave only valid letters: some vanish, the whole alphabet shifts, or one letter stands for another. No other check sees it, because the characters are all letters. No Latin-script text lacks an `a` or a `t`, in any language, so a text of at least 5,000 letters whose share of one of fourteen common letters is far below every language's share is stamped `degraded` and sent to OCR. A shorter text, and a text that is not mostly Latin script, are not judged. Legacy clippings are not re-graded automatically; use the direct [fidelity inventory](../../wiki-setup/references/capture-prerequisites.md#pdf).
 - **Re-assessment cannot clear a table flag.** `refresh-fidelity.mjs` re-derives
   fidelity from the stored text and drops flags that no longer hold, but a
   table-derived flag has no basis in the characters (a flattened table reads as
@@ -99,15 +90,9 @@ Extraction is tuned for academic PDFs:
 
 ## Steps
 
-1. **Preflight** (once): `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" --doctor`. It probes every
-   external tool and prints what each missing one costs you; it is silent-and-OK only
-   when all four are present. The clipper also prints this banner on **every** run
-   when something is missing, so a degraded toolchain cannot go unnoticed. A missing
-   `pdftotext` is fatal and the clipper exits — do not fabricate content. The rest are
-   degradations: no `-table` loses table row pairings, and no `pdftoppm`/`tesseract`
-   means scanned PDFs cannot be read at all.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#pdf) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/`):
-   `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local PDF and the file path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -122,10 +107,7 @@ Extraction is tuned for academic PDFs:
      Pass it whenever the PDF's value is in graphs, diagrams or photos.
    - `--mode=auto|reading-order|table` overrides the reading-mode detector for a
      document it gets wrong. See **Overriding the reading mode** below.
-   - A `thin` result means the PDF is scanned/encrypted and OCR also failed — a
-     decline is recorded. An `ocr-unavailable` result means the OCR toolchain is
-     missing, so **nothing was learned about the PDF** — no decline is recorded;
-     install the tools and re-clip. Never invent the text either way.
+   - Distinguish actual `thin` extraction from `ocr-unavailable`: the latter learned nothing about the PDF and records no decline. Follow [PDF diagnosis](../../wiki-setup/references/capture-prerequisites.md#pdf); never invent missing text.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    that the extracted text is real prose, not garbled ligatures. `pdftotext`
    output is plain text — light and lossy on tables/figures.
@@ -143,7 +125,7 @@ Extraction is tuned for academic PDFs:
      (an ISBN, a table value) against the page image before a wiki page asserts it.
    - **`extraction: table-flattened`** means the rows were **lost** and could not be
      recovered on this machine. Do not assert any pairing from such a clipping;
-     install the Xpdf tools and re-clip instead.
+     use the [PDF recovery procedure](../../wiki-setup/references/capture-prerequisites.md#pdf) within authorized scope instead.
 
 ## Preserving figures (`--figures`)
 
@@ -154,7 +136,8 @@ vault's figure convention.
 
 ```bash
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --source="<url>" --figures            # auto
-node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=all | --figures=3,5-7 --figures-max=60
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=all --figures-max=60 --since <token>
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=3,5-7 --since <token>
 # figures for a clipping that already exists, from a PDF you supply:
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only --clipping raw/clippings/<name>.md
 ```
@@ -190,13 +173,9 @@ node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only -
   PDF is re-extracted the way the clipping was and the hashes compared. A mismatch is
   refused (`--allow-pdf-mismatch` overrides); a clipping with no `source-hash` or one
   made by OCR cannot be checked and only warns.
-- **Tools.** poppler `pdftoppm` (required), `pdfimages`, `pdftocairo`, `pdfinfo`; found
-  on PATH or in the winget poppler folder. Missing tools never fail the clip: the run
-  prints what is missing and how to install it (`--doctor` lists it), and `auto`
-  degrades to whichever probe is available.
+- **Tools.** Check figure-tool availability through [PDF prerequisites](../../wiki-setup/references/capture-prerequisites.md#pdf). Report missing probes and actual selection coverage.
 - **Operation bracket.** Figure PNG/sidecars and the clipping's frontmatter edit are
-  ordinary vault writes inside the same `op-begin`/`op-commit` as the clip; op-commit
-  commits whatever became dirty, so nothing extra is needed. `health.mjs` treats
+  ordinary vault writes inside the clip's operation. Pass `--since <token>` and inspect the exact ledger for PNGs, sidecars and changed clipping metadata before scoped close. `health.mjs` treats
   `raw/figures/` as assets, not clippings, so they never count toward the ingest backlog
   or as missing a `source-hash`.
 - A render is a faithful page, not an interpretation. Describe what a figure shows only
@@ -204,15 +183,7 @@ node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only -
 
 ## Overriding the reading mode
 
-The detector is a heuristic and can misclassify **margin annotations beside a
-body column** as a table. Aligned mode can splice a margin note into the adjacent
-body line and leave hyphenated breaks unjoined. The result may read as ordinary
-prose with only a `fidelity: tabular` caveat while no longer being quotable. **Assume neither mode is
-right until you have looked at the output.**
-
-```bash
-node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --mode=reading-order --source="<url>"
-```
+Use [wrong-reading-mode diagnosis](../../wiki-setup/references/capture-prerequisites.md#wrong-reading-mode-or-garbled-text) when output appears interleaved or garbled. Inspect actual output before selecting an override; neither mode is assumed right. Supported capture flags:
 
 - `auto` (default) — the detector chooses.
 - `reading-order` — force reading-order. Correct for prose, two-column papers, and
@@ -228,16 +199,7 @@ unknown `--mode=` value is an error, and `--mode=table` on a pdftotext without
 `-table` is refused rather than quietly downgraded — believing you forced a mode
 that was not applied is the failure this whole module exists to prevent.
 
-**How to tell which mode a document wants** — extract two pages both ways and look:
-
-```bash
-pdftotext -enc UTF-8 -f 40 -l 41 "<file.pdf>" -            # reading-order
-pdftotext -enc UTF-8 -f 40 -l 41 -table "<file.pdf>" -     # aligned
-```
-
-If aligned mode puts *unrelated* text on the same line, it is a two-column or
-margin layout — use `reading-order`. If reading-order emits a whole key column
-followed by a whole value column, it is a table — use `table`.
+The direct [reading-mode comparison procedure](../../wiki-setup/references/capture-prerequisites.md#wrong-reading-mode-or-garbled-text) owns diagnostic extraction commands and interpretation.
 
 ## Guardrails
 
@@ -254,7 +216,7 @@ followed by a whole value column, it is a table — use `table`.
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit, push and verify
+its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
 remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Pass `--since <saved-token>` to the clipping helper so every written path enters

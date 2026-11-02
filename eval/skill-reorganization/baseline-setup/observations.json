@@ -1,0 +1,142 @@
+{
+  "wikiSkills": [],
+  "plugins": [
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [],
+  "reads": [],
+  "final": {
+    "duration_api_ms": 30646,
+    "stop_reason": "end_turn",
+    "session_id": "bb0277b5-d8a4-48a1-87de-1ca619bdc114",
+    "total_cost_usd": 0.10617320000000001,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 16030,
+      "cache_read_input_tokens": 182392,
+      "output_tokens": 2379,
+      "output_tokens_details": {
+        "thinking_tokens": 94
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16030,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1231,
+          "cache_read_input_tokens": 36028,
+          "cache_creation_input_tokens": 2202,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2202
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 2379,
+        "cacheReadInputTokens": 182392,
+        "cacheCreationInputTokens": 16030,
+        "webSearchRequests": 0,
+        "costUSD": 0.10617320000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 94,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 16030,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 7,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The vault is not healthy. It has one open integrity defect, three pages with no review date, and no semantic search at all. I only read and ran read-only helpers, and the vault's `git status` is still clean. I wrote one scratch file, `ledger.json`, to TEMP for the validator.\n\n## Vault health\n- **Open defects:** `health.mjs` reports 1 (target 0) across 9 content pages, 2 of which require evidence and 4 are stubs.\n- **The defect:** `wiki/concepts/Beacon Protocol Draft.md:4` is flagged `missing-evidence`. It is a substantive derived page with no unambiguous evidence route to raw within three hops.\n- **Navigation:** 0 unresolved links.\n- **Backlog:** `wiki/authored/beacon/backlog/parallel-workers.md` has the status `open`, which the helper doesn't recognise. The generated roadmap would list it under \"Unrecognized status\".\n- **Scope:** health checks structure only. It says nothing about whether the content is true or complete.\n\n## Freshness\n`stale.mjs` reports: fresh 0, aging 4, stale 0, rotten 3, missing review 3.\n- The three pages with no review date are `Beacon Protocol Draft.md`, `north/Harbor.md` and `south/Harbor.md`, all under `wiki/concepts/`.\n- Obsidian's `base:query` returned invalid JSON, so the report fell back to reading the filesystem. Obsidian wasn't used, and the result should still be valid.\n- The helper doesn't name the 4 aging and 3 rotten pages in its output.\n\n## Lint\n- `lint.mjs` found no quote problems. It examined 0 quotes, found 0 gapped or unverified ones, and raised 0 style flags.\n- That clean result mostly means there was little to check, not that the content was verified.\n\n## Validation of the two authored pages\n`validate-authored.mjs` exited 1 after checking both pages. It found 1 defect:\n- `wiki/authored/beacon/backlog/parallel-workers.md:11` has `backlog-status: open`. The allowed values are `in-progress`, `planned`, `blocked`, `shipped` and `dropped`.\n- `wiki/authored/beacon/architecture.md` is clean.\n- The page's `status: maintained` and `reviewed: 2026-10-01` are not flagged.\n\n## Why search has no semantic coverage\n`search.mjs --health` reports the tier as lexical, meaning keyword and identity matching only. Two things cause it:\n1. **The embedding service is unreachable.** `OLLAMA_HOST` is set in this environment to `http://127.0.0.1:1`, which is a dead port. The default would be `localhost:11434`. Search reports `reachable=false` and `model-pulled=false` for `nomic-embed-text`. I don't know whether `nomic-embed-text` is installed, because the helper couldn't reach a server to ask.\n2. **The semantic index is empty.** `index-embed.mjs --status` shows 0 files and 0 chunks, with 8 files changed since the last refresh. Even with Ollama running, semantic ranking would return nothing until the index is built.\n\n## What search covers today\n- **Covered:** keyword and identity matches only. Semantic ranking can't be fused in, so results depend on literal wording, which hurts paraphrased or concept-level queries.\n- **Not covered:** semantic matches across all 8 changed files and all 9 content pages.\n\nThe helper's own fix is `ollama serve`, but the environment variable would still point at the dead port. Fixing it would also mean building the index, which I did not do because you asked for a read-only diagnostic.",
+    "ttft_ms": 1654,
+    "type": "result",
+    "duration_ms": 35825,
+    "uuid": "8dfe65bb-a85d-4d49-9c60-807b541f1d06",
+    "ttft_stream_ms": 1597,
+    "time_to_request_ms": 171,
+    "first_content_frame_ms": 1597,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 2379,
+        "cacheReadInputTokens": 182392,
+        "cacheCreationInputTokens": 16030,
+        "webSearchRequests": 0,
+        "costUSD": 0.10617320000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 94,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 16030,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

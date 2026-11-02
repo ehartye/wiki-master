@@ -1,0 +1,38 @@
+{
+  "purpose": "Fixture mechanism preflight only; not candidate actor behavior",
+  "command": [
+    "node",
+    "<PLUGIN>/scripts/search.mjs",
+    "quartz otter 817",
+    "--include-raw",
+    "--json",
+    "--limit=5"
+  ],
+  "exit": 0,
+  "channels": {
+    "keyword": {
+      "wiki": "ok",
+      "moc": "ok",
+      "raw": "failed"
+    },
+    "semantic": "index-unavailable",
+    "identity": "incomplete"
+  },
+  "rawCountPresent": false,
+  "diagnostics": [
+    {
+      "code": "metadata-incomplete",
+      "message": "Refresh index-embed to enable complete title and alias lookup."
+    },
+    {
+      "code": "keyword-failed",
+      "scope": "raw",
+      "message": "ENOTDIR: not a directory, scandir '<SCRATCH>\\raw'"
+    },
+    {
+      "code": "index-unavailable",
+      "message": "Semantic retrieval unavailable; lexical retrieval used."
+    }
+  ],
+  "stderr": ""
+}

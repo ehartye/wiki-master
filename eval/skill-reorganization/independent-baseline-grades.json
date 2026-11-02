@@ -1,0 +1,215 @@
+{
+  "reviewer": "wp1_review",
+  "independent": true,
+  "date": "2026-11-02",
+  "scope": "Independent inspection of actual commands/tool results, resulting files, host activation and complete file snapshots. Baseline behavior, not candidate certification.",
+  "interpretation": "Functional successes are retained. Policy/reporting gaps are explicit and do not invalidate collecting these baselines. No efficacy, startup savings, broad integration or security certification claim.",
+  "cases": [
+    {
+      "id": "project",
+      "condition": "without-skill",
+      "taskOutcome": "pass",
+      "policyOutcome": "partial",
+      "evidence": [
+        {
+          "text": "validate-authored: 4 pages checked, 0 defects, 2 skipped",
+          "found": true
+        },
+        {
+          "text": "6c8739230ab3f1da8c8edc2438e4aaca319b3ca9",
+          "found": true
+        }
+      ],
+      "findings": [
+        "Requested architecture/backlog edits, valid metadata, affected catalogs, scoped validation and local-remote publication completed.",
+        "Actor used operation vocabulary author rather than the documented relink convention. Runtime accepts it; do not mislabel this as a failed commit.",
+        "Final prose incorrectly identified roadmap/MOC as the two skipped validator paths; actual four checked pages include those pages. Index and log are the skipped paths.",
+        "Factual reviewed dates were preserved; planned two-worker behavior remains distinct from one-worker deployment."
+      ],
+      "execution": {
+        "exit": 0,
+        "signal": null,
+        "durationMs": 65271
+      },
+      "model": "claude-sonnet-5-5",
+      "exposedWikiSkills": [],
+      "changedPaths": [
+        "index.md",
+        "wiki/authored/beacon/architecture.md",
+        "wiki/authored/beacon/backlog/parallel-workers.md",
+        "log/2026-11-02-154014-author-beacon-architecture-and-parallel-workers-backlog.md",
+        "moc/beacon.md",
+        "wiki/authored/beacon/roadmap.md"
+      ],
+      "headBefore": "b1d2abffc930db5b78a5bd017d967efe30ed6989",
+      "headAfter": "6c8739230ab3f1da8c8edc2438e4aaca319b3ca9",
+      "remoteHeadAfter": "6c8739230ab3f1da8c8edc2438e4aaca319b3ca9",
+      "afterStatus": "",
+      "artifactDirectory": "baseline-project"
+    },
+    {
+      "id": "setup",
+      "condition": "without-skill",
+      "taskOutcome": "pass",
+      "policyOutcome": "pass",
+      "evidence": [
+        {
+          "text": "validate-authored: 2 pages checked, 1 defects",
+          "found": true
+        },
+        {
+          "text": "search.mjs --health",
+          "found": true
+        }
+      ],
+      "findings": [
+        "Health, freshness, lint, scoped authored validation and degraded-search diagnosis actually ran.",
+        "Full non-Git file snapshot, Git HEAD/status and bare remote HEAD remain unchanged, including ignored .wiki-master state. Scratch ledger was outside vault.",
+        "The invalid backlog-status open was reported without repair. Missing semantic backend/index was disclosed without installation or rebuild.",
+        "stale used its documented filesystem fallback; this does not prove authenticated native app integration."
+      ],
+      "execution": {
+        "exit": 0,
+        "signal": null,
+        "durationMs": 39828
+      },
+      "model": "claude-sonnet-5-5",
+      "exposedWikiSkills": [],
+      "changedPaths": [],
+      "headBefore": "00a99bf02a43eb091ef5f562dc44c5ec2fa9879f",
+      "headAfter": "00a99bf02a43eb091ef5f562dc44c5ec2fa9879f",
+      "remoteHeadAfter": "00a99bf02a43eb091ef5f562dc44c5ec2fa9879f",
+      "afterStatus": "",
+      "artifactDirectory": "baseline-setup"
+    },
+    {
+      "id": "search",
+      "condition": "current-layout-skill",
+      "taskOutcome": "pass",
+      "policyOutcome": "partial",
+      "evidence": [
+        {
+          "text": "wiki-master:wiki-user",
+          "found": true
+        },
+        {
+          "text": "quartz otter 817",
+          "found": true
+        },
+        {
+          "text": "--project=beacon",
+          "found": true
+        },
+        {
+          "text": "Citation reachability identifies evidence to inspect; it does not establish claim entailment.",
+          "found": true
+        }
+      ],
+      "findings": [
+        "Executed exact-phrase, alias, ambiguous Harbor, explicit raw and project-scoped queries; opened exact passages and emitted path/line citations.",
+        "Confirmed raw provenance reachability while correctly rejecting entailment of the copper-heron wording.",
+        "Disclosed lexical-only tier, incomplete identity metadata, ambiguity and successful raw scan; complete before/after file and Git/remote snapshots are equal.",
+        "Actor did not read fixture AGENTS.md and performed an unnecessary recursive filename listing outside the bounded content-directory guidance. No recycle content was read or cited.",
+        "This is a combined advanced baseline, not a separate cold simple-search proof. Failed raw coverage and healthy semantic retrieval are not exercised here."
+      ],
+      "execution": {
+        "exit": 0,
+        "signal": null,
+        "durationMs": 36043
+      },
+      "model": "claude-sonnet-5-5",
+      "exposedWikiSkills": [
+        "wiki-master:wiki-init",
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-user"
+      ],
+      "changedPaths": [],
+      "headBefore": "da4d50ee9b3c787b93bccc74648fae0abeb8f3f9",
+      "headAfter": "da4d50ee9b3c787b93bccc74648fae0abeb8f3f9",
+      "remoteHeadAfter": "da4d50ee9b3c787b93bccc74648fae0abeb8f3f9",
+      "afterStatus": "",
+      "artifactDirectory": "baseline-search"
+    },
+    {
+      "id": "init",
+      "condition": "without-skill",
+      "taskOutcome": "pass",
+      "policyOutcome": "fail",
+      "evidence": [
+        {
+          "text": "Scaffolded vault at:",
+          "found": true
+        },
+        {
+          "text": "No content pages were checked; this is not a health verdict.",
+          "found": true
+        }
+      ],
+      "findings": [
+        "Scaffolding and reporting executed; existing index.md hash/content stayed identical; no Git repository or remote appeared.",
+        "No operation was opened, logged or closed. This is an actual lifecycle gap, even though requested filesystem setup succeeded.",
+        "Actor claimed the helper only writes missing files, but init uses cpSync for templates. The fixture contains no customized template, so generalized non-overwrite safety is unproven. Candidate initialization must preflight existing customized templates or avoid unsafe scaffold invocation; runtime changes remain out of scope.",
+        "Empty-vault structural check and converter prerequisite observations do not establish app integration."
+      ],
+      "execution": {
+        "exit": 0,
+        "signal": null,
+        "durationMs": 33295
+      },
+      "model": "claude-sonnet-5-5",
+      "exposedWikiSkills": [],
+      "changedPaths": [
+        ".gitignore",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "headBefore": null,
+      "headAfter": null,
+      "remoteHeadAfter": null,
+      "afterStatus": "not a Git repository",
+      "artifactDirectory": "baseline-init"
+    },
+    {
+      "id": "recovery",
+      "condition": "without-skill",
+      "taskOutcome": "pass",
+      "policyOutcome": "pass",
+      "evidence": [
+        {
+          "text": "op-abort: dropped operation eb86a39156a3f429",
+          "found": true
+        }
+      ],
+      "findings": [
+        "Inspected the explicitly owned token, used op-abort with that exact ID and verified no open token remained.",
+        "Only .wiki-master/ops/eb86a39156a3f429.json was removed; every other file, Git HEAD/status and bare remote HEAD are unchanged.",
+        "This is owned abandoned-token recovery, not conflict resolution, uncertain app mutation or purge reconciliation."
+      ],
+      "execution": {
+        "exit": 0,
+        "signal": null,
+        "durationMs": 20329
+      },
+      "model": "claude-sonnet-5-5",
+      "exposedWikiSkills": [],
+      "changedPaths": [
+        ".wiki-master/ops/eb86a39156a3f429.json"
+      ],
+      "headBefore": "083b7939b8e35dcd64844b1f21f353fc6e4a7cbe",
+      "headAfter": "083b7939b8e35dcd64844b1f21f353fc6e4a7cbe",
+      "remoteHeadAfter": "083b7939b8e35dcd64844b1f21f353fc6e4a7cbe",
+      "afterStatus": "",
+      "artifactDirectory": "baseline-recovery"
+    }
+  ]
+}

@@ -52,44 +52,17 @@ connectivity), not a generic stateless library like `pandoc` or `python-pptx`,
 and re-implementing an Atlassian API client inside wiki-master to preserve
 portability would be the wrong trade. So this capture route treats `confluencer` as an
 **optional** runtime dependency and is built to degrade gracefully rather than
-fail confusingly when it is absent — see the next section.
+fail confusingly when it is absent — use the direct setup procedure below.
 
-## Graceful degradation when confluencer isn't installed
+## Optional integration
 
-`clip-confluence.mjs` never assumes `confluencer` is present. It searches
-every `~/.copilot/installed-plugins/*/confluencer/` install for its `page.mjs`
-under that plugin's own `scripts` folder (every Copilot CLI plugin installs
-under that root, even though neither plugin knows the
-other's exact path at authoring time), or an explicit
-`WIKI_MASTER_CONFLUENCER_SCRIPTS` env var override for a dev checkout or
-non-standard install.
-
-- **Preflight, any time:** `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" --doctor`
-  reports whether `confluencer` was found, and if so, hands off to **its own**
-  `doctor.mjs` for the auth/config/connectivity check — wiki-master has no
-  business diagnosing another plugin's credentials, only routing to the tool
-  that can.
-- **Not found:** the clip attempt prints one clear message (which paths it
-  searched, and the env var that can override) and returns
-  `{ status: 'confluencer-missing' }` — never a raw `ENOENT`/stack trace, and
-  never a fabricated clipping standing in for content nobody actually fetched.
-- **Found but failing** (bad page ID, expired token, network): the real
-  `page.mjs` stderr is surfaced (first few lines) plus a pointer to run
-  confluencer's own `doctor.mjs`.
-
-If it reports missing, either install the `confluencer` plugin, or hand-fetch
-the page via the `confluence` skill yourself and clip it through Word capture
-or PDF capture as a fallback (lower fidelity for tables, per the rejected-PDF
-argument above, but better than nothing) — do not hand-write a
-`raw/clippings/*.md` file directly; that would bypass dedup, decline-tracking,
-and hashing the same way it would for any other source type.
+Use the direct [Confluence prerequisite and failure procedure](../../wiki-setup/references/capture-prerequisites.md#confluence) for dependency discovery, authentication checks, unavailable-service handling and version/dedup limitations. Missing access is not evidence and does not authorize a fabricated clipping.
 
 ## Steps
 
-1. **Preflight** (once, or whenever a clip fails unexpectedly):
-   `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" --doctor`.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#confluence) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for Confluence pages):
-   `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<url-or-page-id>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-confluence.mjs" "<url-or-page-id>" --quality=<tier> --topic="<topic>" --since <token>`
    - Accepts anything `page.mjs` itself accepts as a positional argument: a
      canonical URL, a tiny link (`/wiki/x/…`), a legacy `viewpage.action` URL,
      or a bare numeric page ID. If you only have an exact title + space, first
@@ -115,18 +88,7 @@ and hashing the same way it would for any other source type.
 4. **Only when ingestion is authorized, follow [ingestion](ingest.md)** for this exact clipping —
    summarize into `wiki/sources/`, cross-reference, index, log. Ingestion requires authorization for this scope; reuse explicit session authorization.
 
-## Known limitation: re-clipping an updated page
-
-Confluence pages mutate in place at a stable URL — a page's `Version` can
-climb many times in a single day. The dedup gate is keyed on bare URL (same as
-every other `clip-*` script), so deliberately re-clipping a page that has been
-edited since its last clip reads as `duplicate (already clipped)` and is
-silently skipped, exactly as it would for any live web page whose content
-changed since its last clip. This is not new to Confluence, but Confluence
-pages hit it far more often than the mostly-static sources the dedup layer was
-designed around. Not fixed here — flagged for a future version-aware dedup
-(key on URL **+ Version**, not URL alone) if re-clipping updated pages becomes
-a real workflow.
+For an updated page at an already captured URL, inspect the [version/dedup limitation](../../wiki-setup/references/capture-prerequisites.md#confluence); a duplicate result does not establish that the live page is unchanged.
 
 ## Guardrails
 
@@ -143,7 +105,7 @@ a real workflow.
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit, push and verify
+its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
 remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Pass `--since <saved-token>` to the clipping helper so every written path enters

@@ -1,0 +1,28 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Initialize this local wiki vault safely, preserving every existing file byte-for-byte, including index.md and the customized _templates/authored-note.md. Do not overwrite existing content. If the initialization helper cannot safely satisfy that constraint, report the specific blocker and leave the existing content unchanged. Do not create a Git repository/remote, install dependencies or configure the app.",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Initialize this local wiki vault safely, preserving every existing file byte-for-byte, including index.md and the customized _templates/authored-note.md. Do not overwrite existing content. If the initialization helper cannot safely satisfy that constraint, report the specific blocker and leave the existing content unchanged. Do not create a Git repository/remote, install dependencies or configure the app.",
+    "--plugin-dir",
+    "<PLUGIN>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "with current/candidate skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-init-custom",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "Initialize this local wiki vault safely, preserving every existing file byte-for-byte, including index.md and the customized _templates/authored-note.md. Do not overwrite existing content. If the initialization helper cannot safely satisfy that constraint, report the specific blocker and leave the existing content unchanged. Do not create a Git repository/remote, install dependencies or configure the app."
+}

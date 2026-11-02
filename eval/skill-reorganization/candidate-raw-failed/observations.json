@@ -1,0 +1,179 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01WBher95qQTTmNGABfk5cJi",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-search"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_011S88fb7vJkiDotHRG9HRcq",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-search\\references\\advanced.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 30897,
+    "stop_reason": "end_turn",
+    "session_id": "d97ed4f9-df80-4aed-980d-d33f5e4fc04c",
+    "total_cost_usd": 0.07174169999999999,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 11684,
+      "cache_read_input_tokens": 120917,
+      "output_tokens": 1289,
+      "output_tokens_details": {
+        "thinking_tokens": 92
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 11684,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 720,
+          "cache_read_input_tokens": 28000,
+          "cache_creation_input_tokens": 244,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 244
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 1289,
+        "cacheReadInputTokens": 120917,
+        "cacheCreationInputTokens": 11684,
+        "webSearchRequests": 0,
+        "costUSD": 0.07174169999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 92,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 11684,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 7,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "Raw evidence for \"quartz otter 817\" was not searched, so I can't say whether any raw evidence exists. I changed no files and read nothing from hidden or offline storage.\n\n**Search run:** `node \"<PLUGIN>\\scripts\\search.mjs\" \"quartz otter 817\" --include-raw --json --limit=10`\n\n| Channel | Result |\n|---|---|\n| Keyword, `wiki/` | Searched, 0 hits |\n| Keyword, `moc/` | Searched, 0 hits |\n| Keyword, `raw/` | **Failed.** The error was `ENOTDIR: not a directory, scandir '...\\candidate-raw-failed\\raw'`. |\n| Semantic | Index unavailable, so this was a lexical-only run. |\n| Identity (title and alias lookup) | Incomplete, because the index metadata is incomplete. |\n\n**Raw storage:** `raw` in the vault root is a 72-byte regular file, not a directory. A metadata-only `ls` confirmed `raw/clippings` can't exist. I did not open the file, and I did not try a filesystem fallback. There is no `raw/clippings/` directory to scan, and I haven't repaired anything.\n\n**Passages and citations:** No passages matched, so there are no path or line citations to give. The search found nothing for this phrase in `wiki/` or `moc/`.\n\n**Missing coverage versus zero matches:**\n- **Zero matches:** the `wiki/` and `moc/` lexical scans succeeded and found nothing for \"quartz otter 817\". Because semantic search was unavailable and title and alias lookup was incomplete, even that is not conclusive.\n- **Missing coverage:** raw evidence is a coverage failure, not a count of zero. The vault may or may not hold evidence for this phrase, and this run can't tell.\n\n**Result:** \"Not found by this query in `wiki/` and `moc/`; raw evidence not searched because the raw store is unavailable.\" Fixing the `raw` entry and refreshing the index would let someone rerun the search. That needs separate authorization, and I haven't done either.",
+    "ttft_ms": 3459,
+    "type": "result",
+    "duration_ms": 31643,
+    "uuid": "639cb35f-c50d-409e-8532-ba22456cc67b",
+    "ttft_stream_ms": 2835,
+    "time_to_request_ms": 143,
+    "first_content_frame_ms": 2835,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 1289,
+        "cacheReadInputTokens": 120917,
+        "cacheCreationInputTokens": 11684,
+        "webSearchRequests": 0,
+        "costUSD": 0.07174169999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 92,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 11684,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

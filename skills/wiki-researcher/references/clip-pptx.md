@@ -19,13 +19,8 @@ opaque attachment.
 bundled Python helper (`scripts/lib/pptx-extract.py`) built on **python-pptx** —
 **not** pandoc (pandoc has no `.pptx` input format at all) and **not**
 LibreOffice (avoids a heavyweight dependency for this one format). The helper is
-invoked via Node's `execFileSync` against the first working interpreter among
-`python3`, `python`, `py` (Windows never installs a `python3.exe`, and its
-always-on-PATH WindowsApps `python3` alias fails outright). This is a brand-new,
-self-contained implementation shipped inside wiki-master — it does **not** shell
-out to, or otherwise depend on, any other installed Copilot plugin's copy of
-python-pptx glue, so wiki-master stays portable across machines regardless of
-what else is installed.
+invoked by the bundled Node clipper. Interpreter selection and missing-library
+diagnosis are in the direct [PowerPoint prerequisites](../../wiki-setup/references/capture-prerequisites.md#powerpoint).
 
 Output is one `## Slide N` heading per slide (emitted even for a slide with no
 extractable text, so slide numbering matches the real deck — useful for citing
@@ -36,24 +31,14 @@ frontmatter (`source`, `created`, `tags:[clippings]`, `quality`, `source-hash`).
 It skips duplicates and prior declines, and records a decline for a **thin**
 extraction (empty or near-empty deck) so it is not retried blindly.
 
-**Legacy `.ppt` (binary PowerPoint 97-2003) is explicitly unsupported** —
-python-pptx cannot read that format at all. `clip-pptx.mjs` detects the `.ppt`
-extension and fails clearly, telling you to convert to `.pptx` first, rather than
-attempting extraction and reporting a confusing downstream error.
+**Legacy `.ppt` is unsupported.** Use a supported `.pptx`; the
+[PowerPoint prerequisites](../../wiki-setup/references/capture-prerequisites.md#powerpoint) cover format failures.
 
 ## Steps
 
-1. **Preflight** (once): confirm python-pptx is installed. Probe the same
-   candidates the clipper does, in order, and use the FIRST that succeeds:
-   `python3 -c "import pptx"`, then `python -c "import pptx"`, then
-   `py -c "import pptx"`. On Windows a bare `python3` may be the WindowsApps
-   alias stub, which fails even when Python and python-pptx are correctly
-   installed — so a `python3` failure alone does NOT mean the library is missing.
-   If every candidate fails, tell the user to run `<interpreter> -m pip install
-   python-pptx` (naming the interpreter that will run the helper — installing into
-   a different one is the classic silent failure) and stop; do not fabricate content.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#powerpoint) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for PowerPoint decks):
-   `node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
    - `--source` is the citable origin. Omit for a purely local file and the file
      path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -62,8 +47,7 @@ attempting extraction and reporting a confusing downstream error.
      going forward only and no tool can retro-fit it**, so a clip made without it
      is an *Unattributed* triage row permanently. Omit it only when there is no
      research run behind the clip; never invent one.
-   - A `thin` or `failed` result means the deck is empty/corrupt/protected, or is
-     a legacy `.ppt` — report it for manual handling; do not invent the text.
+   - Report `thin` or `failed` honestly and follow [PowerPoint diagnosis](../../wiki-setup/references/capture-prerequisites.md#powerpoint); do not invent slide text.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    the slide text and any tables against the deck. Extraction drops slide design,
    layout, images, and chart *rendering* — table cell text is preserved, but a
@@ -87,7 +71,7 @@ attempting extraction and reporting a confusing downstream error.
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit, push and verify
+its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
 remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Pass `--since <saved-token>` to the clipping helper so every written path enters

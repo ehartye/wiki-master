@@ -28,26 +28,18 @@ with the standard clipping frontmatter (`source`, `created`, `tags:[clippings]`,
 `quality`, `source-hash`). The title is derived from the filename — a workbook
 carries no title worth trusting.
 
-- **`soffice` is invoked by bare name on purpose**, so PATHEXT selects the
-  console shim (`soffice.com`); `soffice.exe` is the GUI build and writes nothing
-  to stdout. Both converters run through Node's `execFileSync` — do **not** shell
-  out to them from a Bash tool.
-- **Two failures that look alike are handled differently.** A missing LibreOffice
-  is fatal and stops the run with an install pointer: fix the install. A workbook
-  that *itself* fails to convert (corrupt or password-protected) returns `failed`
-  so a batch run continues. Report it for manual handling; never invent the cells.
+Converter invocation and failed/tiny-workbook diagnosis are in the direct
+[spreadsheet prerequisites](../../wiki-setup/references/capture-prerequisites.md#spreadsheets).
+
 - **Duplicates are caught by content hash**, not just by path, so a renamed or
   moved workbook whose contents the vault already holds is recognized rather than
   clipped twice under a second slug.
 
 ## Steps
 
-1. **Preflight** (once): confirm both converters are installed — `soffice
-   --version` and `pandoc -v`. If LibreOffice is missing, tell the user to
-   install it (https://www.libreoffice.org/download/) and stop; do not fabricate
-   cell values or retype the workbook by hand.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#spreadsheets) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for workbooks):
-   `node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<path/to/file.xlsx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<path/to/file.xlsx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
    - `--source` is the citable origin. Omit it for a purely local file and the
      file path is recorded as the source; never invent a URL to fill the field.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -62,11 +54,7 @@ carries no title worth trusting.
    sheets came through as real tables with their labels still attached to their
    values. Conversion is lossy on formulas, merged cells, charts and multi-row
    headers — it captures rendered values, not the model behind them.
-   - A `thin` result (under 100 words) records a decline so it is not retried
-     blindly. **Unlike `clip-docx`, this clipper has no `--allow-short`
-     override** — a genuinely tiny but complete workbook needs the decline
-     cleared or the content captured another way. Say so rather than pretending
-     the clip succeeded.
+   - A `thin` result is not a successful capture. This route has no `--allow-short`; follow [spreadsheet diagnosis](../../wiki-setup/references/capture-prerequisites.md#spreadsheets) and never fabricate cells.
 4. **Only when ingestion is authorized, follow [ingestion](ingest.md)** for this exact clipping — summarize
    into `wiki/sources/`, cross-reference, index, log. Ingestion requires
    authorization for this scope; reuse explicit session authorization.
@@ -86,7 +74,7 @@ carries no title worth trusting.
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit, push and verify
+its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
 remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Pass `--since <saved-token>` to the clipping helper so every written path enters

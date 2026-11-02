@@ -1,0 +1,175 @@
+{
+  "recordedAt": "2026-11-02T21:07:14.648Z",
+  "stage": "after",
+  "companionCount": 16,
+  "scope": "Bounded prior sixteen first-party companion plugins. Current source revisions, installed copies, history and unavailable surfaces recorded. Unknown third-party callers excluded.",
+  "pattern": "wiki-user|wiki-init|wiki-maintainer/references/(health|stale|lint|maintenance)|wiki-maintainer\\\\references\\\\(health|stale|lint|maintenance)",
+  "sources": [
+    {
+      "plugin": "agent-beeps",
+      "kind": "source-repository",
+      "revision": "377a95eeabbac7da2609dc4aa0862bb9b1bffeae",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-draw",
+      "kind": "unavailable-source",
+      "priorRevision": "83e08e79997fca3d75b2c64612e66d742650d8c8",
+      "reason": "No corresponding source checkout in bounded repository set; prior temporary clone not assumed available",
+      "disposition": "Unavailable source remains outside compatibility claim"
+    },
+    {
+      "plugin": "agent-engine",
+      "kind": "source-repository",
+      "revision": "cfe89a2b099b86b070b6c75babbf67a1d19d5a1d",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "dirty": true,
+      "scanExit": 0,
+      "source": "isolated feature worktree",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-marketing",
+      "kind": "source-repository",
+      "revision": "ea4af2e0d2197306230520f8bd5e4f40a9c4e958",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-meshes",
+      "kind": "source-repository",
+      "revision": "f6880146d7b191a771f95a22cdfad469584cf930",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-phaser",
+      "kind": "source-repository",
+      "revision": "a4ae199b20e0fb6b0736f78f55821292cede4dab",
+      "dirty": true,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-prose",
+      "kind": "source-repository",
+      "revision": "00dbaad534e32988c5b48a064a4c9a4dc61c7581",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-sprites",
+      "kind": "source-repository",
+      "revision": "47b409bac6f3eb51fb09de09b884c1a0481f6280",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-stalker",
+      "kind": "source-repository",
+      "revision": "a823ed5fd0e09b2cf0ce5b939efe259f31137b58",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "source-repository",
+      "revision": "ebf5bccec6480e4c12000278b3622e40d9e60708",
+      "dirty": true,
+      "scanExit": 1,
+      "source": "isolated feature worktree",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-vids",
+      "kind": "source-repository",
+      "revision": "90fa638795ed2d0eb2996335c8da0bef8e09170a",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "dirty": false,
+      "scanExit": 1,
+      "source": "existing source checkout; read-only scan",
+      "scope": "All Git-tracked text via git grep -nI"
+    },
+    {
+      "plugin": "h-superpowers",
+      "kind": "source-repository",
+      "revision": "714599c2769f606605d461d13579d48bb8778dc7",
+      "dirty": true,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately",
+      "disposition": "Unavailable source remains outside compatibility claim"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "89d272d4baa012d05ab45442c37f541d9d9d0f07",
+      "dirty": true,
+      "scanExit": 1,
+      "source": "isolated feature worktree",
+      "scope": "All Git-tracked text via git grep -nI"
+    }
+  ],
+  "matches": [
+    {
+      "plugin": "agent-game-studio",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 312,
+      "references": [
+        "wiki-init"
+      ],
+      "classification": "historical",
+      "disposition": "Preserved historical evidence"
+    }
+  ],
+  "unresolvedMaintained": 0,
+  "installedCopies": {
+    "disposition": "Not edited; prior inventory records observed installed versions and old names. No claim of global installed-cache immutability across concurrent sessions.",
+    "evidence": "caller-inventory-before.json"
+  },
+  "candidateNames": [
+    "wiki-maintainer",
+    "wiki-project",
+    "wiki-purge",
+    "wiki-researcher",
+    "wiki-search",
+    "wiki-setup"
+  ]
+}

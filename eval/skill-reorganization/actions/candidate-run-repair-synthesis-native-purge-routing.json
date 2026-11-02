@@ -1,0 +1,13 @@
+{
+  "started": "2026-11-02T21:17:11.321Z",
+  "host": "2.1.316 (Claude Code)",
+  "scratch": "<SCRATCH>",
+  "cases": [
+    "repair",
+    "synthesis",
+    "native",
+    "purge",
+    "routing"
+  ],
+  "adaptation": "skill-reorganization/harness.mjs; original five fixture requests unchanged; three additional boundary cases"
+}

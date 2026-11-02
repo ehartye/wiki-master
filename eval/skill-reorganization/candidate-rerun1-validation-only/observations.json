@@ -1,0 +1,190 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01JMVohj5N9UaQ4dDncj9M6W",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-setup"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01WVUbnPHyCTm4Bv6nsn6f3J",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_011KYkCQALHjUFKEoic1iR2N",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\validation.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 17984,
+    "stop_reason": "end_turn",
+    "session_id": "b6d93942-15fa-4f69-b7be-bfc27cd672ac",
+    "total_cost_usd": 0.0920446,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 15333,
+      "cache_read_input_tokens": 158346,
+      "output_tokens": 1485,
+      "output_tokens_details": {
+        "thinking_tokens": 181
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15333,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 507,
+          "cache_read_input_tokens": 31336,
+          "cache_creation_input_tokens": 557,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 557
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 1485,
+        "cacheReadInputTokens": 158346,
+        "cacheCreationInputTokens": 15333,
+        "webSearchRequests": 0,
+        "costUSD": 0.0920446,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 181,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 15333,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 8,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "Validation found one defect in the two pages. I changed nothing in the vault.\n\n**Scope:** `WIKI_MASTER_VAULT` pointed at the disposable vault. I read its `AGENTS.md` first, and it allows no writes for diagnostic requests. The ledger was a JSON file in TEMP with the two requested paths. I ran `validate-authored.mjs` from the installed helper path.\n\n**Coverage:** 2 pages checked and 0 skipped. Both ledger paths exist at those exact spellings.\n\n**Result:** exit code 1, meaning defects were found. The text and `--json` runs gave the same result.\n\n| Page | Line | Rule | Message |\n|---|---|---|---|\n| `wiki/authored/beacon/backlog/parallel-workers.md` | 11 | `bad-value` | `backlog-status \"open\"` is not one of in-progress, planned, blocked, shipped, dropped |\n\n- **`wiki/authored/beacon/architecture.md`:** no defects.\n- **Limits:** the check covers structure only, not facts. The helper checks that a page `status` is present but not what it says, so I did not check that value against stub, draft and maintained.\n\n**Next step:** I did not repair it. Changing `backlog-status` to a valid value is a content repair, which belongs to the wiki-project or wiki-maintainer workflow once you authorize it.\n\nI opened no operation, wrote no log, refreshed no index, made no commit and did no sync. The only file I created was the temporary ledger under TEMP.",
+    "ttft_ms": 2480,
+    "type": "result",
+    "duration_ms": 19403,
+    "uuid": "d16d42f0-b53a-46f9-b6a5-4839cd25acb5",
+    "ttft_stream_ms": 2006,
+    "time_to_request_ms": 81,
+    "first_content_frame_ms": 2006,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 1485,
+        "cacheReadInputTokens": 158346,
+        "cacheCreationInputTokens": 15333,
+        "webSearchRequests": 0,
+        "costUSD": 0.0920446,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 181,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 15333,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

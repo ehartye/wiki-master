@@ -1,0 +1,201 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01HvRFeEynLQjiJaLcA5yuH2",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-setup"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_017jdNddpHFiDCKpX3t5GLgE",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\initialization.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01QiH89Lswn6DEiY6tZTaFaY",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01EZrgKsap4bci6gv3x4oWmD",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 21476,
+    "stop_reason": "end_turn",
+    "session_id": "1facf29f-329a-457d-a5d9-8c5e3a29ef14",
+    "total_cost_usd": 0.12652359999999999,
+    "usage": {
+      "input_tokens": 16,
+      "cache_creation_input_tokens": 20483,
+      "cache_read_input_tokens": 199896,
+      "output_tokens": 2457,
+      "output_tokens_details": {
+        "thinking_tokens": 73
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20483,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 785,
+          "cache_read_input_tokens": 36114,
+          "cache_creation_input_tokens": 929,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 929
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 16,
+        "outputTokens": 2457,
+        "cacheReadInputTokens": 199896,
+        "cacheCreationInputTokens": 20483,
+        "webSearchRequests": 0,
+        "costUSD": 0.12652359999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 73,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20483,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 10,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The vault is initialized on the local filesystem. `index.md` is byte-identical: the SHA-256 is `6B6B926E…584215` and the size is 72 bytes, before and after.\n\n**Filesystem initialization (done)**\n- Before running `init.mjs`, the vault contained only `index.md`. There was no `_templates/`, so nothing could be overwritten.\n- I opened a `relink` operation (token `81585c37e4bcaf8d`) and ran `init.mjs`, which exited 0.\n- `init.mjs` created these folders and files:\n  - `raw/clippings/`\n  - `wiki/{sources,entities,concepts,syntheses,authored}/`\n  - `moc/`\n  - `log/`\n  - `_templates/`, with 6 templates\n  - `vault-schema.md`, `log.md`, `log.base`, `stale.base` and `.gitignore`\n- `health.mjs --json` exited 0 with status `empty`, 0 defects and 0 content pages. That means no content was scanned, so it says nothing about factual health. It also listed the open operation, which was mine and had been open for 0 hours.\n- `health.mjs --backlog` exited 0 with all four counts at 0.\n- I wrote one log file, `log/2026-11-02-155445-relink-initialize-vault.md`. The operation closed, and `.wiki-master/ops/` is now empty.\n\n**Publication (local-only)**\n- The vault is not a Git repository, so `op-commit` reported \"nothing to commit\" and the ledger could not be checked against a working tree.\n- No commit, sync or remote exists, and I created none.\n\n**App integration (not done, not authorized)**\n- Still to do: open the folder as an Obsidian vault, run `obsidian.mjs vaults` to check that it lists `candidate-init`, and import `templates/webclipper-template.json` into Web Clipper.\n- The filesystem checks above do not show that the Obsidian CLI can reach the app.\n\n**Semantic search**\n- There is no semantic index yet. The commit step noted that `index-embed.mjs` builds one, and I did not run it because it takes minutes.\n\n**Other**\n- I changed nothing in the plugin, caches or global settings. The one scratch file, the ledger JSON, is in TEMP.\n- I installed no dependencies.",
+    "ttft_ms": 3282,
+    "type": "result",
+    "duration_ms": 25738,
+    "uuid": "f28fa186-1f31-4546-9f9b-b7a4270e17f7",
+    "ttft_stream_ms": 2686,
+    "time_to_request_ms": 120,
+    "first_content_frame_ms": 2687,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 16,
+        "outputTokens": 2457,
+        "cacheReadInputTokens": 199896,
+        "cacheCreationInputTokens": 20483,
+        "webSearchRequests": 0,
+        "costUSD": 0.12652359999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 73,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20483,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

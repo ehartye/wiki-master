@@ -1,0 +1,179 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01LtDCA44jXxfrsYVdcdkiEa",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-search"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01HzyJRENaMaStQwmEpPboia",
+      "name": "Read",
+      "input": {
+        "file_path": "<SCRATCH>\\candidate-simple\\wiki\\concepts\\Beacon Protocol.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 14542,
+    "stop_reason": "end_turn",
+    "session_id": "358bce91-b681-44a2-84b9-eaa198147aa4",
+    "total_cost_usd": 0.0565026,
+    "usage": {
+      "input_tokens": 10,
+      "cache_creation_input_tokens": 9958,
+      "cache_read_input_tokens": 91606,
+      "output_tokens": 749,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9958,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 423,
+          "cache_read_input_tokens": 26258,
+          "cache_creation_input_tokens": 260,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 260
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 10,
+        "outputTokens": 749,
+        "cacheReadInputTokens": 91606,
+        "cacheCreationInputTokens": 9958,
+        "webSearchRequests": 0,
+        "costUSD": 0.0565026,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 9958,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 5,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The exact phrase is at `wiki/concepts/Beacon Protocol.md:10`, in the vault `<SCRATCH>\\candidate-simple`. I opened the file and the line reads \"The copper heron carries seven lanterns.\"\n\n- **Page:** \"Beacon Protocol\" is a concept page with status `maintained`, last reviewed 2026-10-01. It has the alias \"Lantern Relay\" and cites `raw/clippings/Beacon Study.md` as its source.\n- **Other hit:** `wiki/concepts/Beacon Protocol Draft.md:7` is a draft that says \"A similarly named proposal uses three lanterns.\" It is a different claim, not a match.\n\nCoverage limits:\n- **Lexical only:** The semantic index is unavailable, so only keyword search ran. Both the `wiki/` and `moc/` keyword channels returned ok.\n- **Incomplete title and alias lookup:** The index metadata is incomplete, so I could not check titles and aliases through the index.\n- **Raw evidence not searched:** I did not search `raw/clippings/`, so I haven't checked the cited source `Beacon Study.md`.\n\nI changed no files.",
+    "ttft_ms": 3692,
+    "type": "result",
+    "duration_ms": 15335,
+    "uuid": "424f91f1-374f-4432-aba6-88692af9d794",
+    "ttft_stream_ms": 3098,
+    "time_to_request_ms": 99,
+    "first_content_frame_ms": 3098,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 10,
+        "outputTokens": 749,
+        "cacheReadInputTokens": 91606,
+        "cacheCreationInputTokens": 9958,
+        "webSearchRequests": 0,
+        "costUSD": 0.0565026,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 9958,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

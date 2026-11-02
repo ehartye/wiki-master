@@ -1,0 +1,372 @@
+{
+  "reviewer": "wp4_review",
+  "independent": true,
+  "measuredAt": "2026-11-02T21:29:45.635Z",
+  "scope": "Recomputed from retained full file snapshots, not actor summaries; Git internals excluded by fixtures",
+  "runs": [
+    {
+      "id": "candidate-rerun1-simple",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "0cd735b3548ca376384866376c3c428a74d39d05",
+      "remoteHead": "0cd735b3548ca376384866376c3c428a74d39d05",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-rerun1-simple/before.json",
+        "candidate-rerun1-simple/after.json",
+        "candidate-rerun1-simple/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-search",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "5adf1d69377013b648a5492ee5253cb46f4ac8d8",
+      "remoteHead": "5adf1d69377013b648a5492ee5253cb46f4ac8d8",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-search/before.json",
+        "candidate-search/after.json",
+        "candidate-search/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-raw-failed",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b",
+      "remoteHead": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-raw-failed/before.json",
+        "candidate-raw-failed/after.json",
+        "candidate-raw-failed/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-project",
+      "changed": [
+        "index.md",
+        "wiki/authored/beacon/architecture.md",
+        "wiki/authored/beacon/backlog/parallel-workers.md",
+        "log/2026-11-02-155511-relink-beacon-architecture-and-parallel-workers.md",
+        "moc/beacon.md",
+        "wiki/authored/beacon/roadmap.md"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "d30e7aeaba2f688cd8a7ade956e99cffc2ee56b7",
+      "remoteHead": "d30e7aeaba2f688cd8a7ade956e99cffc2ee56b7",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-project/before.json",
+        "candidate-project/after.json",
+        "candidate-project/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-setup",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "04842fefb2904565ed7201df7848bfe2de006cf9",
+      "remoteHead": "04842fefb2904565ed7201df7848bfe2de006cf9",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-setup/before.json",
+        "candidate-setup/after.json",
+        "candidate-setup/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-rerun1-validation-only",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "ee152398d323cae678d07a5d889fb1e1685d61a0",
+      "remoteHead": "ee152398d323cae678d07a5d889fb1e1685d61a0",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-rerun1-validation-only/before.json",
+        "candidate-rerun1-validation-only/after.json",
+        "candidate-rerun1-validation-only/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-rerun1-init",
+      "changed": [
+        ".gitignore",
+        "log/2026-11-02-155756-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "not a Git repository",
+      "head": null,
+      "remoteHead": null,
+      "remoteMatches": null,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-rerun1-init/before.json",
+        "candidate-rerun1-init/after.json",
+        "candidate-rerun1-init/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-init-custom",
+      "changed": [
+        ".gitignore",
+        "log/2026-11-02-155451-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "not a Git repository",
+      "head": null,
+      "remoteHead": null,
+      "remoteMatches": null,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-init-custom/before.json",
+        "candidate-init-custom/after.json",
+        "candidate-init-custom/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "candidate-recovery",
+      "changed": [
+        ".wiki-master/ops/a4a8d963c043ae0e.json"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d",
+      "remoteHead": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "candidate-recovery/before.json",
+        "candidate-recovery/after.json",
+        "candidate-recovery/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/candidate-repair",
+      "changed": [
+        "wiki/concepts/Repair Target.md",
+        "log/2026-11-02-161748-relink-repair-target-citation.md"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "fb24ace707b2935979158119b425b02d6a00cd07",
+      "remoteHead": "fb24ace707b2935979158119b425b02d6a00cd07",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/candidate-repair/before.json",
+        "actions/candidate-repair/after.json",
+        "actions/candidate-repair/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/candidate-synthesis",
+      "changed": [
+        "index.md",
+        "log/2026-11-02-161804-query-beacon-measured-lantern-message-delivery-synthesis.md",
+        "wiki/syntheses/Beacon Protocol Measured Lantern Message Delivery.md"
+      ],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "85262333b47bf26757d5d436cd21e9e57d503c59",
+      "remoteHead": "85262333b47bf26757d5d436cd21e9e57d503c59",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/candidate-synthesis/before.json",
+        "actions/candidate-synthesis/after.json",
+        "actions/candidate-synthesis/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/candidate-native",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "f51f6f2c7a1045c36defff169dab6aef9df84686",
+      "remoteHead": "f51f6f2c7a1045c36defff169dab6aef9df84686",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/candidate-native/before.json",
+        "actions/candidate-native/after.json",
+        "actions/candidate-native/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/candidate-purge",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "e62e8531022925c76681be4b2190f39e1b30647f",
+      "remoteHead": "e62e8531022925c76681be4b2190f39e1b30647f",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/candidate-purge/before.json",
+        "actions/candidate-purge/after.json",
+        "actions/candidate-purge/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/candidate-routing",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "1b84ad7a1a8587a5f8ac5d12b4be36a7c8702974",
+      "remoteHead": "1b84ad7a1a8587a5f8ac5d12b4be36a7c8702974",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/candidate-routing/before.json",
+        "actions/candidate-routing/after.json",
+        "actions/candidate-routing/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "actions/baseline-routing-routing",
+      "changed": [],
+      "rawUnchanged": true,
+      "gitStatus": "",
+      "head": "d8853273757d1d6d91a5ae1b953fe6d5e0afb4dc",
+      "remoteHead": "d8853273757d1d6d91a5ae1b953fe6d5e0afb4dc",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "actions/baseline-routing-routing/before.json",
+        "actions/baseline-routing-routing/after.json",
+        "actions/baseline-routing-routing/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "research/candidate-capture",
+      "changed": [
+        ".wiki-master/declined.json",
+        ".wiki-master/triage.jsonl",
+        "log/2026-11-02-162007-discover-harbor-delivery-capture.md",
+        "raw/clippings/Harbor Retry Protocol.md"
+      ],
+      "existingRawUnchanged": true,
+      "gitStatus": "",
+      "head": "4a07d8a21e85aa543fb404023e5d78223ce96aac",
+      "remoteHead": "4a07d8a21e85aa543fb404023e5d78223ce96aac",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "research/candidate-capture/before.json",
+        "research/candidate-capture/after.json",
+        "research/candidate-capture/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "research/candidate-zero",
+      "changed": [],
+      "existingRawUnchanged": true,
+      "gitStatus": "",
+      "head": "4232637510cf80ddfc3de2587d1930146ad9a3b0",
+      "remoteHead": "4232637510cf80ddfc3de2587d1930146ad9a3b0",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "research/candidate-zero/before.json",
+        "research/candidate-zero/after.json",
+        "research/candidate-zero/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-mixed",
+      "changed": [
+        "index.md",
+        "wiki/concepts/Message Delivery.md",
+        "log/2026-11-02-162440-ingest-ingest-eligible-clipping.md",
+        "wiki/sources/Eligible.md"
+      ],
+      "existingRawUnchanged": true,
+      "gitStatus": "",
+      "head": "00a204d4384d911ebd70bbf35df3004b6a7d7876",
+      "remoteHead": "00a204d4384d911ebd70bbf35df3004b6a7d7876",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "research/correction1/candidate-mixed/before.json",
+        "research/correction1/candidate-mixed/after.json",
+        "research/correction1/candidate-mixed/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-named",
+      "changed": [
+        "index.md",
+        "wiki/concepts/Message Delivery.md",
+        "log/2026-11-02-162435-ingest-ingest-eligible-clipping.md",
+        "wiki/sources/Eligible.md"
+      ],
+      "existingRawUnchanged": true,
+      "gitStatus": "",
+      "head": "5f044e0ea61d1a5c8095c65e8e7bc2a2abf487aa",
+      "remoteHead": "5f044e0ea61d1a5c8095c65e8e7bc2a2abf487aa",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "research/correction1/candidate-named/before.json",
+        "research/correction1/candidate-named/after.json",
+        "research/correction1/candidate-named/transcript.jsonl"
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-flow",
+      "changed": [
+        "index.md",
+        "wiki/concepts/Message Delivery.md",
+        ".wiki-master/declined.json",
+        "log/2026-11-02-162514-discover-harbor-retry-policy-discovery.md",
+        "log/2026-11-02-162751-ingest-harbor-retry-protocol.md",
+        "raw/clippings/Harbor Retry Protocol.md",
+        "wiki/sources/Harbor Retry Protocol.md"
+      ],
+      "existingRawUnchanged": true,
+      "gitStatus": "",
+      "head": "b7e24fffb89611708a1bc558185da93087265588",
+      "remoteHead": "b7e24fffb89611708a1bc558185da93087265588",
+      "remoteMatches": true,
+      "openTokens": [],
+      "artifacts": [
+        "research/correction1/candidate-flow/before.json",
+        "research/correction1/candidate-flow/after.json",
+        "research/correction1/candidate-flow/transcript.jsonl"
+      ]
+    }
+  ]
+}

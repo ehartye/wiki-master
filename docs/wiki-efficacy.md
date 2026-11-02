@@ -1,5 +1,7 @@
 # Wiki efficacy
 
+Agent reporting and diagnostic procedures live in [setup checks](../skills/wiki-setup/references/checks.md) and [search diagnostics](../skills/wiki-setup/references/search-diagnostics.md). Identity and evidence policy remain [maintainer-owned](../skills/wiki-maintainer/references/efficacy.md); the public commands and historical evaluations below retain their stated scope.
+
 The wiki keeps Markdown as its source of truth. These helpers improve retrieval, distinguish concept identities, propose useful relationships, and expose verification coverage without introducing a database or a scheduler.
 
 ## Commands

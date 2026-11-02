@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn, execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
+const [pluginArg, hartyeArg, studioArg, unrealArg, claude, phase] = process.argv.slice(2);
+const plugin=path.resolve(pluginArg), hartye=path.resolve(hartyeArg), studio=path.resolve(studioArg), unreal=path.resolve(unrealArg);
+const out=path.join(plugin,'eval/skill-reorganization/companions-'+phase);
+if(fs.existsSync(out)) throw Error('Retained run exists');
+fs.mkdirSync(out,{recursive:true});
+const scratch=fs.mkdtempSync(path.join(os.tmpdir(),'wiki-callers-'));
+const files=[path.join(hartye,'skills/spec-plan/SKILL.md'),path.join(hartye,'skills/q-master/SKILL.md'),path.join(studio,'references/plugin-map.md'),path.join(unreal,'scripts/sibling-skills.json')];
+const replacements=[[plugin,'<CANDIDATE>'],[hartye,'<HARTYE>'],[studio,'<STUDIO>'],[unreal,'<UNREAL>'],[scratch,'<SCRATCH>'],[os.homedir(),'<HOME>']];
+function sanitize(s){for(let n=0;n<3;n++)for(const [p,label] of replacements) for(const v of new Set([p,p.replaceAll('\\','/'),p.replaceAll('/','\\'),p.replaceAll('\\','/').replace(/^([A-Za-z]):/,(_,d)=>'/'+d.toLowerCase())])) {let escaped=v;for(let k=0;k<4;k++){s=s.split(escaped).join(label);escaped=JSON.stringify(escaped).slice(1,-1);}}return s.replace(/C--Users-[^/\\"\s]+/g,'<ENCODED_PROJECT_PATH>');}
+const save=(file,value)=>fs.writeFileSync(path.join(out,file),sanitize(typeof value==='string'?value:JSON.stringify(value,null,2)+'\n'));
+const prompt='Perform only a read-only dependency compatibility check, not the workflows themselves. Read these four caller files: '+files.join('; ')+'. Extract each wiki-master qualified skill required for search, original documentation, diagnostics/setup, research, and maintenance. Invoke each distinct explicitly named wiki-master skill with the Skill tool ONLY to verify it resolves in the session; do not follow its procedure, execute helpers, search a vault, write files, or replace a missing dependency with another skill. For the JSON wiki-master block, compare its names to the session candidate catalog and report stale/missing names. Report exact resolution success/errors and the semantic task each changed caller sends to the role. You may read candidate reference paths to verify any caller direct reference exists. The candidate plugin, not installed caches, is the sole catalog. This is dependency resolution only.';
+const args=['-p',prompt,'--plugin-dir',plugin,'--setting-sources','local','--strict-mcp-config','--no-session-persistence','--output-format','stream-json','--verbose','--permission-mode','dontAsk','--allowedTools','Skill,Read'];
+save('source.json',Object.fromEntries(files.map(p=>[p,{sha256:crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'),content:fs.readFileSync(p,'utf8')}])));
+save('request.json',{host:execFileSync(claude,['--version'],{encoding:'utf8'}).trim(),phase,command:['claude',...args],limits:'Actual dependency activation only; no complete companion workflow executed.'});
+const started=Date.now();
+const result=await new Promise(resolve=>{const child=spawn(claude,args,{cwd:scratch,env:{...process.env,WIKI_MASTER_REQUIRE_VAULT:'1',WIKI_MASTER_VAULT:path.join(scratch,'unused-vault')},windowsHide:true});let stdout='',stderr='';child.stdout.on('data',b=>{stdout+=b;fs.appendFileSync(path.join(scratch,'raw-transcript.jsonl'),b)});child.stderr.on('data',b=>stderr+=b);child.on('error',e=>resolve({error:e.message,stdout,stderr}));child.on('close',(exit,signal)=>resolve({exit,signal,stdout,stderr}));});
+save('transcript.jsonl',result.stdout);save('stderr.txt',result.stderr);save('execution.json',{exit:result.exit,signal:result.signal,error:result.error,durationMs:Date.now()-started});
+const events=result.stdout.split('\n').flatMap(s=>{try{return[JSON.parse(s)]}catch{return[]}});
+save('observations.json',{activation:events.find(e=>e.type==='system'&&e.subtype==='init'),tools:events.flatMap(e=>e.type==='assistant'?(e.message?.content??[]).filter(c=>c.type==='tool_use'):[]),result:events.findLast(e=>e.type==='result'),grade:'Executor observations only; independent review pending.'});
+console.log(phase+' actor exit '+result.exit);

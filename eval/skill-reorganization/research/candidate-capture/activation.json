@@ -1,0 +1,154 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\capture.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 27251,
+    "stop_reason": "end_turn",
+    "session_id": "e717cc4a-4c52-4348-b63e-bd0d7954ee51",
+    "total_cost_usd": 0.1510479,
+    "usage": {
+      "input_tokens": 18,
+      "cache_creation_input_tokens": 25693,
+      "cache_read_input_tokens": 265299,
+      "output_tokens": 2171,
+      "output_tokens_details": {
+        "thinking_tokens": 45
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 25693,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 628,
+          "cache_read_input_tokens": 41061,
+          "cache_creation_input_tokens": 1192,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1192
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 18,
+        "outputTokens": 2171,
+        "cacheReadInputTokens": 265299,
+        "cacheCreationInputTokens": 25693,
+        "webSearchRequests": 0,
+        "costUSD": 0.1510479,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 45,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 25693,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 11,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "Of the four sources, one was captured, one was already held, and two were not captured. The commit is in the local bare origin, and local HEAD and `origin/main` match at `4a07d8a`.\n\n| Source | Outcome | Evidence path |\n|---|---|---|\n| `/protocol` | Clipped, quality medium, topic \"Harbor delivery\". Its `source-hash` is `254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c`. | `raw/clippings/Harbor Retry Protocol.md` |\n| `/known` | Already in the vault, so I kept the existing capture and did not recapture it. | `raw/clippings/Acknowledgement Basics.md` (unchanged) |\n| `/thin` | Not captured. The clipper judged the extraction thin, declined it, and recorded a decline and a triage entry. The clipper's message suggests saving the page from a signed-in browser and supplying it with `--from-file`. | none |\n| `/failed` | Not captured. The server returned HTTP 503, and the failure was queued for triage. It can be retried from there. | none |\n\n- **Commit:** `4a07d8a` (\"discover: Harbor delivery → 1 clipped\") covers exactly two files: the new clipping and the operation log `log/2026-11-02-162007-discover-harbor-delivery-capture.md`. The pushed commit is in the local bare origin, with 0 pulled and 1 pushed.\n- **Records outside Git:** the decline and the triage entries are kept in the vault's pipeline state. They are not part of the commit, so they won't show up in `git log`.\n- **Semantic search:** no semantic index exists yet, so only lexical search is available. I did not build one.\n- **Scope:** I created no derived pages, did not ingest anything, and touched no other vault, remote or plugin file.",
+    "ttft_ms": 6188,
+    "type": "result",
+    "duration_ms": 37679,
+    "uuid": "4be2bd83-00b3-4ca6-8e68-a3b240c3f218",
+    "ttft_stream_ms": 6001,
+    "time_to_request_ms": 86,
+    "first_content_frame_ms": 6001,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 18,
+        "outputTokens": 2171,
+        "cacheReadInputTokens": 265299,
+        "cacheCreationInputTokens": 25693,
+        "webSearchRequests": 0,
+        "costUSD": 0.1510479,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 45,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 25693,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

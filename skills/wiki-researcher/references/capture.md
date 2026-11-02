@@ -10,6 +10,7 @@ format-specific source, read its route before capture: [PDF](clip-pdf.md),
 [GitHub repository](clip-gh.md), or [Confluence](clip-confluence.md).
 Only read the matching route, then use its actual result and the shared completion
 contract. The HTML mechanics below apply to ordinary web pages and supplied pages.
+Run their direct [prerequisites and diagnostics](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) when checking extraction availability or handling a failed capture.
 
 ## Named sources
 When the user names the pages to capture (URLs or saved files), there is nothing to
@@ -81,10 +82,11 @@ rather than inventing one.
 
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
-`topic`, `source-hash`. A `thin content` result means the page was a SPA/paywall — clip.mjs
-records the decline automatically; report it for manual clipping (the user saves the page and you supply it with `--from-file <path>`, adding `--override-decline` because the decline was automatic), don't retry
-blindly. A page that is a login form, a consent wall or an age check is not clipped even when it is long: its own vocabulary dominates the text and none of its title is in it (`lib/interstitial.mjs`). It is queued as `wrong-node` and is NOT declined, because a wall is not a verdict on the source; save it from a signed-in browser and supply it with `--from-file <path>`. A URL that looks like a text file (a checksum manifest, a pinned source file, anything on the raw GitHub host) is kept whole in a fence with `extraction: plaintext`, never judged thin; a binary or a file over 1 MiB served as text is refused and queued as `attention`. A `failed` result (403/transient) is NOT auto-declined — it may recover,
-and a 180-day TTL would bury a source you still want.
+`topic`, `source-hash`. Read the actual outcome: automatic thin declines differ
+from transient failures and wrong-node walls, which are queued rather than judged
+as sources. Use [HTML/supplied-page diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) for thin, wrong-node, transient, clash or supplied-file refusal recovery; do not retry blindly or fabricate a raw file.
+
+A raw text URL (for example a checksum manifest or pinned source file) is captured whole in a code fence with `extraction: plaintext`, without the ordinary thin-content test. Binary/oversized refusal diagnosis remains in the directly linked setup procedure.
 
 **What a clip result means.** `clip.mjs` prints one result per URL:
 
@@ -94,14 +96,14 @@ and a 180-day TTL would bury a source you still want.
 | `duplicate (already clipped)` | this URL is already in the vault, also when another session wrote it first | nothing; do not clip it again. To keep a second, dated copy of a page that has changed, run the clip again with `--recapture` |
 | `unchanged (same text as raw/clippings/<name>.md); nothing written` | `--recapture` found the page's text identical to a capture already held (exit 0) | nothing; the page has not changed |
 | `recapture: not clipped yet, clipping it normally: <url>` | `--recapture` on a URL that was not in the vault; the line is followed by the ordinary result | read the result that follows |
-| `clash: <url>: raw/clippings/<name>.md already exists ...` | the URL is new but every name it could have had was taken; **nothing was written** and one `attention` row is queued in triage | open the file named in the line and read its `source:` to see what holds the name, then re-run with `--slug=<name>`, or leave the row for maintainer triage |
-| `declined`, `blocked`, `thin content`, `failed` | see below | see below |
+| `clash: <url>: raw/clippings/<name>.md already exists ...` | the URL is new but every name it could have had was taken; **nothing was written** and one `attention` row is queued in triage | follow [clash diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) or leave the row for maintainer triage |
+| `declined`, `blocked`, `thin content`, `failed` | no successful capture | use [outcome diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages); report the actual result |
 
 A taken file name is a `clash`, never a `duplicate`: a `duplicate` always means the same URL.
 
 **A second capture of a page already clipped.** `clip.mjs "<url>" --recapture --since <token>` fetches the page and runs the usual checks. If the text is new it writes a second clipping beside the first, named as the oldest capture's own name followed by ` (recaptured YYYY-MM-DD)`, with the same suffix on its `title`, `recapture-of` naming the newest existing capture, and `created` today; the older clipping is never edited. A second recapture on the same day with different text is a `clash`. `--slug=<name>` with `--recapture` is used exactly, with no suffix. Without the flag the same URL is a `duplicate`.
 
-**A page a person saved.** `clip.mjs "<url>" --from-file <path> --topic="<topic>" --since <token>` records a page saved from a signed-in browser, with its real URL as `source` and nothing fetched. The file is `.md`, `.markdown` or `.txt` (the page text) or `.html` or `.htm` (read by the same extractor as a fetched page), at most 1 MiB. The clipping carries `extraction: manual` and `supplied-sha256`, the SHA-256 of the file's bytes; the file's name is not recorded. The thin, login-form and decline checks apply as to any clip: a page under 100 words is queued as `thin` and is never declined, and a login, consent or age-gate page is queued as `wrong-node` and not written. A missing file, a folder, an empty path or an extension that is not one of those exits 2; a binary file or one over 1 MiB is queued as `attention`. `--from-file` on a URL already clipped is a `duplicate`, and with `--recapture` it writes a dated recapture. The clipper's refusal lines for a thin, wrong-node or login, consent or age-gate page say to use this route. `apply-reclips` refuses a clipping with `extraction: manual` (listed as refused, not a failure); to refresh one, save the page again and run `--from-file <path> --recapture`. The login-form check compares the page's title with its text, and it cannot judge a title with no word of five letters or more, for example a URL that ends in a bare id; a gate page supplied at such a URL is not caught.
+**A page a person saved.** `clip.mjs "<url>" --from-file <path> --topic="<topic>" --since <token>` records a page saved from a signed-in browser, with its real URL as `source` and nothing fetched. The file is `.md`, `.markdown` or `.txt` (the page text) or `.html` or `.htm` (read by the same extractor as a fetched page), at most 1 MiB. The clipping carries `extraction: manual` and `supplied-sha256`, the SHA-256 of the file's bytes; the file's name is not recorded. The ordinary thin, interstitial and decline checks still apply; inspect the actual result and [supplied-page diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages). `--from-file` on an existing URL is a duplicate; adding `--recapture` requests a dated new capture. Refresh an `extraction: manual` clipping through this same supplied-file route, not `apply-reclips`. These interfaces do not authorize inventing the page body.
 
 **Names.** A page's title names its file. A document with no title and no heading is named from its URL path, nearest folder first, so `.../skills/one/SKILL.md` is `one-SKILL.md` and `.../skills/two/SKILL.md` is `two-SKILL.md`; the bare last segment is used only after the folders. The frontmatter `title:` stays exactly what the extractor returned, so `title: ""` on such a clipping is not a defect. A new clipping never ends `.md.md`; an older one may, and its name is still valid. A title another clipping already holds gets the distinguishing URL part added, for example `Smith v. Jones (93-1260.ZO)`. `--slug=<name>` chooses the file name without `.md`; a taken name is a clash and is never suffixed. `clip-pdf`, `clip-docx`, `clip-pptx` and `clip-xlsx` also take `--title="<text>"`, for a file whose name is not its title (`valve.pdf`), and `--slug=<name>`.
 
@@ -132,6 +134,7 @@ quotes and escapes a non-ASCII name. Write one discovery log entry naming the
 clipped/declined/failed counts (`log-entry.mjs ... --since <saved-token>`), run `show`
 again, and close with:
 `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op discover --title "<topic> → N clipped" --since <saved-token> --paths-file <ledger>`.
+Validate any derived pages written during the authorized task through [scoped validation](../../wiki-setup/references/validation.md), and verify raw capture paths and fidelity before close.
 The `<ledger>` file you wrote outlives the close, so the ingest that follows takes its
 clipping set from it.
 Without `--paths-file` the close is refused while another operation is open. Verify the commit and push and verify remote publication through the shared

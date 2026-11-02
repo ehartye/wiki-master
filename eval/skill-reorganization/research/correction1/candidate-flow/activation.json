@@ -1,0 +1,162 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\discover.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\capture.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\operations.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\ingest.md"
+    },
+    {
+      "file_path": "<SCRATCH>\\candidate-flow\\vault-schema.md"
+    },
+    {
+      "file_path": "<SCRATCH>\\candidate-flow\\wiki\\concepts\\Message Delivery.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-search\\SKILL.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-search\\references\\answers.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 158654,
+    "stop_reason": "end_turn",
+    "session_id": "71f813ff-3157-4ad8-9c9d-a7345463cbed",
+    "total_cost_usd": 0.6976519000000001,
+    "usage": {
+      "input_tokens": 36,
+      "cache_creation_input_tokens": 34026,
+      "cache_read_input_tokens": 1045300,
+      "output_tokens": 7373,
+      "output_tokens_details": {
+        "thinking_tokens": 481
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 34026,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1588,
+          "cache_read_input_tokens": 77609,
+          "cache_creation_input_tokens": 5363,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 5363
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 72,
+        "outputTokens": 17023,
+        "cacheReadInputTokens": 1374399,
+        "cacheCreationInputTokens": 116088,
+        "webSearchRequests": 0,
+        "costUSD": 0.6976519000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 864,
+        "cacheCreationEphemeral5mInputTokens": 49676,
+        "cacheCreationEphemeral1hInputTokens": 66412,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzrofdj-cda1f67c"
+    },
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 5
+      },
+      "started_in_background": 5,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "Explore": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 20,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "Three retries are allowed, which permits four attempts in total. An accepted identifier that arrives again with the same digest is delivered to the application only once, and the receiver re-sends its cached acknowledgement.\n\n## Answer\n- **Retries:** three retries after the first transmission, with an overall trial deadline of twelve seconds. Evidence: `raw/clippings/Harbor Retry Protocol.md:16`, summarized at `wiki/sources/Harbor Retry Protocol.md:16`.\n- **Total attempts:** four, meaning the first transmission plus three retries. The source says four attempts are not four permitted application deliveries (`raw/clippings/Harbor Retry Protocol.md:18`).\n- **Repeat of an accepted identifier with the same digest:** the payload goes to the application once, and the cached acknowledgement is sent again (`raw/clippings/Harbor Retry Protocol.md:18`, `wiki/sources/Harbor Retry Protocol.md:17`).\n- **Same identifier with a different digest:** the receiver rejects it as a conflict (`raw/clippings/Harbor Retry Protocol.md:18`).\n- **Other rules:** the sender keeps the same identifier across retries. The receiver accepts a packet only if its digest matches the advertised checksum (`raw/clippings/Harbor Retry Protocol.md:16`).\n\nThe synthesized form of this answer is on the concept page `wiki/concepts/Message Delivery.md:16-20`.\n\n## Specification versus empirical claims\n- **Specification:** every figure above (3 retries, 4 attempts, 12 s, deliver-once, conflict rejection) comes from the fixture specification. It describes a synthetic test sender and receiver, not a production network.\n- **Empirical:** the source says outright that these values \"do not establish any empirical reliability rate\" (`raw/clippings/Harbor Retry Protocol.md:16`). It gives no throughput or packet-loss data (line 20), so nothing in the wiki supports a measured success rate.\n- **Silent on:** what happens after the fourth failure, and whether the deadline interrupts a pending retry. Silence there means \"not supported here\", not \"false\".\n- **Corroboration:** only one source covers this. `Acknowledgement Basics` (`raw/clippings/Acknowledgement Basics.md:14-19`) defines acknowledgements and says explicitly that it sets no retry budget.\n\n## What was done\n1. **Dedup and discovery:** I checked what the vault already held (one clipping, one concept). Five read-only perspective finders (academic, technical, applied, news, contrarian) reviewed the catalog. I picked the sources myself, and all five lenses agreed.\n2. **Captured (1):** `/protocol` became `raw/clippings/Harbor Retry Protocol.md`, quality high, with source-hash `254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c`. I compared the clipping against the page body and they match.\n3. **Declined and recorded (2):**\n   - `/promotion`: unsupported promotional opinion with no method, retry count or duplicate rule.\n   - `/thin`: a stub with no content.\n   - `/known` was already in the vault.\n4. **Ingested:**\n   - Wrote `wiki/sources/Harbor Retry Protocol.md`.\n   - Extended the existing `Message Delivery` concept instead of creating a new one.\n   - Regenerated `index.md`.\n   - The backlog went from 1 to 0, and the scoped validator passed (2 pages, 0 defects).\n5. **Published:** commits `7936add` (discover) and `b7e24ff` (ingest) are on the local bare origin. HEAD equals `origin/main`, and the working tree is clean.\n\n## Limits\n- **Search is lexical only.** The semantic index doesn't exist, and the search diagnostics show `index-unavailable` and `metadata-incomplete`. I didn't build it, since that would have been an unrequested step. The raw search returned 2 hits.\n- **The search tool shows `provenanceStatus: citation-targets-not-resolved`.** I checked the evidence route directly with `resolve-evidence.mjs`. It resolves `wiki/sources/Harbor Retry Protocol.md` to the raw clipping, and I read the raw passages myself.\n- **One slip:** a stray `python3 -` in a shell command hung. I stopped it and wrote the concept page again with the file tools. The final files are correct.\n- **Temporary files:** scratch ledgers and tokens are under `$TEMP\\w`.\n- **Scope:** I wrote nothing outside the scratch vault and its local origin.",
+    "ttft_ms": 3081,
+    "type": "result",
+    "duration_ms": 218610,
+    "uuid": "3c364fd6-581a-4818-b7d6-6e1c12f0a68e",
+    "ttft_stream_ms": 2684,
+    "time_to_request_ms": 13,
+    "first_content_frame_ms": 2684,
+    "queued_turn_count": 0,
+    "result_index": 1,
+    "model_usage_since_last_result": {}
+  }
+}

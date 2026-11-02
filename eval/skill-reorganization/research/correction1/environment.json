@@ -1,0 +1,8 @@
+{
+  "baselineRevision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "candidateRevision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "host": "2.1.316 (Claude Code)",
+  "scratch": "<SCRATCH>",
+  "origin": "http://127.0.0.1:59601",
+  "conditions": "isolated local Git remotes; no production vault access; deliberate lexical search backend"
+}

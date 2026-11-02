@@ -1,0 +1,201 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01Q8jfdskR7wPpJsDD8TmmNU",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-setup"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01AzYLitsrCKRcYYNbxdeHYF",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\operation-recovery.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01WaDj4jHvRwbQLyZBgJJTci",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01BHF31c728MWiVJcmuCpsZD",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 21196,
+    "stop_reason": "end_turn",
+    "session_id": "bf909a57-60a2-46a4-ade0-19451421c776",
+    "total_cost_usd": 0.12131080000000001,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 22720,
+      "cache_read_input_tokens": 180828,
+      "output_tokens": 1232,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 22720,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 341,
+          "cache_read_input_tokens": 38847,
+          "cache_creation_input_tokens": 433,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 433
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 1232,
+        "cacheReadInputTokens": 180828,
+        "cacheCreationInputTokens": 22720,
+        "webSearchRequests": 0,
+        "costUSD": 0.12131080000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 22720,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 9,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I aborted the abandoned operation `a4a8d963c043ae0e` (a `relink` op this session opened). It is no longer open.\n\n- **Diagnosis:** `op-cleanup.mjs` (a dry run) showed one recent token, and that token was the only file in `.wiki-master/ops/`. Its record showed no dirty paths at open and no ledger, and `git status` was clean. There was no unfinished work, no hold and no other operation, so closing it normally had nothing to commit.\n- **Recovery:** I ran `op-abort.mjs --since a4a8d963c043ae0e`, which exited 0 and dropped only that token.\n- **Verification:**\n  - `.wiki-master/ops/` is now empty.\n  - `op-cleanup.mjs` reports 0 tokens kept.\n  - `git status` is clean.\n  - The only commit is still `d60c899`.\n\nI changed no content files, logs, commits or remote state. I did not touch the plugin, caches or global settings, and I wrote no scratch files.",
+    "ttft_ms": 3937,
+    "type": "result",
+    "duration_ms": 22731,
+    "uuid": "5a9ac2e6-2dc6-4908-b5b6-d8490a5d79e9",
+    "ttft_stream_ms": 3727,
+    "time_to_request_ms": 130,
+    "first_content_frame_ms": 3727,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 1232,
+        "cacheReadInputTokens": 180828,
+        "cacheCreationInputTokens": 22720,
+        "webSearchRequests": 0,
+        "costUSD": 0.12131080000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 22720,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

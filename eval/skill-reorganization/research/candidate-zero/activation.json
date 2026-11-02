@@ -1,0 +1,151 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\ingest.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 13565,
+    "stop_reason": "end_turn",
+    "session_id": "e2837c25-4cf1-442c-96bf-858a9830c9b5",
+    "total_cost_usd": 0.08936829999999998,
+    "usage": {
+      "input_tokens": 12,
+      "cache_creation_input_tokens": 16698,
+      "cache_read_input_tokens": 130823,
+      "output_tokens": 947,
+      "output_tokens_details": {
+        "thinking_tokens": 51
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 16698,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 304,
+          "cache_read_input_tokens": 32889,
+          "cache_creation_input_tokens": 369,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 369
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 947,
+        "cacheReadInputTokens": 130823,
+        "cacheCreationInputTokens": 16698,
+        "webSearchRequests": 0,
+        "costUSD": 0.08936829999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 51,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 16698,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 7,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "No clippings are eligible for ingestion, so I made no changes: no pages, operation, log, commit, sync or index refresh.\n\n- **Backlog:** `health.mjs --backlog` reports one clipping that no summary covers: `raw/clippings/Restricted.md`. Its `source-hash` is `1fd6acd3…edcc9`.\n- **Restricted:** that clipping has `citation-status: restricted`, so I excluded it. Its raw bytes and restriction are untouched, and it is not accepted support.\n- **Already summarized:** `raw/clippings/Acknowledgement Basics.md` already has a summary page, `wiki/sources/Acknowledgement Basics.md`. I left both files as they were.\n- **Other counts:** no clippings are missing a `source-hash`, and no source pages await hash backfill.\n\nI ran the helpers against the scratch vault only, and used no other vault or remote.",
+    "ttft_ms": 2004,
+    "type": "result",
+    "duration_ms": 15021,
+    "uuid": "e9add44c-61aa-4525-8abb-ba40ec5a7e70",
+    "ttft_stream_ms": 1819,
+    "time_to_request_ms": 101,
+    "first_content_frame_ms": 1819,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 12,
+        "outputTokens": 947,
+        "cacheReadInputTokens": 130823,
+        "cacheCreationInputTokens": 16698,
+        "webSearchRequests": 0,
+        "costUSD": 0.08936829999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 51,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 16698,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

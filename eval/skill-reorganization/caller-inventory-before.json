@@ -1,0 +1,398 @@
+{
+  "date": "2026-11-02",
+  "stage": "before",
+  "baseline": "8720f90",
+  "priorInventory": "eval/skill-consolidation/caller-inventory-before.json",
+  "companionCount": 16,
+  "pattern": "wiki-user|wiki-init|wiki-maintainer/references/(health|stale|lint|maintenance)|wiki-maintainer\\\\references\\\\(health|stale|lint|maintenance)",
+  "scope": "Bounded prior sixteen first-party companion plugins. Current source revisions, installed copies, history and unavailable surfaces recorded. Unknown third-party callers excluded.",
+  "sources": [
+    {
+      "plugin": "agent-beeps",
+      "kind": "source-repository",
+      "revision": "377a95eeabbac7da2609dc4aa0862bb9b1bffeae",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-beeps",
+      "kind": "installed-cache",
+      "version": "0.36.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-draw",
+      "kind": "unavailable-source",
+      "priorRevision": "83e08e79997fca3d75b2c64612e66d742650d8c8",
+      "reason": "No corresponding source checkout in bounded repository set; prior temporary clone not assumed available",
+      "disposition": "No source compatibility claim; inspect installed copy only"
+    },
+    {
+      "plugin": "agent-draw",
+      "kind": "installed-cache",
+      "version": "0.5.1",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-engine",
+      "kind": "source-repository",
+      "revision": "cfe89a2b099b86b070b6c75babbf67a1d19d5a1d",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-engine",
+      "kind": "installed-cache",
+      "version": "0.34.1",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "version": "0.3.2",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-marketing",
+      "kind": "source-repository",
+      "revision": "ea4af2e0d2197306230520f8bd5e4f40a9c4e958",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-marketing",
+      "kind": "installed-cache",
+      "version": "0.11.1",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-meshes",
+      "kind": "source-repository",
+      "revision": "f6880146d7b191a771f95a22cdfad469584cf930",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-meshes",
+      "kind": "installed-cache",
+      "version": "0.40.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-phaser",
+      "kind": "source-repository",
+      "revision": "a4ae199b20e0fb6b0736f78f55821292cede4dab",
+      "dirty": true,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-phaser",
+      "kind": "installed-cache",
+      "version": "0.1.11",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-prose",
+      "kind": "source-repository",
+      "revision": "00dbaad534e32988c5b48a064a4c9a4dc61c7581",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-prose",
+      "kind": "installed-cache",
+      "version": "0.13.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-sprites",
+      "kind": "source-repository",
+      "revision": "47b409bac6f3eb51fb09de09b884c1a0481f6280",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-sprites",
+      "kind": "installed-cache",
+      "version": "0.101.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-stalker",
+      "kind": "source-repository",
+      "revision": "a823ed5fd0e09b2cf0ce5b939efe259f31137b58",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-stalker",
+      "kind": "installed-cache",
+      "version": "0.5.1",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "installed-cache",
+      "version": "0.9.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "source-repository",
+      "revision": "ebf5bccec6480e4c12000278b3622e40d9e60708",
+      "dirty": true,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "installed-cache",
+      "version": "0.38.1",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-vids",
+      "kind": "source-repository",
+      "revision": "90fa638795ed2d0eb2996335c8da0bef8e09170a",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-vids",
+      "kind": "installed-cache",
+      "version": "0.5.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "version": "0.6.3",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "h-superpowers",
+      "kind": "source-repository",
+      "revision": "714599c2769f606605d461d13579d48bb8778dc7",
+      "dirty": true,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "h-superpowers",
+      "kind": "installed-cache",
+      "version": "4.16.0",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "89d272d4baa012d05ab45442c37f541d9d9d0f07",
+      "dirty": false,
+      "scope": "All Git-tracked text via git grep -nI; generated/history classified separately"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "version": "0.9.3",
+      "scope": "Latest available version; Markdown only, dependency/build directories excluded",
+      "disposition": "Preserve installed copies; source changes require coordinated release"
+    }
+  ],
+  "matches": [
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 312,
+      "references": [
+        "wiki-init"
+      ],
+      "classification": "historical",
+      "disposition": "Preserve historical evidence"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "path": "references/plugin-map.md",
+      "line": 30,
+      "references": [
+        "wiki-user"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "path": "references/plugin-map.md",
+      "line": 31,
+      "references": [
+        "wiki-init"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "12fcd55073a36d3d882277d39e74a0a2a22cb4e6",
+      "path": "references/plugin-map.md",
+      "line": 51,
+      "references": [
+        "wiki-user"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.2",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 312,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.2",
+      "path": "references/plugin-map.md",
+      "line": 30,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.2",
+      "path": "references/plugin-map.md",
+      "line": 31,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.2",
+      "path": "references/plugin-map.md",
+      "line": 51,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "source-repository",
+      "revision": "ebf5bccec6480e4c12000278b3622e40d9e60708",
+      "path": "scripts/sibling-skills.json",
+      "line": 158,
+      "references": [
+        "wiki-init"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "89d272d4baa012d05ab45442c37f541d9d9d0f07",
+      "path": "skills/q-master/SKILL.md",
+      "line": 61,
+      "references": [
+        "wiki-user"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "89d272d4baa012d05ab45442c37f541d9d9d0f07",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 54,
+      "references": [
+        "wiki-user"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "89d272d4baa012d05ab45442c37f541d9d9d0f07",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 87,
+      "references": [
+        "wiki-user"
+      ],
+      "classification": "maintained-caller",
+      "disposition": "WP3 migrate to semantic destination; verify candidate catalog"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.3",
+      "path": "skills/q-master/SKILL.md",
+      "line": 61,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.3",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 54,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.3",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 87,
+      "classification": "installed-copy",
+      "disposition": "Preserve; maintained source counterpart owns migration"
+    }
+  ],
+  "recordedAt": "2026-11-02T20:42:58.202Z",
+  "snapshotNote": "Sources recorded during WP1; hartye-skills latest installed version refreshed at recordedAt after cache changed during review. Installed versions are observations, not deliverable edits."
+}

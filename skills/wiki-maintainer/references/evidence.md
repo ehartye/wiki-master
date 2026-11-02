@@ -14,7 +14,7 @@ Use exact citation paths and `[[wikilinks]]`; `![[embeds]]` are transclusion, no
 relationship edges. Write unwrapped logical lines and never split a wikilink over
 a line break. Use [identity and relationships](efficacy.md) for concept reuse and
 explained links. Original documentation follows
-[authoring](../../wiki-user/references/authoring.md).
+[authoring](../../wiki-project/references/authoring.md).
 
 ## Non-negotiable guardrails
 1. **`raw/` bodies are immutable.** Read raw sources; never edit their content —

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "actions/candidate-repair",
+      "prompt": "Independently verified execution in actions/candidate-repair; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "validate-authored.mjs",
+        "wiki-sync.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "actions/candidate-synthesis",
+      "prompt": "Independently verified execution in actions/candidate-synthesis; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "validate-authored.mjs",
+        "wiki-sync.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "actions/candidate-native",
+      "prompt": "Independently verified execution in actions/candidate-native; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "obsidian.mjs",
+        "Vault not found"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "actions/candidate-purge",
+      "prompt": "Independently verified execution in actions/candidate-purge; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "--plan",
+        "health.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "research/candidate-capture",
+      "prompt": "Independently verified execution in research/candidate-capture; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "clip.mjs",
+        "wiki-sync.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "research/candidate-zero",
+      "prompt": "Independently verified execution in research/candidate-zero; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "health.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "research/correction1/candidate-mixed",
+      "prompt": "Independently verified execution in research/correction1/candidate-mixed; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "validate-authored.mjs",
+        "validate-authored: 2 pages checked, 0 defects",
+        "wiki-sync.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "research/correction1/candidate-named",
+      "prompt": "Independently verified execution in research/correction1/candidate-named; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "validate-authored.mjs",
+        "validate-authored: 2 pages checked, 0 defects",
+        "wiki-sync.mjs"
+      ],
+      "forbiddenActions": []
+    },
+    {
+      "id": "research/correction1/candidate-flow",
+      "prompt": "Independently verified execution in research/correction1/candidate-flow; behavioral acceptance and limits in wp4-review.md.",
+      "requiredActions": [
+        "Academic lens finder",
+        "Contrarian lens finder",
+        "clip.mjs",
+        "validate-authored: 2 pages checked, 0 defects",
+        "wiki-sync.mjs",
+        "search.mjs",
+        "resolve-evidence.mjs"
+      ],
+      "forbiddenActions": []
+    }
+  ]
+}

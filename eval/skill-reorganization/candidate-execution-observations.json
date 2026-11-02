@@ -1,0 +1,726 @@
+{
+  "kind": "executor observations, not independent grades",
+  "cases": [
+    {
+      "case": "project",
+      "exit": 0,
+      "changedPaths": [
+        "index.md",
+        "wiki/authored/beacon/architecture.md",
+        "wiki/authored/beacon/backlog/parallel-workers.md",
+        "log/2026-11-02-155511-relink-beacon-architecture-and-parallel-workers.md",
+        "moc/beacon.md",
+        "wiki/authored/beacon/roadmap.md"
+      ],
+      "git": {
+        "beforeHead": "79294b159e26b5ee62628b779075fcca2d6dfaaa",
+        "afterHead": "d30e7aeaba2f688cd8a7ade956e99cffc2ee56b7",
+        "afterStatus": "",
+        "beforeRemote": "79294b159e26b5ee62628b779075fcca2d6dfaaa",
+        "afterRemote": "d30e7aeaba2f688cd8a7ade956e99cffc2ee56b7"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-project"
+      ],
+      "baselineInputDifferences": [],
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-project"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-project\\references\\authoring.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-project\\references\\backlog.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT\"; cat \"<PLUGIN>/skills/wiki-maintainer/references/operations.md\"; cat \"<PLUGIN>/skills/wiki-project/references/catalogs.md\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; git status --short; git remote -v; cat AGENTS.md | head -40; ls wiki/authored/beacon wiki/authored/beacon/*; cat wiki/authored/beacon/architecture.md; grep -ril parallel wiki/authored/beacon"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; cat wiki/authored/beacon/overview.md wiki/authored/beacon/backlog/parallel-workers.md; ls; ls wiki/authored; cat _templates/authored-backlog-item.md | head -30; node \"<PLUGIN>/scripts/session-brief.mjs\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; P=\"<PLUGIN>/scripts\"; TOK=$(node \"$P/op-begin.mjs\" --op relink); echo \"$TOK\" > \"${TMPDIR:-$TEMP}/beacon-tok.txt\"; echo TOK=$TOK\ncat > wiki/authored/beacon/architecture.md <<'EOF'\n---\ntype: authored\ncreated: 2026-10-01\nupdated: 2026-11-02\nreviewed: 2026-10-01\nstatus: maintained\nsources: []\nai-generated: true\nproject: beacon\nkind: architecture\n---\n# Beacon architecture\n\nThis page describes the relay as built and deployed. Planned work is tracked in the backlog, not here.\n\n## As built\n\n- **Dispatch:** the deployed relay runs a single dispatcher worker. All messages are dispatched by that one worker.\n- **Persistence:** each message is written to a local queue before the relay acknowledges it.\n\n## Not built\n\nA second worker is not implemented. The proposal is in [[parallel-workers]].\nEOF\ncat > wiki/authored/beacon/backlog/parallel-workers.md <<'EOF'\n---\ntype: authored\ncreated: 2026-10-01\nupdated: 2026-11-02\nreviewed: 2026-10-01\nstatus: maintained\nsources: []\nai-generated: true\nproject: beacon\nkind: backlog-item\nbacklog-status: planned\n---\n# Parallel workers\n\nPlanned, not shipped. The deployed relay has one dispatcher worker (see [[wiki/authored/beacon/architecture.md|Beacon architecture]]); this item proposes adding a second.\n\n## Proposed design\n\nRun two dispatcher workers against the existing local queue. Messages are still persisted to the queue before acknowledgement. The design must assign work so that messages sharing a key are never handled by both workers at once (for example, by routing each key to a fixed worker). The exact assignment mechanism is undecided.\n\n## Acceptance criteria\n\n- Per-key ordering is preserved: for any key, messages are dispatched in the order they were accepted.\n- Every message is still persisted to the local queue before it is acknowledged.\n- No message is lost or dispatched twice when either worker restarts.\n\n## Benchmark requirement\n\nBenchmark the two-worker design against the current single-worker relay before shipping. Ship only if the measurements justify the added complexity. Record the method and results on this item.\nEOF\nfor f in wiki/authored/beacon/architecture.md wiki/authored/beacon/backlog/parallel-workers.md; do node \"$P/op-ledger.mjs\" add --since \"$TOK\" $f; done\nnode \"$P/refresh-catalogs.mjs\" --project beacon --apply --since \"$TOK\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; P=\"<PLUGIN>/scripts\"; TOK=$(cat \"$TEMP/beacon-tok.txt\"); L=\"$TEMP/wiki-ledger-$TOK.json\"\nprintf 'Updated Beacon architecture to as-built (one dispatcher, local queue before ack) and parallel-workers backlog item (two-worker design, per-key order criteria, benchmark requirement). Refreshed roadmap, MOC, index.\\n' | node \"$P/log-entry.mjs\" --op relink --title \"Beacon architecture and parallel workers\" --since $TOK\nnode \"$P/op-ledger.mjs\" show --since $TOK --out \"$L\"; cat \"$L\"\nnode \"$P/validate-authored.mjs\" --paths-file \"$L\"; echo exit=$?"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; P=\"<PLUGIN>/scripts\"; TOK=$(cat \"$TEMP/beacon-tok.txt\"); L=\"$TEMP/wiki-ledger-$TOK.json\"\nnode \"$P/wiki-sync.mjs\" --op $TOK --paths-file \"$L\" --title \"Beacon architecture and parallel workers\"; echo exit=$?; git status --short; git log --stat -2 --format=%h\\ %s | head -20; git fetch -q; git rev-parse HEAD origin/main"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-project/request.json",
+        "candidate-project/before.json",
+        "candidate-project/after.json",
+        "candidate-project/transcript.jsonl",
+        "candidate-project/execution.json",
+        "candidate-project/observations.json"
+      ]
+    },
+    {
+      "case": "setup",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "beforeHead": "04842fefb2904565ed7201df7848bfe2de006cf9",
+        "afterHead": "04842fefb2904565ed7201df7848bfe2de006cf9",
+        "afterStatus": "",
+        "beforeRemote": "04842fefb2904565ed7201df7848bfe2de006cf9",
+        "afterRemote": "04842fefb2904565ed7201df7848bfe2de006cf9"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-setup"
+      ],
+      "baselineInputDifferences": [],
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\validation.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\checks.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\search-diagnostics.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$env:WIKI_MASTER_VAULT; $env:WIKI_MASTER_REQUIRE_VAULT; Get-Location; Get-ChildItem -Force | Select Name"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<SCRATCH>\\candidate-setup\\AGENTS.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$r='<PLUGIN>/scripts'\n$led=Join-Path $env:TEMP 'ledger-diag.json'\n'[\"wiki/authored/beacon/architecture.md\",\"wiki/authored/beacon/backlog/parallel-workers.md\"]' | Set-Content $led -Encoding utf8\n\"== validate\"; node \"$r/validate-authored.mjs\" --paths-file $led --json; \"exit $LASTEXITCODE\"\n\"== health\"; node \"$r/health.mjs\" --json; \"exit $LASTEXITCODE\"\n\"== backlog\"; node \"$r/health.mjs\" --backlog; \"exit $LASTEXITCODE\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$r='<PLUGIN>/scripts'\n$led=Join-Path $env:TEMP 'ledger-diag.json'\n\"== stale\"; node \"$r/stale.mjs\"; \"exit $LASTEXITCODE\"\n\"== drift\"; node \"$r/drift.mjs\" --coverage; \"exit $LASTEXITCODE\"\n\"== lint\"; node \"$r/lint.mjs\" --paths-file=$led; \"exit $LASTEXITCODE\"\n\"== search health\"; node \"$r/search.mjs\" --health; \"exit $LASTEXITCODE\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$env:OLLAMA_HOST; $env:WIKI_MASTER_OLLAMA_HOST; $env:WIKI_MASTER_EMBED_MODEL; Get-ChildItem Env: | ? Name -match 'OLLAMA|WIKI' | % { \"$($_.Name)=$($_.Value)\" }"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-setup/request.json",
+        "candidate-setup/before.json",
+        "candidate-setup/after.json",
+        "candidate-setup/transcript.jsonl",
+        "candidate-setup/execution.json",
+        "candidate-setup/observations.json"
+      ]
+    },
+    {
+      "case": "search",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "beforeHead": "5adf1d69377013b648a5492ee5253cb46f4ac8d8",
+        "afterHead": "5adf1d69377013b648a5492ee5253cb46f4ac8d8",
+        "afterStatus": "",
+        "beforeRemote": "5adf1d69377013b648a5492ee5253cb46f4ac8d8",
+        "afterRemote": "5adf1d69377013b648a5492ee5253cb46f4ac8d8"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-search"
+      ],
+      "baselineInputDifferences": [],
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-search"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-search\\references\\advanced.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT R=$WIKI_MASTER_REQUIRE_VAULT\"; ls -a \"$WIKI_MASTER_VAULT\" 2>&1 | head -30; cat \"$WIKI_MASTER_VAULT/AGENTS.md\" 2>&1 | head -50"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; S=\"$P/scripts/search.mjs\"\nfor q in \"The copper heron carries seven lanterns\" \"Lantern Relay\" \"Harbor\"; do echo \"=== $q\"; node \"$S\" \"$q\" --json --limit=10 2>&1; done"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; S=\"$P/scripts/search.mjs\"\necho \"=== raw\"; node \"$S\" \"quartz otter 817\" --include-raw --json --limit=10 2>&1\necho \"=== beacon\"; node \"$S\" \"Beacon dispatcher workers\" --project=beacon --include-raw --json --limit=10 2>&1"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; R=\"$P/scripts/resolve-evidence.mjs\"\nnode \"$R\" \"wiki/concepts/Beacon Protocol.md:10\" 2>&1; node \"$R\" \"raw/clippings/Beacon Study.md\" 2>&1\ncd \"$WIKI_MASTER_VAULT\"\nfor f in \"wiki/concepts/Beacon Protocol.md\" \"raw/clippings/Beacon Study.md\" wiki/authored/beacon/architecture.md wiki/authored/beacon/backlog/parallel-workers.md wiki/concepts/north/Harbor.md wiki/concepts/south/Harbor.md \"wiki/concepts/Beacon Protocol Draft.md\"; do echo \"##### $f\"; cat -n \"$f\"; done"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-search/request.json",
+        "candidate-search/before.json",
+        "candidate-search/after.json",
+        "candidate-search/transcript.jsonl",
+        "candidate-search/execution.json",
+        "candidate-search/observations.json"
+      ]
+    },
+    {
+      "case": "init",
+      "exit": 0,
+      "changedPaths": [
+        ".gitignore",
+        "log/2026-11-02-155445-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "git": {
+        "beforeHead": null,
+        "afterHead": null,
+        "afterStatus": "not a Git repository",
+        "beforeRemote": null,
+        "afterRemote": null
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-setup"
+      ],
+      "baselineInputDifferences": [],
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\initialization.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "\"VAULT=$env:WIKI_MASTER_VAULT\"; \"REQ=$env:WIKI_MASTER_REQUIRE_VAULT\"; Get-ChildItem -Force -Recurse <SCRATCH>\\candidate-init | Select FullName,Length | ft -auto | Out-String -Width 200; Get-FileHash <SCRATCH>\\candidate-init\\index.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'\n$t = node \"$P/scripts/op-begin.mjs\" --op relink; \"exit $LASTEXITCODE token=$t\"\nif ($LASTEXITCODE -eq 0) { node \"$P/scripts/init.mjs\"; \"init exit $LASTEXITCODE\" }"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'\n$V='<SCRATCH>\\candidate-init'\n(Get-FileHash $V\\index.md).Hash; (Get-Item $V\\index.md).Length\nGet-ChildItem -Force -Recurse $V | % { $_.FullName.Substring($V.Length) } \n\"--health\"; node \"$P/scripts/health.mjs\" --json; \"exit $LASTEXITCODE\"\nnode \"$P/scripts/health.mjs\" --backlog; \"exit $LASTEXITCODE\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'\n$tok='81585c37e4bcaf8d'\n'Initialized the local vault filesystem scaffold with init.mjs. Existing index.md left unchanged. Local-only; no app setup or remote.' | node \"$P/scripts/log-entry.mjs\" --op relink --title \"Initialize vault\" --since $tok; \"log exit $LASTEXITCODE\"\n$L=Join-Path $env:TEMP \"wiki-ledger-$tok.json\"\nnode \"$P/scripts/op-ledger.mjs\" show --since $tok --out $L; \"ledger exit $LASTEXITCODE\"; Get-Content $L\nnode \"$P/scripts/op-commit.mjs\" --op relink --title \"Initialize vault\" --since $tok --paths-file $L; \"commit exit $LASTEXITCODE\"\n(Get-FileHash <SCRATCH>\\candidate-init\\index.md).Hash\nGet-ChildItem <SCRATCH>\\candidate-init\\log, <SCRATCH>\\candidate-init\\.wiki-master\\ops -Force | select Name"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-init/request.json",
+        "candidate-init/before.json",
+        "candidate-init/after.json",
+        "candidate-init/transcript.jsonl",
+        "candidate-init/execution.json",
+        "candidate-init/observations.json"
+      ]
+    },
+    {
+      "case": "recovery",
+      "exit": 0,
+      "changedPaths": [
+        ".wiki-master/ops/a4a8d963c043ae0e.json"
+      ],
+      "git": {
+        "beforeHead": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d",
+        "afterHead": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d",
+        "afterStatus": "",
+        "beforeRemote": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d",
+        "afterRemote": "d60c8990c3b08322fe241e380ed4ab6d1f4d3a3d"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-setup"
+      ],
+      "baselineInputDifferences": [
+        ".wiki-master/ops/eb86a39156a3f429.json",
+        ".wiki-master/ops/a4a8d963c043ae0e.json"
+      ],
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\operation-recovery.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT\"; cd \"<SCRATCH>/candidate-recovery\" && pwd && ls -a . .wiki-master 2>&1 | head -40; git status --short; P=\"<PLUGIN>\"; node \"$P/scripts/op-cleanup.mjs\"; echo exit=$?"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; ls -la .wiki-master/ops; for f in .wiki-master/ops/*; do echo \"== $f\"; cat \"$f\"; done; git status --short"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"$WIKI_MASTER_VAULT\"; P=\"<PLUGIN>\"; node \"$P/scripts/op-abort.mjs\" --since a4a8d963c043ae0e; echo exit=$?; ls -a .wiki-master/ops; node \"$P/scripts/op-cleanup.mjs\"; git status --short; git log --oneline"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-recovery/request.json",
+        "candidate-recovery/before.json",
+        "candidate-recovery/after.json",
+        "candidate-recovery/transcript.jsonl",
+        "candidate-recovery/execution.json",
+        "candidate-recovery/observations.json"
+      ]
+    },
+    {
+      "case": "simple",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "beforeHead": "c2efde8501335c0d22704e0fb041a89692fec0e8",
+        "afterHead": "c2efde8501335c0d22704e0fb041a89692fec0e8",
+        "afterStatus": "",
+        "beforeRemote": "c2efde8501335c0d22704e0fb041a89692fec0e8",
+        "afterRemote": "c2efde8501335c0d22704e0fb041a89692fec0e8"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-search"
+      ],
+      "baselineInputDifferences": null,
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-search"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT R=$WIKI_MASTER_REQUIRE_VAULT\"; node \"<PLUGIN>/scripts/search.mjs\" \"The copper heron carries seven lanterns\" --json --limit=10"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<SCRATCH>\\candidate-simple\\wiki\\concepts\\Beacon Protocol.md"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-simple/request.json",
+        "candidate-simple/before.json",
+        "candidate-simple/after.json",
+        "candidate-simple/transcript.jsonl",
+        "candidate-simple/execution.json",
+        "candidate-simple/observations.json"
+      ]
+    },
+    {
+      "case": "validation-only",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "beforeHead": "32bd64d2ec0c13db72e02d93869d79288f3f3956",
+        "afterHead": "32bd64d2ec0c13db72e02d93869d79288f3f3956",
+        "afterStatus": "",
+        "beforeRemote": "32bd64d2ec0c13db72e02d93869d79288f3f3956",
+        "afterRemote": "32bd64d2ec0c13db72e02d93869d79288f3f3956"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-setup"
+      ],
+      "baselineInputDifferences": null,
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\validation.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "\"vault env: $env:WIKI_MASTER_VAULT\"; Get-Location; Test-Path AGENTS.md; $t=Join-Path $env:TEMP 'wiki-val-ledger.json'; '[\"wiki/authored/beacon/architecture.md\",\"wiki/authored/beacon/backlog/parallel-workers.md\"]' | Set-Content -Encoding utf8NoBOM $t; $v=(Get-Location).Path; $p=$env:WIKI_MASTER_VAULT; if(-not $p){$env:WIKI_MASTER_VAULT=$v}; node '<PLUGIN>/scripts/validate-authored.mjs' --paths-file $t --json; \"exit $LASTEXITCODE\""
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-validation-only/request.json",
+        "candidate-validation-only/before.json",
+        "candidate-validation-only/after.json",
+        "candidate-validation-only/transcript.jsonl",
+        "candidate-validation-only/execution.json",
+        "candidate-validation-only/observations.json"
+      ]
+    },
+    {
+      "case": "raw-failed",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "beforeHead": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b",
+        "afterHead": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b",
+        "afterStatus": "",
+        "beforeRemote": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b",
+        "afterRemote": "e04c59f3c12a5a786dc81279b6b9f96ba6d6c14b"
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-search"
+      ],
+      "baselineInputDifferences": null,
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-search"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT REQ=$WIKI_MASTER_REQUIRE_VAULT\"; cat \"$WIKI_MASTER_VAULT/AGENTS.md\" 2>&1 | head -50"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-search\\references\\advanced.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "node \"<PLUGIN>\\scripts\\search.mjs\" \"quartz otter 817\" --include-raw --json --limit=10; echo \"exit=$?\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "ls -la raw 2>&1 | head -3; ls -d raw/clippings 2>&1"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-raw-failed/request.json",
+        "candidate-raw-failed/before.json",
+        "candidate-raw-failed/after.json",
+        "candidate-raw-failed/transcript.jsonl",
+        "candidate-raw-failed/execution.json",
+        "candidate-raw-failed/observations.json"
+      ]
+    },
+    {
+      "case": "init-custom",
+      "exit": 0,
+      "changedPaths": [
+        ".gitignore",
+        "log/2026-11-02-155451-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "git": {
+        "beforeHead": null,
+        "afterHead": null,
+        "afterStatus": "not a Git repository",
+        "beforeRemote": null,
+        "afterRemote": null
+      },
+      "activeWikiSkills": [
+        "wiki-master:wiki-maintainer",
+        "wiki-master:wiki-project",
+        "wiki-master:wiki-purge",
+        "wiki-master:wiki-researcher",
+        "wiki-master:wiki-search",
+        "wiki-master:wiki-setup"
+      ],
+      "invokedSkills": [
+        "wiki-master:wiki-setup"
+      ],
+      "baselineInputDifferences": null,
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\initialization.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "\"VAULT=$env:WIKI_MASTER_VAULT\"; \"REQ=$env:WIKI_MASTER_REQUIRE_VAULT\"; $v=(Get-Location).Path; Get-ChildItem -Recurse -Force $v | % { \"$($_.FullName.Substring($v.Length)) $($_.Length)\" }; Get-ChildItem -Recurse \"<PLUGIN>\\templates\\_templates\" | % FullName"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$p='<PLUGIN>'; $v=(Get-Location).Path; Get-FileHash \"$v\\_templates\\authored-note.md\",\"$p\\templates\\_templates\\authored-note.md\" | % {\"$($_.Hash) $($_.Path)\"}; Get-Content \"$v\\_templates\\authored-note.md\"; Get-Content \"$v\\index.md\"; Get-ChildItem \"$p\\templates\" -Recurse -File | % FullName; Get-Content \"$p\\scripts\\init.mjs\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'; $env:WIKI_MASTER_VAULT; $tok = node \"$P/scripts/op-begin.mjs\" --op relink; \"exit $LASTEXITCODE token=$tok\"; Get-ChildItem -Force (Get-Location) | % Name"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'; $v=(Get-Location).Path; $tok='11f2032ffad9d878'\n$before=@{}; foreach($f in 'index.md','_templates\\authored-note.md'){$before[$f]=(Get-FileHash \"$v\\$f\").Hash}\n$new=@()\nforeach($d in 'raw/clippings','wiki/sources','wiki/entities','wiki/concepts','wiki/syntheses','wiki/authored','moc','log','_templates'){New-Item -ItemType Directory -Force \"$v\\$d\" | Out-Null}\nfunction Put($rel,$src,$content){ $t=\"$v\\$rel\"; if(-not(Test-Path $t)){ if($src){Copy-Item $src $t}else{[IO.File]::WriteAllText($t,$content)}; $script:new+=$rel.Replace('\\','/') } }\nPut 'log.md' $null \"# Log`n`nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.`n\"\nPut '.gitignore' $null \".wiki-master/`n\"\nforeach($f in 'vault-schema.md','stale.base','log.base'){Put $f \"$P\\templates\\$f\" $null}\nforeach($f in Get-ChildItem \"$P\\templates\\_templates\" -File){Put \"_templates\\$($f.Name)\" $f.FullName $null}\n$new -join \"`n\"\nforeach($k in $before.Keys){\"$k unchanged: \" + ($before[$k] -eq (Get-FileHash \"$v\\$k\").Hash)}\n$env:WIKI_MASTER_VAULT=$v\nnode \"$P/scripts/op-ledger.mjs\" add --since $tok @($new | ? {$_ -ne '.gitignore'})\n\"scaffold done\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$P='<PLUGIN>'; $tok='11f2032ffad9d878'; $env:WIKI_MASTER_VAULT=(Get-Location).Path\nnode \"$P/scripts/op-ledger.mjs\" add --since $tok .gitignore\nnode \"$P/scripts/health.mjs\" --json; \"health exit $LASTEXITCODE\"\n\"Initialized vault by creating only missing scaffold files (init.mjs not run: customized _templates/authored-note.md differs from bundled). index.md and authored-note.md untouched. Local-only, no Git.\" | node \"$P/scripts/log-entry.mjs\" --op relink --title \"Initialize vault\" --since $tok; \"log exit $LASTEXITCODE\"\n$l=\"$env:TEMP/wiki-ledger-$tok.json\"; node \"$P/scripts/op-ledger.mjs\" show --since $tok --out $l\nnode \"$P/scripts/op-commit.mjs\" --op relink --since $tok --paths-file $l --title \"Initialize vault\"; \"commit exit $LASTEXITCODE\""
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$v=(Get-Location).Path; Get-ChildItem $v -Recurse -File -Force | % {$_.FullName.Substring($v.Length)}; Get-Content \"$v\\_templates\\authored-note.md\",\"$v\\index.md\"; Get-ChildItem \"$v\\.wiki-master\" -Force | % Name"
+          }
+        }
+      ],
+      "artifacts": [
+        "candidate-init-custom/request.json",
+        "candidate-init-custom/before.json",
+        "candidate-init-custom/after.json",
+        "candidate-init-custom/transcript.jsonl",
+        "candidate-init-custom/execution.json",
+        "candidate-init-custom/observations.json"
+      ]
+    }
+  ]
+}

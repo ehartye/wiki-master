@@ -1,5 +1,7 @@
 # Obsidian CLI transport safeguards
 
+Agent app-access diagnosis and recovery live in [setup app access](../skills/wiki-setup/references/app-access.md). The transport behavior below is the public helper contract; ordinary guarded actions remain in [maintainer app commands](../skills/wiki-maintainer/references/obsidian-cli.md).
+
 The CLI socket header parser in the installed Obsidian 1.13.7 produced a main-process JSON error. The exact trigger remains unproven. These guards limit oversized requests and overlapping calls; they do not repair Obsidian's parser.
 
 ## Supported access

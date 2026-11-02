@@ -1,0 +1,17 @@
+{
+  "files": {
+    "index.md": {
+      "sha256": "6b6b926ef3d0c0b2a90e14f0b769ec4694749e0fa3cccece5d80344bca584215",
+      "bytes": 72,
+      "content": "# Existing personal landing page\n\nPreserve this exact existing content.\n"
+    },
+    "_templates/authored-note.md": {
+      "sha256": "c57a3da8d0db201dd0667315250ff1d451b228417f9de4f09c48c0e394722a47",
+      "bytes": 86,
+      "content": "# Customized template\n\nThis exact owner-authored content must survive initialization.\n"
+    }
+  },
+  "head": null,
+  "status": "not a Git repository",
+  "remoteHead": null
+}

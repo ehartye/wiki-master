@@ -1,0 +1,13 @@
+{
+  "tools": {
+    "pdftotext": true,
+    "pdftoppm": true,
+    "tesseract": true,
+    "pandoc": true,
+    "soffice": false,
+    "python": true,
+    "gh": true,
+    "confluencer": false
+  },
+  "limits": "Availability probe only; no authenticated service or live converter success claimed. Controlled HTTP capture is separately executed."
+}

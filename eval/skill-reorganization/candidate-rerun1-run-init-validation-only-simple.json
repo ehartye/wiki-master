@@ -1,0 +1,11 @@
+{
+  "started": "2026-11-02T20:57:23.172Z",
+  "host": "2.1.316 (Claude Code)",
+  "scratch": "<SCRATCH>",
+  "cases": [
+    "init",
+    "validation-only",
+    "simple"
+  ],
+  "adaptation": "skill-reorganization/harness.mjs; original five fixture requests unchanged; three additional boundary cases"
+}

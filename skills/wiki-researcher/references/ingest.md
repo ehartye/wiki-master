@@ -1,9 +1,9 @@
 # Ingest captured evidence
 
 For a requested research → ingest → search-and-answer flow, complete ingestion
-below and then follow [wiki-user](../../wiki-user/SKILL.md),
-[search](../../wiki-user/references/search.md), and
-[query](../../wiki-user/references/query.md). Run the search helper against the
+below and then follow [wiki-search](../../wiki-search/SKILL.md),
+[advanced retrieval](../../wiki-search/references/advanced.md) when needed, and
+[cited answers](../../wiki-search/references/answers.md). Run the search helper against the
 updated vault before answering and inspect returned passages and exact evidence.
 Lexical search works without a semantic index. Report unavailable channels;
 reading the pages you just wrote does not replace the requested retrieval step.
@@ -16,7 +16,8 @@ Before the first authorized write, follow the shared operations completion contr
 ## Select eligible work before opening an operation
 
 For an explicit request to process new/un-ingested clippings without a filename,
-run `node "<absolute-plugin-root>/scripts/health.mjs" --backlog`. The **not ingested
+run `node "<absolute-plugin-root>/scripts/health.mjs" --backlog` through the direct
+[backlog check](../../wiki-setup/references/checks.md#health-and-ingest-backlog). The **not ingested
 (no summary records their hash)** list is the starting set. This source-hash join,
 including its documented legacy fallback, is authoritative for membership; do
 not infer backlog from filenames, navigation citations or a successful exit.
@@ -96,8 +97,7 @@ the selected batch, perform steps 4–6 once so the operation has one log and co
    of each clipping you summarized (read it from the clipping's frontmatter). This
    is the machine key the ingest-backlog metric joins on — immune to filename and
    citation drift; the `sources: ["[[…]]"]` wikilink stays for navigation.
-   To repair vaults that already drifted this way:
-   `node "<absolute-plugin-root>/scripts/repair-provenance-links.mjs"` (dry run) then `--apply`.
+   Existing citation drift routes to [authorized maintenance repair](../../wiki-maintainer/references/maintenance.md); ingestion does not silently expand its scope to bulk repairs.
    **Figures.** If the clipping's frontmatter lists `figures:`, open each sidecar
    (`raw/figures/<slug>-p<N>.md`) and **look at the PNG with the Read tool** before
    writing. Embed the ones that carry evidence on the source page as
@@ -123,8 +123,24 @@ the selected batch, perform steps 4–6 once so the operation has one log and co
    uncommitted pages stay out of the catalog and their lines already in it stay in. Write the log entry by piping the
    narrative to `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<title>" --since <token>`
    (creates `log/<timestamp>-ingest-<slug>.md` in the resolved vault).
-5. Never edit anything under `raw/`. Validate the derived pages' exact citation
-   targets, source hashes, frontmatter and supported claims. Rerun
+5. **Validate before closing.** Never edit anything under `raw/`. Inspect the
+   derived pages' exact citation targets, source hashes, frontmatter and supported
+   claims, then follow the direct [scoped validation procedure](../../wiki-setup/references/validation.md):
+
+   ```sh
+   node "<absolute-plugin-root>/scripts/op-ledger.mjs" show --since <saved-token> --out <ledger>
+   node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>
+   ```
+
+   After `show`, read the actual ledger and its unclaimed-path report before
+   validating. It must include every source/concept/synthesis page this ingestion
+   wrote and its owned catalogs/log; record any omitted owned path with
+   `op-ledger.mjs add --since <saved-token> <path>...` and export again. Never add
+   foreign paths to make the report empty. Require validator exit 0 before step 6;
+   on a nonzero exit, resolve the reported issue and rerun instead of closing or
+   syncing. Retain checked/skipped/defect counts. Health, lint and backlog reports
+   do not replace this check. If content or catalogs change afterward, validate
+   the updated ledger again. Rerun
    `node "<absolute-plugin-root>/scripts/health.mjs" --backlog` and compare the actual
    hash-join membership with the initial set. Eligible sources just summarized
    should leave that set; restricted captures do not become ingested by exclusion.
@@ -134,4 +150,4 @@ the selected batch, perform steps 4–6 once so the operation has one log and co
    unclaimed (another writer's pages, or one of yours you did not record), then
    `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token> --paths-file <ledger>`
    Commits exactly the pages this ingest touched, as one revertable unit, and
-   reports anything it deliberately left alone. Without `--paths-file` the close is refused while another operation is open. Then follow the shared completion contract to push your updates (`wiki-sync.mjs`, or `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<what you ingested>"` to close and push in one command) and verify remote publication. If the sync is refused because uncommitted edits overlap incoming changes (exit 3), read "Refused sync" in the [operations reference](../../wiki-maintainer/references/operations.md): never reset, check out, stash or delete a file you did not write.
+   reports anything it deliberately left alone. Without `--paths-file` the close is refused while another operation is open. Then follow the shared completion contract to push your updates (`wiki-sync.mjs`, or `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<what you ingested>"` to close and push in one command) and verify remote publication. If the sync is refused because uncommitted edits overlap incoming changes (exit 3), follow the direct [operation recovery](../../wiki-setup/references/operation-recovery.md): never reset, check out, stash or delete a file you did not write.

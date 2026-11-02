@@ -1,0 +1,156 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<BASELINE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-researcher\\references\\ingest.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\evidence.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 36118,
+    "stop_reason": "end_turn",
+    "session_id": "67236c12-5fb9-4a2d-a962-18ad8183bcbe",
+    "total_cost_usd": 0.22862169999999998,
+    "usage": {
+      "input_tokens": 26,
+      "cache_creation_input_tokens": 35311,
+      "cache_read_input_tokens": 497857,
+      "output_tokens": 3754,
+      "output_tokens_details": {
+        "thinking_tokens": 229
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 35311,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 648,
+          "cache_read_input_tokens": 51531,
+          "cache_creation_input_tokens": 340,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 340
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 26,
+        "outputTokens": 3754,
+        "cacheReadInputTokens": 497857,
+        "cacheCreationInputTokens": 35311,
+        "webSearchRequests": 0,
+        "costUSD": 0.22862169999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 229,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 35311,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 18,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I ingested `raw/clippings/Eligible.md`. The repeat request found nothing left to do, so it wrote nothing.\n\n**First request**\n- **Eligibility:** `Eligible.md` was in the hash-join backlog, has no restriction and has a source-hash. I read only that clipping.\n- **Source page:** I created `wiki/sources/Eligible.md` with quoted exact-path `sources`, `source-hashes`, `ai-generated: true` and the claims. The clipping says receipts record accepted identifiers and repeated identifiers don't cause duplicate delivery. It gives no throughput figure, and the page says so.\n- **Concept page:** I extended the existing `Message Delivery` concept with a source and one sentence, and bumped `updated`. I left `reviewed` alone because I didn't fact-review the page. No new concept was needed.\n- **Operation:** I used one operation (`7576a97f2729cd40`) with an exact ledger of four paths, plus `index.md` and one log file. The commit is `10a030f` (`ingest: Ingest Eligible`).\n- **Publication:** `wiki-sync` pushed to the local bare origin, and a fresh fetch shows `HEAD` and `origin/main` both at `10a030f`.\n- **Raw files:** there is no diff under `raw/`.\n- **Backlog:** it went from 2 entries to 1.\n\n**Repeat request**\n- `wiki/sources/Eligible.md` already records the clipping's hash, so it counts as already ingested. I opened no operation, logged nothing, committed nothing and synced nothing.\n- Duplicate check: one summary page, one log file, and the working tree is clean.\n\n**Limits**\n- `Restricted.md` is still in the backlog. You told me to ingest only `Eligible.md`, so I didn't open it or inspect its metadata.\n- There is no semantic index yet, and I didn't build it. It isn't needed for this ingest.",
+    "ttft_ms": 1732,
+    "type": "result",
+    "duration_ms": 39661,
+    "uuid": "9dde1488-fe5e-4d1f-8a7b-e455a89615df",
+    "ttft_stream_ms": 1265,
+    "time_to_request_ms": 89,
+    "first_content_frame_ms": 1265,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 26,
+        "outputTokens": 3754,
+        "cacheReadInputTokens": 497857,
+        "cacheCreationInputTokens": 35311,
+        "webSearchRequests": 0,
+        "costUSD": 0.22862169999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 229,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 35311,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

@@ -1,0 +1,341 @@
+{
+  "reviewer": "wp2_review",
+  "independent": true,
+  "date": "2026-11-02",
+  "mode": "actual actor execution plus full file/Git snapshots",
+  "status": "pass-for-WP2-progression",
+  "interpretation": "Initial failures remain failures. Final focused reruns cover corrections; no broad efficacy or startup-efficiency claim. Final six-role integration and retained workflows remain WP3/WP4.",
+  "pairs": [
+    {
+      "case": "project",
+      "comparedFiles": 23,
+      "differingHashes": [],
+      "excluded": "Recovery operation token identity and Git commit timestamps are per-run, not fixture-content differences."
+    },
+    {
+      "case": "setup",
+      "comparedFiles": 23,
+      "differingHashes": [],
+      "excluded": "Recovery operation token identity and Git commit timestamps are per-run, not fixture-content differences."
+    },
+    {
+      "case": "search",
+      "comparedFiles": 23,
+      "differingHashes": [],
+      "excluded": "Recovery operation token identity and Git commit timestamps are per-run, not fixture-content differences."
+    },
+    {
+      "case": "init",
+      "comparedFiles": 1,
+      "differingHashes": [],
+      "excluded": "Recovery operation token identity and Git commit timestamps are per-run, not fixture-content differences."
+    },
+    {
+      "case": "recovery",
+      "comparedFiles": 23,
+      "differingHashes": [],
+      "excluded": "Recovery operation token identity and Git commit timestamps are per-run, not fixture-content differences."
+    }
+  ],
+  "runs": [
+    {
+      "id": "candidate-project",
+      "status": "pass",
+      "finding": "Architecture/backlog metadata, six-path relink ledger, scoped validation and verified bare-remote publication.",
+      "limits": "Preserved factual review date; actor did not independently inspect implementation code or identify skipped validator paths.",
+      "exit": 0,
+      "changedFiles": [
+        "index.md",
+        "wiki/authored/beacon/architecture.md",
+        "wiki/authored/beacon/backlog/parallel-workers.md",
+        "log/2026-11-02-155511-relink-beacon-architecture-and-parallel-workers.md",
+        "moc/beacon.md",
+        "wiki/authored/beacon/roadmap.md"
+      ],
+      "gitUnchanged": false,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-project"
+      ],
+      "artifacts": [
+        "candidate-project/request.json",
+        "candidate-project/transcript.jsonl",
+        "candidate-project/before.json",
+        "candidate-project/after.json",
+        "candidate-project/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-setup",
+      "status": "pass",
+      "finding": "Health, scoped validation, freshness, lint, drift coverage and degraded-search diagnosis executed with unchanged vault/Git/remote snapshots.",
+      "limits": "Native app returned invalid JSON, so stale used filesystem fallback; no live backend or converter success implied.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-setup/request.json",
+        "candidate-setup/transcript.jsonl",
+        "candidate-setup/before.json",
+        "candidate-setup/after.json",
+        "candidate-setup/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-search",
+      "status": "pass",
+      "finding": "Exact phrase, alias, ambiguous titles, explicit raw count, provenance and scoped planned-versus-shipped answer supported by opened passages.",
+      "limits": "Advanced actor did not explicitly load answers/evidence references; tested claim-support outcomes succeeded, but universal instruction compliance is not claimed.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-search"
+      ],
+      "artifacts": [
+        "candidate-search/request.json",
+        "candidate-search/transcript.jsonl",
+        "candidate-search/before.json",
+        "candidate-search/after.json",
+        "candidate-search/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-init",
+      "status": "fail",
+      "finding": "Scaffold and existing index safety succeeded, but operation ledger held only its log.",
+      "limits": "Retained failure: newly created scaffold paths were not recorded. Superseded for acceptance by candidate-rerun1-init.",
+      "exit": 0,
+      "changedFiles": [
+        ".gitignore",
+        "log/2026-11-02-155445-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "gitUnchanged": true,
+      "remoteMatchesHead": false,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-init/request.json",
+        "candidate-init/transcript.jsonl",
+        "candidate-init/before.json",
+        "candidate-init/after.json",
+        "candidate-init/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-recovery",
+      "status": "pass",
+      "finding": "Owned abandoned token inspected and aborted; all other file hashes and Git/remote state unchanged.",
+      "limits": "Covers owned abort, not uncertain app mutations or sync conflicts.",
+      "exit": 0,
+      "changedFiles": [
+        ".wiki-master/ops/a4a8d963c043ae0e.json"
+      ],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-recovery/request.json",
+        "candidate-recovery/transcript.jsonl",
+        "candidate-recovery/before.json",
+        "candidate-recovery/after.json",
+        "candidate-recovery/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-simple",
+      "status": "incomplete-instruction-evidence",
+      "finding": "Bounded lookup, opened exact passage, citation and coverage disclosure succeeded; no vault mutation.",
+      "limits": "No explicit vault AGENTS read is visible. A builtin plugin is listed, but injected instruction contents are not recorded, so automatic loading cannot be established or ruled out. Functional lookup passed; candidate-rerun1-simple supplies explicit evidence.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-search"
+      ],
+      "artifacts": [
+        "candidate-simple/request.json",
+        "candidate-simple/transcript.jsonl",
+        "candidate-simple/before.json",
+        "candidate-simple/after.json",
+        "candidate-simple/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-validation-only",
+      "status": "fail",
+      "finding": "Two-path validator output accurately reported and snapshots unchanged.",
+      "limits": "Actor explicitly admitted not reading existing AGENTS. Superseded by candidate-rerun1-validation-only.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-validation-only/request.json",
+        "candidate-validation-only/transcript.jsonl",
+        "candidate-validation-only/before.json",
+        "candidate-validation-only/after.json",
+        "candidate-validation-only/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-raw-failed",
+      "status": "pass",
+      "finding": "Actual ENOTDIR yields raw=failed with absent rawCount; actor reports not searched rather than zero evidence and makes no repairs.",
+      "limits": "No available matching wiki passage existed for this query; actor correctly did not invent a citation.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-search"
+      ],
+      "artifacts": [
+        "candidate-raw-failed/request.json",
+        "candidate-raw-failed/transcript.jsonl",
+        "candidate-raw-failed/before.json",
+        "candidate-raw-failed/after.json",
+        "candidate-raw-failed/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-init-custom",
+      "status": "pass",
+      "finding": "Different customized template detected; helper avoided, missing-only scaffold recorded/logged/closed; all prior content bytes preserved.",
+      "limits": "Local-only fixture; no Git or app setup performed.",
+      "exit": 0,
+      "changedFiles": [
+        ".gitignore",
+        "log/2026-11-02-155451-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "gitUnchanged": true,
+      "remoteMatchesHead": false,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-init-custom/request.json",
+        "candidate-init-custom/transcript.jsonl",
+        "candidate-init-custom/before.json",
+        "candidate-init-custom/after.json",
+        "candidate-init-custom/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-rerun1-init",
+      "status": "pass",
+      "finding": "Eleven scaffold paths explicitly added, twelve-path scaffold-plus-log ledger inspected, operation closed; prior index unchanged.",
+      "limits": "Local-only result correctly reported, no manufactured repository or remote.",
+      "exit": 0,
+      "changedFiles": [
+        ".gitignore",
+        "log/2026-11-02-155756-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "gitUnchanged": true,
+      "remoteMatchesHead": false,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-rerun1-init/request.json",
+        "candidate-rerun1-init/transcript.jsonl",
+        "candidate-rerun1-init/before.json",
+        "candidate-rerun1-init/after.json",
+        "candidate-rerun1-init/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-rerun1-simple",
+      "status": "pass",
+      "finding": "Actual AGENTS opened before one bounded query, exact page opened, path/line citation and coverage disclosed; no setup/operation preamble.",
+      "limits": "No raw check requested; source claim support explicitly left unverified.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-search"
+      ],
+      "artifacts": [
+        "candidate-rerun1-simple/request.json",
+        "candidate-rerun1-simple/transcript.jsonl",
+        "candidate-rerun1-simple/before.json",
+        "candidate-rerun1-simple/after.json",
+        "candidate-rerun1-simple/execution.json"
+      ]
+    },
+    {
+      "id": "candidate-rerun1-validation-only",
+      "status": "pass",
+      "finding": "Actual AGENTS read, two requested paths validated; defect and two-checked/zero-skipped coverage reported, no vault changes.",
+      "limits": "Temporary ledger outside vault only; structural validation is not factual verification.",
+      "exit": 0,
+      "changedFiles": [],
+      "gitUnchanged": true,
+      "remoteMatchesHead": true,
+      "openTokensAfter": [],
+      "skillsInvoked": [
+        "wiki-master:wiki-setup"
+      ],
+      "artifacts": [
+        "candidate-rerun1-validation-only/request.json",
+        "candidate-rerun1-validation-only/transcript.jsonl",
+        "candidate-rerun1-validation-only/before.json",
+        "candidate-rerun1-validation-only/after.json",
+        "candidate-rerun1-validation-only/execution.json"
+      ]
+    }
+  ]
+}

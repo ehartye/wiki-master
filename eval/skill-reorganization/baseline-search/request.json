@@ -1,0 +1,28 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Perform read-only wiki lookups: find the exact phrase \"The copper heron carries seven lanterns\", the alias \"Lantern Relay\", and \"Harbor\" without assuming which similarly named page I mean. Explicitly retrieve raw evidence for \"quartz otter 817\" and trace its provenance where supported. Then answer whether Beacon already ships two dispatcher workers, using project-scoped retrieval and actual passages. Open matched passages and return path/line citations with coverage diagnostics. Do not write, log, refresh indexes or repair search.",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Perform read-only wiki lookups: find the exact phrase \"The copper heron carries seven lanterns\", the alias \"Lantern Relay\", and \"Harbor\" without assuming which similarly named page I mean. Explicitly retrieve raw evidence for \"quartz otter 817\" and trace its provenance where supported. Then answer whether Beacon already ships two dispatcher workers, using project-scoped retrieval and actual passages. Open matched passages and return path/line citations with coverage diagnostics. Do not write, log, refresh indexes or repair search.",
+    "--plugin-dir",
+    "<PLUGIN>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "with current/candidate skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\baseline-search",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "Perform read-only wiki lookups: find the exact phrase \"The copper heron carries seven lanterns\", the alias \"Lantern Relay\", and \"Harbor\" without assuming which similarly named page I mean. Explicitly retrieve raw evidence for \"quartz otter 817\" and trace its provenance where supported. Then answer whether Beacon already ships two dispatcher workers, using project-scoped retrieval and actual passages. Open matched passages and return path/line citations with coverage diagnostics. Do not write, log, refresh indexes or repair search."
+}

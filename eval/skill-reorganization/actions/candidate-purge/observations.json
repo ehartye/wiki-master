@@ -1,0 +1,227 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01CtR949aGGTrTjdQL41YAzY",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-purge"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01Sp467r4V6hSKmiMHbxLtD1",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-purge\\references\\purge.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01PbAarqnjHCrQ1TMPK5Di6Y",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_016f8377iGzoVV5FAnbuXM1g",
+      "name": "Read",
+      "input": {
+        "file_path": "<SCRATCH>\\candidate-purge\\AGENTS.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01ECmypQiJLQhDKfG5b1QJ58",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\checks.md",
+        "offset": 135,
+        "limit": 40
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01RgNXdcBrALXvNLNQjKvXV2",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\operation-recovery.md",
+        "offset": 195,
+        "limit": 40
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 46821,
+    "stop_reason": "end_turn",
+    "session_id": "48be5547-e4fa-42a7-bd55-88ab741e9c14",
+    "total_cost_usd": 0.14513679999999998,
+    "usage": {
+      "input_tokens": 22,
+      "cache_creation_input_tokens": 20141,
+      "cache_read_input_tokens": 296488,
+      "output_tokens": 3488,
+      "output_tokens_details": {
+        "thinking_tokens": 398
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20141,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 889,
+          "cache_read_input_tokens": 35985,
+          "cache_creation_input_tokens": 716,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 716
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 3488,
+        "cacheReadInputTokens": 296488,
+        "cacheCreationInputTokens": 20141,
+        "webSearchRequests": 0,
+        "costUSD": 0.14513679999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 398,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20141,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 15,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "This was a preview only. I changed nothing, and the vault's git status is still clean. I didn't apply, reconcile, restore, move files, open an operation, log, commit, sync or publish.\n\n## Preflight\n- **Broken links:** the baseline is 0. The legacy health score is 74/100, but the score isn't the comparison. After any future purge and collateral repair, the broken-link count has to stay at 0.\n- **History:** `git fetch` succeeded, and `merge-base HEAD origin/main` returned `e62e853`. The histories are connected, so that doesn't block a purge.\n\n## Seeds\nThe unpinned search matched 5 seeds, and I read each one.\n\n| Page | Decision | Why |\n|---|---|---|\n| `wiki/concepts/Beacon Protocol.md` | **Keep as seed** | It is the concept page. It cites `raw/clippings/Beacon Study.md`. |\n| `wiki/concepts/Beacon Protocol Draft.md` | **Struck** | It describes \"a similarly named proposal\" with three lanterns, which is not the same topic. It has no sources. |\n| `wiki/authored/beacon/overview.md` | **Struck** | This is original project documentation about the \"Beacon\" relay project, not the protocol concept. |\n| `wiki/authored/beacon/architecture.md` | **Struck** | Same as above. It describes the deployed relay. |\n| `wiki/authored/beacon/backlog/parallel-workers.md` | **Struck** | It is an open backlog item, and purging would destroy live work. |\n\nI pinned the plan to `wiki/concepts/Beacon Protocol.md` only.\n\n## Pinned plan: 2 files to remove\n- **wiki (1):** `wiki/concepts/Beacon Protocol.md`\n- **raw (1):** `raw/clippings/Beacon Study.md`. It is the concept's only cited source and the only place the \"quartz otter 817\" marker appears.\n- **Collateral (1):** `moc/Signals.md` links to the purged concept. It would need a separate scoped relink operation after a purge.\n- **Blocking:** none.\n\n## Open questions\n- **Authored Beacon pages:** if you meant the whole Beacon project, including its overview, architecture and open backlog item, say so and I'll re-plan with those seeds. The helper already counts them as seeds, so they may also need review for blockers.\n- **Draft page:** `Beacon Protocol Draft.md` is also unreferenced (an orphan), so it would stay behind if you want the topic fully gone. That is your call.\n\nApplying would need your explicit approval of this plan. Publishing would need a separate approval after that.",
+    "ttft_ms": 6884,
+    "type": "result",
+    "duration_ms": 50728,
+    "uuid": "e2e08a54-05be-44e3-93e3-dcfa7078b8ff",
+    "ttft_stream_ms": 6332,
+    "time_to_request_ms": 125,
+    "first_content_frame_ms": 6332,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 3488,
+        "cacheReadInputTokens": 296488,
+        "cacheCreationInputTokens": 20141,
+        "webSearchRequests": 0,
+        "costUSD": 0.14513679999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 398,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20141,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}
