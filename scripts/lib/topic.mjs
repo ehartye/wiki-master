@@ -6,7 +6,7 @@
 // them. Twelve failed clips from one sweep and three from another are two
 // unrelated decisions wearing one label. Topic is the axis that separates them.
 //
-// A topic is free text the user already typed at /wiki-discover. It is never
+// A topic is free text the user already typed at wiki-researcher discovery. It is never
 // parsed and never becomes a taxonomy -- normalization exists only so that
 // "BPD Research" and "  bpd   research " are one group instead of two.
 //

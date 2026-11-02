@@ -103,7 +103,7 @@ export function main(argv, { toText = docxToText } = {}) {
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : docxPath;
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
-  // Attribution is recorded at clip time or never: /wiki-triage can only group a
+  // Attribution is recorded at clip time or never: wiki-maintainer triage can only group a
   // clipping under its research run if the run stamped one in. There is no
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);

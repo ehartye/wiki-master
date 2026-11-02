@@ -54,7 +54,7 @@ function append(vaultPath, event) {
 }
 
 // `topic` is the research topic this issue came out of -- the argument the user
-// gave /wiki-discover. It is carried here as well as in clipping frontmatter
+// gave wiki-researcher discovery. It is carried here as well as in clipping frontmatter
 // because these two populations do not overlap: a clip that 403s never becomes
 // a file, so frontmatter cannot speak for it. See lib/topic.mjs.
 // `retryable` marks an `attention` row that asks for a person only until a later clip of the same URL lands (a clip that

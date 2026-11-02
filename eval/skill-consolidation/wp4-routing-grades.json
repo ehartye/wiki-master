@@ -1,0 +1,458 @@
+{
+  "reviewer": "wp4_review",
+  "candidateRevision": "082de0b4ee151d51cc504de825d3b92b7590a5b1",
+  "evidence": "Independent inspection of raw Skill/Read/Grep calls, host init inventories and final mode reports; not copied from observed-routing verdicts.",
+  "grades": [
+    {
+      "id": "search",
+      "role": "wiki-user",
+      "mode": "search",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-user"
+      ],
+      "actualReferenceReads": [
+        "wiki-user/references/search.md"
+      ],
+      "transcript": "routing/search/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "query",
+      "role": "wiki-user",
+      "mode": "query",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-user"
+      ],
+      "actualReferenceReads": [
+        "wiki-user/references/query.md",
+        "wiki-user/references/search.md",
+        "wiki-maintainer/references/evidence.md"
+      ],
+      "transcript": "routing/query/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "author",
+      "role": "wiki-user",
+      "mode": "authoring",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-user"
+      ],
+      "actualReferenceReads": [
+        "wiki-user/references/authoring.md",
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/evidence.md",
+        "wiki-maintainer/references/operations.md"
+      ],
+      "transcript": "routing/author/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "author-validate",
+      "role": "wiki-user",
+      "mode": "authoring validation",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-user"
+      ],
+      "actualReferenceReads": [
+        "wiki-user/references/authoring.md",
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/evidence.md",
+        "wiki-maintainer/references/operations.md"
+      ],
+      "transcript": "routing/author-validate/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "app",
+      "role": "wiki-user",
+      "mode": "native app action",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-user"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/obsidian-cli.md",
+        "wiki-maintainer/references/access.md"
+      ],
+      "transcript": "routing/app/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "discover",
+      "role": "wiki-researcher",
+      "mode": "topic discovery",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/discover.md",
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/evidence.md",
+        "wiki-maintainer/references/efficacy.md"
+      ],
+      "transcript": "routing/discover/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "named-url",
+      "role": "wiki-researcher",
+      "mode": "named capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/capture.md",
+        "wiki-maintainer/references/access.md"
+      ],
+      "transcript": "routing/named-url/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "named-ingest",
+      "role": "wiki-researcher",
+      "mode": "named ingestion",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/ingest.md",
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/evidence.md"
+      ],
+      "transcript": "routing/named-ingest/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "backlog-ingest",
+      "role": "wiki-researcher",
+      "mode": "backlog ingestion",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/ingest.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "transcript": "routing/backlog-ingest/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "empty-backlog",
+      "role": "wiki-researcher",
+      "mode": "backlog ingestion with empty guard",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/ingest.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "transcript": "routing/empty-backlog/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-pdf",
+      "role": "wiki-researcher",
+      "mode": "PDF capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-pdf.md"
+      ],
+      "transcript": "routing/clip-pdf/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-docx",
+      "role": "wiki-researcher",
+      "mode": "Word capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-docx.md"
+      ],
+      "transcript": "routing/clip-docx/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-pptx",
+      "role": "wiki-researcher",
+      "mode": "PowerPoint capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-pptx.md"
+      ],
+      "transcript": "routing/clip-pptx/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-xlsx",
+      "role": "wiki-researcher",
+      "mode": "spreadsheet capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-xlsx.md"
+      ],
+      "transcript": "routing/clip-xlsx/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-gh",
+      "role": "wiki-researcher",
+      "mode": "GitHub capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-gh.md",
+        "wiki-maintainer/references/access.md"
+      ],
+      "transcript": "routing/clip-gh/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "clip-confluence",
+      "role": "wiki-researcher",
+      "mode": "Confluence capture",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [
+        "wiki-researcher/references/clip-confluence.md"
+      ],
+      "transcript": "routing/clip-confluence/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "health",
+      "role": "wiki-maintainer",
+      "mode": "health report",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/health.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "transcript": "routing/health/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "orphans",
+      "role": "wiki-maintainer",
+      "mode": "health report",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/health.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "transcript": "routing/orphans/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "backlog-count",
+      "role": "wiki-maintainer",
+      "mode": "backlog count",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/health.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "transcript": "routing/backlog-count/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "stale",
+      "role": "wiki-maintainer",
+      "mode": "freshness report",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/stale.md"
+      ],
+      "transcript": "routing/stale/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "lint",
+      "role": "wiki-maintainer",
+      "mode": "factual lint",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/lint.md",
+        "wiki-maintainer/references/evidence.md"
+      ],
+      "transcript": "routing/lint/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "repair",
+      "role": "wiki-maintainer",
+      "mode": "integrity repair",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/repair.md"
+      ],
+      "transcript": "routing/repair/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "relink",
+      "role": "wiki-maintainer",
+      "mode": "relink",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/relink.md",
+        "wiki-maintainer/references/efficacy.md"
+      ],
+      "transcript": "routing/relink/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "triage",
+      "role": "wiki-maintainer",
+      "mode": "triage",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/triage.md"
+      ],
+      "transcript": "routing/triage/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "maintainer",
+      "role": "wiki-maintainer",
+      "mode": "maintenance orientation",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-maintainer"
+      ],
+      "actualReferenceReads": [
+        "wiki-maintainer/references/access.md",
+        "wiki-maintainer/references/workflows.md"
+      ],
+      "transcript": "routing/maintainer/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "init",
+      "role": "wiki-init",
+      "mode": "setup",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-init"
+      ],
+      "actualReferenceReads": [
+        "wiki-init/references/setup.md"
+      ],
+      "transcript": "routing/init/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "purge",
+      "role": "wiki-purge",
+      "mode": "purge planning",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-purge"
+      ],
+      "actualReferenceReads": [
+        "wiki-purge/references/purge.md"
+      ],
+      "transcript": "routing/purge/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "researcher-ambiguous",
+      "role": "wiki-researcher",
+      "mode": "clarify mode",
+      "result": "PASS",
+      "actualSkillCalls": [
+        "wiki-master:wiki-researcher"
+      ],
+      "actualReferenceReads": [],
+      "transcript": "routing/researcher-ambiguous/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    },
+    {
+      "id": "application-near-miss",
+      "role": "none",
+      "mode": "ordinary application work",
+      "result": "PASS",
+      "actualSkillCalls": [],
+      "actualReferenceReads": [],
+      "transcript": "routing/application-near-miss/transcript.jsonl",
+      "limits": "Candidate-loaded selection/reference probe only; workflow not executed"
+    }
+  ],
+  "nonblockingObservations": [
+    {
+      "case": "empty-backlog",
+      "observation": "Final hypothetical publication wording suggests asking if a hold is wanted. The same report includes commit, sync and remote verification in its required nonempty-work sequence. No publication or ingestion workflow ran; actual zero-backlog execution is graded separately."
+    },
+    {
+      "case": "relink",
+      "observation": "Final References loaded list mentions operations.md then says it was not opened; actual calls correctly show only access/relink/efficacy. Grade follows calls, not self-report."
+    }
+  ],
+  "affectedSourceRechecks": [
+    {
+      "case": "discover",
+      "revision": "c705af263d0d7b2ff2d6bd7a97e4632cb48da3dc",
+      "grade": "PASS routing only",
+      "evidence": "routing/recheck-c705/discover/transcript.jsonl",
+      "observations": "Actual Skill invokes researcher; Read loads discover/access/evidence/efficacy; host wiki namespace exactly intended five. Final selects topic-discovery candidates-only read-only with five read-only perspectives and independent selector; no mutation or workflow execution claimed."
+    }
+  ]
+}

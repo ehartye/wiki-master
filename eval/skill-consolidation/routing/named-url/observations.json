@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\capture.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only: I ran no workflow, commands or captures, and I didn't touch a vault.)**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`\n- **Role:** researcher\n- **Mode:** capture a named URL (`https://example.org/beacon-study`) as evidence only. This is not topic discovery, not a format-specific route, and not ingestion.\n- **References loaded:**\n  - `references/capture.md`\n  - `../wiki-maintainer/references/access.md`\n- **References not loaded:** I skipped `evidence.md`, `efficacy.md`, `operations.md`, `ingest.md` and the format-specific clip routes (PDF, Word, PowerPoint, spreadsheet, GitHub, Confluence). The capture reference says to read them only for later steps, such as the first authorized write or a non-HTML source.\n\n**Scope and approval boundaries**\n- **Capture only:** the workflow creates a raw clipping and no derived source or concept pages. It ends after the capture is committed and its publication is verified.\n- **No ingestion:** the request says \"Do not ingest it.\" The skill treats ingestion as a separate step that needs its own authorization, so I would report the captured set and stop.\n- **Checks before any write:**\n  - A read-only duplicate and decline check on the URL (`known-urls.mjs --check`) comes first.\n  - Only if the URL is `new` would a discover operation open, followed by `clip.mjs`, the ledger check, a log entry, `op-commit` and the push with remote verification.\n  - If the URL is already clipped or declined, I would report that and write nothing. I would not open an operation, log or commit.\n- **Pages the clipper can't read:** a login wall, a thin page or a failed fetch isn't retried blindly. It goes to maintainer triage, and the user would supply a saved copy with `--from-file`.\n- **Before any real run:**\n  - I'd need to resolve the vault path from `WIKI_MASTER_VAULT`, because the probe didn't name one.\n  - I'd need the absolute plugin root for the helper scripts.\n  - The user gave no topic, so I'd leave out `--topic` for this one-off capture rather than invent one.\n- **No clarification needed:** the request is unambiguous.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 13286,
+    "cache_read_input_tokens": 25195,
+    "output_tokens": 1031,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 13286,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 762,
+        "cache_read_input_tokens": 10435,
+        "cache_creation_input_tokens": 8321,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8321
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

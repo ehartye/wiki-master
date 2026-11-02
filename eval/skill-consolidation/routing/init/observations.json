@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-init"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-init\\references\\setup.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-init`. The request is to initialize a new vault at an explicitly supplied empty root, which is what this skill covers. `wiki-maintainer` is for existing vaults, and the other wiki skills don't match.\n- **Role and mode:** the initializer role. The skill has a single mode, which is new-vault scaffolding. It isn't migration, repair, health reporting or purge.\n- **References loaded:**\n  - `skills/wiki-init/references/setup.md`. This was enough to identify the mode.\n  - I did not read `wiki-maintainer/references/access.md` or `operations.md`. The skill and `setup.md` both point to them, but the probe asked for only what's needed to identify the mode. They would have to be read before any real run.\n- **Not done:** I ran no commands, did not run `init.mjs` or `health.mjs`, and did not touch any vault or fixture root.\n\n**Scope and approval boundaries for a real run**\n- Verify that the supplied root is the intended new vault root, and that it is empty. Existing content must be preserved.\n- Open an operation before the first write, using the fresh-vault exception in the completion contract. Reuse existing session authorization.\n- Initialization does not authorize migration, repair, or creating a Git remote.\n- Sync or publication happens only if it is configured and authorized. Otherwise report the vault as local-only.\n- Report Obsidian app registration separately from filesystem completion. This covers the one-time steps: open the folder as a vault, run the `obsidian.mjs vaults` check, and import the Web Clipper template. A health report doesn't prove the app can reach the vault.\n\n**Clarification needed:** none. The root is explicitly supplied. In a real run I would still confirm that the path is empty and is the intended new root.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 4842,
+    "cache_read_input_tokens": 24383,
+    "output_tokens": 899,
+    "output_tokens_details": {
+      "thinking_tokens": 144
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 4842,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 605,
+        "cache_read_input_tokens": 9625,
+        "cache_creation_input_tokens": 687,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 687
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

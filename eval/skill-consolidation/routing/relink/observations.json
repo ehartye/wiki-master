@@ -1,0 +1,69 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\relink.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\efficacy.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-maintainer`. The request is about connecting related concepts and improving orphan navigation, which that skill's description covers. wiki-user and wiki-researcher don't apply.\n- **Role:** wiki maintainer.\n- **Mode:** relink. The skill's mode list describes it as \"Useful relationships, forward links, orphan navigation and task maps\".\n- **References loaded:**\n  - `references/access.md`\n  - `references/relink.md`\n  - `references/efficacy.md`\n  - `operations.md`, which relink.md lists as required. I did not open it, because this probe stops before any write.\n  - `evidence.md` and `maintenance.md` are conditional. I did not need them.\n\n**Scope and approval boundaries**\n- **Preview:** a preview or report is read-only. It would use `health.mjs --json` and `--legacy`, `identity-audit.mjs`, and `relationships.mjs`. It would not open an operation, write a log, commit or refresh the index.\n- **Writes:** adding links under `## Relationships` needs authorization for that scope. The first write must be preceded by `op-begin.mjs --op relink`.\n  - Each link needs a role and an explanatory sentence.\n  - `reviewed` dates must be preserved.\n  - Candidate links are unverified.\n  - Pages are not merged on name or embedding similarity.\n  - Raw bodies stay immutable.\n- **Publication:** closing the operation uses a scoped `op-commit`. The helper doesn't push. Pushing and verifying remote publication follow the shared contract.\n- **Vault:** the vault root comes from `WIKI_MASTER_VAULT`. Reading local `AGENTS.md` and the schema comes before any edits.\n- **Not done:** I ran no commands and touched no vault.\n\n**Clarification:** the request names no vault and doesn't say whether it wants a report or applied edits. For a real run, I'd ask which vault, and whether to preview candidates only or apply links.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 10560,
+    "cache_read_input_tokens": 24997,
+    "output_tokens": 1040,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 10560,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 680,
+        "cache_read_input_tokens": 10248,
+        "cache_creation_input_tokens": 5782,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 5782
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

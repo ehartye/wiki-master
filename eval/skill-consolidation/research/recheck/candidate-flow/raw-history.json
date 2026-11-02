@@ -1,0 +1,22 @@
+{
+  "records": [
+    {
+      "path": "raw/clippings/Acknowledgement Basics.md",
+      "commitsTouchingRaw": [
+        "fd1b37081dc7e3684adc77d7d19186dd94dc89c0"
+      ],
+      "firstCommittedSha256": "b41a8f63ea8a0cefec940e79b775ea63cf80d8649695ad2835873426e11e02dd",
+      "finalSha256": "b41a8f63ea8a0cefec940e79b775ea63cf80d8649695ad2835873426e11e02dd",
+      "unchangedSinceFirstCommit": true
+    },
+    {
+      "path": "raw/clippings/Harbor Retry Protocol.md",
+      "commitsTouchingRaw": [
+        "bb7cb2ec6a728a1ac21ac418eb0429d53f390b46"
+      ],
+      "firstCommittedSha256": "e97c5a813903ac5adb9cf41e23797f84c17cc69a5a79cb48365f7367d66bbae8",
+      "finalSha256": "e97c5a813903ac5adb9cf41e23797f84c17cc69a5a79cb48365f7367d66bbae8",
+      "unchangedSinceFirstCommit": true
+    }
+  ]
+}

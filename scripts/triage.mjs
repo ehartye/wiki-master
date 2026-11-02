@@ -292,7 +292,7 @@ function group(title, why, rows, acts = []) {
 }
 
 // The dispositions each kind of row offers. Exported so that test/triage-skill-table.test.mjs can check that the
-// table in skills/wiki-triage/SKILL.md names every id the queue writes and no id it does not.
+// table in skills/wiki-maintainer/references/triage.md names every id the queue writes and no id it does not.
 // `downloaded` is the answer to a paywall: you fetched the source by hand, and
 // the disposition itself is the work order — `apply-reclips --from=<dir>` picks
 // it up and clips it. Distinct from `clipped-by-hand`, which asserts a clipping

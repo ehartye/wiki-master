@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-confluence.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`. The request asks to capture an authenticated Confluence page as evidence, which is this skill's job. wiki-user, wiki-maintainer, wiki-init and wiki-purge don't fit.\n- **Mode:** capture a named format or service, using the Confluence route. This is a single named URL, so it is not topic discovery, not ingestion and not a backlog run.\n- **Loaded references:** only `skills/wiki-researcher/references/clip-confluence.md`. That was enough to identify the mode. I did not read the access, operations or evidence references it points to, because those apply only when the workflow actually runs.\n\n**What the route would do, if it were run**\n1. Read the access and operations references.\n2. Run `clip-confluence.mjs --doctor`. This checks that the separately installed `confluencer` plugin exists and is authenticated.\n3. Run `clip-confluence.mjs \"<url>\" --quality=<tier>`. This is the only writer to `raw/clippings/`. I'd add `--topic` only if the capture belongs to a research run, and `--since <token>` so the written paths enter the operation's ledger.\n4. Check the resulting clipping.\n5. Finish the operation: log, commit, push and verify the remote.\n\n**Scope and approval boundaries**\n- This is capture-only. It creates a raw clipping and no derived source or concept pages. Ingestion would need separate explicit authorization, which the request doesn't give.\n- If `confluencer` is missing, the route returns `confluencer-missing`. If `page.mjs` fails, it returns `failed`. In both cases nothing is fabricated and no clipping is written by hand. A page with no readable body is declined as `thin`.\n- A page that was already clipped is skipped as a duplicate, even if it has been edited since.\n- The clip should record which `Version` was captured, because the live page may have moved on.\n- Publishing (commit, push, remote verification) is part of the operation unless you hold it.\n- **Clarification:** the wiki root is not specified. I'd confirm which vault to write to before any real run.\n- For this probe I ran no commands, made no captures and touched no vault.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 8993,
+    "cache_read_input_tokens": 25227,
+    "output_tokens": 993,
+    "output_tokens_details": {
+      "thinking_tokens": 58
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 8993,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 790,
+        "cache_read_input_tokens": 10451,
+        "cache_creation_input_tokens": 4012,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4012
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

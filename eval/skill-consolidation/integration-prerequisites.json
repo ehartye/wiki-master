@@ -1,0 +1,308 @@
+{
+  "command": "node scripts/doctor.mjs clip-pdf clip-docx clip-pptx clip-xlsx clip-gh clip-confluence --json",
+  "before": {
+    "thisCopy": {
+      "root": "<local-path>",
+      "version": "0.87.0",
+      "development": true
+    },
+    "installed": {
+      "version": "0.87.0",
+      "installPath": "<local-path>"
+    },
+    "note": "running from a development checkout (version 0.87.0); the installed copy is 0.87.0",
+    "node": "v24.18.0",
+    "requirements": {
+      "git": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "git version 2.55.0.windows.3"
+      },
+      "gh": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "gh version 2.96.0 (2026-07-02)"
+      },
+      "pandoc": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pandoc 3.10.1"
+      },
+      "pdftotext": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pdftotext version 25.07.0"
+      },
+      "pdftoppm": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pdftoppm version 25.07.0"
+      },
+      "tesseract": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "tesseract v5.4.0.20240606"
+      },
+      "soffice": {
+        "ok": false,
+        "hint": "install LibreOffice and put its program folder on PATH"
+      },
+      "obsidian": {
+        "ok": true,
+        "path": "<local-path>"
+      },
+      "python": {
+        "ok": true,
+        "path": "<local-path>",
+        "detail": "python3"
+      },
+      "python-pptx": {
+        "ok": true,
+        "detail": "in python3"
+      },
+      "html-runtime": {
+        "ok": false,
+        "hint": "in a development checkout run `npm ci`; an installed copy runs through the pinned npm exec launcher",
+        "detail": "HTML extraction runtime unavailable: this is a development checkout without its dependencies; run `npm ci` in it"
+      },
+      "playwright-core": {
+        "ok": true
+      },
+      "browser": {
+        "ok": true,
+        "path": "<local-path>"
+      },
+      "confluencer": {
+        "ok": false,
+        "hint": "install the confluencer plugin, or set WIKI_MASTER_CONFLUENCER_SCRIPTS"
+      }
+    },
+    "commands": [
+      {
+        "name": "vault",
+        "summary": "vault operations (op-begin, op-commit, wiki-sync, health)",
+        "requested": false,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip",
+        "summary": "web pages (clip.mjs)",
+        "requested": false,
+        "ok": false,
+        "missing": [
+          "html-runtime"
+        ],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-pdf",
+        "summary": "PDF files",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-docx",
+        "summary": "Word documents",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-pptx",
+        "summary": "PowerPoint decks",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-xlsx",
+        "summary": "spreadsheets",
+        "requested": true,
+        "ok": false,
+        "missing": [
+          "soffice"
+        ],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-gh",
+        "summary": "GitHub repositories",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-confluence",
+        "summary": "Confluence pages",
+        "requested": true,
+        "ok": false,
+        "missing": [
+          "confluencer"
+        ],
+        "optionalMissing": []
+      }
+    ],
+    "exit": 1
+  },
+  "remediation": {
+    "command": "npm.cmd ci",
+    "exit": 0,
+    "scope": "candidate worktree dependencies only; no tracked changes"
+  },
+  "after": {
+    "thisCopy": {
+      "root": "<local-path>",
+      "version": "0.87.0",
+      "development": true
+    },
+    "installed": {
+      "version": "0.87.0",
+      "installPath": "<local-path>"
+    },
+    "note": "running from a development checkout (version 0.87.0); the installed copy is 0.87.0",
+    "node": "v24.18.0",
+    "requirements": {
+      "git": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "git version 2.55.0.windows.3"
+      },
+      "gh": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "gh version 2.96.0 (2026-07-02)"
+      },
+      "pandoc": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pandoc 3.10.1"
+      },
+      "pdftotext": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pdftotext version 25.07.0"
+      },
+      "pdftoppm": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "pdftoppm version 25.07.0"
+      },
+      "tesseract": {
+        "ok": true,
+        "path": "<local-path>",
+        "version": "tesseract v5.4.0.20240606"
+      },
+      "soffice": {
+        "ok": false,
+        "hint": "install LibreOffice and put its program folder on PATH"
+      },
+      "obsidian": {
+        "ok": true,
+        "path": "<local-path>"
+      },
+      "python": {
+        "ok": true,
+        "path": "<local-path>",
+        "detail": "python3"
+      },
+      "python-pptx": {
+        "ok": true,
+        "detail": "in python3"
+      },
+      "html-runtime": {
+        "ok": true,
+        "detail": "defuddle 0.19.5, linkedom 0.18.12, turndown 7.2.0"
+      },
+      "playwright-core": {
+        "ok": true
+      },
+      "browser": {
+        "ok": true,
+        "path": "<local-path>"
+      },
+      "confluencer": {
+        "ok": false,
+        "hint": "install the confluencer plugin, or set WIKI_MASTER_CONFLUENCER_SCRIPTS"
+      }
+    },
+    "commands": [
+      {
+        "name": "vault",
+        "summary": "vault operations (op-begin, op-commit, wiki-sync, health)",
+        "requested": false,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip",
+        "summary": "web pages (clip.mjs)",
+        "requested": false,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-pdf",
+        "summary": "PDF files",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-docx",
+        "summary": "Word documents",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-pptx",
+        "summary": "PowerPoint decks",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-xlsx",
+        "summary": "spreadsheets",
+        "requested": true,
+        "ok": false,
+        "missing": [
+          "soffice"
+        ],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-gh",
+        "summary": "GitHub repositories",
+        "requested": true,
+        "ok": true,
+        "missing": [],
+        "optionalMissing": []
+      },
+      {
+        "name": "clip-confluence",
+        "summary": "Confluence pages",
+        "requested": true,
+        "ok": false,
+        "missing": [
+          "confluencer"
+        ],
+        "optionalMissing": []
+      }
+    ],
+    "exit": 1
+  },
+  "coverage": "Prerequisite/version checks only. Format tests do not execute actual converters or authenticated services. Missing LibreOffice and confluencer mean those integrations are not live-verified."
+}

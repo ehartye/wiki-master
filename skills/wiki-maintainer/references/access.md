@@ -2,10 +2,29 @@
 
 Resolve the plugin root from the installed `SKILL.md` location, not the current
 working directory: its containing skill folder's `../../` is the plugin root.
+From a file in a skill's `references/` folder, use `../../../` instead.
+Resolve and quote absolute helper paths before running commands. Treat
+`$ARGUMENTS` as the user's request when the host has not substituted it. A linked
+skill or reference can be read directly when the host has no skill loader; shared
+policy does not require loading the maintenance-role entry point.
 Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`; with `WIKI_MASTER_REQUIRE_VAULT=1` set and no vault named, a script stops with exit 2 instead of using the default) and verify the expected
 vault layout. Read local `AGENTS.md` and schema before edits. A known root and
 filesystem access are sufficient for the supported operations below; do not ask
 the user to restart Obsidian as a prerequisite for all work.
+
+## Layout and read scope
+
+`raw/clippings/` holds captured evidence; `wiki/{sources,entities,concepts,syntheses,authored}/`
+holds maintained pages; `moc/` holds navigational maps; `log/` holds one file per
+operation. Never read, cite or count `.recycle/`; only purge owns it. Reads do not
+open operations, write logs, commit or refresh indexes. Before any authorized
+mutation, read [operation completion](operations.md); before quoting or
+synthesizing, read [evidence](evidence.md).
+
+Prefer bounded search and relevant MOCs to the generated catalog. Search
+diagnostics describe coverage, not relevance: a stale index can omit useful pages.
+Read current passages and disclose weak or failed channels. Index freshness is
+distinct from factual review dates.
 
 ## Choose the supported channel
 

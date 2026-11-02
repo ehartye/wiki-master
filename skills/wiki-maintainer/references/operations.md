@@ -4,6 +4,12 @@ Use this contract for every ordinary vault write, including standalone clipping,
 authoring and applying triage decisions. Read-only search, query, health, freshness
 and preview work do not open operations, log, commit or refresh indexes.
 
+`index.md`'s generated catalog is derived: regenerate it with `index-gen.mjs`,
+never hand-edit its fence or read-modify-write the file. Manual framing outside
+the fence is preserved. A catalog already dirty from another writer remains
+theirs: refresh safe project catalogs separately and report a deferred global
+refresh rather than adopt foreign edits merely to close this operation.
+
 **Own the update through verified publication.** An authorized wiki edit includes
 validation, the scoped operation commit, and pushing to its configured upstream
 with `wiki-sync.mjs`, followed by remote verification. Finish those steps without

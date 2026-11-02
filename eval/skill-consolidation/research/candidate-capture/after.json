@@ -1,0 +1,106 @@
+{
+  "files": {
+    ".gitignore": {
+      "sha256": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419",
+      "bytes": 14
+    },
+    ".wiki-master/declined.json": {
+      "sha256": "4876d43455fee7f6c61e5ee3ca706a2a1fa24b9322431061c7b31b5f509377b8",
+      "bytes": 128
+    },
+    ".wiki-master/triage.jsonl": {
+      "sha256": "76989459c0b2aa0efd5097133d8f82636809e3597a18d323db388721c177610c",
+      "bytes": 382
+    },
+    "AGENTS.md": {
+      "sha256": "7ca6dfb8ba469933f852ea3937b7f483f23ed1a733fd85fd1f744bd251672656",
+      "bytes": 419
+    },
+    "index.md": {
+      "sha256": "40ceb603d32b6d34bbc925bcb0e4f23eae2b5e767b6c5d7f612bd242acf0f35f",
+      "bytes": 53
+    },
+    "log/2026-11-02-132401-discover-harbor-delivery-capture.md": {
+      "sha256": "a528f5009dcb1c49469ea7947854f20238afb31c7ae7667a8c4abaa74448ebbd",
+      "bytes": 289
+    },
+    "moc/Delivery.md": {
+      "sha256": "ec5ca1c2537445dc069cb386b3d234dffefa59523814329f95c31b780f24760f",
+      "bytes": 49
+    },
+    "raw/clippings/Acknowledgement Basics.md": {
+      "sha256": "7d7575fec0b367ad096b02c7c9b89eda0cafede2f71cee00e59285a14479f682",
+      "bytes": 1446
+    },
+    "raw/clippings/Harbor Retry Protocol.md": {
+      "sha256": "0cc57b9c749975794f650614d1b8e95c535e6ee17d903f0882db6a948f5832f4",
+      "bytes": 1820
+    },
+    "vault-schema.md": {
+      "sha256": "910aa325b67dfcc484ee524605580578a99da5b70c7b759ee94808f41ffde4ab",
+      "bytes": 342
+    },
+    "wiki/concepts/Message Delivery.md": {
+      "sha256": "3c773d4d9bddc301ac7836079e422fc33730a7df2c0d15e9ca4928ba1e4117a3",
+      "bytes": 494
+    },
+    "wiki/sources/Acknowledgement Basics.md": {
+      "sha256": "c8c9b61809f72722619710900f3fa60ee327b2823758a39122a5ba8d1b6373e9",
+      "bytes": 433
+    },
+    "_templates/authored-backlog-item.md": {
+      "sha256": "06fdaabb0bfdc9b27fdfacfb24995319785f14eea92c318fb27d375db919a287",
+      "bytes": 831
+    },
+    "_templates/authored-decision.md": {
+      "sha256": "0e390f924a225b66196a59deaf3bde87b91eeae226a778e97be2df62b6c28d8e",
+      "bytes": 732
+    },
+    "_templates/authored-note.md": {
+      "sha256": "128bba0d3cc78d748f9a045d9947051c179989a60ae0a9b43468f9e837221680",
+      "bytes": 654
+    },
+    "_templates/concept-note.md": {
+      "sha256": "91e7bdb24c20007af5f25e756b4b8ca174cbe85c4825378e60758e7b4483ff87",
+      "bytes": 429
+    },
+    "_templates/source-note.md": {
+      "sha256": "58026c2ddb27ef179a6aa34d2d0a24ef69ef45f5e61da6d0bf99982be2aff04a",
+      "bytes": 140
+    },
+    "_templates/task-map.md": {
+      "sha256": "f8dc8fe72051462451180c99d3dab261b590d1e9b95fc1d705f4a7a373b2c668",
+      "bytes": 250
+    }
+  },
+  "head": "ca5d6483ba105141de01d8757fb3159dd1cc83e2",
+  "remoteHead": "ca5d6483ba105141de01d8757fb3159dd1cc83e2",
+  "remoteMatches": true,
+  "status": "",
+  "history": "ca5d6483ba105141de01d8757fb3159dd1cc83e2 discover: Harbor delivery -> 1 clipped\n\nlog/2026-11-02-132401-discover-harbor-delivery-capture.md\nraw/clippings/Harbor Retry Protocol.md\nafbe046c611cd74dcffe5ea0c4c3376a32d5455e Initial controlled fixture\n\n.gitignore\nAGENTS.md\n_templates/authored-backlog-item.md\n_templates/authored-decision.md\n_templates/authored-note.md\n_templates/concept-note.md\n_templates/source-note.md\n_templates/task-map.md\nindex.md\nmoc/Delivery.md\nraw/clippings/Acknowledgement Basics.md\nvault-schema.md\nwiki/concepts/Message Delivery.md\nwiki/sources/Acknowledgement Basics.md",
+  "backlog": {
+    "exit": 0,
+    "signal": null,
+    "stdout": "Ingest backlog\n  not ingested (no summary records their hash): 1\n    raw/clippings/Harbor Retry Protocol.md\n  unparsed raw sources (nothing cites them): 1\n    raw/clippings/Harbor Retry Protocol.md\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n",
+    "stderr": ""
+  },
+  "artifacts": {
+    ".wiki-master/declined.json": "[\n  {\n    \"url\": \"http://127.0.0.1:57281/thin\",\n    \"reason\": \"thin content (SPA/paywall shell)\",\n    \"date\": \"2026-11-02\"\n  }\n]",
+    ".wiki-master/triage.jsonl": "{\"t\":\"issue\",\"url\":\"http://127.0.0.1:57281/thin\",\"kind\":\"thin\",\"reason\":\"thin content (SPA/paywall shell)\",\"title\":null,\"source\":null,\"topic\":\"Harbor delivery\",\"at\":\"2026-11-02T18:23:44.761Z\"}\n{\"t\":\"issue\",\"url\":\"http://127.0.0.1:57281/failed\",\"kind\":\"failed\",\"reason\":\"render returned HTTP 503\",\"title\":null,\"source\":null,\"topic\":\"Harbor delivery\",\"at\":\"2026-11-02T18:23:53.873Z\"}\n",
+    "AGENTS.md": "# Controlled fixture\nUse only this configured vault for wiki content. Local origin is a bare Git remote owned by the evaluation. Requested capture and ingest writes include scoped commit and sync. Do not access any other vault, installed plugin cache or global configuration. Raw bodies are immutable. Do not inspect .recycle. Use the plugin operation helpers, with one log per operation and an exact ownership ledger.\n",
+    "index.md": "# Controlled wiki\n\n## Start here\n[[moc/Delivery.md]]\n",
+    "log/2026-11-02-132401-discover-harbor-delivery-capture.md": "---\ndate: 2026-11-02\nop: discover\ntitle: \"Harbor delivery capture\"\n---\n## [2026-11-02] discover | Harbor delivery capture\n\nHarbor delivery named capture: 1 clipped (protocol), 1 already held (known, not recaptured), 1 thin (declined automatically), 1 failed (HTTP 503, queued for triage).\n",
+    "moc/Delivery.md": "# Delivery\n[[wiki/concepts/Message Delivery.md]]\n",
+    "raw/clippings/Acknowledgement Basics.md": "---\ntitle: \"Acknowledgement Basics\"\nsource: \"http://127.0.0.1:57281/known\"\nauthor: \"Evaluation Standards Working Group\"\npublished: 2026-10-15\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"Harbor delivery\"\nfidelity-checks: 1\nsource-hash: aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7\n---\n\nThis is synthetic evaluation material for a controlled source corpus. It is not documentation of a deployed protocol. An acknowledgement reports that a receiver has observed a message identifier and recorded the associated receipt. The sender can keep that receipt separately from its original payload so that a later retry can be recognized without duplicating application delivery.\n\nIdentity and payload integrity answer different questions. A stable identifier describes which logical message is being discussed. A checksum describes which payload bytes were supplied. These concepts are related, but neither alone determines a retry budget, a timeout interval, or a guarantee about network availability. Those choices require a separate protocol specification.\n\nWhen reviewing captured material, readers should distinguish a definition from an empirical performance result. This introductory note defines acknowledgement terminology only. It makes no numerical claim about attempts, deadlines, throughput, or loss rates. A source that specifies those values should be cited directly when answering a question about them.\n",
+    "raw/clippings/Harbor Retry Protocol.md": "---\ntitle: \"Harbor Retry Protocol\"\nsource: \"http://127.0.0.1:57281/protocol\"\nauthor: \"Evaluation Standards Working Group\"\npublished: 2026-10-15\ncreated: 2026-11-02\ntags: [clippings]\nquality: medium\ntopic: \"Harbor delivery\"\nfidelity-checks: 1\nsource-hash: 254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c\n---\n\nThis is synthetic evaluation material for a controlled source corpus. The Evaluation Standards Working Group publishes the Harbor Retry Protocol as a worked example of deterministic message handling. Its scope is a test receiver and sender, not a production network. The unique evidence marker is violet-cedar-427.\n\nA receiver accepts a packet only when the payload digest matches the advertised checksum. The sender retains the same message identifier for retries. The trial rule permits three retries after the first transmission, for four attempts in total. The overall trial deadline is twelve seconds. These values describe the fixture protocol and do not establish any empirical reliability rate.\n\nWhen a packet repeats an accepted message identifier with the same digest, the receiver delivers the payload to the application only once and sends its cached acknowledgement again. A repeated identifier carrying a different digest is rejected as a conflict. Counting four permitted attempts as four permitted application deliveries would therefore misrepresent the protocol.\n\nImplementation notes separate checksum validation, identifier lookup, application delivery, and acknowledgement storage. The acknowledgement cache is checked before a repeated message can reach the application. The trial specification deliberately supplies no throughput measurement and makes no assertion about packet loss on public networks. Readers should preserve that limitation when summarizing the example.\n",
+    "vault-schema.md": "# Fixture schema\nDerived pages have type, created, updated, reviewed, status, sources and ai-generated fields. Sources are quoted exact-path wikilinks; source summaries record source-hashes. Concepts use aliases and scope when useful. Original authored pages declare sources: []. Mechanical edits preserve reviewed. Raw bodies are immutable.\n",
+    "wiki/concepts/Message Delivery.md": "---\ntype: concept\ncreated: 2026-10-15\nupdated: 2026-10-15\nreviewed: 2026-10-15\nstatus: maintained\nsources: [\"[[wiki/sources/Acknowledgement Basics.md]]\"]\nai-generated: true\naliases: [\"Packet Delivery\"]\nscope: Message identity and acknowledgement handling in the controlled fixture.\n---\n# Message Delivery\nA stable message identifier and a checksum serve different purposes. The existing evidence defines acknowledgements but supplies no retry budget. [[wiki/sources/Acknowledgement Basics.md]]\n",
+    "wiki/sources/Acknowledgement Basics.md": "---\ntype: source\ncreated: 2026-10-15\nupdated: 2026-10-15\nreviewed: 2026-10-15\nstatus: maintained\nsources: [\"[[raw/clippings/Acknowledgement Basics.md]]\"]\nsource-hashes: [aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7]\nai-generated: true\n---\n# Acknowledgement Basics\nThe introductory fixture defines message identity and acknowledgements, but does not set a retry budget. [[raw/clippings/Acknowledgement Basics.md]]\n",
+    "_templates/authored-backlog-item.md": "---\ntype: authored\ncreated:\nupdated:\nreviewed:\nstatus: draft\nsources: []\nai-generated:\nproject:\nkind: backlog-item\nbacklog-status: planned\n---\n# {{title}}\n\n<!-- One item, kept current. Edit this file in place as status changes --\n     never append a new dated \"Update (...):\" paragraph on top of the last one.\n     git log/git blame is the changelog now. Flip backlog-status: above when\n     the item's state changes (planned | in-progress | shipped | blocked | dropped).\n     Prerequisites, if any, go in a depends-on: line above as quoted wikilinks to other\n     items of this project, e.g. depends-on: [\"[[other-item]]\"]. Delete the line if none.\n     A behavior stated as tested or observed carries the exact call arguments and the exact\n     log or error text beside it; mark it unsettled if the source reads differently. -->\n",
+    "_templates/authored-decision.md": "---\ntype: authored\ncreated:\nupdated:\nreviewed:\nstatus: draft\nsources: []\nai-generated:\nproject:\nkind: decision\ndecision-status: proposed\n---\n# {{title}}\n\n## Status\n\n<!-- proposed | accepted | superseded | deprecated — keep decision-status: above in sync -->\n\n## Context\n\n<!-- The forces at play: what problem, constraint, or complaint made a decision necessary now. -->\n\n## Decision\n\n<!-- What was decided, stated directly. If alternatives were seriously considered and\n     rejected, say what and why — the rejected option is often as useful to a future\n     reader as the chosen one. -->\n\n## Consequences\n\n<!-- What becomes easier, harder, or newly possible. Note any follow-on work this\n     creates or defers. -->\n\n## Links\n",
+    "_templates/authored-note.md": "---\ntype: authored\ncreated:\nupdated:\nreviewed:\nstatus: draft\nsources: []\nai-generated:\n# project: <slug, e.g. acme/migrator> — set when this page belongs to a\n#   multi-doc project/sub-project, so it groups with its siblings instead of\n#   sitting in the flat catalog alone. Omit for a standalone note.\n# kind: <one of: overview | architecture | reference | guide | diagram |\n#   decision | roadmap | note> — omit or use `note` if nothing else fits.\n#   `decision` pages also carry `decision-status: proposed|accepted|superseded|\n#   deprecated` — see templates/_templates/authored-decision.md for that shape.\n---\n# {{title}}\n\n## Summary\n\n## Links\n",
+    "_templates/concept-note.md": "---\ntype: concept\ncreated:\nupdated:\nreviewed:\nstatus: draft\naliases: []\nscope:\nsources: []\nai-generated: true\n---\n# {{title}}\n\n## Meaning and boundaries\n\n## Evidence and limitations\n\n## Relationships\n\n<!-- Use a role (broader, narrower, prerequisite, complements, alternative,\ncontrasts, applies-to), a full-path wikilink where ambiguous, and a sentence\nexplaining why. Keep supporting citations in the evidence/prose above. -->\n",
+    "_templates/source-note.md": "---\ntype: source\ncreated:\nupdated:\nreviewed:\nstatus: draft\nsources:\nai-generated: true\n---\n# {{title}}\n\n## Summary\n\n## Key claims\n\n## Links\n",
+    "_templates/task-map.md": "---\ntype: moc\ncreated:\nupdated:\nstatus: draft\nscope:\nai-generated: true\n---\n# {{title}}\n\n## Start with the question\n\n## Prerequisites and key distinctions\n\n## Alternatives and complementary topics\n\n## Evidence and project guidance\n\n## Open questions\n"
+  }
+}

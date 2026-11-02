@@ -1,0 +1,149 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 192529,
+    "stop_reason": "end_turn",
+    "session_id": "6f8b3271-4fa2-4894-9e70-e42a3dc36839",
+    "total_cost_usd": 0.41735616,
+    "usage": {
+      "input_tokens": 28,
+      "cache_creation_input_tokens": 24822,
+      "cache_read_input_tokens": 776509,
+      "output_tokens": 5529,
+      "output_tokens_details": {
+        "thinking_tokens": 309
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 24822,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1132,
+          "cache_read_input_tokens": 68943,
+          "cache_creation_input_tokens": 2449,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 2449
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 44,
+        "outputTokens": 8555,
+        "cacheReadInputTokens": 987434,
+        "cacheCreationInputTokens": 54832,
+        "webSearchRequests": 0,
+        "costUSD": 0.4037093999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 502,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 54832,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 12828,
+        "cacheReadInputTokens": 145581,
+        "cacheCreationInputTokens": 46198,
+        "webSearchRequests": 0,
+        "costUSD": 0.013646759999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 4828,
+        "cacheCreationEphemeral5mInputTokens": 46198,
+        "cacheCreationEphemeral1hInputTokens": 0,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzlmpup-bdb0d4bd"
+    },
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 5
+      },
+      "started_in_background": 5,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "general-purpose": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 13,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The task is complete: I discovered, captured, ingested and answered from the updated wiki. Both commits are pushed, and `HEAD` equals `origin/main` (`19181fb`).\n\n## Answer\nThese figures come from a synthetic fixture specification, not from any measurement.\n- **Retries allowed:** three, after the first transmission. The retries keep the same message identifier. (`wiki/sources/Harbor Retry Protocol.md:17`, and `raw/clippings/Harbor Retry Protocol.md:16`)\n- **Total attempts:** four, which is the first transmission plus three retries. There is also a twelve-second overall trial deadline.\n- **Same identifier and digest again:** the payload reaches the application only once, and the cached acknowledgement is sent again. The acknowledgement cache is checked before a repeat can reach the application.\n- **Same identifier, different digest:** the packet is rejected as a conflict.\n- **Attempts versus deliveries:** four permitted attempts do not mean four application deliveries. The source says treating them as equal misrepresents the protocol.\n\n## Fixture specification versus empirical claims\n- **Fixture specification:** every figure above (3 retries, 4 attempts, 12 s deadline, deliver-once, conflict rejection) is a rule of the Harbor Retry Protocol fixture. The source scopes it to a test receiver and sender, not a production network.\n- **Empirical claims:** there are none. The source says the values \"do not establish any empirical reliability rate,\" gives no throughput measurement, and makes no claim about packet loss on public networks.\n- **Gaps:** it doesn't specify backoff, a per-attempt timeout, or how long the acknowledgement cache keeps an entry. It is also a single source with no corroboration.\n\n## Evidence cited\n- **New raw capture:** `raw/clippings/Harbor Retry Protocol.md`, with source hash `254b2a…aa4c`.\n- **New source page:** `wiki/sources/Harbor Retry Protocol.md`.\n- **Concept page:** I extended the existing `wiki/concepts/Message Delivery.md` and created no new concept. The existing `Acknowledgement Basics` supplies the definitions only and sets no retry budget.\n\n## What I did\n- **Dedup:** `/known` was already clipped, and the other three catalog pages were new.\n- **Selection:** five read-only finders (academic, technical, applied, news, contrarian) reported back, and I made the selection myself from the pooled reports. All five found only `/protocol` useful.\n- **Declines:** I declined `/promotion` (promotional, unsupported) and `/thin` (incomplete preview). I captured only one new source, under the limit of two.\n- **Commits:** `8853c0e` is the discover operation and `19181fb` is the ingest operation. Each had one log, an exact ownership ledger and a scoped sync. The ingest backlog is 0.\n\n## Limits\n- **Search channel:** search ran lexical only, because the semantic index is unbuilt and `ollama` isn't running. The index metadata is incomplete, so title and alias lookup was degraded. I read the returned passages directly, and the raw check found two hits.\n- **Citation flag:** the search output reported `citation-targets-not-resolved` for the new pages. The paths I opened do exist, and `resolve-evidence.mjs` traced them to the raw clipping.",
+    "ttft_ms": 6037,
+    "type": "result",
+    "duration_ms": 99257,
+    "uuid": "6f5a1b52-b60f-44a2-accd-819955af8386",
+    "ttft_stream_ms": 5721,
+    "time_to_request_ms": 14,
+    "first_content_frame_ms": 5721,
+    "queued_turn_count": 0,
+    "result_index": 2,
+    "model_usage_since_last_result": {}
+  }
+}

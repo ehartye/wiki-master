@@ -15,7 +15,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   `wiki/authored/`, a page belonging to a multi-doc project lives at
   `wiki/authored/<project>/[<subproject>/]<file>.md` — see the Frontmatter contract
   below for the `project`/`kind` fields that drive this, and
-  `skills/wiki-maintainer/SKILL.md` for the canonical per-kind placement table
+  `skills/wiki-user/references/authoring.md` for the canonical per-kind placement table
   ("write a user guide" always resolves to `<project>/guides/user.md`, etc.).
 - `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
 - `.recycle/` — purged topics, one folder per purge with a `manifest.json` recording what
@@ -26,7 +26,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
 ## Frontmatter contract
 - Raw/clippings: `title, source, author, published, created, tags:[clippings], quality, topic, source-hash`.
   `topic` records the research topic the clipping was gathered for (the argument given to
-  `/wiki-discover`); it is omitted for clips made outside a research run, and it is what the
+  `wiki-researcher` discovery); it is omitted for clips made outside a research run, and it is what the
   triage queue groups by.
 - Wiki pages: `type, created, updated, reviewed, status, sources:["[[...]]"], ai-generated`.
   Source pages also carry `source-hashes:[<sha256>,…]` — the `source-hash` of each

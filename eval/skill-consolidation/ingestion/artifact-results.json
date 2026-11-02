@@ -1,0 +1,364 @@
+[
+  {
+    "name": "baseline-backlog",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "oneNewSummary": true,
+      "exactProvenance": true,
+      "rawHashRecorded": true,
+      "conceptReused": true,
+      "restrictionPreserved": true,
+      "restrictedNotCited": true,
+      "expectedBacklog": true,
+      "commitOccurred": true,
+      "operationOpened": true,
+      "ledgerUsed": true,
+      "logWritten": true,
+      "catalogGenerated": true,
+      "syncUsed": true,
+      "scopedCommit": true,
+      "oneOperationCommit": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 2,
+      "paths": [
+        "raw/clippings/Relay Trial - Phase-7.md",
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [
+      "index.md",
+      "wiki/concepts/Acknowledged Delivery.md",
+      "log/2026-11-02-132736-ingest-relay-trial-phase-7.md",
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "newSummaries": [
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "baseline-empty",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "noMutation": true,
+      "noMutationCommands": true,
+      "expectedBacklog": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 0,
+      "paths": []
+    },
+    "afterBacklog": {
+      "count": 0,
+      "paths": []
+    },
+    "changedPaths": [],
+    "newSummaries": [],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "baseline-named",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "oneNewSummary": true,
+      "exactProvenance": true,
+      "rawHashRecorded": true,
+      "conceptReused": true,
+      "restrictionPreserved": true,
+      "restrictedNotCited": true,
+      "expectedBacklog": true,
+      "commitOccurred": true,
+      "operationOpened": true,
+      "ledgerUsed": true,
+      "logWritten": true,
+      "catalogGenerated": true,
+      "syncUsed": true,
+      "scopedCommit": true,
+      "oneOperationCommit": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 2,
+      "paths": [
+        "raw/clippings/Relay Trial - Phase-7.md",
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [
+      "index.md",
+      "moc/Delivery Operations.md",
+      "wiki/concepts/Acknowledged Delivery.md",
+      "log/2026-11-02-132335-ingest-relay-trial-phase-7.md",
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "newSummaries": [
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "baseline-named-rerun",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "noMutation": true,
+      "noMutationCommands": true,
+      "expectedBacklog": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [],
+    "newSummaries": [],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "candidate-backlog",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "oneNewSummary": true,
+      "exactProvenance": true,
+      "rawHashRecorded": true,
+      "conceptReused": true,
+      "restrictionPreserved": true,
+      "restrictedNotCited": true,
+      "expectedBacklog": true,
+      "commitOccurred": true,
+      "operationOpened": true,
+      "ledgerUsed": true,
+      "logWritten": true,
+      "catalogGenerated": true,
+      "syncUsed": true,
+      "scopedCommit": true,
+      "oneOperationCommit": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 2,
+      "paths": [
+        "raw/clippings/Relay Trial - Phase-7.md",
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [
+      "index.md",
+      "wiki/concepts/Acknowledged Delivery.md",
+      "log/2026-11-02-132744-ingest-relay-trial-phase-7.md",
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "newSummaries": [
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "candidate-empty",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "noMutation": true,
+      "noMutationCommands": true,
+      "expectedBacklog": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 0,
+      "paths": []
+    },
+    "afterBacklog": {
+      "count": 0,
+      "paths": []
+    },
+    "changedPaths": [],
+    "newSummaries": [],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "candidate-named",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "oneNewSummary": true,
+      "exactProvenance": true,
+      "rawHashRecorded": true,
+      "conceptReused": true,
+      "restrictionPreserved": true,
+      "restrictedNotCited": true,
+      "expectedBacklog": true,
+      "commitOccurred": true,
+      "operationOpened": true,
+      "ledgerUsed": true,
+      "logWritten": true,
+      "catalogGenerated": true,
+      "syncUsed": true,
+      "scopedCommit": true,
+      "oneOperationCommit": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 2,
+      "paths": [
+        "raw/clippings/Relay Trial - Phase-7.md",
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [
+      "index.md",
+      "moc/Delivery Operations.md",
+      "wiki/concepts/Acknowledged Delivery.md",
+      "log/2026-11-02-132339-ingest-relay-trial-phase-7.md",
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "newSummaries": [
+      "wiki/sources/Relay Trial - Phase-7.md"
+    ],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  },
+  {
+    "name": "candidate-named-rerun",
+    "checks": {
+      "processCompleted": true,
+      "permissionDenialsAbsent": true,
+      "onlyExpectedWikiSkills": true,
+      "rawBytesUnchanged": true,
+      "oldSummaryUnchanged": true,
+      "ownerDraftUnchanged": true,
+      "actualBacklogReports": true,
+      "remoteMatchesHead": true,
+      "noOpenOperations": true,
+      "caseScopedTemp": true,
+      "ingestionRoleSelected": true,
+      "noExternalResearchTools": true,
+      "noMutation": true,
+      "noMutationCommands": true,
+      "expectedBacklog": true
+    },
+    "structuralPass": true,
+    "beforeBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "afterBacklog": {
+      "count": 1,
+      "paths": [
+        "raw/clippings/Restricted Relay Claim.md"
+      ]
+    },
+    "changedPaths": [],
+    "newSummaries": [],
+    "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+  }
+]

@@ -1,0 +1,94 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-ingest"
+    },
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\evidence.md"
+  ],
+  "tools": [
+    "Skill",
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "usage": {
+    "input_tokens": 16,
+    "cache_creation_input_tokens": 30832,
+    "cache_read_input_tokens": 255483,
+    "output_tokens": 1179,
+    "output_tokens_details": {
+      "thinking_tokens": 46
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 30832,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 242,
+        "cache_read_input_tokens": 46995,
+        "cache_creation_input_tokens": 397,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 397
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "There was nothing to ingest, so I made no changes, commits or pushes.\n\n- **Backlog:** `health.mjs --backlog` reports 0 clippings not ingested, 0 unparsed raw sources, and 0 missing `source-hash`.\n- **The one clipping:** `raw/clippings/Relay Baseline.md` already has a summary, `wiki/sources/Relay Baseline.md`. The summary's `source-hashes` value is `8dc61856…9966`, which matches the clipping's `source-hash`.\n- **Concept page:** `wiki/concepts/Acknowledged Delivery.md` already exists.\n- **Owner draft:** `personal.md` has uncommitted changes. I left it alone.",
+  "terminalReason": "completed"
+}

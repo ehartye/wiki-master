@@ -1,0 +1,78 @@
+{
+  "reviewer": "wp4_review",
+  "status": "PASS final candidate mandatory research gates; retain initial candidate and baseline failures",
+  "grades": [
+    {
+      "case": "baseline-capture",
+      "grade": "PASS",
+      "observations": "Actual named route with no broad search; known duplicate unchanged. One substantive helper-created raw capture with exact URL/topic and independently recomputed source hash. Thin source declined+triaged, HTTP503 failed source triaged; neither fabricated. All preexisting file hashes unchanged, no derived changes. Scoped raw+log commit; independently checked actual scratch hash maps and bare remote. Candidate temp token and ledger actually reside in case-specific temp.",
+      "evidence": "research/baseline-capture"
+    },
+    {
+      "case": "candidate-capture",
+      "grade": "PASS",
+      "observations": "Actual named route with no broad search; known duplicate unchanged. One substantive helper-created raw capture with exact URL/topic and independently recomputed source hash. Thin source declined+triaged, HTTP503 failed source triaged; neither fabricated. All preexisting file hashes unchanged, no derived changes. Scoped raw+log commit; independently checked actual scratch hash maps and bare remote. Candidate temp token and ledger actually reside in case-specific temp.",
+      "evidence": "research/candidate-capture"
+    },
+    {
+      "case": "candidate-flow initial",
+      "grade": "FAIL",
+      "evidence": "research/candidate-flow",
+      "findings": [
+        "Actual finder selected its own list; no separate perspective researchers; final admits skipping five because corpus small.",
+        "Literal /tmp token and ledger paths escape to shared system temp; helper output confirms AppData/Local/Temp ledger1/2."
+      ],
+      "positiveObservations": "Captured source, exact provenance, faithful summary/concept, actual lexical retrieval, accurate evidence-citing answer and verified local remote do not override failed independent-discovery/isolation gates."
+    },
+    {
+      "case": "baseline-flow initial",
+      "grade": "FAIL baseline observation",
+      "evidence": "research/baseline-flow",
+      "findings": [
+        "No independent finders; self-run sequential lenses justified only by small corpus.",
+        "No actual search helper or search skill invocation; final explicitly relies on direct file reads."
+      ],
+      "interpretation": "AC9 explicitly permits baseline failure. Retain this equivalent-fixture comparison, do not require repeated runs to obtain a favorable baseline."
+    },
+    {
+      "case": "candidate-flow independence recheck",
+      "grade": "FAIL",
+      "revision": "c705af263d0d7b2ff2d6bd7a97e4632cb48da3dc",
+      "evidence": "research/recheck/candidate-flow",
+      "findings": [
+        "No actual search helper invocation or wiki-user handoff. Final explicitly says semantic index not built and answer based on direct reads. Missing AC9 search step."
+      ],
+      "resolvedFindings": "Five actual read-only Agent perspective calls now execute before independent selection; temp token/ledger writes use case-specific TMPDIR. Some finders cd /tmp read-only but do not write there.",
+      "nextAction": "Clarify post-ingest search-and-answer handoff and lexical retrieval requirement; fresh focused source review and actual complete-flow rerun required."
+    },
+    {
+      "case": "candidate-flow final",
+      "grade": "PASS",
+      "revision": "5e1bb6d",
+      "evidence": "research/final/candidate-flow",
+      "observations": [
+        "Exactly five candidate wiki namespace entries; actual researcher Skill call; five separate finder completion candidate lists precede capture. Orchestrator selects protocol and declines promotion/thin; known duplicate preserved.",
+        "Actual clip helper creates generic controlled raw evidence, then named scope ingestion creates one faithful source summary and extends existing concept with exact path/hash provenance.",
+        "Actual normal JSON and --include-raw search helpers execute after ingest; returned source17/concept16/raw16 identify new evidence, resolve-evidence traces raw, numbered source lines opened. User search/query references loaded through shell; no separate wiki-user Skill call claimed.",
+        "Final answer faithfully distinguishes three retries/four attempts/twelve-second deadline/once delivery/cached acknowledgement/conflicting digest and fixture specification from empirical evidence.",
+        "Independently recomputed every final actual disk SHA256 and raw source-body hashes; compared capture-commit raw blob to final raw unchanged, old raw+summary unchanged; actual bare remote refs/heads/main equals19181fbc054b85caf72cf2f3ec20c3dd4ce5c07e. Two scoped operations, logs, catalog, no open tokens.",
+        "Temp tokens and ledgers use case-specific TMPDIR; no literal shared-temp writes."
+      ],
+      "limitations": "Lexical-only deliberate backend; metadata/citation-resolver limitations disclosed. Full-flow evidence is controlled execution, not live discovery. Prior failures remain recorded."
+    },
+    {
+      "case": "candidate bounded live discovery",
+      "grade": "PASS",
+      "revision": "5e1bb6d",
+      "evidence": "research/live/candidate-live",
+      "observations": [
+        "Actual five WebSearch calls and five separate perspective agents, with returned candidate lists before capture. Exact queries retained. Official RFC9110/9111 selected by orchestrator from pooled findings.",
+        "Actual known-urls count/topic/full-list runs before workers return the single existing URL, supplied to each worker; selected URLs checked new again before first capture. Final response understates prior dedup, but actual calls satisfy it.",
+        "Actual clip helper captures two RFC-editor URLs with requested topic, quality and independently recomputed source-body hashes. Both carry fidelity partial and corresponding triage rows; actor reports truncation/fetch failures and does not claim full fidelity.",
+        "Independently recomputed every actual scratch file hash; every preexisting file unchanged, no derived pages created or changed. Exact three-file raw/raw/log commit and actual bare remote equal404dd79742e452eca4fb4abc4a78dacd85814c0f.",
+        "Full private raw bodies and original actor stream inspected locally; public record omits external full bodies, retains commands/queries/hashes/metadata and bounded excerpts."
+      ],
+      "limitations": "Live HTML only. RFC9110 pre-capture WebFetch truncated; captured section headings verified, remaining fidelity warnings unresolved and honestly disclosed. No authenticated Confluence or format converter execution established."
+    }
+  ]
+}

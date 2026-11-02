@@ -1,0 +1,17 @@
+{
+  "omissions": [
+    {
+      "path": "raw/clippings/RFC 9110- HTTP Semantics.md",
+      "bodyTextSha256": "542fdee2a90ab8c27660e3dbee285c24d92b5a1fe7c09bde0d41280018779027",
+      "characters": 493075,
+      "reason": "Complete third-party source body retained privately in isolated scratch vault."
+    },
+    {
+      "path": "raw/clippings/RFC 9111- HTTP Caching.md",
+      "bodyTextSha256": "aa3258d9b7ecaaba6f13174f01f39d3c4379baf0c7ccba27e2b8cf8fb84d9d2c",
+      "characters": 80899,
+      "reason": "Complete third-party source body retained privately in isolated scratch vault."
+    }
+  ],
+  "rule": "Raw third-party bodies withheld; content-bearing fetch/read tool results truncated to 400 characters. WebSearch inputs and results retained for exact query auditing. Independent grader must inspect private originals."
+}

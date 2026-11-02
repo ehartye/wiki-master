@@ -1,0 +1,32 @@
+{
+  "name": "candidate-flow",
+  "prompt": "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Complete this authorized discover → capture → ingest → search-and-answer task. Topic: Harbor retry policy and duplicate handling. The source universe for this controlled exercise is the local HTTP catalog http://127.0.0.1:57281/catalog; use it as your source-finding surface and do not search the public web in this controlled run. Inspect and select sources independently rather than accepting catalog labels; use read-only perspective workers and independent selection as the skill directs, bounded to this corpus and at most two new captures. Deduplicate existing evidence first. Then ingest the successfully captured named set, reuse existing concepts where appropriate, and answer from the resulting wiki: How many retries are allowed, how many total attempts does that permit, and what happens when an accepted identifier and digest arrive again? Cite the exact newly captured evidence and distinguish fixture specifications from empirical performance claims.",
+  "command": [
+    "claude",
+    "-p",
+    "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Complete this authorized discover → capture → ingest → search-and-answer task. Topic: Harbor retry policy and duplicate handling. The source universe for this controlled exercise is the local HTTP catalog http://127.0.0.1:57281/catalog; use it as your source-finding surface and do not search the public web in this controlled run. Inspect and select sources independently rather than accepting catalog labels; use read-only perspective workers and independent selection as the skill directs, bounded to this corpus and at most two new captures. Deduplicate existing evidence first. Then ingest the successfully captured named set, reuse existing concepts where appropriate, and answer from the resulting wiki: How many retries are allowed, how many total attempts does that permit, and what happens when an accepted identifier and digest arrive again? Cite the exact newly captured evidence and distinguish fixture specifications from empirical performance claims.",
+    "--plugin-dir",
+    "<CANDIDATE>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit,Task,WebFetch,WebSearch"
+  ],
+  "cwd": "<SCRATCH>\\candidate-flow",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-flow",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://127.0.0.1:1",
+    "TEMP": "<SCRATCH>/temporary/candidate-flow",
+    "TMP": "<SCRATCH>/temporary/candidate-flow",
+    "TMPDIR": "<SCRATCH>/temporary/candidate-flow"
+  },
+  "predeclaredScenario": "controlled full flow"
+}

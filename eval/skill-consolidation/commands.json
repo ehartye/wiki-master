@@ -1,0 +1,9 @@
+{
+  "description": "Required candidate regression commands; results are recorded separately, never inferred from this manifest.",
+  "commands": [
+    "npm run test:skills",
+    "node --test test/drift-guard.test.mjs test/triage-skill-table.test.mjs test/validate-authored.test.mjs",
+    "node --test test/search.test.mjs test/search-retrieval.test.mjs test/search-health.test.mjs test/clip.test.mjs test/clip-from-file.test.mjs test/clip-recapture.test.mjs test/clip-topic-flag.test.mjs test/provenance.test.mjs test/repair-provenance-links.test.mjs",
+    "node --test test/clip-pdf.test.mjs test/clip-docx.test.mjs test/clip-pptx.test.mjs test/clip-xlsx.test.mjs test/clip-gh.test.mjs test/clip-confluence.test.mjs"
+  ]
+}

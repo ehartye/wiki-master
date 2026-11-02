@@ -1,0 +1,17 @@
+{
+  "declaredBeforeExecution": "2026-11-02T18:31:04.008Z",
+  "candidateRevision": "c705af263d0d7b2ff2d6bd7a97e4632cb48da3dc",
+  "classification": "candidate-loaded routing probes; not workflow execution",
+  "cases": [
+    {
+      "id": "discover",
+      "request": "Find new external sources for the wiki on delivery reliability. Return candidates only; do not capture them yet.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "topic discovery",
+      "requiredReferences": [
+        "wiki-researcher/references/discover.md"
+      ],
+      "legacy": "wiki-discover"
+    }
+  ]
+}

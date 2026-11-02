@@ -1,0 +1,174 @@
+{
+  "reviewer": "wp4_review",
+  "grades": [
+    {
+      "run": "baseline-search",
+      "grade": "PASS",
+      "cases": [
+        {
+          "case": "exact phrase",
+          "grade": "PASS",
+          "observed": "Beacon Protocol.md:10 exact passage"
+        },
+        {
+          "case": "alias",
+          "grade": "PASS",
+          "observed": "Lantern Relay resolves Beacon Protocol alias line4"
+        },
+        {
+          "case": "ambiguous name",
+          "grade": "PASS",
+          "observed": "Both north/Harbor.md and south/Harbor.md, no invented disambiguation"
+        },
+        {
+          "case": "explicit raw",
+          "grade": "PASS",
+          "observed": "--include-raw yields raw/clippings/Beacon Study.md:8"
+        },
+        {
+          "case": "recycle exclusion",
+          "grade": "PASS",
+          "observed": "Decoy never returned or read as evidence"
+        },
+        {
+          "case": "diagnostics",
+          "grade": "PASS",
+          "observed": "Lexical/index unavailable/incomplete identity coverage disclosed"
+        },
+        {
+          "case": "read only",
+          "grade": "PASS",
+          "observed": "Complete before/after objects independently deep-equal (files, Git, operation/index state)"
+        }
+      ],
+      "evidence": "baseline-search/transcript.jsonl"
+    },
+    {
+      "run": "baseline-search-healthy",
+      "grade": "PASS",
+      "cases": [
+        {
+          "case": "exact phrase",
+          "grade": "PASS",
+          "observed": "Beacon Protocol.md:10 exact passage"
+        },
+        {
+          "case": "alias",
+          "grade": "PASS",
+          "observed": "Lantern Relay resolves Beacon Protocol alias line4"
+        },
+        {
+          "case": "ambiguous name",
+          "grade": "PASS",
+          "observed": "Both north/Harbor.md and south/Harbor.md, no invented disambiguation"
+        },
+        {
+          "case": "explicit raw",
+          "grade": "PASS",
+          "observed": "--include-raw yields raw/clippings/Beacon Study.md:8"
+        },
+        {
+          "case": "recycle exclusion",
+          "grade": "PASS",
+          "observed": "Decoy never returned or read as evidence"
+        },
+        {
+          "case": "diagnostics",
+          "grade": "PASS",
+          "observed": "Hybrid channels and current indexed wiki; raw unindexed disclosed"
+        },
+        {
+          "case": "read only",
+          "grade": "PASS",
+          "observed": "Complete before/after objects independently deep-equal (files, Git, operation/index state)"
+        }
+      ],
+      "evidence": "baseline-search-healthy/transcript.jsonl"
+    },
+    {
+      "run": "candidate-search",
+      "grade": "PASS",
+      "cases": [
+        {
+          "case": "exact phrase",
+          "grade": "PASS",
+          "observed": "Beacon Protocol.md:10 exact passage"
+        },
+        {
+          "case": "alias",
+          "grade": "PASS",
+          "observed": "Lantern Relay resolves Beacon Protocol alias line4"
+        },
+        {
+          "case": "ambiguous name",
+          "grade": "PASS",
+          "observed": "Both north/Harbor.md and south/Harbor.md, no invented disambiguation"
+        },
+        {
+          "case": "explicit raw",
+          "grade": "PASS",
+          "observed": "--include-raw yields raw/clippings/Beacon Study.md:8"
+        },
+        {
+          "case": "recycle exclusion",
+          "grade": "PASS",
+          "observed": "Decoy never returned or read as evidence"
+        },
+        {
+          "case": "diagnostics",
+          "grade": "PASS",
+          "observed": "Lexical/index unavailable/incomplete identity coverage disclosed"
+        },
+        {
+          "case": "read only",
+          "grade": "PASS",
+          "observed": "Complete before/after objects independently deep-equal (files, Git, operation/index state)"
+        }
+      ],
+      "evidence": "candidate-search/transcript.jsonl"
+    },
+    {
+      "run": "candidate-search-healthy",
+      "grade": "PASS",
+      "cases": [
+        {
+          "case": "exact phrase",
+          "grade": "PASS",
+          "observed": "Beacon Protocol.md:10 exact passage"
+        },
+        {
+          "case": "alias",
+          "grade": "PASS",
+          "observed": "Lantern Relay resolves Beacon Protocol alias line4"
+        },
+        {
+          "case": "ambiguous name",
+          "grade": "PASS",
+          "observed": "Both north/Harbor.md and south/Harbor.md, no invented disambiguation"
+        },
+        {
+          "case": "explicit raw",
+          "grade": "PASS",
+          "observed": "--include-raw yields raw/clippings/Beacon Study.md:8"
+        },
+        {
+          "case": "recycle exclusion",
+          "grade": "PASS",
+          "observed": "Decoy never returned or read as evidence"
+        },
+        {
+          "case": "diagnostics",
+          "grade": "PASS",
+          "observed": "Hybrid channels and current indexed wiki; raw unindexed disclosed"
+        },
+        {
+          "case": "read only",
+          "grade": "PASS",
+          "observed": "Complete before/after objects independently deep-equal (files, Git, operation/index state)"
+        }
+      ],
+      "evidence": "candidate-search-healthy/transcript.jsonl"
+    }
+  ],
+  "limitations": "Observed evidence-policy load and healthy opened-each-hit wording discrepancies remain in wp4-review.md. These retrieval grades do not claim perfect actor instruction compliance."
+}

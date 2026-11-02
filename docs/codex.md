@@ -1,7 +1,7 @@
 # Codex setup
 
 Wiki Master includes a native `.codex-plugin/plugin.json` manifest pointing to
-the same 21 skills used by Claude Code and Copilot CLI. The Node helpers and
+the same five skills used by Claude Code and Copilot CLI. The Node helpers and
 vault format are shared. See the [official plugin packaging guide](https://developers.openai.com/plugins/build/plugins)
 for Codex's manifest and personal marketplace conventions.
 
@@ -36,7 +36,7 @@ for Codex's manifest and personal marketplace conventions.
    codex plugin add wiki-master@personal
    ```
 
-4. Start a new Codex thread and select `wiki-health`, or ask “Use wiki-health
+4. Start a new Codex thread and select `wiki-maintainer`, or ask “Use wiki-maintainer
    to check my vault.” For a new vault, start with `wiki-init` instead.
 
 The default personal marketplace is discovered implicitly. You can inspect
@@ -45,20 +45,20 @@ Claude and Copilot marketplace files belong to those hosts.
 
 ## Runtime and workflows
 
-- Run Codex on the machine where Obsidian is open and its CLI is available.
-  A remote environment cannot drive your local Obsidian instance automatically.
-- Provide Node.js 18+ and the vault environment variables documented in the
+- Native app actions require Obsidian and its CLI on the same machine. Filesystem
+  retrieval and editing use the known vault root without a running app.
+- Provide Node.js 20.8+ and the vault environment variables documented in the
   [README](../README.md#configuration-environment-variables) to the Codex process.
   Allow access to your vault directory when the chosen execution permissions
   require it. The default vault is `~/.wiki-master-vault`.
-- Select skills by name or ask naturally, for example “Use wiki-search to find
+- Select skills by name or ask naturally, for example “Use wiki-user to find
   our deployment decisions.” The `/wiki-*` notation in the shared instructions
   identifies workflows; it does not require a Codex slash command.
 - Helpers resolve from the installed skill directory, not the open workspace.
   Sibling skills are available as `../<skill-name>/SKILL.md`; `$ARGUMENTS` in
   a workflow means the accompanying user request.
 - The optional session-start health hook remains disabled by default. Invoke
-  `wiki-health` explicitly to check the vault.
+  `wiki-maintainer` in health-reporting mode explicitly to check the vault.
 - Semantic search and drift detection use your Ollama instance when configured.
   Confluence clipping additionally needs the separate authenticated
   `confluencer` plugin. Set `WIKI_MASTER_CONFLUENCER_SCRIPTS` to its absolute

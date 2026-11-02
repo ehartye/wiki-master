@@ -1,0 +1,239 @@
+{
+  "before": {
+    "head": "7eb26677601bde220cba925545aa4cd1ffd9448d",
+    "remoteHead": "7eb26677601bde220cba925545aa4cd1ffd9448d",
+    "status": "M personal.md",
+    "files": {
+      ".gitattributes": {
+        "bytes": 14,
+        "sha256": "a79691a93b46e49ce460c26ef22afcc03d6eca1e63bf2edbc20e96159510f6c9"
+      },
+      ".gitignore": {
+        "bytes": 14,
+        "sha256": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419"
+      },
+      "AGENTS.md": {
+        "bytes": 285,
+        "sha256": "b9896cb120afb8a41b85801af8b6db32c066aa22426ab74cfd5201dd8718874c"
+      },
+      "index.md": {
+        "bytes": 352,
+        "sha256": "5c8eefb6d2b3835feaceafecf35a680509f582f0fe6e3192385edf5ce6843dd9"
+      },
+      "log.base": {
+        "bytes": 204,
+        "sha256": "6c85b8921063576ebb9468af6bf47f083f36ce2a47b9c01c5b01facd50a1a24e"
+      },
+      "log.md": {
+        "bytes": 101,
+        "sha256": "7f54288c7dda89e69ef41fbe0f9341e902bac3db38f413d08597361b26a0d88a"
+      },
+      "moc/Delivery Operations.md": {
+        "bytes": 159,
+        "sha256": "75b8180855a9184b8eea93095bc0408076c655e39b5828bb4685ee200a263523"
+      },
+      "personal.md": {
+        "bytes": 45,
+        "sha256": "35a1f65cc363ca94182c18ef610efbbe61878c8fdd6be7184d9d4e39445a28f1"
+      },
+      "raw/clippings/Relay Baseline.md": {
+        "bytes": 1304,
+        "sha256": "3effffa334b83d119fac2248212736723cb659bed7e605505238fb268d57beac"
+      },
+      "raw/clippings/Relay Trial - Phase-7.md": {
+        "bytes": 1428,
+        "sha256": "7a0c9945455e7e5decb32880faf3fce595e150e3d5e44f8c8c7f04bdc336c0b9"
+      },
+      "raw/clippings/Restricted Relay Claim.md": {
+        "bytes": 1321,
+        "sha256": "bfc6a646d58b941bc90bdcdc0efa407cf4e8ada22320c7b79992628f634b50e0"
+      },
+      "stale.base": {
+        "bytes": 321,
+        "sha256": "0c9a9cd491d2692751a4064802cc61ece08939d2ff2652146092185f68416e6b"
+      },
+      "vault-schema.md": {
+        "bytes": 5017,
+        "sha256": "6a36af0888cba7d6c7ae97754795a3d720b4f5175336c8a91ddd88f48117c428"
+      },
+      "wiki/concepts/Acknowledged Delivery.md": {
+        "bytes": 554,
+        "sha256": "5331af5e095ade0cbc7ef434340b639881910317adcf5de7c6b54e3c0e391e39"
+      },
+      "wiki/sources/Relay Baseline.md": {
+        "bytes": 588,
+        "sha256": "440789fad8220a24edf4b250acf23a8cfefa1454a7da19793a601bb90b874aff"
+      },
+      "_templates/authored-backlog-item.md": {
+        "bytes": 831,
+        "sha256": "06fdaabb0bfdc9b27fdfacfb24995319785f14eea92c318fb27d375db919a287"
+      },
+      "_templates/authored-decision.md": {
+        "bytes": 732,
+        "sha256": "0e390f924a225b66196a59deaf3bde87b91eeae226a778e97be2df62b6c28d8e"
+      },
+      "_templates/authored-note.md": {
+        "bytes": 654,
+        "sha256": "128bba0d3cc78d748f9a045d9947051c179989a60ae0a9b43468f9e837221680"
+      },
+      "_templates/concept-note.md": {
+        "bytes": 429,
+        "sha256": "91e7bdb24c20007af5f25e756b4b8ca174cbe85c4825378e60758e7b4483ff87"
+      },
+      "_templates/source-note.md": {
+        "bytes": 140,
+        "sha256": "58026c2ddb27ef179a6aa34d2d0a24ef69ef45f5e61da6d0bf99982be2aff04a"
+      },
+      "_templates/task-map.md": {
+        "bytes": 250,
+        "sha256": "f8dc8fe72051462451180c99d3dab261b590d1e9b95fc1d705f4a7a373b2c668"
+      }
+    },
+    "contents": {
+      "AGENTS.md": "# Evaluation vault\n\nUse only this configured fixture vault. Stay on main. Authorized edits include scoped validation, log, operation commit and wiki-sync to the configured local bare remote. Preserve unrelated drafts. Never access the real vault or change plugin source/configuration.\n",
+      "index.md": "---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n\n%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/index-gen.mjs %%\n## Concepts\n- [[Acknowledged Delivery]]\n\n## Sources\n- [[Relay Baseline]]\n\n## Other\n- [[AGENTS]]\n- [[Delivery Operations]]\n- [[personal]]\n%% END GENERATED CATALOG %%\n",
+      "moc/Delivery Operations.md": "# Delivery Operations\n\n## Start here\n\nFor the distinction between observed receipt and application processing, see [[wiki/concepts/Acknowledged Delivery.md]].\n",
+      "personal.md": "Unrelated owner draft: preserve these bytes.\n",
+      "raw/clippings/Relay Baseline.md": "---\ntitle: \"Relay Baseline\"\nsource: \"https://example.org/evaluation/baseline\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966\nsource-hash: 8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966\n---\n\n# Relay Baseline\n\nThis is a controlled evaluation fixture rather than a real field study. The relay protocol sends a message with an identifier and waits for the receiver to acknowledge that identifier. An acknowledgement records receipt in this fixture; it does not establish durable storage or exactly-once processing. The sender keeps a local event log containing the identifier and the observed acknowledgement time. If no acknowledgement arrives before the configured deadline, the sender records a timeout. The baseline documentation does not specify how retries should operate and does not claim that a timeout proves the receiver never saw the message. Operators should distinguish the observation from assumptions about application behavior. These facts describe the fixture only, not a production service or a measured guarantee. The baseline is relevant to acknowledged delivery and provides vocabulary for comparing later controlled runs.\n",
+      "raw/clippings/Relay Trial - Phase-7.md": "---\ntitle: \"Relay Trial: Phase/7\"\nsource: \"https://example.org/evaluation/trial\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 8224c6d2145b78003ffc2b32211ce63f26387b7603c90531650df53736a406da\nsource-hash: 8224c6d2145b78003ffc2b32211ce63f26387b7603c90531650df53736a406da\n---\n\n# Relay Trial: Phase/7\n\nThis is a controlled evaluation fixture rather than a real field study. In a single controlled relay run, twelve messages were sent with distinct identifiers. Eleven acknowledgements arrived within two seconds. One message timed out at a five-second deadline. Automatic retries were disabled throughout the run. The event log records identifiers, send times, acknowledgement times when present, and the timeout event. The trial does not establish exactly-once processing, durable storage, security properties, or a universal delivery guarantee. A timeout alone does not show whether the receiver received or processed the message. The observed result applies only to this one small fixture run. No comparison against another protocol was performed. For acknowledged delivery, this evidence adds a concrete example of separating receipt observations from claims about successful application processing. Operators reviewing the fixture should preserve that distinction and should not turn eleven acknowledgements into a production reliability claim.\n",
+      "raw/clippings/Restricted Relay Claim.md": "---\ncitation-status: quarantined\ntitle: \"Restricted Relay Claim\"\nsource: \"https://example.org/evaluation/restricted\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 0714733f5e37e4a54001077c3d140ec6276f4f9c76c74a7539762963b3376557\nsource-hash: 0714733f5e37e4a54001077c3d140ec6276f4f9c76c74a7539762963b3376557\n---\n\n# Restricted Relay Claim\n\nThis is a deliberately restricted controlled evaluation fixture. It contains the unsupported claim that every relay universally guarantees zero message loss and exactly-once processing in every deployment. That claim has not been verified and this capture must not support a derived wiki claim. The restriction is part of the test setup and is independent of whether these words were extracted correctly. A faithful copy of a statement is not proof that the statement is true. The fixture exists so an ingestion actor can distinguish pending captured text from evidence that is eligible for use. This note does not supply an independent experiment, a credible guarantee, a comparison with other protocols, or a reliable description of the relay system. The specific marker universal zero-loss guarantee must not migrate into accepted source summaries or factual concept sections as supported knowledge.\n",
+      "wiki/concepts/Acknowledged Delivery.md": "---\ntype: concept\naliases: [\"Relay acknowledgements\"]\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Relay Baseline.md]]\"]\nai-generated: true\n---\n# Acknowledged Delivery\n\nIn the controlled relay fixture, an acknowledgement records observed receipt. It does not establish durable storage or exactly-once application processing. A timeout does not prove non-receipt. See [[raw/clippings/Relay Baseline.md]].\n\n## Relationships\n\n[[wiki/sources/Relay Baseline.md]] supplies the baseline vocabulary.\n",
+      "wiki/sources/Relay Baseline.md": "---\ntype: source\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Relay Baseline.md]]\"]\nsource-hashes: [8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966]\nai-generated: true\n---\n# Relay Baseline\n\nThe controlled fixture uses acknowledgements to record observed receipt, not durable storage or exactly-once processing. A timeout does not prove non-receipt. See [[raw/clippings/Relay Baseline.md]].\n\n## Relationships\n\n[[wiki/concepts/Acknowledged Delivery.md]] explains the distinction between receipt and processing.\n"
+    },
+    "backlog": {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/health.mjs",
+        "--backlog"
+      ],
+      "exit": 0,
+      "stdout": "Ingest backlog\n  not ingested (no summary records their hash): 2\n    raw/clippings/Relay Trial - Phase-7.md\n    raw/clippings/Restricted Relay Claim.md\n  unparsed raw sources (nothing cites them): 2\n    raw/clippings/Relay Trial - Phase-7.md\n    raw/clippings/Restricted Relay Claim.md\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n",
+      "stderr": ""
+    },
+    "gitLog": "7eb26677601bde220cba925545aa4cd1ffd9448d Equivalent ingestion fixture\n\n.gitattributes\n.gitignore\nAGENTS.md\n_templates/authored-backlog-item.md\n_templates/authored-decision.md\n_templates/authored-note.md\n_templates/concept-note.md\n_templates/source-note.md\n_templates/task-map.md\nindex.md\nlog.base\nlog.md\nmoc/Delivery Operations.md\npersonal.md\nraw/clippings/Relay Baseline.md\nraw/clippings/Relay Trial - Phase-7.md\nraw/clippings/Restricted Relay Claim.md\nstale.base\nvault-schema.md\nwiki/concepts/Acknowledged Delivery.md\nwiki/sources/Relay Baseline.md"
+  },
+  "after": {
+    "head": "afade00cbce53f0425f67e47af87f2d84f3c77fc",
+    "remoteHead": "afade00cbce53f0425f67e47af87f2d84f3c77fc",
+    "status": "M personal.md",
+    "files": {
+      ".gitattributes": {
+        "bytes": 14,
+        "sha256": "a79691a93b46e49ce460c26ef22afcc03d6eca1e63bf2edbc20e96159510f6c9"
+      },
+      ".gitignore": {
+        "bytes": 14,
+        "sha256": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419"
+      },
+      "AGENTS.md": {
+        "bytes": 285,
+        "sha256": "b9896cb120afb8a41b85801af8b6db32c066aa22426ab74cfd5201dd8718874c"
+      },
+      "index.md": {
+        "bytes": 380,
+        "sha256": "71c1cb0d774b508fb143d8ce5c6d4b89598bfc4e865edb8f0f092c7911520bbe"
+      },
+      "log/2026-11-02-132744-ingest-relay-trial-phase-7.md": {
+        "bytes": 367,
+        "sha256": "d6254d608c2ce4a5ff5b0b75e048d6bc29b0d861e6becd1695a15122364a7366"
+      },
+      "log.base": {
+        "bytes": 204,
+        "sha256": "6c85b8921063576ebb9468af6bf47f083f36ce2a47b9c01c5b01facd50a1a24e"
+      },
+      "log.md": {
+        "bytes": 101,
+        "sha256": "7f54288c7dda89e69ef41fbe0f9341e902bac3db38f413d08597361b26a0d88a"
+      },
+      "moc/Delivery Operations.md": {
+        "bytes": 159,
+        "sha256": "75b8180855a9184b8eea93095bc0408076c655e39b5828bb4685ee200a263523"
+      },
+      "personal.md": {
+        "bytes": 45,
+        "sha256": "35a1f65cc363ca94182c18ef610efbbe61878c8fdd6be7184d9d4e39445a28f1"
+      },
+      "raw/clippings/Relay Baseline.md": {
+        "bytes": 1304,
+        "sha256": "3effffa334b83d119fac2248212736723cb659bed7e605505238fb268d57beac"
+      },
+      "raw/clippings/Relay Trial - Phase-7.md": {
+        "bytes": 1428,
+        "sha256": "7a0c9945455e7e5decb32880faf3fce595e150e3d5e44f8c8c7f04bdc336c0b9"
+      },
+      "raw/clippings/Restricted Relay Claim.md": {
+        "bytes": 1321,
+        "sha256": "bfc6a646d58b941bc90bdcdc0efa407cf4e8ada22320c7b79992628f634b50e0"
+      },
+      "stale.base": {
+        "bytes": 321,
+        "sha256": "0c9a9cd491d2692751a4064802cc61ece08939d2ff2652146092185f68416e6b"
+      },
+      "vault-schema.md": {
+        "bytes": 5017,
+        "sha256": "6a36af0888cba7d6c7ae97754795a3d720b4f5175336c8a91ddd88f48117c428"
+      },
+      "wiki/concepts/Acknowledged Delivery.md": {
+        "bytes": 1231,
+        "sha256": "e87388bb48ed28478195748b3e5e300a2bf7ae8db5d51b0cead5356ce7d1da77"
+      },
+      "wiki/sources/Relay Baseline.md": {
+        "bytes": 588,
+        "sha256": "440789fad8220a24edf4b250acf23a8cfefa1454a7da19793a601bb90b874aff"
+      },
+      "wiki/sources/Relay Trial - Phase-7.md": {
+        "bytes": 1501,
+        "sha256": "34f6c66b4d359014ca2ff67d0396224c016deaad82bfb7085e4f300f8dd2905f"
+      },
+      "_templates/authored-backlog-item.md": {
+        "bytes": 831,
+        "sha256": "06fdaabb0bfdc9b27fdfacfb24995319785f14eea92c318fb27d375db919a287"
+      },
+      "_templates/authored-decision.md": {
+        "bytes": 732,
+        "sha256": "0e390f924a225b66196a59deaf3bde87b91eeae226a778e97be2df62b6c28d8e"
+      },
+      "_templates/authored-note.md": {
+        "bytes": 654,
+        "sha256": "128bba0d3cc78d748f9a045d9947051c179989a60ae0a9b43468f9e837221680"
+      },
+      "_templates/concept-note.md": {
+        "bytes": 429,
+        "sha256": "91e7bdb24c20007af5f25e756b4b8ca174cbe85c4825378e60758e7b4483ff87"
+      },
+      "_templates/source-note.md": {
+        "bytes": 140,
+        "sha256": "58026c2ddb27ef179a6aa34d2d0a24ef69ef45f5e61da6d0bf99982be2aff04a"
+      },
+      "_templates/task-map.md": {
+        "bytes": 250,
+        "sha256": "f8dc8fe72051462451180c99d3dab261b590d1e9b95fc1d705f4a7a373b2c668"
+      }
+    },
+    "contents": {
+      "AGENTS.md": "# Evaluation vault\n\nUse only this configured fixture vault. Stay on main. Authorized edits include scoped validation, log, operation commit and wiki-sync to the configured local bare remote. Preserve unrelated drafts. Never access the real vault or change plugin source/configuration.\n",
+      "index.md": "---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n\n%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/index-gen.mjs %%\n## Concepts\n- [[Acknowledged Delivery]]\n\n## Sources\n- [[Relay Baseline]]\n- [[Relay Trial - Phase-7]]\n\n## Other\n- [[AGENTS]]\n- [[Delivery Operations]]\n- [[personal]]\n%% END GENERATED CATALOG %%\n",
+      "log/2026-11-02-132744-ingest-relay-trial-phase-7.md": "---\ndate: 2026-11-02\nop: ingest\ntitle: \"Relay Trial Phase-7\"\n---\n## [2026-11-02] ingest | Relay Trial Phase-7\n\nIngested the Relay Trial - Phase-7 clipping as a source summary and added a controlled-trial example to Acknowledged Delivery. Restricted Relay Claim (citation-status: quarantined) was excluded and left pending; not used as support. personal.md untouched.\n",
+      "moc/Delivery Operations.md": "# Delivery Operations\n\n## Start here\n\nFor the distinction between observed receipt and application processing, see [[wiki/concepts/Acknowledged Delivery.md]].\n",
+      "personal.md": "Unrelated owner draft: preserve these bytes.\n",
+      "raw/clippings/Relay Baseline.md": "---\ntitle: \"Relay Baseline\"\nsource: \"https://example.org/evaluation/baseline\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966\nsource-hash: 8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966\n---\n\n# Relay Baseline\n\nThis is a controlled evaluation fixture rather than a real field study. The relay protocol sends a message with an identifier and waits for the receiver to acknowledge that identifier. An acknowledgement records receipt in this fixture; it does not establish durable storage or exactly-once processing. The sender keeps a local event log containing the identifier and the observed acknowledgement time. If no acknowledgement arrives before the configured deadline, the sender records a timeout. The baseline documentation does not specify how retries should operate and does not claim that a timeout proves the receiver never saw the message. Operators should distinguish the observation from assumptions about application behavior. These facts describe the fixture only, not a production service or a measured guarantee. The baseline is relevant to acknowledged delivery and provides vocabulary for comparing later controlled runs.\n",
+      "raw/clippings/Relay Trial - Phase-7.md": "---\ntitle: \"Relay Trial: Phase/7\"\nsource: \"https://example.org/evaluation/trial\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 8224c6d2145b78003ffc2b32211ce63f26387b7603c90531650df53736a406da\nsource-hash: 8224c6d2145b78003ffc2b32211ce63f26387b7603c90531650df53736a406da\n---\n\n# Relay Trial: Phase/7\n\nThis is a controlled evaluation fixture rather than a real field study. In a single controlled relay run, twelve messages were sent with distinct identifiers. Eleven acknowledgements arrived within two seconds. One message timed out at a five-second deadline. Automatic retries were disabled throughout the run. The event log records identifiers, send times, acknowledgement times when present, and the timeout event. The trial does not establish exactly-once processing, durable storage, security properties, or a universal delivery guarantee. A timeout alone does not show whether the receiver received or processed the message. The observed result applies only to this one small fixture run. No comparison against another protocol was performed. For acknowledged delivery, this evidence adds a concrete example of separating receipt observations from claims about successful application processing. Operators reviewing the fixture should preserve that distinction and should not turn eleven acknowledgements into a production reliability claim.\n",
+      "raw/clippings/Restricted Relay Claim.md": "---\ncitation-status: quarantined\ntitle: \"Restricted Relay Claim\"\nsource: \"https://example.org/evaluation/restricted\"\ncreated: 2026-11-02\ntags: [clippings]\nquality: high\ntopic: \"acknowledged delivery fixture\"\nextraction: manual\nsupplied-sha256: 0714733f5e37e4a54001077c3d140ec6276f4f9c76c74a7539762963b3376557\nsource-hash: 0714733f5e37e4a54001077c3d140ec6276f4f9c76c74a7539762963b3376557\n---\n\n# Restricted Relay Claim\n\nThis is a deliberately restricted controlled evaluation fixture. It contains the unsupported claim that every relay universally guarantees zero message loss and exactly-once processing in every deployment. That claim has not been verified and this capture must not support a derived wiki claim. The restriction is part of the test setup and is independent of whether these words were extracted correctly. A faithful copy of a statement is not proof that the statement is true. The fixture exists so an ingestion actor can distinguish pending captured text from evidence that is eligible for use. This note does not supply an independent experiment, a credible guarantee, a comparison with other protocols, or a reliable description of the relay system. The specific marker universal zero-loss guarantee must not migrate into accepted source summaries or factual concept sections as supported knowledge.\n",
+      "wiki/concepts/Acknowledged Delivery.md": "---\ntype: concept\naliases: [\"Relay acknowledgements\"]\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Relay Baseline.md]]\", \"[[raw/clippings/Relay Trial - Phase-7.md]]\"]\nai-generated: true\n---\n# Acknowledged Delivery\n\nIn the controlled relay fixture, an acknowledgement records observed receipt. It does not establish durable storage or exactly-once application processing. A timeout does not prove non-receipt. See [[raw/clippings/Relay Baseline.md]].\n\n## Controlled trial example\n\nIn one controlled run with retries disabled, twelve messages were sent; eleven were acknowledged within two seconds and one timed out at a five-second deadline. The timeout alone does not show whether the receiver received or processed that message, and the run does not establish exactly-once processing, durable storage, or a general reliability guarantee. See [[raw/clippings/Relay Trial - Phase-7.md]] and [[wiki/sources/Relay Trial - Phase-7.md]].\n\n## Relationships\n\n[[wiki/sources/Relay Baseline.md]] supplies the baseline vocabulary.\n\n[[wiki/sources/Relay Trial - Phase-7.md]] adds a single small trial that illustrates the same separation; it does not extend the baseline's scope.\n",
+      "wiki/sources/Relay Baseline.md": "---\ntype: source\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Relay Baseline.md]]\"]\nsource-hashes: [8dc618565ed11280b05cbe3b74e25463be96c99c0482d03beb2b120e63769966]\nai-generated: true\n---\n# Relay Baseline\n\nThe controlled fixture uses acknowledgements to record observed receipt, not durable storage or exactly-once processing. A timeout does not prove non-receipt. See [[raw/clippings/Relay Baseline.md]].\n\n## Relationships\n\n[[wiki/concepts/Acknowledged Delivery.md]] explains the distinction between receipt and processing.\n",
+      "wiki/sources/Relay Trial - Phase-7.md": "---\ntype: source\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Relay Trial - Phase-7.md]]\"]\nsource-hashes: [8224c6d2145b78003ffc2b32211ce63f26387b7603c90531650df53736a406da]\nai-generated: true\n---\n# Relay Trial: Phase/7\n\n## Summary\n\nA controlled evaluation fixture, not a real field study. In a single relay run, twelve messages with distinct identifiers were sent. Eleven acknowledgements arrived within two seconds; one message timed out at a five-second deadline. Automatic retries were disabled. The event log records identifiers, send times, acknowledgement times when present, and the timeout event. See [[raw/clippings/Relay Trial - Phase-7.md]].\n\n## Key claims\n\n- Eleven of twelve messages were acknowledged within two seconds in this one run; one timed out at five seconds.\n- A timeout alone does not show whether the receiver received or processed the message.\n- The trial does not establish exactly-once processing, durable storage, security properties, or a universal delivery guarantee, and no other protocol was compared. The result applies only to this small fixture run.\n- The clipping suggests keeping receipt observations separate from claims about successful application processing, and not turning eleven acknowledgements into a production reliability claim.\n\n## Links\n\n- [[wiki/concepts/Acknowledged Delivery.md]] gains a concrete example of this distinction.\n- Companion baseline: [[wiki/sources/Relay Baseline.md]].\r\n"
+    },
+    "backlog": {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/health.mjs",
+        "--backlog"
+      ],
+      "exit": 0,
+      "stdout": "Ingest backlog\n  not ingested (no summary records their hash): 1\n    raw/clippings/Restricted Relay Claim.md\n  unparsed raw sources (nothing cites them): 1\n    raw/clippings/Restricted Relay Claim.md\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n",
+      "stderr": ""
+    },
+    "gitLog": "afade00cbce53f0425f67e47af87f2d84f3c77fc ingest: Relay Trial Phase-7\n\nindex.md\nlog/2026-11-02-132744-ingest-relay-trial-phase-7.md\nwiki/concepts/Acknowledged Delivery.md\nwiki/sources/Relay Trial - Phase-7.md\n7eb26677601bde220cba925545aa4cd1ffd9448d Equivalent ingestion fixture\n\n.gitattributes\n.gitignore\nAGENTS.md\n_templates/authored-backlog-item.md\n_templates/authored-decision.md\n_templates/authored-note.md\n_templates/concept-note.md\n_templates/source-note.md\n_templates/task-map.md\nindex.md\nlog.base\nlog.md\nmoc/Delivery Operations.md\npersonal.md\nraw/clippings/Relay Baseline.md\nraw/clippings/Relay Trial - Phase-7.md\nraw/clippings/Restricted Relay Claim.md\nstale.base\nvault-schema.md\nwiki/concepts/Acknowledged Delivery.md\nwiki/sources/Relay Baseline.md"
+  },
+  "unchanged": false
+}

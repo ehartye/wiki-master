@@ -1,0 +1,153 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\capture.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 28375,
+    "stop_reason": "end_turn",
+    "session_id": "f0014f64-97f1-47eb-beba-7c29dee28ca3",
+    "total_cost_usd": 0.1682449,
+    "usage": {
+      "input_tokens": 18,
+      "cache_creation_input_tokens": 29050,
+      "cache_read_input_tokens": 284189,
+      "output_tokens": 2359,
+      "output_tokens_details": {
+        "thinking_tokens": 216
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 29050,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 572,
+          "cache_read_input_tokens": 44927,
+          "cache_creation_input_tokens": 683,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 683
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 18,
+        "outputTokens": 2359,
+        "cacheReadInputTokens": 284189,
+        "cacheCreationInputTokens": 29050,
+        "webSearchRequests": 0,
+        "costUSD": 0.1682449,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 216,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 29050,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 11,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I captured one of the four sources, found one already held, and could not capture the other two. The commit is pushed to the local bare origin, and `HEAD` matches `origin/main` after a fresh fetch.\n\n| URL | Outcome | Evidence path |\n|---|---|---|\n| `/protocol` | Clipped with quality medium. | `raw/clippings/Harbor Retry Protocol.md` |\n| `/known` | Already held, so I did not recapture it. | `raw/clippings/Acknowledgement Basics.md` (existing, untouched) |\n| `/thin` | Thin content, so nothing was written. The clipper recorded an automatic decline and a triage entry. | none |\n| `/failed` | The fetch returned HTTP 503, so nothing was written. It is queued for triage and not declined, because it may recover. | none |\n\n- **Thin and failed pages:** to get `/thin` in, you would need to save the page from a signed-in browser. It can then be supplied with `--from-file` plus `--override-decline`. `/failed` can be retried later, or dispositioned in maintainer triage.\n- **Operation:** `eae2bbf404c29e09`, a `discover` operation, closed and published with `wiki-sync`. Commit `ca5d648` is titled \"discover: Harbor delivery -> 1 clipped\". It contains only the new clipping and the operation log, `log/2026-11-02-132401-discover-harbor-delivery-capture.md`.\n- **Scope:** I created no ingest or derived pages and wrote nothing outside the scratch vault. `WIKI_MASTER_VAULT` was unset, so I set it to the working directory for each command. The semantic index doesn't exist yet and wasn't built.",
+    "ttft_ms": 1965,
+    "type": "result",
+    "duration_ms": 45580,
+    "uuid": "d1688ac4-cdd2-4754-915b-e1c1172964d8",
+    "ttft_stream_ms": 1784,
+    "time_to_request_ms": 122,
+    "first_content_frame_ms": 1784,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 18,
+        "outputTokens": 2359,
+        "cacheReadInputTokens": 284189,
+        "cacheCreationInputTokens": 29050,
+        "webSearchRequests": 0,
+        "costUSD": 0.1682449,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 216,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 29050,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

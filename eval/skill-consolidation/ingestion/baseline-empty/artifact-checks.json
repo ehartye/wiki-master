@@ -1,0 +1,32 @@
+{
+  "name": "baseline-empty",
+  "checks": {
+    "processCompleted": true,
+    "permissionDenialsAbsent": true,
+    "onlyExpectedWikiSkills": true,
+    "rawBytesUnchanged": true,
+    "oldSummaryUnchanged": true,
+    "ownerDraftUnchanged": true,
+    "actualBacklogReports": true,
+    "remoteMatchesHead": true,
+    "noOpenOperations": true,
+    "caseScopedTemp": true,
+    "ingestionRoleSelected": true,
+    "noExternalResearchTools": true,
+    "noMutation": true,
+    "noMutationCommands": true,
+    "expectedBacklog": true
+  },
+  "structuralPass": true,
+  "beforeBacklog": {
+    "count": 0,
+    "paths": []
+  },
+  "afterBacklog": {
+    "count": 0,
+    "paths": []
+  },
+  "changedPaths": [],
+  "newSummaries": [],
+  "limitations": "Artifact and executed-command checks; faithful synthesis requires independent grading of raw and derived text. Host self-report is not the grade."
+}

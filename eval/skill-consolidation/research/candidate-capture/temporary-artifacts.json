@@ -1,0 +1,15 @@
+{
+  "actualProcessEnvSetBy": "harness.mjs envFor before spawn",
+  "files": [
+    {
+      "path": "<SCRATCH>/temporary/candidate-capture/harbor-ledger.json",
+      "bytes": 110,
+      "sha256": "88880145478d0adbd23ae74ef61f38a5f858619a62b21795bb6f41688d634f8a"
+    },
+    {
+      "path": "<SCRATCH>/temporary/candidate-capture/harbor-token.txt",
+      "bytes": 18,
+      "sha256": "b5ed133ba0bc74a81ef8f9254f34943fe01476c593581ce23136cbf8fd179426"
+    }
+  ]
+}

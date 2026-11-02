@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-docx.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`\n- **Mode:** capture a named format, here Word (`.docx`). It is capture-only, so it is not ingestion and not discovery.\n- **Loaded references:**\n  - the researcher skill body\n  - `references/clip-docx.md`\n\n  I did not read `access.md`, `operations.md` or `evidence.md`. `clip-docx.md` requires the first two before any vault access, and the third only before quoting figures or reporting fidelity limits. This probe doesn't touch the vault.\n\n**What the real workflow would do**\n1. Read `access.md` and `operations.md`, then open an operation before any write.\n2. Check that pandoc is installed with `pandoc -v`. If it's missing, stop and tell the user to install it. Don't fabricate content.\n3. Run `clip-docx.mjs` on `report.docx`. It is the only writer to `raw/clippings/`, and it extracts Markdown with pandoc. Pass `--source` if there's a canonical URL or DOI, and `--quality`. Pass `--topic` only if this clip is part of a research run. Pass `--since <token>` so the written paths enter the operation's ledger.\n4. Read the resulting clipping to check that the text is real prose. If the result is `thin` or `failed`, report it for manual handling. Use `--allow-short` only after opening the file and confirming a short extraction is complete.\n5. Finish the operation: log once, commit, push and verify the remote, unless publication is held.\n\n**Boundaries and approvals**\n- Capture creates evidence only. It creates no `wiki/sources/` or concept pages. Ingestion needs separate explicit authorization, which this request doesn't give.\n- The agent never hand-writes or edits anything under `raw/`.\n- **Clarification needed:** `report.docx` isn't attached, and no absolute path or vault location was given. The user needs to supply the file's path. They should also say whether a canonical source URL or DOI applies, and whether this belongs to a research topic run.\n- I ran nothing and touched no vault in this probe.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 7402,
+    "cache_read_input_tokens": 25171,
+    "output_tokens": 974,
+    "output_tokens_details": {
+      "thinking_tokens": 83
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7402,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 788,
+        "cache_read_input_tokens": 10423,
+        "cache_creation_input_tokens": 2449,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2449
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

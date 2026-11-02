@@ -1,0 +1,92 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-ingest"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\SKILL.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\evidence.md"
+  ],
+  "tools": [
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell"
+  ],
+  "usage": {
+    "input_tokens": 16,
+    "cache_creation_input_tokens": 33230,
+    "cache_read_input_tokens": 263761,
+    "output_tokens": 1607,
+    "output_tokens_details": {
+      "thinking_tokens": 129
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 33230,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 424,
+        "cache_read_input_tokens": 51266,
+        "cache_creation_input_tokens": 298,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 298
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "I didn't ingest anything. `raw/clippings/Relay Trial - Phase-7.md` was already ingested and published, so I made no changes.\n\n- **Existing commit:** `20dc1b1 ingest: Relay Trial Phase-7` already holds the source summary `wiki/sources/Relay Trial - Phase-7.md`. It matches the clipping's `source-hash`.\n- **Concept and map:** `wiki/concepts/Acknowledged Delivery.md` already has a \"Trial evidence\" section citing the clipping. `moc/Delivery Operations.md` links the new source page, and the index and operation log were updated in that commit.\n- **Backlog:** `health.mjs --backlog` lists only `Restricted Relay Claim.md` as not ingested. That clipping is outside the one you named, so I left it alone.\n- **Publication:** local `main`, `origin/main` and the bare remote are all at `20dc1b1`, so the ingest is on the remote.\n- **Owner draft:** `personal.md` is still modified and uncommitted, and I didn't touch it.\n\nRe-running the lifecycle would only add a duplicate commit and log entry. If you want the restricted clipping ingested or the existing pages re-reviewed, tell me and I'll do that.",
+  "terminalReason": "completed"
+}

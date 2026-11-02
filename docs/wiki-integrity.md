@@ -26,7 +26,7 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 
 **Retired pages.** `citation-status: retired` is how a note says it is a lead and must not be cited as support. A retired page is not provenance-eligible (no `missing-evidence`), no evidence route runs through it, and `coverage.retired` counts it (the report adds `N retired.` to its second line only when N is above zero). It is a different state from `citation-status: restricted`, which re-clip quarantine writes on a page that leans on a quarantined clipping: that page is working documentation and stays under the evidence check. Marking a note retired is the owner's call; the tool changes nothing until a page carries the marker.
 
-**Stray carriage returns (unscored).** A carriage return anywhere in a content page that is not half of a CRLF (a doubled `\r\r\n`, or one left by a tool that wrote `\r \r`) is listed in `strayCarriageReturns` (page and first line) and in one report line, `Stray carriage returns: N page(s)`, printed only when N is above zero. It is not a defect and does not move the count or the status: the page stays readable, and damage to the frontmatter is the named `malformed-frontmatter` rule above. An all-CRLF page, and anything under `raw/` or `log/`, is never listed. Normalise a listed page with a checked repair (the line sequence must be unchanged), as the `wiki-repair` skill does for frontmatter.
+**Stray carriage returns (unscored).** A carriage return anywhere in a content page that is not half of a CRLF (a doubled `\r\r\n`, or one left by a tool that wrote `\r \r`) is listed in `strayCarriageReturns` (page and first line) and in one report line, `Stray carriage returns: N page(s)`, printed only when N is above zero. It is not a defect and does not move the count or the status: the page stays readable, and damage to the frontmatter is the named `malformed-frontmatter` rule above. An all-CRLF page, and anything under `raw/` or `log/`, is never listed. Normalise a listed page with a checked repair (the line sequence must be unchanged), as `wiki-maintainer` repair mode does for frontmatter.
 
 **Backlog items outside the status vocabulary (unscored).** A page under `wiki/authored/` with `kind: backlog-item` whose `backlog-status` is missing or is not one of `in-progress`, `planned`, `blocked`, `shipped`, `dropped` is listed in `unrecognizedBacklogStatus` (page and status, `null` when absent) and in one report line, `Backlog items with a missing or unrecognized status: N`, printed only when N is above zero. The project's generated roadmap already lists such an item under "Unrecognized status"; this makes a whole-vault check say so too. It is not a defect and does not move the count or the status. Set the status to a value in the vocabulary (`done` is `shipped`, `proposed` is `planned`).
 
@@ -87,10 +87,10 @@ for presence only.
 
 ## Agent workflow
 
-Invoke `wiki-repair` to resolve the worklist or selected issue IDs. The skill owns
+Invoke `wiki-maintainer` in repair mode to resolve the worklist or selected issue IDs. The mode owns
 investigation, scoped edits, batch verification and the shared vault operation
-lifecycle. `wiki-health` remains read-only; `wiki-relink` curates relationships and
-task maps; `wiki-lint` reviews factual content. A named custom agent is not required.
+lifecycle. Its health mode remains read-only; relink mode curates relationships and
+task maps; lint mode reviews factual content. A named custom agent is not required.
 
 One writer owns each operation. Preserve raw evidence and intentional forward links.
 Do not clear findings by fabricating support, deleting useful citations, adding empty

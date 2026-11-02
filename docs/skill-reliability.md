@@ -1,6 +1,21 @@
 # Skill reliability
 
-Version 0.36.0 makes wiki-master workflows resilient when the Obsidian CLI is unavailable, reduces the always-loaded instructions, and adds behavioral checks. Update installed plugin copies to activate the revised skills. Existing vaults need no content migration; factual-review gaps still require checking claims against evidence.
+The source now exposes five roles with task-specific references. See the
+[migration mapping](skill-migration.md) and [current catalog](../eval/skill-catalog.md).
+Ordinary search loads the user entry point and short search reference, plus
+applicable vault instructions. Evidence and mutation policies load when needed.
+All six capture routes remain researcher modes; ingestion and capture retain
+separate authorization. Helper interfaces and vault formats are unchanged.
+
+Consolidation evidence is retained under `eval/skill-consolidation/`. Package
+reviews and structural tests establish only their stated scope; candidate-loaded
+behavior and publication must be judged from their separate execution artifacts.
+This source change is not a release or global installation instruction.
+
+Earlier version-specific measurements below are historical evidence. They do not
+describe the current skill count, entry-point names or reference-loading path.
+Frozen transcripts under other `eval/` directories, `docs/superpowers/` plans and
+specifications, and release history are retained unchanged.
 
 ## Runtime and completion
 
@@ -33,7 +48,10 @@ actions proposed. This is a zero measured difference, not evidence of superiorit
 The independently labeled simulations retain all transcripts and limits; existing
 real-Git fixtures check helper behavior separately.
 
-The maintainer core is 76 lines, down from 444. Detailed access, operations, evidence, authoring, maintenance and workflow policies live in focused references linked directly from applicable entry points. All 19 descriptions now name natural user triggers and adjacent workflow boundaries. Existing provenance and purge safeguards remain in force.
+Historically, version 0.36.0 reduced the maintainer core from 444 to 76 lines and
+gave the then-19 descriptions natural triggers. The five-role layout replaces
+that universal core with shared policy references and a maintenance router.
+Existing provenance and purge safeguards remain in force.
 
 ## Behavioral suite
 
@@ -56,7 +74,7 @@ The grader measures required action coverage and forbidden actions, reports miss
 
 The original Yoda audit responses are preserved in `eval/skill-behavior/baseline/`. They used four earlier prompts, so they are qualitative provenance and are not numerically compared with the new eight-scenario suite.
 
-## Skill audit on 2026-09-11
+## Historical skill audit on 2026-09-11
 
 A structural audit of the library plus three independently graded paired runs. Inspection
 results: all skill `name` fields match their directories, every description is far under
@@ -89,7 +107,7 @@ nothing here establishes that a real request would load the right skill. Descrip
 quality, trigger competition between skills, and the unconditional reference loading in each
 spoke's preamble remain unmeasured by this method.
 
-## Conditional reference loading on 2026-09-11
+## Historical conditional reference loading on 2026-09-11
 
 Twelve spoke skills opened by instructing an unconditional read of three to five shared
 references, overriding the core's own rule to load only what the operation needs. Each of
@@ -117,7 +135,7 @@ core itself does. And `references/workflows.md` is reachable only from the core'
 table under the trigger "when needed"; no spoke links it and it went unread across all
 thirteen scenarios.
 
-## Verification on 2026-09-08
+## Historical verification on 2026-09-08
 
 The focused suite passes all 31 tests. The complete Windows run reports 1,025 passed, two failed and one skipped. Both failures are the previously reproduced triage-auth server startup problem (`server never wrote server-info`); they are outside this change. This is not a claim that the full suite is green.
 

@@ -1,0 +1,77 @@
+{
+  "name": "candidate-flow",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      ".wiki-master/search-notice.json",
+      "index.md",
+      "log/2026-11-02-132539-discover-harbor-retry-policy-and-duplicate-handling.md",
+      "log/2026-11-02-132600-ingest-harbor-retry-protocol.md",
+      "moc/Delivery.md",
+      "raw/clippings/Harbor Retry Protocol.md",
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-researcher",
+      "wiki-master:wiki-user"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-researcher"
+      }
+    ],
+    "taskCalls": [],
+    "webSearches": [],
+    "searchHelperCalls": [
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; K=$(cat /tmp/tok2)\nnode $P/wiki-sync.mjs --op $K --paths-file /tmp/ledger2.json --title \"Harbor Retry Protocol\"; git status --short; git fetch -q origin; git log --oneline -4; git rev-parse HEAD origin/main\nnode $P/search.mjs \"retries attempts duplicate identifier digest\" 2>&1 | head -15"
+    ],
+    "shellReferenceLoadCommands": [
+      "cd \"<CANDIDATE>/skills/wiki-researcher/references\" && cat discover.md ../../wiki-maintainer/references/access.md",
+      "cd \"<CANDIDATE>/skills/wiki-researcher/references\" && cat ../../wiki-maintainer/references/evidence.md ../../wiki-maintainer/references/efficacy.md",
+      "cd \"<CANDIDATE>/skills/wiki-researcher/references\"; echo \"V=$WIKI_MASTER_VAULT\"; cat capture.md ingest.md ../../wiki-maintainer/references/operations.md; pwd"
+    ],
+    "literalSharedTmpCommands": [
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; T=$(node $P/op-begin.mjs --op discover); echo \"token=$T\"; echo $T > /tmp/tok\nT=\"Harbor retry policy and duplicate handling\"\nnode $P/clip.mjs http://127.0.0.1:57281/protocol --quality=high --topic=\"$T\" --since $(cat /tmp/tok)\nnode $P/clip.mjs http://127.0.0.1:57281/promotion --decline=\"Promotional, unsupported claims; no retry count or duplicate rule\" --topic=\"$T\" --since $(cat /tmp/tok)\nnode $P/clip.mjs http://127.0.0.1:57281/thin --decline=\"Stub page; states full protocol text unavailable\" --topic=\"$T\" --since $(cat /tmp/tok)\ngit status --short",
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; K=$(cat /tmp/tok)\nprintf 'Discovery for Harbor retry policy. Inspected 4 catalog pages; clipped 1 (Harbor Retry Protocol), declined 2 (promotion, thin), 1 already clipped (Acknowledgement Basics).\\n' | node $P/log-entry.mjs --op discover --title \"Harbor retry policy and duplicate handling\" --since $K\nnode $P/op-ledger.mjs show --since $K --out /tmp/ledger1.json; cat /tmp/ledger1.json\nnode $P/op-commit.mjs --op discover --title \"Harbor retry policy and duplicate handling -> 1 clipped\" --since $K --paths-file /tmp/ledger1.json\nnode $P/wiki-sync.mjs; cat \"raw/clippings/Harbor Retry Protocol.md\"",
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; node $P/health.mjs --backlog | head -20; node $P/op-begin.mjs --op ingest > /tmp/tok2; cat /tmp/tok2; cat moc/Delivery.md; ls _templates",
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; K=$(cat /tmp/tok2)\ncat > \"wiki/sources/Harbor Retry Protocol.md\" <<'EOF'\n---\ntype: source\ncreated: 2026-11-02\nupdated: 2026-11-02\nreviewed: 2026-11-02\nstatus: maintained\nsources: [\"[[raw/clippings/Harbor Retry Protocol.md]]\"]\nsource-hashes: [254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c]\nai-generated: true\n---\n# Harbor Retry Protocol\nSynthetic fixture specification published by the Evaluation Standards Working Group (quality: high, primary within the corpus). It describes a test sender and receiver, not a production network. [[raw/clippings/Harbor Retry Protocol.md]]\n\n## Specification claims (fixture rules)\n- A receiver accepts a packet only when the payload digest matches the advertised checksum, and the sender keeps the same message identifier across retries.\n- The trial rule permits three retries after the first transmission, four attempts in total, within an overall twelve-second deadline.\n- A packet repeating an accepted identifier with the same digest is delivered to the application only once; the receiver resends its cached acknowledgement.\n- A repeated identifier with a different digest is rejected as a conflict.\n- Four permitted attempts are not four permitted application deliveries.\n\n## Limits\nThe source states these values describe the fixture protocol and do not establish any empirical reliability rate. It supplies no throughput measurement and makes no claim about public-network packet loss. No empirical performance claim is drawn from it here.\nEOF\npython - <<'EOF'\np=\"wiki/concepts/Message Delivery.md\"\ns=open(p,encoding=\"utf-8\").read()\ns=s.replace('sources: [\"[[wiki/sources/Acknowledgement Basics.md]]\"]','sources: [\"[[wiki/sources/Acknowledgement Basics.md]]\", \"[[wiki/sources/Harbor Retry Protocol.md]]\"]')\ns=s.replace(\"updated: 2026-10-15\",\"updated: 2026-11-02\").replace(\"reviewed: 2026-10-15\",\"reviewed: 2026-11-02\")\ns=s.replace(\"supplies no retry budget. [[wiki/sources/Acknowledgement Basics.md]]\",\"supplies no retry budget. [[wiki/sources/Acknowledgement Basics.md]]\\n\\n## Harbor retry budget and duplicate handling (fixture specification)\\nThe Harbor Retry Protocol fixture permits three retries after the first transmission, four attempts in total, with a twelve-second trial deadline. [[wiki/sources/Harbor Retry Protocol.md]]\\n\\nAn accepted identifier arriving again with the same digest is delivered to the application only once and the cached acknowledgement is sent again; the same identifier with a different digest is rejected as a conflict. Four attempts therefore do not mean four application deliveries. [[wiki/sources/Harbor Retry Protocol.md]]\\n\\nThese are specification values for a synthetic test protocol, not empirical reliability or performance findings; the source states it makes no throughput or packet-loss claim. [[wiki/sources/Harbor Retry Protocol.md]]\")\nopen(p,\"w\",encoding=\"utf-8\",newline=\"\\n\").write(s)\nEOF\ncat >> moc/Delivery.md <<'EOF'\n[[wiki/sources/Harbor Retry Protocol.md]] — fixture retry budget (3 retries / 4 attempts) and duplicate handling.\nEOF\nnode $P/op-ledger.mjs add --since $K \"wiki/sources/Harbor Retry Protocol.md\" \"wiki/concepts/Message Delivery.md\" moc/Delivery.md\nnode $P/index-gen.mjs --since $K\nprintf 'Ingested Harbor Retry Protocol (hash 254b2aa6). New source page; extended existing Message Delivery concept (no new concept); updated Delivery MOC.\\n' | node $P/log-entry.mjs --op ingest --title \"Harbor Retry Protocol\" --since $K\nnode $P/health.mjs --backlog | head -6\nnode $P/op-ledger.mjs show --since $K --out /tmp/ledger2.json; cat /tmp/ledger2.json",
+      "cd <SCRATCH>/candidate-flow; export WIKI_MASTER_VAULT=\"$PWD\"; P=\"<CANDIDATE>/scripts\"; K=$(cat /tmp/tok2)\nnode $P/wiki-sync.mjs --op $K --paths-file /tmp/ledger2.json --title \"Harbor Retry Protocol\"; git status --short; git fetch -q origin; git log --oneline -4; git rev-parse HEAD origin/main\nnode $P/search.mjs \"retries attempts duplicate identifier digest\" 2>&1 | head -15"
+    ]
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

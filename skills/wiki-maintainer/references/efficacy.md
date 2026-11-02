@@ -31,4 +31,4 @@ Discovery starts with an unanswered question and bounded search of the existing 
 
 `reviewed` means factual verification; `updated` means edited; search index freshness means the indexed file version matches the file. None substitutes for the others. Missing review dates remain unverified. Cosine drift is a topical diagnostic, not a truth or contradiction detector. A zero-evaluated run cannot justify saying the wiki has no drift.
 
-Read `docs/wiki-efficacy.md` in the plugin root for command contracts and evaluation examples.
+Read [wiki efficacy](../../../docs/wiki-efficacy.md) for command contracts and evaluation examples.

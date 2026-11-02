@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-xlsx.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Chosen skill:** `wiki-master:wiki-researcher`, invoked through the Skill tool.\n\n**Role and mode:** Researcher, in the \"capture a named format or service\" mode, using the spreadsheet route. The request names one file (`report.xlsx`) and asks for it as evidence. That rules out topic discovery, ingestion and backlog processing.\n\n**Loaded references:** Only `skills/wiki-researcher/references/clip-xlsx.md`. It points to the access and operations references, but those are for execution, so I didn't open them. I also didn't open the evidence reference, which is only needed before quoting figures.\n\n**What the workflow would do (not executed):**\n- Check that `soffice --version` and `pandoc -v` both work. If LibreOffice is missing, stop and point the user to the install page. Never retype cells by hand.\n- Open an operation, then run `clip-xlsx.mjs` on the file. Use `--source` only if there's a real canonical URL, and `--topic` only if this belongs to a research run.\n- Check that `raw/clippings/<slug>.md` has real tables with labels still attached to their values.\n- Log, commit, push and verify the remote.\n\n**Boundaries and caveats:**\n- **Capture only:** The result is a raw clipping. It creates no `wiki/sources/` or concept pages, and ingestion would need separate authorization.\n- **Not PDF:** The workbook must never be converted to PDF and run through `clip-pdf`, because that can pair the wrong number with the wrong label.\n- **Raw clippings are immutable:** Only the clipper writes to `raw/`, and nobody edits clipping bodies.\n- **Short workbooks:** A clip under 100 words is declined as `thin`, and this clipper has no `--allow-short` override.\n- **Lossy conversion:** Formulas, merged cells, charts and multi-row headers can be lost, so figures need checking against the workbook.\n- **Publication approval:** The commit, push and remote verification happen only if publication isn't held. The user would need to confirm that.\n- **Missing details:** I need the actual path of `report.xlsx` and whether it belongs to a research topic. The probe says it was \"provided\", but no path was given.\n\nI ran no commands, made no captures and didn't touch any vault.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 7525,
+    "cache_read_input_tokens": 25185,
+    "output_tokens": 1029,
+    "output_tokens_details": {
+      "thinking_tokens": 59
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7525,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 817,
+        "cache_read_input_tokens": 10430,
+        "cache_creation_input_tokens": 2565,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2565
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

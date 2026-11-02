@@ -1,0 +1,72 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\discover.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\evidence.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\efficacy.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only; nothing was executed)**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`. The request asks to discover external sources for the wiki, and that is this skill's job.\n- **Role:** researcher.\n- **Mode:** discover sources on a topic. The topic is delivery reliability. The request is candidates only, so it is read-only.\n- **References loaded:**\n  - `references/discover.md`\n  - `../wiki-maintainer/references/access.md`\n  - `../wiki-maintainer/references/evidence.md`\n  - `../wiki-maintainer/references/efficacy.md`\n  - I did not load `operations.md`, `capture.md` or any clip-format or ingest reference. They apply only to an authorized write or capture.\n\n**Scope and approval boundaries**\n- **No writes.**\n  - No operation is opened, so no `op-begin`.\n  - Nothing is declined or clipped, and no decline log entries are written.\n  - There is no logging, commit or index refresh.\n  - Capture and ingestion are separate modes and need a further explicit request.\n- **If this ran for real:**\n  - Phase 0 would check what the wiki already has: known URLs, a coverage summary from bounded searches and the relevant MOC, and a stop if the known-URL set is empty while clippings exist.\n  - Phase 1 would dispatch five read-only finders: Academic, Technical, Applied, News/Trends and Contrarian. If delegation is unavailable, the lenses run sequentially and I'd say so.\n  - Phase 2 would have the orchestrator or a separate reviewer dedupe, score and select the pooled candidates. A finder never grades its own finds.\n- **Report format:** a ranked candidate report. Each candidate has a title, URL, quality tier, key findings, `adds_evidence` and `changes_page`. Reddit and Medium items go under their labeled sections.\n- **Clarification worth raising:** \"delivery reliability\" could mean software delivery (DORA metrics, CI/CD), logistics or messaging delivery. I'd confirm which one, and which unanswered question the wiki needs settled. I'd also need the vault location (`WIKI_MASTER_VAULT`) for the dedup step.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 12553,
+    "cache_read_input_tokens": 29091,
+    "output_tokens": 1206,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 12553,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 749,
+        "cache_read_input_tokens": 10505,
+        "cache_creation_input_tokens": 11341,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 11341
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

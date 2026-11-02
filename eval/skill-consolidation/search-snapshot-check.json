@@ -1,0 +1,26 @@
+[
+  {
+    "case": "baseline-search",
+    "result": "before and after objects independently deep-equal",
+    "fileCount": 10,
+    "headUnchanged": true
+  },
+  {
+    "case": "baseline-search-healthy",
+    "result": "before and after objects independently deep-equal",
+    "fileCount": 13,
+    "headUnchanged": true
+  },
+  {
+    "case": "candidate-search",
+    "result": "before and after objects independently deep-equal",
+    "fileCount": 10,
+    "headUnchanged": true
+  },
+  {
+    "case": "candidate-search-healthy",
+    "result": "before and after objects independently deep-equal",
+    "fileCount": 13,
+    "headUnchanged": true
+  }
+]

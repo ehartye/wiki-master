@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.88.0 — 2026-11-02
+
+- Replace 21 visible skills with five roles: wiki-user, wiki-researcher, wiki-maintainer, wiki-init and wiki-purge, without forwarding aliases.
+- Preserve search, capture, ingestion, maintenance and approval boundaries through conditional workflow references; publish workflow migration and independently reviewed execution evidence.
+- Breaking skill-name change: coordinate with hartye-skills 0.9.2 and agent-game-studio 0.3.2. Runtime helper interfaces remain unchanged.
+
 ## 0.87.0 — 2026-10-29
 
 - `clip.mjs <url> --recapture` writes a dated second capture of a page already in the vault. Before, a second clip of a URL printed `duplicate (already clipped)` and wrote nothing, and the only way to a new version, `apply-reclips`, rewrote the old file in place, so the two dates could not be compared. The page is fetched, extracted and checked like any clip (thin, login-form, decline). If its text hashes the same as any capture already holding the URL, nothing is written: `unchanged (same text as raw/clippings/<name>.md); nothing written`, exit 0. Otherwise a new file is written beside the old one. Its name is the oldest capture's own name followed by ` (recaptured YYYY-MM-DD)` (the same as a first clip's name, unless the first clip took a later candidate name or the page title has changed since), its `title` gets the same suffix, `created` is today, `source` is the same URL, and `recapture-of` is the vault path of the newest existing capture, quoted, so a chain reads in order. The older clipping is never edited. A second recapture on the same day with different text is a `clash`. `--slug=<name>` with `--recapture` is used exactly, with no suffix. A URL not yet clipped is clipped as usual after the line `recapture: not clipped yet, clipping it normally: <url>`. The flag is on `clip.mjs` only.

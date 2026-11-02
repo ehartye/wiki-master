@@ -1,9 +1,27 @@
 # Evidence and editorial policy
 
+## Page schema and dates
+
+Wiki frontmatter declares `type` (source/entity/concept/synthesis/authored),
+`created`, `updated`, `reviewed`, `status` (stub/draft/maintained), `sources` and
+honest `ai-generated` authorship. Follow the vault's schema; missing `reviewed`
+means unverified, never substitute `updated`. Keep three dates distinct:
+`updated` means edited, `reviewed` means claims checked against evidence or current
+project behavior, and index freshness means indexed content matches the files.
+Mechanical edits preserve `reviewed`.
+
+Use exact citation paths and `[[wikilinks]]`; `![[embeds]]` are transclusion, not
+relationship edges. Write unwrapped logical lines and never split a wikilink over
+a line break. Use [identity and relationships](efficacy.md) for concept reuse and
+explained links. Original documentation follows
+[authoring](../../wiki-user/references/authoring.md).
+
 ## Non-negotiable guardrails
 1. **`raw/` bodies are immutable.** Read raw sources; never edit their content —
    it is the evidence every wiki page cites. Frontmatter is pipeline state and
    may be updated by wiki-master tooling only.
+   Only clipping tools create raw evidence; never move it to record ingestion
+   state. Never read, cite or count `.recycle/`; only purge owns it.
 2. **Provenance on every claim.** Each wiki page you write carries `sources: ["[[...]]"]`
    linking back to the `raw/` notes it derives from, plus `ai-generated: true`.
    **Exception: `wiki/authored/`** — original content with no `raw/` counterpart

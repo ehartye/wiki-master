@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\ingest.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\maintenance.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only, nothing executed)**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`. The request is to process new or un-ingested clippings, which the skill description assigns to the researcher role. Counting the backlog alone would have been the maintainer's job.\n- **Mode:** process new or un-ingested clippings without a filename. The skill's mode list contains this exact case.\n- **References loaded:**\n  - `wiki-researcher/references/ingest.md`\n  - `wiki-maintainer/references/maintenance.md`, which holds the hash-join backlog contract.\n- **Not loaded, because this run doesn't need them yet:** access, evidence, efficacy and operations.\n  - `ingest.md` says to read access before touching the vault, so it would be read before the backlog check.\n  - Evidence would be read before assessing any clipping.\n  - Operations would be read before the first authorized write.\n\n**Boundaries and plan**\n1. **Verify first.** The earlier \"backlog empty\" result is not trusted. The check would be `node \"<plugin-root>/scripts/health.mjs\" --backlog`. Membership is decided by the source-hash join, not by filenames or citations. I did not run it, because this probe forbids commands.\n2. **Exclusions.** Clippings marked `citation-status: quarantined`, `restricted` or `retired` are left out of ingestion and reported separately. A clipping with no `source-hash` is a repair issue, and I would not invent a hash for it.\n3. **Empty result.** If nothing eligible is pending, I report that and stop. I would not open an operation, write a log, commit or refresh indexes.\n4. **Non-empty result.** If eligible clippings remain, writing needs this sequence:\n   - Read the operations reference.\n   - Open an operation with `op-begin`.\n   - Write the source summaries.\n   - Regenerate the index and write one log entry.\n   - Re-check the backlog.\n   - Commit, sync, and verify the remote.\n   - Your request to process the clippings covers authorization for that source set. Publication is the one open point: I'd ask before pushing if you want it held.\n5. **Limits.** Nothing under `raw/` is ever edited. No clarification is needed, since the request is unambiguous.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 14612,
+    "cache_read_input_tokens": 25201,
+    "output_tokens": 1044,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 14612,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 753,
+        "cache_read_input_tokens": 10438,
+        "cache_creation_input_tokens": 9644,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 9644
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

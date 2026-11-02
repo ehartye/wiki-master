@@ -1,0 +1,98 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-ingest"
+    },
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\evidence.md"
+  ],
+  "tools": [
+    "Skill",
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Write",
+    "Edit",
+    "Edit",
+    "Bash"
+  ],
+  "usage": {
+    "input_tokens": 18,
+    "cache_creation_input_tokens": 36074,
+    "cache_read_input_tokens": 316377,
+    "output_tokens": 3344,
+    "output_tokens_details": {
+      "thinking_tokens": 58
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 36074,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 481,
+        "cache_read_input_tokens": 51810,
+        "cache_creation_input_tokens": 824,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 824
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "I ingested one of the two un-ingested clippings. The commit (`4d13572`) is pushed and `main` is in sync with `origin/main`.\n\n- **Ingested:** `Relay Trial - Phase-7`.\n  - **New source page:** `wiki/sources/Relay Trial - Phase-7.md`. It records the single controlled run: 12 messages, 11 acknowledgements within 2 seconds, 1 timeout at 5 seconds, and retries disabled. It also records the clipping's own limits: no exactly-once, durability or universal-guarantee claim, and no comparison with another protocol.\n  - **Existing concept extended:** `Acknowledged Delivery` now has a worked example and an added source, instead of a new concept page.\n- **Not ingested:** `Restricted Relay Claim`. It is marked `citation-status: quarantined`, so I didn't summarize it or cite it, and its \"universal zero-loss guarantee\" claim appears nowhere in the wiki. It will still show in the ingest backlog. Clearing the quarantine is your call.\n- **Bookkeeping:** I regenerated `index.md` and wrote the operation log. The commit contains four files: the new source page, the concept, `index.md` and the log.\n- **Your draft:** `personal.md` is untouched and still uncommitted.\n- **Semantic index:** none exists yet. Run `node scripts/index-embed.mjs` if you want semantic search.",
+  "terminalReason": "completed"
+}

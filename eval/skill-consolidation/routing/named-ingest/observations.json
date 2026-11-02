@@ -1,0 +1,69 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\ingest.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\evidence.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill chosen:** `wiki-master:wiki-researcher`. I invoked it through the Skill tool.\n- **Role:** researcher.\n- **Mode:** ingest named existing clippings. The request names one file, `raw/clippings/Beacon Study.md`, and says not to discover new sources. That rules out discovery, capture and global-backlog processing.\n- **References loaded:**\n  - `wiki-researcher/references/ingest.md`\n  - `wiki-maintainer/references/access.md`\n  - `wiki-maintainer/references/evidence.md`\n- **Not loaded yet:**\n  - `operations.md` is needed before the first authorized write.\n  - `efficacy.md` is needed only if a concept, alias or relationship is created or merged.\n  - `maintenance.md` is needed only for backlog or repair cases.\n\n**Scope and approval boundaries**\n\n- This was a routing probe, so I did not run the workflow, touch any vault, or run any commands.\n- Scope would be exactly that one clipping. I would not expand it to the backlog or to new sources.\n- Before opening an operation, I would resolve and read the exact path and check its metadata and hash. The steps are:\n  - Check the hash-join report and existing source summaries. If a summary already records the clipping's `source-hash`, stop and report it as already ingested.\n  - Exclude it if its `citation-status` is `quarantined`, `restricted` or `retired`, and report that separately.\n  - Treat a missing hash as a repair issue. Do not invent one.\n  - If nothing eligible remains, stop. Do not create pages, open an operation, log, commit or refresh indexes.\n- If it is eligible, the request itself is the authorization to ingest this source set. The write path would then be:\n  - Open the operation, then write `wiki/sources/<slug>.md` with quoted `sources` wikilinks that use the exact clipping filename, plus `source-hashes`, using exact-path edits.\n  - Never edit anything under `raw/`.\n  - Apply the Reddit and Medium labeling rules if either platform applies.\n  - Regenerate the index, write the log entry, validate, and commit.\n  - Sync and verify the remote unless publication is held.\n\n**Clarifications:** none required. The only unresolved items are the vault path (`WIKI_MASTER_VAULT`) and whether the clipping's metadata makes it eligible. Both are checked at execution time.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 15592,
+    "cache_read_input_tokens": 25209,
+    "output_tokens": 1178,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 15592,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 813,
+        "cache_read_input_tokens": 10442,
+        "cache_creation_input_tokens": 10620,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 10620
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

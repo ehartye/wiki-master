@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-gh.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only, nothing executed)**\n\n- **Skill chosen:** `wiki-master:wiki-researcher`. The request names a GitHub repository to capture as evidence, which this skill's description covers.\n- **Mode:** capture a named format or service, using the GitHub repository route (`clip-gh`). It is a capture-only request. It is not topic discovery, ingestion, or backlog processing.\n- **References loaded:**\n  - `skills/wiki-researcher/references/clip-gh.md`\n  - `skills/wiki-maintainer/references/access.md`. The skill's mode list names it, and `clip-gh.md` requires it before the vault is touched.\n- **References not loaded:** `operations.md` and `evidence.md`. `clip-gh.md` says to read `operations.md` before the first authorized write, and `evidence.md` only before quoting or reporting fidelity limits. I didn't reach either point in this probe.\n\n**What a real run would do, which I did not do:**\n1. Resolve the plugin root and the vault (`WIKI_MASTER_VAULT`).\n2. Run `clip-gh.mjs --doctor` to check that the `gh` CLI is installed and authenticated.\n3. Open an operation.\n4. Run `clip-gh.mjs example/beacon`.\n   - It writes under `raw/clippings/gh/example/beacon/`.\n   - It uses per-file mode for a repo of 300 includable files or fewer.\n   - It uses digest mode for a larger repo.\n5. Verify the output by spot-reading `_repo-overview.md` and a few clippings.\n6. Log the operation, commit, push, and verify the remote.\n\n**Scope and approval boundaries:**\n- The run is capture-only. It creates evidence under `raw/` and no `wiki/sources` or concept pages. The request doesn't authorize ingestion, so that needs separate authorization.\n- Only `clip-gh.mjs` may write to `raw/`. Clipping bodies are never hand-edited.\n- No `--topic` is needed, because there is no research run behind this request.\n- Before any real run, someone should confirm that `example/beacon` and its branch are the intended repo. The default branch is used unless `--ref` is given.\n- The operation completion contract applies, including the push. Publication goes ahead unless the user holds it.\n- Missing `gh` or missing authentication is reported as a failure. Files are never fabricated.\n\nNo clarification is needed. If the target vault isn't the default one, the user should name it.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 13664,
+    "cache_read_input_tokens": 25187,
+    "output_tokens": 1125,
+    "output_tokens_details": {
+      "thinking_tokens": 44
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 13664,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 834,
+        "cache_read_input_tokens": 10431,
+        "cache_creation_input_tokens": 8703,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8703
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\triage.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Chosen skill:** `wiki-master:wiki-maintainer`. I invoked it through the Skill tool.\n\n**Mode:** clipping failures, fidelity flags, declines and human decisions, which is the **triage** mode. The request asks for the queue of items that need a person's decision. That is neither a health count nor a new-clipping ingest, so it doesn't belong to wiki-researcher.\n\n**References loaded:**\n- `references/access.md`\n- `references/triage.md`\n\nI did not read `maintenance.md`. `triage.md` lists it as additional reading for a real run, but it wasn't needed to identify the mode. I also did not read `operations.md`, `reclipping.md`, the researcher ingest reference, or any other reference.\n\n**What a real run would do:**\n- Run `node \"<plugin-root>/scripts/triage.mjs\"`, which starts a local triage UI.\n- Give you the `link` it prints (not `url`), because the link carries the session token. I would lead with a topic breakdown if there is more than one topic, and then end my turn.\n- Read your choices back from the append-only `.wiki-master/triage.jsonl` on the next turn.\n\n**Scope and approval boundaries:**\n- Showing the queue creates only local session state in `.wiki-master/triage-ui/`. It needs no operation, log entry, commit or index refresh.\n- Applying dispositions is a separate step. Re-clips, quarantine, ingest, declines and retries change content or pipeline state, so they need an open or reused operation and publication through the completion contract.\n- Before applying re-clips or quarantine, I would read `docs/reclipping.md`.\n- `--remote` is not needed unless you are triaging from another machine. Over a plain LAN the token travels in cleartext.\n- I never rewrite `triage.jsonl`, never read or count `.recycle/`, and report truncated backlog counts as truncated.\n\n**Clarification:** none needed. I didn't run the script and didn't touch any vault, as the probe requires.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 10945,
+    "cache_read_input_tokens": 25009,
+    "output_tokens": 998,
+    "output_tokens_details": {
+      "thinking_tokens": 68
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 10945,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 732,
+        "cache_read_input_tokens": 10254,
+        "cache_creation_input_tokens": 6161,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 6161
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

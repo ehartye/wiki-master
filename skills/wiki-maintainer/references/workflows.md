@@ -1,7 +1,10 @@
 # Domain workflow reference
 
+Read this overview only when comparing workflows. Each mode links its complete
+procedure; it is not a prerequisite for a search.
+
 ## Workflows
-- **Ingest** (`/wiki-ingest`): read the source → write/update `wiki/sources/<slug>.md`
+- **Ingest** ([researcher ingestion](../../wiki-researcher/references/ingest.md)): read the source → write/update `wiki/sources/<slug>.md`
   (summary + `sources: ["[[raw link]]"]`) → update the entities/concepts it touches
   (create stubs where missing) → add `[[links]]` both directions → regenerate the
   catalog (`node "<absolute-plugin-root>/scripts/index-gen.mjs"`) → write the log entry via `node "<absolute-plugin-root>/scripts/log-entry.mjs"`.
@@ -13,26 +16,26 @@
   **When a source discusses a concept that already has a page, revise that page
   rather than adding a parallel one** — accumulating per-concept is what makes the
   wiki compound instead of sprawl.
-- **Search** (`/wiki-search`): pure retrieval — find matching `wiki/` pages
+- **Search** ([user search](../../wiki-user/references/search.md)): pure retrieval — find matching `wiki/` pages
   (and, with `--include-raw`, `raw/` clippings too) and return citation-ready
   `path:line` results. No synthesis, no writes; use this whenever you just
   need to locate something, not answer a question.
-- **Query** (`/wiki-query`): calls `/wiki-search` → synthesize with citations →
+- **Query** ([user query](../../wiki-user/references/query.md)): calls user search → synthesize with citations →
   file back only when authorized, or offer a substantive new answer for filing.
-- **Lint** (`/wiki-lint`): run `/wiki-health` first (cheap); then read the flagged
+- **Lint** ([maintainer lint](lint.md)): run [health](health.md) first (cheap); then read the flagged
   pages and look for contradictions, stale claims, missing concept pages, and
   missing cross-references; run drift. Report; apply only safe fixes or propose the rest.
-- **Relink** (`/wiki-relink`): add inferred `[[links]]`; materialize entities
+- **Relink** ([maintainer relink](relink.md)): add inferred `[[links]]`; materialize entities
   referenced ≥3× but unwritten after checking canonical identity; build/refresh MOCs. Prefer real wikilinks so they
   become part of Obsidian's index.
-- **Authoring** (`wiki/authored/`; dedicated skill `/wiki-author`): write these
+- **Authoring** (`wiki/authored/`; [user authoring](../../wiki-user/references/authoring.md)): write these
   directly — there is no source to ingest from. Place the file per the
-  canonical table in authoring.md; use `_templates/authored-note.md`
+  canonical table in [authoring](../../wiki-user/references/authoring.md); use `_templates/authored-note.md`
   (`_templates/authored-decision.md` for an ADR,
   `_templates/authored-backlog-item.md` for a backlog item), set
   `type: authored` and `sources: []`, and record `ai-generated` honestly
   (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
-  matching the folder — see authoring.md for the
+  matching the folder — see that reference for the
   vocabulary. Treat it as a living page like any other: revise it in place as
   it evolves, set `updated` for edits and `reviewed` only after verifying the factual content or project behavior, and never invent a `raw/` counterpart
   to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run

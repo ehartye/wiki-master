@@ -1,0 +1,110 @@
+{
+  "name": "candidate-live",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/triage.jsonl",
+      "log/2026-11-02-133947-discover-http-conditional-requests.md",
+      "raw/clippings/RFC 9110- HTTP Semantics.md",
+      "raw/clippings/RFC 9111- HTTP Caching.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/RFC 9110- HTTP Semantics.md",
+        "sourceHash": "d81c4b9230ead5d0728b7092c2964241cc1d3f3307b8f4faf5763835148c1b55",
+        "computedBodyHash": "d81c4b9230ead5d0728b7092c2964241cc1d3f3307b8f4faf5763835148c1b55",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      },
+      {
+        "path": "raw/clippings/RFC 9111- HTTP Caching.md",
+        "sourceHash": "23b07870ed859f9ffd2c5a187da56e595455775bd1b832bdc954b0dcdf9f1bda",
+        "computedBodyHash": "23b07870ed859f9ffd2c5a187da56e595455775bd1b832bdc954b0dcdf9f1bda",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-researcher",
+      "wiki-master:wiki-user"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-researcher"
+      }
+    ],
+    "taskCalls": [
+      {
+        "description": "Academic lens finder",
+        "subagent_type": "general-purpose",
+        "prompt": "READ-ONLY research finder. Do NOT write any files, do not touch any vault. Topic: \"HTTP conditional requests\" — specifically how ETag and If-None-Match let a server answer 304 Not Modified so an unchanged representation is not transferred. Lens: ACADEMIC (primary research, textbooks, .edu). Budget: EXACTLY ONE WebSearch call (mode standard; load it via ToolSearch select:WebSearch if needed) and up to 3 WebFetch calls to inspect promising hits (a search snippet is not evidence; open the page). Already covered in the vault (skip): http://127.0.0.1:60199/known (unrelated). Skip blocked/unreliable domains. Return a ranked candidate list, each: {title, url (canonical, no fragment), quality_guess high|medium|low, key_findings, why_ingest, adds_evidence (question it settles), changes_page}. Also report the exact query string you used and which URLs you actually fetched and whether the fetch worked."
+      },
+      {
+        "description": "Technical lens finder",
+        "subagent_type": "general-purpose",
+        "prompt": "READ-ONLY research finder. Do NOT write any files, do not touch any vault. Topic: \"HTTP conditional requests\" — specifically how ETag and If-None-Match let a server answer 304 Not Modified so an unchanged representation is not transferred. Lens: TECHNICAL (official specs/standards, e.g. IETF RFC 9110 section 13 conditional requests, RFC 9111, official docs). Budget: EXACTLY ONE WebSearch call (mode standard; load it via ToolSearch select:WebSearch if needed) and up to 3 WebFetch calls to inspect promising hits (a search snippet is not evidence; open the page). Already covered in the vault (skip): http://127.0.0.1:60199/known (unrelated). Return a ranked candidate list, each: {title, url (canonical, no fragment), quality_guess high|medium|low, key_findings, why_ingest, adds_evidence, changes_page}. Also report the exact query string you used and which URLs you fetched and whether the fetch worked."
+      },
+      {
+        "description": "Applied lens finder",
+        "subagent_type": "general-purpose",
+        "prompt": "READ-ONLY research finder. Do NOT write any files, do not touch any vault. Topic: \"HTTP conditional requests\" — specifically how ETag and If-None-Match let a server answer 304 Not Modified so an unchanged representation is not transferred. Lens: APPLIED (practitioner guides, e.g. MDN, web.dev, cloud/CDN docs, tutorials). Budget: EXACTLY ONE WebSearch call (mode standard; load it via ToolSearch select:WebSearch if needed) and up to 3 WebFetch calls to inspect promising hits (a search snippet is not evidence; open the page). Already covered in the vault (skip): http://127.0.0.1:60199/known (unrelated). Skip Medium/Reddit unless clearly best. Return a ranked candidate list, each: {title, url (canonical, no fragment), quality_guess high|medium|low, key_findings, why_ingest, adds_evidence, changes_page}. Also report the exact query string you used and which URLs you fetched and whether the fetch worked."
+      },
+      {
+        "description": "News/Trends lens finder",
+        "subagent_type": "general-purpose",
+        "prompt": "READ-ONLY research finder. Do NOT write any files, do not touch any vault. Topic: \"HTTP conditional requests\" — specifically how ETag and If-None-Match let a server answer 304 Not Modified so an unchanged representation is not transferred. Lens: NEWS/TRENDS (recent developments in last ~2 years: RFC 9110/9111 updates, browser/CDN behaviour changes, reputable reporting). Budget: EXACTLY ONE WebSearch call (mode standard; load it via ToolSearch select:WebSearch if needed) and up to 3 WebFetch calls to inspect promising hits (a search snippet is not evidence; open the page). Already covered in the vault (skip): http://127.0.0.1:60199/known (unrelated). Return a ranked candidate list, each: {title, url (canonical, no fragment), quality_guess high|medium|low, key_findings, why_ingest, adds_evidence, changes_page}. Also report the exact query string you used and which URLs you fetched and whether the fetch worked."
+      },
+      {
+        "description": "Contrarian lens finder",
+        "subagent_type": "general-purpose",
+        "prompt": "READ-ONLY research finder. Do NOT write any files, do not touch any vault. Topic: \"HTTP conditional requests\" — specifically how ETag and If-None-Match let a server answer 304 Not Modified so an unchanged representation is not transferred. Lens: CONTRARIAN (critiques, failure modes: weak vs strong validators, ETag problems behind load balancers/compression, tracking via ETags, cases where it does not save work). Budget: EXACTLY ONE WebSearch call (mode standard; load it via ToolSearch select:WebSearch if needed) and up to 3 WebFetch calls to inspect promising hits (a search snippet is not evidence; open the page). Already covered in the vault (skip): http://127.0.0.1:60199/known (unrelated). Return a ranked candidate list, each: {title, url (canonical, no fragment), quality_guess high|medium|low, key_findings, why_ingest, adds_evidence, changes_page}. Also report the exact query string you used and which URLs you fetched and whether the fetch worked."
+      }
+    ],
+    "webSearches": [
+      {
+        "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified validation caching university course notes OR paper",
+        "mode": "standard"
+      },
+      {
+        "query": "RFC 9110 section 13 conditional requests ETag If-None-Match 304 Not Modified",
+        "mode": "standard"
+      },
+      {
+        "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified guide",
+        "mode": "standard"
+      },
+      {
+        "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified RFC 9110 RFC 9111 CDN behavior",
+        "mode": "standard"
+      },
+      {
+        "query": "ETag If-None-Match 304 weak vs strong validators problems load balancer compression gzip ETag tracking",
+        "mode": "standard"
+      }
+    ],
+    "searchHelperCalls": [],
+    "shellReferenceLoadCommands": [],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

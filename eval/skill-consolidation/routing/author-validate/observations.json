@@ -1,0 +1,72 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-user"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-user\\references\\authoring.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\evidence.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only, nothing executed)**\n\n- **Skill chosen:** `wiki-master:wiki-user`. It covers writing wiki project documentation and validating what the authoring task wrote. `wiki-maintainer` is for vault-wide health, and the request excludes a whole-vault audit.\n- **Role and mode:** wiki-user, in the mode \"Write original wiki documentation or validate what this authoring task wrote\". In practice that is the scoped validation step, step 5 of authoring and \"Validating what a task wrote\".\n- **References loaded (all read):**\n  1. `wiki-user/references/authoring.md`\n  2. `wiki-maintainer/references/access.md`\n  3. `wiki-maintainer/references/evidence.md`\n  4. `wiki-maintainer/references/operations.md`\n- **Scope boundary:** Validation covers only the pages this task wrote. That means building a ledger of those vault-relative paths and running `validate-authored.mjs --paths-file <ledger>`. It would not run `health.mjs` or any whole-vault scan.\n- **Approval boundary:** Validation itself is read-only. If the validation finds defects and fixes follow, those are authorized authoring writes. They would sit inside an operation opened with `op-begin` and `--op relink`, then be committed and synced with `wiki-sync.mjs` unless you hold publication.\n- **Not done in this probe:** I ran no commands and did not look at or change any vault. I also did no web research, capture, ingestion, app actions, setup or purge.\n- **Clarification still needed for a real run:**\n  - Which vault to use (`WIKI_MASTER_VAULT`).\n  - Which pages the authoring task wrote, as the ledger or a saved operation token. If there is no ledger or token, I'd need the page paths.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 29886,
+    "cache_read_input_tokens": 24879,
+    "output_tokens": 1168,
+    "output_tokens_details": {
+      "thinking_tokens": 114
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 29886,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 606,
+        "cache_read_input_tokens": 10120,
+        "cache_creation_input_tokens": 25236,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 25236
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

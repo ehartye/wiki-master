@@ -1,0 +1,156 @@
+{
+  "execution": "candidate plugin-loaded actor; explicit search request",
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "calls": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01LavrMZFJYRzngyqoKw8rzr",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-user"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01H7gWFLsigbdi4vamYn4vFs",
+      "name": "Read",
+      "input": {
+        "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-user\\references\\search.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01UtnkdJCDkVkSjLs1aGSpz7",
+      "name": "PowerShell",
+      "input": {
+        "command": "$env:WIKI_MASTER_VAULT; $env:WIKI_MASTER_REQUIRE_VAULT; $p='<HOME>\\repos\\wiki-master-worktrees\\five-skills\\scripts\\search.mjs'; Test-Path $p; Get-ChildItem -Force | Select Name"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01SzRSh7TigKhg2WxJKzsiH9",
+      "name": "Read",
+      "input": {
+        "file_path": "<HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\candidate-search-vault\\AGENTS.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01ErvrNjZbQQWSL6GEsEakvW",
+      "name": "PowerShell",
+      "input": {
+        "command": "$s='<HOME>\\repos\\wiki-master-worktrees\\five-skills\\scripts\\search.mjs'\nforeach($q in @('\"The copper heron carries seven lanterns\"','Lantern Relay','Harbor')){ \"=== $q\"; node $s $q --json --limit=10 2>&1 }\n\"=== raw\"; node $s \"quartz otter 817\" --json --limit=10 --include-raw 2>&1"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01CzhQbJjVfFA79fpW9qvvgK",
+      "name": "PowerShell",
+      "input": {
+        "command": "cd <HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\candidate-search-vault\nforeach($f in 'wiki/concepts/Beacon Protocol.md','wiki/concepts/Beacon Protocol Draft.md','wiki/concepts/north/Harbor.md','wiki/concepts/south/Harbor.md','raw/clippings/Beacon Study.md'){ \"=== $f\"; $i=1; Get-Content -LiteralPath $f | % { \"{0}: {1}\" -f $i++, $_ } }"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "referenceSizes": [
+    {
+      "path": "skills/wiki-user/SKILL.md",
+      "bytes": 2087,
+      "characters": 2087,
+      "lines": 35
+    },
+    {
+      "path": "skills/wiki-user/references/search.md",
+      "bytes": 3145,
+      "characters": 3145,
+      "lines": 50
+    }
+  ],
+  "referenceBytesTotal": 5232,
+  "fixtureMatchesBaseline": true,
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 12804,
+    "cache_read_input_tokens": 143066,
+    "output_tokens": 2072,
+    "output_tokens_details": {
+      "thinking_tokens": 160
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 12804,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1098,
+        "cache_read_input_tokens": 28448,
+        "cache_creation_input_tokens": 916,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 916
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 14,
+      "outputTokens": 2072,
+      "cacheReadInputTokens": 143066,
+      "cacheCreationInputTokens": 12804,
+      "webSearchRequests": 0,
+      "costUSD": 0.0862706,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 160,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 12804,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permissionDenials": [],
+  "result": "I ran all four lookups in the configured vault (`<HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\candidate-search-vault`) and opened each matching file to check the line numbers. Nothing was changed, and I did not touch `.recycle/`.\n\n## Results\n\n**1. Exact phrase \"The copper heron carries seven lanterns\"**\n- `wiki/concepts/Beacon Protocol.md:10` contains the exact sentence. It is a maintained page, reviewed 2026-10-01, and cites `raw/clippings/Beacon Study.md`.\n- `wiki/concepts/Beacon Protocol Draft.md:7` also came back, but only as a weaker keyword match. It says \"A similarly named proposal uses three lanterns.\" That is not the phrase, and the page is a draft, so it is not a match.\n\n**2. Alias \"Lantern Relay\"**\n- The page is `wiki/concepts/Beacon Protocol.md`. Line 4 of its frontmatter reads `aliases: [\"Lantern Relay\"]`, and the search returned it as an exact match at lines 10–12.\n- No other page returned for this alias.\n\n**3. \"Harbor\" is ambiguous**\nTwo maintained pages have the same title, and the search flagged them as an `ambiguous-identity` match:\n- `wiki/concepts/north/Harbor.md:8` says \"The northern harbor uses violet signal flags.\"\n- `wiki/concepts/south/Harbor.md:8` says \"The southern harbor uses amber signal flags.\"\n\nNothing in your request says which one you mean, so I did not pick. Please give me the full path or the direction (north or south).\n\n**4. Raw evidence for \"quartz otter 817\"**\n- `raw/clippings/Beacon Study.md:8` says \"Evidence marker quartz otter 817 appears only in raw evidence.\" That is the only hit (1 returned, 1 total).\n- Line 9 adds \"The measured protocol delivered seven lantern messages.\"\n- No wiki page contains the marker. The raw file is the only place it appears.\n\n## Coverage diagnostics\n- **Search mode:** lexical only. The semantic channel reported `index-unavailable`, so semantic ranking contributed nothing.\n- **Keyword channels:** `wiki` and `moc` were `ok` in every run. `raw` was `ok` in the evidence run, so the single raw hit is a real result and not a gap.\n- **Identity channel:** `incomplete`, with a `metadata-incomplete` diagnostic (title and alias lookup is not fully indexed). The alias match still resolved because the page's frontmatter lists it, but I can't call alias coverage complete.\n- **Index freshness:** every result was `unindexed`. The search checked 2 pages in the wiki run and 1 in the raw run. A missing index does not show the vault knows nothing, and the index was not refreshed.\n- **Source link:** the `Beacon Protocol` page's source link to `raw/clippings/Beacon Study.md` is reported as `citation-targets-not-resolved`. The raw file exists, but I did not verify that it supports the page's claims.\n- **Retrieval only:** I did not synthesize an answer."
+}

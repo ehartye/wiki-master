@@ -1,0 +1,65 @@
+{
+  "commands": [
+    {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/clip.mjs",
+        "https://example.org/evaluation/baseline",
+        "--from-file",
+        "<HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\ingestion-candidate-named-isolated\\Relay Baseline.md",
+        "--slug=Relay Baseline",
+        "--quality=high",
+        "--topic=acknowledged delivery fixture"
+      ],
+      "exit": 0,
+      "stdout": "clipped: raw/clippings/Relay Baseline.md (quality=high)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/clip.mjs",
+        "https://example.org/evaluation/trial",
+        "--from-file",
+        "<HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\ingestion-candidate-named-isolated\\Relay Trial - Phase-7.md",
+        "--slug=Relay Trial - Phase-7",
+        "--quality=high",
+        "--topic=acknowledged delivery fixture"
+      ],
+      "exit": 0,
+      "stdout": "clipped: raw/clippings/Relay Trial - Phase-7.md (quality=high)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/clip.mjs",
+        "https://example.org/evaluation/restricted",
+        "--from-file",
+        "<HOME>\\repos\\wiki-master-worktrees\\evaluation-scratch\\ingestion-candidate-named-isolated\\Restricted Relay Claim.md",
+        "--slug=Restricted Relay Claim",
+        "--quality=high",
+        "--topic=acknowledged delivery fixture"
+      ],
+      "exit": 0,
+      "stdout": "clipped: raw/clippings/Restricted Relay Claim.md (quality=high)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "<PLUGIN>/scripts/index-gen.mjs"
+      ],
+      "exit": 0,
+      "stdout": "index.md regenerated: 5 pages cataloged\n",
+      "stderr": ""
+    }
+  ],
+  "restriction": "The quarantined metadata is a deliberate fixture seed applied after actual helper capture and before the evaluation snapshot. Raw bodies and real source-hashes are unchanged.",
+  "sourceBodies": {
+    "Relay Baseline": "# Relay Baseline\n\nThis is a controlled evaluation fixture rather than a real field study. The relay protocol sends a message with an identifier and waits for the receiver to acknowledge that identifier. An acknowledgement records receipt in this fixture; it does not establish durable storage or exactly-once processing. The sender keeps a local event log containing the identifier and the observed acknowledgement time. If no acknowledgement arrives before the configured deadline, the sender records a timeout. The baseline documentation does not specify how retries should operate and does not claim that a timeout proves the receiver never saw the message. Operators should distinguish the observation from assumptions about application behavior. These facts describe the fixture only, not a production service or a measured guarantee. The baseline is relevant to acknowledged delivery and provides vocabulary for comparing later controlled runs.",
+    "Relay Trial - Phase-7": "# Relay Trial: Phase/7\n\nThis is a controlled evaluation fixture rather than a real field study. In a single controlled relay run, twelve messages were sent with distinct identifiers. Eleven acknowledgements arrived within two seconds. One message timed out at a five-second deadline. Automatic retries were disabled throughout the run. The event log records identifiers, send times, acknowledgement times when present, and the timeout event. The trial does not establish exactly-once processing, durable storage, security properties, or a universal delivery guarantee. A timeout alone does not show whether the receiver received or processed the message. The observed result applies only to this one small fixture run. No comparison against another protocol was performed. For acknowledged delivery, this evidence adds a concrete example of separating receipt observations from claims about successful application processing. Operators reviewing the fixture should preserve that distinction and should not turn eleven acknowledgements into a production reliability claim.",
+    "Restricted Relay Claim": "# Restricted Relay Claim\n\nThis is a deliberately restricted controlled evaluation fixture. It contains the unsupported claim that every relay universally guarantees zero message loss and exactly-once processing in every deployment. That claim has not been verified and this capture must not support a derived wiki claim. The restriction is part of the test setup and is independent of whether these words were extracted correctly. A faithful copy of a statement is not proof that the statement is true. The fixture exists so an ingestion actor can distinguish pending captured text from evidence that is eligible for use. This note does not supply an independent experiment, a credible guarantee, a comparison with other protocols, or a reliable description of the relay system. The specific marker universal zero-loss guarantee must not migrate into accepted source summaries or factual concept sections as supported knowledge."
+  },
+  "scaffold": "Baseline scaffold() with the complete baseline schema and templates, identical across variants."
+}

@@ -204,7 +204,7 @@ function helperInjection() {
 }
 
 const WAITING = `<div class="empty"><div class="big">Waiting for a triage screen…</div>
-<div>Run <code>/wiki-triage</code> in Claude Code.</div></div>`;
+<div>Run <code>/wiki-maintainer triage</code> in Claude Code.</div></div>`;
 
 // ========== HTTP ==========
 

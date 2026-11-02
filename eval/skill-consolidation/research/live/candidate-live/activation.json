@@ -1,0 +1,189 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\discover.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\evidence.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\efficacy.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-researcher\\references\\capture.md"
+    },
+    {
+      "file_path": "<CANDIDATE>\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "webSearches": [
+    {
+      "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified validation caching university course notes OR paper",
+      "mode": "standard"
+    },
+    {
+      "query": "RFC 9110 section 13 conditional requests ETag If-None-Match 304 Not Modified",
+      "mode": "standard"
+    },
+    {
+      "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified guide",
+      "mode": "standard"
+    },
+    {
+      "query": "HTTP conditional requests ETag If-None-Match 304 Not Modified RFC 9110 RFC 9111 CDN behavior",
+      "mode": "standard"
+    },
+    {
+      "query": "ETag If-None-Match 304 weak vs strong validators problems load balancer compression gzip ETag tracking",
+      "mode": "standard"
+    }
+  ],
+  "final": {
+    "duration_api_ms": 332622,
+    "stop_reason": "end_turn",
+    "session_id": "65303626-4ba4-49d9-8dd4-05399421332a",
+    "total_cost_usd": 0.7992267,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 9938,
+      "cache_read_input_tokens": 430187,
+      "output_tokens": 3565,
+      "output_tokens_details": {
+        "thinking_tokens": 630
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 9938,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1281,
+          "cache_read_input_tokens": 76317,
+          "cache_creation_input_tokens": 967,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 967
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 84,
+        "outputTokens": 18902,
+        "cacheReadInputTokens": 1207367,
+        "cacheCreationInputTokens": 119947,
+        "webSearchRequests": 0,
+        "costUSD": 0.7008781999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 1264,
+        "cacheCreationEphemeral5mInputTokens": 59223,
+        "cacheCreationEphemeral1hInputTokens": 60724,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-5-5": {
+        "inputTokens": 374445,
+        "outputTokens": 21808,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "webSearchRequests": 5,
+        "costUSD": 0.0983485,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 10371,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 0,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzlqzij-1dae352c"
+    },
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 5
+      },
+      "started_in_background": 5,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "general-purpose": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 6,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I captured two official sources on HTTP conditional requests and published them to the local origin. Both clips carry fidelity warnings. The working tree is clean, and local `HEAD` and `origin/main` are both at `404dd79`.\n\n**Web searches (5 of 5, one per lens)**\n1. Academic: `HTTP conditional requests ETag If-None-Match 304 Not Modified validation caching university course notes OR paper`. It found no .edu or paper source.\n2. Technical: `RFC 9110 section 13 conditional requests ETag If-None-Match 304 Not Modified`.\n3. Applied: `HTTP conditional requests ETag If-None-Match 304 Not Modified guide`.\n4. News/Trends: `HTTP conditional requests ETag If-None-Match 304 Not Modified RFC 9110 RFC 9111 CDN behavior`. It found nothing from the last two years.\n5. Contrarian: `ETag If-None-Match 304 weak vs strong validators problems load balancer compression gzip ETag tracking`.\n\nThe workers also fetched pages to inspect them. The fetch failures were the Internet2 wiki page (empty content) and the nginx trac ticket #377 (HTTP 403). The RFC 9110 fetch was truncated at 100k of 565k characters, so those workers did not read §13 or §15.4.5 in that pass.\n\n**Selection**\nI scored the pooled candidates myself, using the five finders' returned lists. No finder graded its own find. I only had a couple of tool calls to dedupe before capturing, so \"deduplicate first\" was a `known-urls.mjs --check` on the two chosen URLs; both were `new`, and the decline log was empty.\n- **Selected:** RFC 9110 (score 5, corroborated by three lenses) and RFC 9111 (score 4).\n- **Not captured:** the two MDN pages, http.dev, the Rails PR and the Caddy discussion, because of the two-URL cap.\n\n**Captured URLs and evidence paths** (topic `HTTP conditional requests`, quality high)\n- `https://www.rfc-editor.org/rfc/rfc9110` is saved as `raw/clippings/RFC 9110- HTTP Semantics.md`. It is about 495 KB.\n- `https://www.rfc-editor.org/rfc/rfc9111` is saved as `raw/clippings/RFC 9111- HTTP Caching.md`. It is about 81 KB.\n- The log entry is `log/2026-11-02-133947-discover-http-conditional-requests.md`.\n- The commit `404dd79` (\"discover: HTTP conditional requests -> 2 clipped\") holds exactly these 3 files and was pushed to the local origin.\n\n**Fidelity**\n- Both clips are marked `fidelity: partial` and queued as `fidelity` rows in `.wiki-master/triage.jsonl`.\n- The warnings list headings the clipper could not match with their \"Skip to TOC\" suffix, for example RFC 9110 §5.6.5, §6.3, §8.2 and §15.6.4, and RFC 9111 §3.3, §3.5 and §4.2.4.\n- I did not triage them.\n- I confirmed by grep that the sections relevant to this topic are present: RFC 9110 §8.8.3 (ETag), §13.1.2 (If-None-Match) and §15.4.5 (304 Not Modified), and RFC 9111 §4.3 (Validation).\n- I did not check the other headings in the warnings for loss.\n\n**Not done**\n- I did not ingest and created no derived pages.\n- The semantic index is not built, which did not matter for this capture-only run.\n- I did not use the synthetic local HTTP corpus as a source.\n- The unrelated pre-existing \"Harbor delivery\" clipping was left alone.",
+    "ttft_ms": 3833,
+    "type": "result",
+    "duration_ms": 46763,
+    "uuid": "393e0f56-76be-4151-9263-fd26507303a1",
+    "ttft_stream_ms": 767,
+    "time_to_request_ms": 13,
+    "first_content_frame_ms": 768,
+    "queued_turn_count": 0,
+    "result_index": 5,
+    "model_usage_since_last_result": {}
+  }
+}

@@ -5,12 +5,12 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CLIP_ACTS, FIDELITY_ACTS, EXPIRY_ACTS, BACKLOG_ACTS, HUB_STUB_ACTS } from '../scripts/triage.mjs';
 
-// The `wiki-triage` skill tells an agent what to do for each disposition the queue can record. The table named
+// The maintainer triage reference tells an agent what to do for each disposition the queue can record. The table named
 // `clipped-by-hand` while the queue writes `clipped-manually`, and left out `downloaded`, and nothing noticed. The ids
 // in the table are now checked against the ids the queue offers, in both directions.
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SKILL = readFileSync(join(ROOT, 'skills', 'wiki-triage', 'SKILL.md'), 'utf8');
+const SKILL = readFileSync(join(ROOT, 'skills', 'wiki-maintainer', 'references', 'triage.md'), 'utf8');
 const ALL_ACTS = [...CLIP_ACTS, ...FIDELITY_ACTS, ...EXPIRY_ACTS, ...BACKLOG_ACTS, ...HUB_STUB_ACTS];
 
 // The first cell's code spans of each row of the disposition table.

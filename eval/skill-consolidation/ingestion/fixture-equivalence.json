@@ -1,0 +1,15 @@
+{
+  "named": {
+    "differences": [],
+    "identicalVaultFileBytes": true
+  },
+  "backlog": {
+    "differences": [],
+    "identicalVaultFileBytes": true
+  },
+  "empty": {
+    "differences": [],
+    "identicalVaultFileBytes": true
+  },
+  "note": "Independent starting Git commit identities and remote locations may differ; vault content bytes are compared."
+}

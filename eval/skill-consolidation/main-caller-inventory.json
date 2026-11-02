@@ -1,0 +1,1099 @@
+{
+  "baselineRevision": "05ea7e104dfb1e1530bb709fafc3e2bd7c8190ca",
+  "scope": "Baseline tracked current README, top-level docs, skills, templates and script prose. Dated docs/superpowers, frozen eval and release history are historical and unchanged. Companion inventory is separate.",
+  "pattern": "(?:wiki-master:|\\/|skills[/\\\\])(wiki-search|wiki-query|wiki-author|wiki-discover|wiki-ingest|wiki-health|wiki-lint|wiki-stale|wiki-repair|wiki-relink|wiki-triage|clip-pdf|clip-docx|clip-pptx|clip-xlsx|clip-gh|clip-confluence|obsidian-cli)(?:[/\\\\]SKILL\\.md)?|skills\\/wiki-maintainer\\/references\\/authoring\\.md",
+  "records": [
+    {
+      "path": "docs/codex.md",
+      "line": 39,
+      "oldReference": "wiki-health",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/codex.md",
+      "line": 54,
+      "oldReference": "wiki-search",
+      "replacement": "wiki-user requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/codex.md",
+      "line": 61,
+      "oldReference": "wiki-health",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 77,
+      "oldReference": "/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 78,
+      "oldReference": "skills/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 80,
+      "oldReference": "wiki-discover",
+      "replacement": "wiki-researcher requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 83,
+      "oldReference": "wiki-discover",
+      "replacement": "wiki-researcher requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 101,
+      "oldReference": "wiki-ingest",
+      "replacement": "wiki-researcher requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 101,
+      "oldReference": "wiki-relink",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 101,
+      "oldReference": "wiki-query",
+      "replacement": "wiki-user requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 102,
+      "oldReference": "wiki-lint",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 102,
+      "oldReference": "wiki-search",
+      "replacement": "wiki-user requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/skill-reliability.md",
+      "line": 103,
+      "oldReference": "wiki-stale",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Historical dated evidence retained and explicitly labeled"
+    },
+    {
+      "path": "docs/wiki-integrity.md",
+      "line": 29,
+      "oldReference": "wiki-repair",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/wiki-integrity.md",
+      "line": 90,
+      "oldReference": "wiki-repair",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/wiki-integrity.md",
+      "line": 92,
+      "oldReference": "wiki-health",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/wiki-integrity.md",
+      "line": 92,
+      "oldReference": "wiki-relink",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "docs/wiki-integrity.md",
+      "line": 93,
+      "oldReference": "wiki-lint",
+      "replacement": "wiki-maintainer requested mode",
+      "disposition": "Maintained documentation migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 75,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 76,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 76,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 91,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 92,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 93,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 93,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 94,
+      "oldReference": "/wiki-health",
+      "replacement": "wiki-maintainer health",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 95,
+      "oldReference": "/wiki-repair",
+      "replacement": "wiki-maintainer repair",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 96,
+      "oldReference": "/wiki-lint",
+      "replacement": "wiki-maintainer lint",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 97,
+      "oldReference": "/wiki-stale",
+      "replacement": "wiki-maintainer stale",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 98,
+      "oldReference": "/wiki-relink",
+      "replacement": "wiki-maintainer relink",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 99,
+      "oldReference": "/wiki-author",
+      "replacement": "wiki-user authoring",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 101,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 101,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 102,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 103,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 104,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 105,
+      "oldReference": "/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 106,
+      "oldReference": "/clip-pptx",
+      "replacement": "wiki-researcher clip-pptx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 107,
+      "oldReference": "/clip-gh",
+      "replacement": "wiki-researcher clip-gh",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 108,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "README.md",
+      "line": 189,
+      "oldReference": "skills/wiki-maintainer/references/authoring.md",
+      "replacement": "skills/wiki-user/references/authoring.md",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip-docx.mjs",
+      "line": 106,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip-gh.mjs",
+      "line": 192,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip-pdf.mjs",
+      "line": 488,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip-pptx.mjs",
+      "line": 96,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip-xlsx.mjs",
+      "line": 75,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/clip.mjs",
+      "line": 574,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/doctor.mjs",
+      "line": 12,
+      "oldReference": "/clip-pptx",
+      "replacement": "wiki-researcher clip-pptx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/doctor.mjs",
+      "line": 13,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/health.mjs",
+      "line": 50,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/health.mjs",
+      "line": 110,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/init.mjs",
+      "line": 43,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/authored-contract.mjs",
+      "line": 6,
+      "oldReference": "skills/wiki-maintainer/references/authoring.md",
+      "replacement": "skills/wiki-user/references/authoring.md",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/clip-args.mjs",
+      "line": 51,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/clip-args.mjs",
+      "line": 73,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/clip-args.mjs",
+      "line": 90,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/clip-args.mjs",
+      "line": 107,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/clip-args.mjs",
+      "line": 124,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/decline.mjs",
+      "line": 99,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/graph.mjs",
+      "line": 264,
+      "oldReference": "/wiki-relink",
+      "replacement": "wiki-maintainer relink",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/pdf-figures.mjs",
+      "line": 25,
+      "oldReference": "skills/clip-pdf/SKILL.md",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/reclip.mjs",
+      "line": 5,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/reclip.mjs",
+      "line": 6,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/reclip.mjs",
+      "line": 7,
+      "oldReference": "/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/topic.mjs",
+      "line": 9,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/lib/triage.mjs",
+      "line": 57,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/purge.mjs",
+      "line": 351,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/refresh-fidelity.mjs",
+      "line": 14,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/triage-ui/server.cjs",
+      "line": 207,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "scripts/triage.mjs",
+      "line": 295,
+      "oldReference": "skills/wiki-triage/SKILL.md",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 23,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 35,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 74,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 88,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 89,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 97,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 99,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 110,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 111,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-confluence/SKILL.md",
+      "line": 122,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-docx/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-docx/SKILL.md",
+      "line": 49,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-docx/SKILL.md",
+      "line": 53,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-docx/SKILL.md",
+      "line": 54,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-docx/SKILL.md",
+      "line": 70,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 16,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 79,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 86,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 119,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 178,
+      "oldReference": "/clip-gh",
+      "replacement": "wiki-researcher clip-gh",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 181,
+      "oldReference": "/clip-gh",
+      "replacement": "wiki-researcher clip-gh",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 201,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 202,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-gh/SKILL.md",
+      "line": 217,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 110,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 118,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 122,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 123,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 140,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 164,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 165,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 167,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pdf/SKILL.md",
+      "line": 225,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pptx/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pptx/SKILL.md",
+      "line": 63,
+      "oldReference": "/clip-pptx",
+      "replacement": "wiki-researcher clip-pptx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pptx/SKILL.md",
+      "line": 67,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pptx/SKILL.md",
+      "line": 68,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-pptx/SKILL.md",
+      "line": 78,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-xlsx/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-xlsx/SKILL.md",
+      "line": 57,
+      "oldReference": "/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-xlsx/SKILL.md",
+      "line": 61,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-xlsx/SKILL.md",
+      "line": 62,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/clip-xlsx/SKILL.md",
+      "line": 77,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 56,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 125,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 133,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 134,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 137,
+      "oldReference": "/clip-pdf",
+      "replacement": "wiki-researcher clip-pdf",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 138,
+      "oldReference": "/clip-docx",
+      "replacement": "wiki-researcher clip-docx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 139,
+      "oldReference": "/clip-xlsx",
+      "replacement": "wiki-researcher clip-xlsx",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 145,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 150,
+      "oldReference": "/clip-confluence",
+      "replacement": "wiki-researcher clip-confluence",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 174,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 190,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 198,
+      "oldReference": "/wiki-triage",
+      "replacement": "wiki-maintainer triage",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-discover/SKILL.md",
+      "line": 219,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-health/SKILL.md",
+      "line": 21,
+      "oldReference": "/wiki-repair/SKILL.md",
+      "replacement": "wiki-maintainer repair",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-lint/SKILL.md",
+      "line": 11,
+      "oldReference": "/wiki-health",
+      "replacement": "wiki-maintainer health",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-lint/SKILL.md",
+      "line": 14,
+      "oldReference": "/wiki-repair/SKILL.md",
+      "replacement": "wiki-maintainer repair",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/maintenance.md",
+      "line": 14,
+      "oldReference": "/wiki-repair/SKILL.md",
+      "replacement": "wiki-maintainer repair",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/maintenance.md",
+      "line": 70,
+      "oldReference": "/wiki-relink",
+      "replacement": "wiki-maintainer relink",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/maintenance.md",
+      "line": 176,
+      "oldReference": "/wiki-lint",
+      "replacement": "wiki-maintainer lint",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/maintenance.md",
+      "line": 183,
+      "oldReference": "/wiki-health",
+      "replacement": "wiki-maintainer health",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 4,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 16,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 20,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 20,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 22,
+      "oldReference": "/wiki-lint",
+      "replacement": "wiki-maintainer lint",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 22,
+      "oldReference": "/wiki-health",
+      "replacement": "wiki-maintainer health",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 25,
+      "oldReference": "/wiki-relink",
+      "replacement": "wiki-maintainer relink",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-maintainer/references/workflows.md",
+      "line": 28,
+      "oldReference": "/wiki-author",
+      "replacement": "wiki-user authoring",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-purge/SKILL.md",
+      "line": 20,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-purge/SKILL.md",
+      "line": 22,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-purge/SKILL.md",
+      "line": 143,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    },
+    {
+      "path": "skills/wiki-query/SKILL.md",
+      "line": 22,
+      "oldReference": "/wiki-search",
+      "replacement": "wiki-user search",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-relink/SKILL.md",
+      "line": 16,
+      "oldReference": "/wiki-repair/SKILL.md",
+      "replacement": "wiki-maintainer repair",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-search/SKILL.md",
+      "line": 17,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-search/SKILL.md",
+      "line": 133,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-search/SKILL.md",
+      "line": 139,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-search/SKILL.md",
+      "line": 141,
+      "oldReference": "/wiki-query",
+      "replacement": "wiki-user query",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-triage/SKILL.md",
+      "line": 56,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "skills/wiki-triage/SKILL.md",
+      "line": 101,
+      "oldReference": "/wiki-ingest",
+      "replacement": "wiki-researcher ingestion",
+      "disposition": "Retired entry removed; procedure moved and references migrated"
+    },
+    {
+      "path": "templates/vault-schema.md",
+      "line": 29,
+      "oldReference": "/wiki-discover",
+      "replacement": "wiki-researcher discovery/named capture",
+      "disposition": "Maintained documentation, policy, or source comment migrated"
+    }
+  ]
+}
