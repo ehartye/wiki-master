@@ -1,0 +1,89 @@
+{
+  "checkedAt": "2026-11-02T21:07:12.588Z",
+  "checks": [
+    {
+      "repo": "hartye-skills",
+      "path": "skills/spec-plan/SKILL.md",
+      "sha256": "b4c931ec21563e6189298c3877749d88442073a3b61b29373c28dd017275f902",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "hartye-skills",
+      "path": "skills/q-master/SKILL.md",
+      "sha256": "79135e5970fd430454a9ad75f4fae038c6fdf2c07e6f73c1a745255fb611284c",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "hartye-skills",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "repo": "agent-game-studio",
+      "path": "references/plugin-map.md",
+      "sha256": "54408cb81ec2f429c16d3001811eb079a4385f147b4a9dff7618e4edfd9e3eab",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "agent-game-studio",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "repo": "agent-unreal",
+      "path": "scripts/sibling-skills.json",
+      "sha256": "6179669210c41fa54e57d9c8a32adde926522dc3e0c7df84148d08cb8cf51306",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "agent-unreal",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "repo": "agent-unreal",
+      "wikiMasterSnapshotMatchesCandidate": true,
+      "otherPluginBlocksUnchanged": true
+    }
+  ],
+  "studio": {
+    "command": [
+      "node",
+      "scripts/check.mjs"
+    ],
+    "exit": 0,
+    "receipt": "companion-studio-check.txt"
+  },
+  "unreal": {
+    "command": [
+      "node",
+      "--test",
+      "scripts/release-consistency.test.mjs"
+    ],
+    "exit": 0,
+    "receipt": "companion-unreal-check.txt"
+  },
+  "limits": "Changed-file and dependency checks, not complete companion workflow execution. No release or installed-cache changes."
+}

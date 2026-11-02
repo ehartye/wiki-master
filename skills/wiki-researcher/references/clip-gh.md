@@ -160,11 +160,9 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
 
 ## Steps
 
-1. **Preflight** (once, or whenever a clip fails unexpectedly):
-   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" --doctor` — reports whether the `gh` CLI
-   is installed and authenticated.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#github-repositories) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for GitHub repos):
-   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>"`
+   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>" --since <token>`
    - Accepts a bare `owner/repo`, a full `https://github.com/owner/repo` URL
      (`.git` suffix optional), or a `git@github.com:owner/repo.git` remote —
      all resolve to the same identity.
@@ -190,12 +188,8 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
      so a clip made without it is an *Unattributed* triage row permanently.
      Omit it only when there is no research run behind the clip; never
      invent one.
-   - A `too-many-files` result (only reachable with `--force-full`) means
-     the cap was hit — re-run with a higher `--max-files` per the message,
-     or drop `--force-full` to get a digest instead; nothing was written.
-   - A `failed` result means `gh repo clone` itself errored (bad repo name,
-     no access, network) — report it for manual handling; do not invent files.
-3. **Verify** the clippings landed: `ls raw/clippings/gh/<owner>/<repo>/` and
+   - For `too-many-files` or `failed`, use [GitHub diagnosis](../../wiki-setup/references/capture-prerequisites.md#github-repositories); report whether anything was written and never invent repository content.
+3. **Verify** the clippings landed: inspect the exact `raw/clippings/gh/<owner>/<repo>/` directory under the resolved vault and
    spot-read a few files plus `_repo-overview.md` — confirm the language
    fencing and blob-URL citations look right for a couple of samples (per-file
    mode), or that the composition/module tables and a listing or two look
@@ -229,7 +223,7 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
 ## Completion
 
 For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, log once, commit, push and verify
+its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
 remote publication through the shared operations contract. During discovery,
 use the enclosing operation and report the results to its owner for completion.
 Pass `--since <saved-token>` to the clipping helper so every written path enters

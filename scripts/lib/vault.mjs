@@ -86,7 +86,7 @@ export function assertRunning({ name = resolveVault().name, ...opts } = {}) {
   }
   if (!vaults.split(/\r?\n/).some((l) => l.includes(name))) {
     throw new Error(
-      `Vault "${name}" is not registered. Open the vault folder in Obsidian once (see /wiki-init).`
+      `Vault "${name}" is not registered. Open the vault folder in Obsidian once (see /wiki-setup).`
     );
   }
 }

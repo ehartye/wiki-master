@@ -1,0 +1,32 @@
+{
+  "name": "baseline-zero",
+  "prompt": "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Process new/un-ingested clippings. Determine actual eligibility first, preserving existing summarized and restricted sources. If nothing eligible exists, report that without mutation.",
+  "command": [
+    "claude",
+    "-p",
+    "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Process new/un-ingested clippings. Determine actual eligibility first, preserving existing summarized and restricted sources. If nothing eligible exists, report that without mutation.",
+    "--plugin-dir",
+    "<BASELINE>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit,Task,WebFetch,WebSearch"
+  ],
+  "cwd": "<SCRATCH>\\baseline-zero",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\baseline-zero",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://127.0.0.1:1",
+    "TEMP": "<SCRATCH>\\temporary\\baseline-zero",
+    "TMP": "<SCRATCH>\\temporary\\baseline-zero",
+    "TMPDIR": "<SCRATCH>\\temporary\\baseline-zero"
+  },
+  "predeclaredScenario": "controlled full flow"
+}

@@ -1,0 +1,23 @@
+{
+  "host": "2.1.316 (Claude Code)",
+  "phase": "candidate-final",
+  "command": [
+    "claude",
+    "-p",
+    "Perform only a read-only dependency compatibility check, not the workflows themselves. Read these four caller files: <HARTYE>\\skills\\spec-plan\\SKILL.md; <HARTYE>\\skills\\q-master\\SKILL.md; <STUDIO>\\references\\plugin-map.md; <UNREAL>\\scripts\\sibling-skills.json. Extract each wiki-master qualified skill required for search, original documentation, diagnostics/setup, research, and maintenance. Invoke each distinct explicitly named wiki-master skill with the Skill tool ONLY to verify it resolves in the session; do not follow its procedure, execute helpers, search a vault, write files, or replace a missing dependency with another skill. For the JSON wiki-master block, compare its names to the session candidate catalog and report stale/missing names. Report exact resolution success/errors and the semantic task each changed caller sends to the role. You may read candidate reference paths to verify any caller direct reference exists. The candidate plugin, not installed caches, is the sole catalog. This is dependency resolution only.",
+    "--plugin-dir",
+    "<CANDIDATE>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read"
+  ],
+  "limits": "Actual dependency activation only; no complete companion workflow executed."
+}

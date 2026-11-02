@@ -1,0 +1,133 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<BASELINE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 171770,
+    "stop_reason": "end_turn",
+    "session_id": "a5bb8a23-8236-4164-9394-c03a2dc5f45a",
+    "total_cost_usd": 0.6335121999999999,
+    "usage": {
+      "input_tokens": 34,
+      "cache_creation_input_tokens": 36671,
+      "cache_read_input_tokens": 936313,
+      "output_tokens": 6138,
+      "output_tokens_details": {
+        "thinking_tokens": 385
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 36671,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1202,
+          "cache_read_input_tokens": 74177,
+          "cache_creation_input_tokens": 1019,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1019
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 72,
+        "outputTokens": 15020,
+        "cacheReadInputTokens": 1262242,
+        "cacheCreationInputTokens": 107596,
+        "webSearchRequests": 0,
+        "costUSD": 0.6335121999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 632,
+        "cacheCreationEphemeral5mInputTokens": 48960,
+        "cacheCreationEphemeral1hInputTokens": 58636,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzrfodh-9a522940"
+    },
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 5
+      },
+      "started_in_background": 5,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "Explore": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 17,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The vault now answers the question, and the answer comes from one newly captured source, the Harbor Retry Protocol.\n\n## Answer\n- **Retries allowed:** 3 retries after the first transmission. The overall trial deadline is 12 seconds.\n- **Total attempts:** 4 (the first send plus 3 retries).\n- **When an accepted identifier and digest arrive again:** the receiver delivers the payload to the application only once and re-sends its cached acknowledgement. The same identifier with a different digest is rejected as a conflict. Four permitted attempts are therefore not four permitted deliveries.\n\n## Evidence\nAll of this comes from `raw/clippings/Harbor Retry Protocol.md`, captured from `http://127.0.0.1:54749/protocol`. Its source-hash is `254b2aa6…aa4c`, and its evidence marker is `violet-cedar-427`. The wiki pages that carry it are `wiki/sources/Harbor Retry Protocol.md:20-21` and `wiki/concepts/Message Delivery.md:18`.\n\n## Fixture specification versus empirical claims\n- **Fixture specification:** the 3 retries, 4 attempts, 12-second deadline and the duplicate and conflict rules. The source is synthetic material from the Evaluation Standards Working Group. It describes a test sender and receiver, not a production network.\n- **Empirical claims:** there are none. The source says these values establish no reliability rate. It gives no throughput figure and no packet-loss claim.\n- **Not specified:** how long the acknowledgement cache lasts, and what happens to retries after the deadline.\n- **Existing page:** the `Acknowledgement Basics` page only defines identifiers and acknowledgements. It sets no retry budget.\n\n## What I did\n- **Dedup:** the wiki already held `/known` (Acknowledgement Basics).\n- **Finders:** I ran five read-only perspective finders (academic, technical, applied, news, contrarian). Every one of them found only `/protocol` useful.\n- **Selection:** I selected from their lists myself. I re-fetched the pages and scored them against the discovery rubric.\n- **Captured (1 of the 2 allowed):** `/protocol`, rated high.\n- **Declined and logged:** `/promotion`, because it is promotional and unsupported, and `/thin`, because it is a stub.\n- **Ingest:** I created `wiki/sources/Harbor Retry Protocol.md`. I reused the existing `Message Delivery` concept, adding the \"Harbor retry policy\" alias, with no new concept. I also added a line to `moc/Delivery.md` and regenerated `index.md`.\n- **Validation:** the ingest backlog is 0, and lint found no problems.\n- **Publication:** I made two scoped commits, `624288b` (capture) and `86c26e8` (ingest). Both were pushed to the local bare origin, and `HEAD` matches `origin/main` after a fresh fetch. Nothing outside this vault or the local origin was touched.\n\n## Limits\n- **Search:** it ran lexical only. Ollama is not running and no semantic index exists, so retrieval had no semantic ranking and title/alias lookup was incomplete. I opened the returned passages and traced the citation from the source page to the raw clipping with `resolve-evidence`.\n- **Evidence base:** the answer rests on a single source. Nothing in the corpus corroborates it.\n- **Ledger files:** the scratch ledger files are in the case TEMP directory (`ledger.json`, `ledger2.json`). I did not clean them up.",
+    "ttft_ms": 2707,
+    "type": "result",
+    "duration_ms": 98642,
+    "uuid": "dae697d9-d054-4017-89e7-5e77ceb26a44",
+    "ttft_stream_ms": 1967,
+    "time_to_request_ms": 16,
+    "first_content_frame_ms": 1967,
+    "queued_turn_count": 0,
+    "result_index": 1,
+    "model_usage_since_last_result": {}
+  }
+}

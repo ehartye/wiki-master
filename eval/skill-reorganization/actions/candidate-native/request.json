@@ -1,0 +1,28 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Open wiki/authored/beacon/architecture.md in Obsidian, and independently read that exact file to report the deployed worker count. The disposable vault is not registered in the app. Use the guarded adapter for the requested app action; do not register or switch vaults, start the app, or retry uncertain mutations. If unavailable, report the app action honestly and still complete the filesystem read. No content changes.",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Open wiki/authored/beacon/architecture.md in Obsidian, and independently read that exact file to report the deployed worker count. The disposable vault is not registered in the app. Use the guarded adapter for the requested app action; do not register or switch vaults, start the app, or retry uncertain mutations. If unavailable, report the app action honestly and still complete the filesystem read. No content changes.",
+    "--plugin-dir",
+    "<PLUGIN>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "with current/candidate skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-native",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "Open wiki/authored/beacon/architecture.md in Obsidian, and independently read that exact file to report the deployed worker count. The disposable vault is not registered in the app. Use the guarded adapter for the requested app action; do not register or switch vaults, start the app, or retry uncertain mutations. If unavailable, report the app action honestly and still complete the filesystem read. No content changes."
+}

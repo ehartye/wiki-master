@@ -3,7 +3,7 @@
 // Pure and I/O-free. scripts/validate-authored.mjs applies it to the pages one
 // task wrote; test/validate-authored.test.mjs pins every list below against the
 // places the vocabulary is also written for people (templates/vault-schema.md,
-// the authored templates and skills/wiki-maintainer/references/authoring.md),
+// the authored templates and skills/wiki-project/references/authoring.md),
 // so none of them can be edited in one place only.
 
 import { BACKLOG_STATUS_ORDER, KIND_ORDER, projectKey } from './authored-group.mjs';

@@ -1,0 +1,19 @@
+{
+  "scope": "WP3 focused deterministic regression; not actor efficacy",
+  "commands": [
+    {
+      "command": "npm.cmd run test:skills",
+      "status": 0,
+      "signal": null,
+      "durationMs": 2369,
+      "log": "wp3-skills.tap"
+    },
+    {
+      "command": "node --test test/validate-authored.test.mjs test/drift-guard.test.mjs test/triage-skill-table.test.mjs",
+      "status": 0,
+      "signal": null,
+      "durationMs": 2345,
+      "log": "wp3-structural.tap"
+    }
+  ]
+}

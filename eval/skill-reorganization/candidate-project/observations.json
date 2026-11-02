@@ -1,0 +1,201 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01YZNkN7yEeH7MLKaes9BRL8",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-project"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_011SSh2iqEDCjUEVsE24fkB5",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01FxuPBc4XiFkYE4tAWfJ6Qh",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-project\\references\\authoring.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_0181zHL2Grk4DCVZT35sqqFy",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-project\\references\\backlog.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 53378,
+    "stop_reason": "end_turn",
+    "session_id": "239cf06d-42b1-40a2-ae7f-e25b0ff96e92",
+    "total_cost_usd": 0.1759271,
+    "usage": {
+      "input_tokens": 20,
+      "cache_creation_input_tokens": 27738,
+      "cache_read_input_tokens": 306051,
+      "output_tokens": 3433,
+      "output_tokens_details": {
+        "thinking_tokens": 346
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 27738,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 646,
+          "cache_read_input_tokens": 43353,
+          "cache_creation_input_tokens": 945,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 945
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 3433,
+        "cacheReadInputTokens": 306051,
+        "cacheCreationInputTokens": 27738,
+        "webSearchRequests": 0,
+        "costUSD": 0.1759271,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 346,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 27738,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 12,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I updated the Beacon architecture page and the parallel-workers backlog item, and published the commit `d30e7ae` to the local bare origin. Local `HEAD` and `origin/main` match after a fresh fetch.\n\nI couldn't check the implementation against code. Beacon's `repo:` is an unreachable `example.invalid` URL, and the vault has no Beacon source. I wrote the as-built facts (one dispatcher worker, each message saved to a local queue before acknowledgement) from your request. I left `reviewed` at 2026-10-01 on both pages because nothing was independently verified; `updated` is now 2026-11-02.\n\n- **`architecture.md`:** it now has an \"As built\" section for the single dispatcher and the queue-before-acknowledgement behavior. A separate \"Not built\" section says the second worker isn't implemented and links to the backlog item.\n- **`parallel-workers.md`:**\n  - **Status:** I changed `backlog-status` from `open`, which isn't a valid value, to `planned`.\n  - **Design:** a proposed two-worker design in which messages sharing a key never run on both workers at once. I left the assignment mechanism undecided.\n  - **Acceptance criteria:** per-key order is preserved, every message is still queued before acknowledgement, and nothing is lost or dispatched twice when a worker restarts. The last two are my additions, not from your request.\n  - **Benchmark:** it must be benchmarked against the single-worker relay before shipping.\n- **Catalogs:** the refresh regenerated `roadmap.md`, `moc/beacon.md` and `index.md`.\n\nThe commit contains exactly six files: those five plus the operation log entry. `validate-authored.mjs` on that set reported 4 pages checked, 0 defects and 2 skipped. The skipped two aren't named in the output; I didn't look into them.\n\nThe search index doesn't exist yet. The helper didn't build it, and I didn't either.",
+    "ttft_ms": 5236,
+    "type": "result",
+    "duration_ms": 57165,
+    "uuid": "e479e8ce-45bc-4981-a003-1eb57923cc7a",
+    "ttft_stream_ms": 4613,
+    "time_to_request_ms": 134,
+    "first_content_frame_ms": 4614,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 3433,
+        "cacheReadInputTokens": 306051,
+        "cacheCreationInputTokens": 27738,
+        "webSearchRequests": 0,
+        "costUSD": 0.1759271,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 346,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 27738,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

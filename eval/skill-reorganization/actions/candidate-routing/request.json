@@ -1,0 +1,28 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Selection-only routing probe. For each request below choose the appropriate wiki role or none and actually read its main file to substantiate the boundary. Do not run vault workflows or change files. Requests: find a wiki passage; write original architecture; validate existing authored paths only; diagnose lexical-only search; count un-ingested captures; process un-ingested captures; file an explicitly authorized derived synthesis; open a note in Obsidian; fix a broken citation; preview topic purge; change the CSS of an unrelated application. Report read-only versus mutation scope for each. This is selection evidence, not executed workflow success.",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. Selection-only routing probe. For each request below choose the appropriate wiki role or none and actually read its main file to substantiate the boundary. Do not run vault workflows or change files. Requests: find a wiki passage; write original architecture; validate existing authored paths only; diagnose lexical-only search; count un-ingested captures; process un-ingested captures; file an explicitly authorized derived synthesis; open a note in Obsidian; fix a broken citation; preview topic purge; change the CSS of an unrelated application. Report read-only versus mutation scope for each. This is selection evidence, not executed workflow success.",
+    "--plugin-dir",
+    "<PLUGIN>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "with current/candidate skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-routing",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "Selection-only routing probe. For each request below choose the appropriate wiki role or none and actually read its main file to substantiate the boundary. Do not run vault workflows or change files. Requests: find a wiki passage; write original architecture; validate existing authored paths only; diagnose lexical-only search; count un-ingested captures; process un-ingested captures; file an explicitly authorized derived synthesis; open a note in Obsidian; fix a broken citation; preview topic purge; change the CSS of an unrelated application. Report read-only versus mutation scope for each. This is selection evidence, not executed workflow success."
+}

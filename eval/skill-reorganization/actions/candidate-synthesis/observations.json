@@ -1,0 +1,212 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_019t16679W6KaBxqitE6Ewcf",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-maintainer"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01RUHFEX83pgTUiSiZzfE4hX",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01UUErqWhNqt6HYdAvJDLzbo",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\synthesis-filing.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_0118TD5VbZJjXAnE3Ce2qq57",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\evidence.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01168htyWoDCv11VTSAn1H7X",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 45713,
+    "stop_reason": "end_turn",
+    "session_id": "a027622f-9766-4dda-9ffc-b6b1de6ab12c",
+    "total_cost_usd": 0.1968444,
+    "usage": {
+      "input_tokens": 22,
+      "cache_creation_input_tokens": 31319,
+      "cache_read_input_tokens": 349144,
+      "output_tokens": 3661,
+      "output_tokens_details": {
+        "thinking_tokens": 258
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 31319,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 567,
+          "cache_read_input_tokens": 46526,
+          "cache_creation_input_tokens": 1353,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1353
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 3661,
+        "cacheReadInputTokens": 349144,
+        "cacheCreationInputTokens": 31319,
+        "webSearchRequests": 0,
+        "costUSD": 0.1968444,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 258,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 31319,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 14,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I filed the synthesis and pushed it to the local bare origin. The measured Beacon protocol delivered **seven** lantern messages.\n\n- **Evidence:** `raw/clippings/Beacon Study.md` (quality: high) says \"The measured protocol delivered seven lantern messages.\" That one sentence is the only measurement in the vault.\n- **Page:** `wiki/syntheses/Beacon Protocol Measured Lantern Message Delivery.md` cites the Beacon Study clipping in its `sources:` and inline.\n- **Scope of the claim:** the study gives a single count. It says nothing about conditions, duration, sample size or a baseline, so the page doesn't present seven as a rate, capacity or guarantee.\n- **Related pages:**\n  - `wiki/concepts/Beacon Protocol.md` says \"carries seven lanterns,\" which is lanterns carried, not messages delivered. The page notes this and doesn't treat it as independent evidence. It also says the two numbers might not be the same quantity.\n  - `wiki/concepts/Beacon Protocol Draft.md` describes a separate proposal with three lanterns and no sources. I didn't use it.\n- **Checks:** `validate-authored` found 0 defects on the new page.\n- **Publication:** commit `8526233` contains the synthesis, the regenerated `index.md` and one query log. It is in sync with `origin/main`, and `git ls-remote` shows the same commit.\n- **Remaining issue:** `health.mjs` still reports one defect, a missing-evidence issue on `Beacon Protocol Draft`. That predates this work and I left it alone.\n- **Not set up:** the semantic search index hasn't been built.",
+    "ttft_ms": 2800,
+    "type": "result",
+    "duration_ms": 51343,
+    "uuid": "52d3b9da-7a9b-4f50-bcef-ad8627060e7e",
+    "ttft_stream_ms": 2610,
+    "time_to_request_ms": 143,
+    "first_content_frame_ms": 2610,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 3661,
+        "cacheReadInputTokens": 349144,
+        "cacheCreationInputTokens": 31319,
+        "webSearchRequests": 0,
+        "costUSD": 0.1968444,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 258,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 31319,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

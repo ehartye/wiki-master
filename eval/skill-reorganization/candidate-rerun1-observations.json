@@ -1,0 +1,180 @@
+{
+  "kind": "executor observations, not independent grades",
+  "cases": [
+    {
+      "case": "init",
+      "exit": 0,
+      "changedPaths": [
+        ".gitignore",
+        "log/2026-11-02-155756-relink-initialize-vault.md",
+        "log.base",
+        "log.md",
+        "stale.base",
+        "vault-schema.md",
+        "_templates/authored-backlog-item.md",
+        "_templates/authored-decision.md",
+        "_templates/authored-note.md",
+        "_templates/concept-note.md",
+        "_templates/source-note.md",
+        "_templates/task-map.md"
+      ],
+      "git": {
+        "before": null,
+        "after": null,
+        "remote": null,
+        "status": "not a Git repository"
+      },
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\initialization.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"<SCRATCH>/candidate-rerun1-init\" && ls -la && cat index.md | head -30; ls AGENTS.md 2>&1"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\operations.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "cd \"<SCRATCH>/candidate-rerun1-init\" && sha256sum index.md; echo \"WIKI_MASTER_VAULT=$WIKI_MASTER_VAULT\"; echo \"REQ=$WIKI_MASTER_REQUIRE_VAULT\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; cd \"$WIKI_MASTER_VAULT\" && TOKEN=$(node \"$P/scripts/op-begin.mjs\" --op relink) && echo \"token=$TOKEN\" && echo \"$TOKEN\" > \"${TMPDIR:-$TEMP}/wiki-token.txt\" && node \"$P/scripts/init.mjs\"; echo \"exit=$?\"; find . -not -path './.git/*' | sort; sha256sum index.md"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; cd \"$WIKI_MASTER_VAULT\"; T=$(cat \"${TMPDIR:-$TEMP}/wiki-token.txt\")\nnode \"$P/scripts/op-ledger.mjs\" add --since $T .gitignore log.md vault-schema.md stale.base log.base _templates/authored-backlog-item.md _templates/authored-decision.md _templates/authored-note.md _templates/concept-note.md _templates/source-note.md _templates/task-map.md; echo add=$?\nnode \"$P/scripts/health.mjs\" --json; echo health=$?\nnode \"$P/scripts/health.mjs\" --backlog; echo backlog=$?"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; cd \"$WIKI_MASTER_VAULT\"; T=$(cat \"${TMPDIR:-$TEMP}/wiki-token.txt\"); L=\"${TMPDIR:-$TEMP}/wiki-ledger-$T.json\"\nprintf '%s\\n' 'Scaffolded the local vault with init.mjs. Existing index.md preserved byte-identical. Health: empty, 0 defects. Local-only; no app setup or remote.' | node \"$P/scripts/log-entry.mjs\" --op relink --title \"Initialize vault\" --since $T; echo log=$?\nnode \"$P/scripts/op-ledger.mjs\" show --since $T --out \"$L\"; echo show=$?; cat \"$L\""
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "P=\"<PLUGIN>\"; cd \"$WIKI_MASTER_VAULT\"; T=$(cat \"${TMPDIR:-$TEMP}/wiki-token.txt\"); L=\"${TMPDIR:-$TEMP}/wiki-ledger-$T.json\"\nnode \"$P/scripts/op-commit.mjs\" --op relink --since $T --paths-file \"$L\" --title \"Initialize vault\"; echo commit=$?\nls .wiki-master/ops; sha256sum index.md; node \"$P/scripts/health.mjs\" --json | grep -E '\"status\"|defectCount|\"token\"'"
+          }
+        }
+      ],
+      "final": "The vault's filesystem scaffold is in place, and `index.md` is byte-identical to before (SHA-256 `6b6b926e…4215`, checked before and after). I did not touch the app, publication or the plugin.\n\n**Filesystem initialization**\n- **Preflight:** the vault held only `index.md`. There was no `AGENTS.md` and no `_templates/`, so there were no template collisions and `init.mjs` was safe to run.\n- **Operation:** I opened operation `530d9d9bec7d458f` (`relink`) before scaffolding. `init.mjs` exited 0.\n- **Files created:**\n  - Root files: `.gitignore`, `log.md`, `vault-schema.md`, `stale.base` and `log.base`.\n  - Six templates in `_templates/`.\n  - Folders: `raw/clippings/`, `wiki/{sources,entities,concepts,syntheses,authored}/`, `moc/` and `log/`.\n- **Ledger:** `init.mjs` doesn't record files itself, so I added the 11 new files by hand. With the log entry `log/2026-11-02-155756-relink-initialize-vault.md`, the ledger holds 12 paths.\n- **Health:** status is `empty`, with 0 defects and 0 content pages scanned. This shows the structure is sound, not that any content is factually healthy. The ingest backlog is 0 in every category.\n- **Operation close:** `op-commit.mjs` exited 0 but reported \"not a git repository — nothing to commit\". I did not create a repository. The `.wiki-master/ops` directory is empty now, so the token appears to be closed.\n\n**App integration (not done, not authorized)**\n- You still need to open the folder as an Obsidian vault and check it with `obsidian.mjs vaults`.\n- You still need to import `templates/webclipper-template.json` into Web Clipper.\n- The native CLI's access to the app is untested.\n\n**Publication**\n- The vault is local-only: there is no Git repository, no commit and no remote, and nothing was published.\n- Semantic search isn't built yet. Running `index-embed.mjs` would enable it, but I didn't run it because it wasn't requested."
+    },
+    {
+      "case": "validation-only",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "before": "ee152398d323cae678d07a5d889fb1e1685d61a0",
+        "after": "ee152398d323cae678d07a5d889fb1e1685d61a0",
+        "remote": "ee152398d323cae678d07a5d889fb1e1685d61a0",
+        "status": ""
+      },
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-setup"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\validation.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$env:WIKI_MASTER_VAULT; $env:WIKI_MASTER_REQUIRE_VAULT; Get-Location; Test-Path AGENTS.md; Get-ChildItem -Force | Select -Expand Name"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "\"V=[$env:WIKI_MASTER_VAULT] R=[$env:WIKI_MASTER_REQUIRE_VAULT]\"; Get-Content AGENTS.md"
+          }
+        },
+        {
+          "name": "PowerShell",
+          "input": {
+            "command": "$l = Join-Path $env:TEMP 'ledger-validate-rerun1.json'\n'[\"wiki/authored/beacon/architecture.md\",\"wiki/authored/beacon/backlog/parallel-workers.md\"]' | Set-Content -Encoding utf8NoBOM $l\nnode \"<PLUGIN>\\scripts\\validate-authored.mjs\" --paths-file $l --json; \"exit=$LASTEXITCODE\"\nnode \"<PLUGIN>\\scripts\\validate-authored.mjs\" --paths-file $l; \"exit=$LASTEXITCODE\""
+          }
+        }
+      ],
+      "final": "Validation found one defect in the two pages. I changed nothing in the vault.\n\n**Scope:** `WIKI_MASTER_VAULT` pointed at the disposable vault. I read its `AGENTS.md` first, and it allows no writes for diagnostic requests. The ledger was a JSON file in TEMP with the two requested paths. I ran `validate-authored.mjs` from the installed helper path.\n\n**Coverage:** 2 pages checked and 0 skipped. Both ledger paths exist at those exact spellings.\n\n**Result:** exit code 1, meaning defects were found. The text and `--json` runs gave the same result.\n\n| Page | Line | Rule | Message |\n|---|---|---|---|\n| `wiki/authored/beacon/backlog/parallel-workers.md` | 11 | `bad-value` | `backlog-status \"open\"` is not one of in-progress, planned, blocked, shipped, dropped |\n\n- **`wiki/authored/beacon/architecture.md`:** no defects.\n- **Limits:** the check covers structure only, not facts. The helper checks that a page `status` is present but not what it says, so I did not check that value against stub, draft and maintained.\n\n**Next step:** I did not repair it. Changing `backlog-status` to a valid value is a content repair, which belongs to the wiki-project or wiki-maintainer workflow once you authorize it.\n\nI opened no operation, wrote no log, refreshed no index, made no commit and did no sync. The only file I created was the temporary ledger under TEMP."
+    },
+    {
+      "case": "simple",
+      "exit": 0,
+      "changedPaths": [],
+      "git": {
+        "before": "0cd735b3548ca376384866376c3c428a74d39d05",
+        "after": "0cd735b3548ca376384866376c3c428a74d39d05",
+        "remote": "0cd735b3548ca376384866376c3c428a74d39d05",
+        "status": ""
+      },
+      "toolCalls": [
+        {
+          "name": "Skill",
+          "input": {
+            "skill": "wiki-master:wiki-search"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "echo \"V=$WIKI_MASTER_VAULT REQ=$WIKI_MASTER_REQUIRE_VAULT\"; ls \"$WIKI_MASTER_VAULT\" 2>&1 | head; cat \"$WIKI_MASTER_VAULT/AGENTS.md\" 2>&1 | head -50"
+          }
+        },
+        {
+          "name": "Bash",
+          "input": {
+            "command": "node \"<PLUGIN>\\scripts\\search.mjs\" \"The copper heron carries seven lanterns\" --json --limit=10"
+          }
+        },
+        {
+          "name": "Read",
+          "input": {
+            "file_path": "<SCRATCH>\\candidate-rerun1-simple\\wiki\\concepts\\Beacon Protocol.md"
+          }
+        }
+      ],
+      "final": "The exact phrase is at `wiki/concepts/Beacon Protocol.md:10`: \"The copper heron carries seven lanterns.\"\n\nI opened the file and read the whole page. It is a concept page titled \"Beacon Protocol\" with the alias \"Lantern Relay\". Its status is `maintained` and it was reviewed on 2026-10-01. The next line, line 11, says \"This protocol is about message delivery.\" The frontmatter lists `raw/clippings/Beacon Study.md` as its source.\n\nCoverage limits:\n- **Lexical search only:** The semantic index is unavailable, so only keyword search ran. Keyword search of `wiki/` and `moc/` succeeded.\n- **Incomplete index:** Title and alias lookup is incomplete because index metadata is missing. The matched pages were also unindexed.\n- **Raw evidence not searched:** `raw/clippings/` is opt-in and I didn't search it. I didn't open or verify `Beacon Study.md`, so I haven't checked the claim against its source.\n- **Similar page, not a match:** `wiki/concepts/Beacon Protocol Draft.md:7` has a draft status. It says \"A similarly named proposal uses three lanterns.\" It doesn't contain the phrase.\n\nI changed no files."
+    }
+  ]
+}

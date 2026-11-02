@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "<PLUGIN>/scripts/op-begin.mjs",
+    "--op",
+    "relink"
+  ],
+  "stdout": "eb86a39156a3f429",
+  "ownership": "Created by evaluation harness for this actor, no other active writers."
+}

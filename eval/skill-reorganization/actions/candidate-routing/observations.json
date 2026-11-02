@@ -1,0 +1,222 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01XfKA5K62YGebtMCnybNgmg",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-search\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_0148EVQLfmGAbj2p4jwUfCQg",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-project\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_017CKBZaVHHqptN2pvz3QNAM",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_0128YE9e1SoiyHLc3zVHvjG8",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01Rk6XQ5pd9Kurw8EHJBJC33",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-researcher\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01GrraDg9P5wMQBe4JJwvJBU",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-purge\\SKILL.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 15981,
+    "stop_reason": "end_turn",
+    "session_id": "5abeb1e1-a2ce-488d-acc2-6b4b066015da",
+    "total_cost_usd": 0.10925649999999999,
+    "usage": {
+      "input_tokens": 6,
+      "cache_creation_input_tokens": 20542,
+      "cache_read_input_tokens": 64165,
+      "output_tokens": 2066,
+      "output_tokens_details": {
+        "thinking_tokens": 26
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 20542,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1390,
+          "cache_read_input_tokens": 24012,
+          "cache_creation_input_tokens": 13090,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 13090
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 6,
+        "outputTokens": 2066,
+        "cacheReadInputTokens": 64165,
+        "cacheCreationInputTokens": 20542,
+        "webSearchRequests": 0,
+        "costUSD": 0.10925649999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 26,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20542,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 8,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "All six role files are read. This is selection evidence only. I ran no helpers and changed no files.\n\n| # | Request | Role | Boundary from the main file | Read-only or mutation |\n|---|---|---|---|---|\n| 1 | Find a wiki passage | wiki-search | \"Read-only retrieval… never writes content, opens an operation, logs, commits or refreshes indexes.\" | Read-only. It runs a bounded `search.mjs` query over `wiki/` and `moc/`, then opens the matched passages. |\n| 2 | Write original architecture | wiki-project | Original, as-built project documentation with `sources: []`. | Mutation. It opens a relink operation, writes the owned authored pages, validates, logs, commits and syncs. |\n| 3 | Validate existing authored paths only | wiki-setup | \"Validate changed pages… no repairs or writes\", via `validate-authored.mjs --paths-file`. | Read-only. It reports checked and skipped counts and defects, with no operation, log or commit. |\n| 4 | Diagnose lexical-only search | wiki-setup | Search diagnosis runs `search.mjs --health` and reports the cause. Remediation commands are not run without authorization. | Read-only. |\n| 5 | Count un-ingested captures | wiki-setup | Backlog counts are setup's job: `health.mjs --backlog`, \"no ingestion\". The researcher's description also says counts belong to wiki-setup. | Read-only. |\n| 6 | Process un-ingested captures | wiki-researcher | Default-backlog ingestion. It gets the backlog report, checks eligibility, and ingests only eligible sources. | Mutation, but only if eligible sources exist. It writes source and concept pages under an operation, then validates, logs, commits and syncs. If none are eligible, it makes no pages, operation, log, commit or refresh. |\n| 7 | File an explicitly authorized derived synthesis | wiki-maintainer | Authorized synthesis filing is a **query** operation. Original project prose goes to wiki-project instead. Search never files. | Mutation. It verifies provenance, creates or reuses the synthesis page, validates and publishes. Without the explicit authorization it stays read-only search. |\n| 8 | Open a note in Obsidian | wiki-maintainer | Native action through the guarded adapter. \"A filesystem read is never reported as a successful UI action.\" | UI action only. No content operation is needed, and there are no vault content writes. If the app is unavailable, the failure is reported using the wiki-setup app-access reference. |\n| 9 | Fix a broken citation | wiki-maintainer | Integrity repair: read the citing claim and exact source, repair the path within scope. A health report alone doesn't authorize edits. | Mutation. It runs under an operation with an exact-path ledger, then validates, logs, commits and verifies publication. The baseline health check is read-only. |\n| 10 | Preview topic purge | wiki-purge | Preview runs `purge.mjs --plan`. It does no reconciliation, moves, operation, log or commit. | Read-only. Applying or restoring is a separate mutation that needs a reviewed plan and publication approval. |\n| 11 | Change the CSS of an unrelated application | none | The researcher's description says \"ordinary web or application work is not a wiki research request.\" None of the six roles covers application code. | Not a wiki task. No wiki role and no vault access. Any edit would be to that application's own files, outside this vault. |\n\n**Boundaries that decide the close calls**\n- **Requests 3, 4 and 5** go to wiki-setup, which is read-only for reports, validation and diagnosis. It routes content repair to wiki-maintainer and original documentation to wiki-project.\n- **Requests 5 and 6** are split on purpose. A backlog count never authorizes ingestion, and the researcher's default-backlog mode starts from the same setup report.\n- **Requests 7 and 9** are both wiki-maintainer, but only with explicit authorization to file or repair.\n- **Request 10** stops at the plan. wiki-purge says selecting the skill is not approval to apply or publish a removal.",
+    "ttft_ms": 1608,
+    "type": "result",
+    "duration_ms": 16288,
+    "uuid": "564db960-19a6-4322-bbee-dd4c7a401579",
+    "ttft_stream_ms": 1070,
+    "time_to_request_ms": 134,
+    "first_content_frame_ms": 1070,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 6,
+        "outputTokens": 2066,
+        "cacheReadInputTokens": 64165,
+        "cacheCreationInputTokens": 20542,
+        "webSearchRequests": 0,
+        "costUSD": 0.10925649999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 26,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 20542,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

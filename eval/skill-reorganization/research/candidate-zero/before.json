@@ -1,0 +1,67 @@
+{
+  "files": {
+    ".gitignore": {
+      "sha256": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419",
+      "bytes": 14
+    },
+    "AGENTS.md": {
+      "sha256": "7ca6dfb8ba469933f852ea3937b7f483f23ed1a733fd85fd1f744bd251672656",
+      "bytes": 419
+    },
+    "index.md": {
+      "sha256": "40ceb603d32b6d34bbc925bcb0e4f23eae2b5e767b6c5d7f612bd242acf0f35f",
+      "bytes": 53
+    },
+    "moc/Delivery.md": {
+      "sha256": "ec5ca1c2537445dc069cb386b3d234dffefa59523814329f95c31b780f24760f",
+      "bytes": 49
+    },
+    "raw/clippings/Acknowledgement Basics.md": {
+      "sha256": "b67cfbf48666d34956a8a780173801946d5509e2156aa6635810211a7a920f1c",
+      "bytes": 1446
+    },
+    "raw/clippings/Restricted.md": {
+      "sha256": "d48d5ba84d6061033a8181bd3839bc08420d5e199b193c106c9825d450b71f4c",
+      "bytes": 364
+    },
+    "vault-schema.md": {
+      "sha256": "910aa325b67dfcc484ee524605580578a99da5b70c7b759ee94808f41ffde4ab",
+      "bytes": 342
+    },
+    "wiki/concepts/Message Delivery.md": {
+      "sha256": "3c773d4d9bddc301ac7836079e422fc33730a7df2c0d15e9ca4928ba1e4117a3",
+      "bytes": 494
+    },
+    "wiki/sources/Acknowledgement Basics.md": {
+      "sha256": "c8c9b61809f72722619710900f3fa60ee327b2823758a39122a5ba8d1b6373e9",
+      "bytes": 433
+    },
+    "_templates/authored-backlog-item.md": {
+      "sha256": "06fdaabb0bfdc9b27fdfacfb24995319785f14eea92c318fb27d375db919a287",
+      "bytes": 831
+    },
+    "_templates/authored-decision.md": {
+      "sha256": "0e390f924a225b66196a59deaf3bde87b91eeae226a778e97be2df62b6c28d8e",
+      "bytes": 732
+    },
+    "_templates/authored-note.md": {
+      "sha256": "128bba0d3cc78d748f9a045d9947051c179989a60ae0a9b43468f9e837221680",
+      "bytes": 654
+    },
+    "_templates/concept-note.md": {
+      "sha256": "91e7bdb24c20007af5f25e756b4b8ca174cbe85c4825378e60758e7b4483ff87",
+      "bytes": 429
+    },
+    "_templates/source-note.md": {
+      "sha256": "58026c2ddb27ef179a6aa34d2d0a24ef69ef45f5e61da6d0bf99982be2aff04a",
+      "bytes": 140
+    },
+    "_templates/task-map.md": {
+      "sha256": "f8dc8fe72051462451180c99d3dab261b590d1e9b95fc1d705f4a7a373b2c668",
+      "bytes": 250
+    }
+  },
+  "head": "4232637510cf80ddfc3de2587d1930146ad9a3b0",
+  "status": "",
+  "backlog": "Ingest backlog\n  not ingested (no summary records their hash): 1\n    raw/clippings/Restricted.md\n  unparsed raw sources (nothing cites them): 1\n    raw/clippings/Restricted.md\n  clippings missing source-hash (repair): 0\n  source pages awaiting hash backfill: 0\n"
+}

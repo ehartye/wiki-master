@@ -5,7 +5,7 @@ import { join, resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const expected = ['wiki-init', 'wiki-maintainer', 'wiki-purge', 'wiki-researcher', 'wiki-user'];
+const expected = ['wiki-maintainer', 'wiki-project', 'wiki-purge', 'wiki-researcher', 'wiki-search', 'wiki-setup'];
 const skills = readdirSync(join(root, 'skills')).filter(name => existsSync(join(root, 'skills', name, 'SKILL.md'))).sort();
 const read = file => readFileSync(resolve(root, file), 'utf8').replaceAll('\r\n', '\n');
 const entry = name => 'skills/' + name + '/SKILL.md';
@@ -60,17 +60,20 @@ function referenceProblems(starts, load = file => readFileSync(file, 'utf8'), ex
 }
 
 const capabilities = {
-  'wiki-user': { 'search.md': 'search.mjs', 'query.md': 'resolve-evidence.mjs', 'authoring.md': 'validate-authored.mjs' },
+  'wiki-search': { 'advanced.md': 'search.mjs', 'answers.md': 'resolve-evidence.mjs' },
+  'wiki-project': { 'authoring.md': 'op-begin.mjs', 'backlog.md': 'backlog-list.mjs', 'catalogs.md': 'refresh-catalogs.mjs' },
   'wiki-researcher': { 'discover.md': 'known-urls.mjs', 'capture.md': 'clip.mjs', 'ingest.md': 'health.mjs',
     'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
     'clip-xlsx.md': 'clip-xlsx.mjs', 'clip-gh.md': 'clip-gh.mjs', 'clip-confluence.md': 'clip-confluence.mjs' },
-  'wiki-maintainer': { 'health.md': 'health.mjs', 'stale.md': 'stale.mjs', 'lint.md': 'lint.mjs',
+  'wiki-maintainer': { 'lint.md': 'lint-disposition.mjs',
     'repair.md': 'health.mjs', 'relink.md': 'relationships.mjs', 'triage.md': 'triage.mjs', 'obsidian-cli.md': 'obsidian.mjs' },
-  'wiki-init': { 'setup.md': 'init.mjs' },
+  'wiki-setup': { 'initialization.md': 'init.mjs', 'validation.md': 'validate-authored.mjs',
+    'checks.md': 'health.mjs', 'search-diagnostics.md': 'search.mjs',
+    'capture-prerequisites.md': 'doctor.mjs', 'app-access.md': 'obsidian.mjs', 'operation-recovery.md': 'wiki-sync.mjs' },
   'wiki-purge': { 'purge.md': 'purge.mjs' },
 };
 
-test('exactly five portable role entry points have bounded metadata and no procedural inventories', () => {
+test('exactly six portable entry points teach workflows with examples and completion conditions', () => {
   assert.deepEqual(skills, expected);
   assert.deepEqual(readdirSync(join(root, 'skills')).sort(), expected, 'no retired forwarding folders');
   for (const name of skills) {
@@ -78,7 +81,14 @@ test('exactly five portable role entry points have bounded metadata and no proce
     assert.equal(text.match(/^name: (.+)$/m)?.[1], name);
     assert.ok(description(name) && description(name).length <= 1024, name + ': description budget');
     assert.match(description(name), /when|asked|request/i, name + ': concrete trigger');
-    assert.doesNotMatch(text, /^\s*(?:`{3}|~{3})|^\s*\|/m, name + ': procedures belong in references');
+    assert.match(text, /^## (?:Workflow|Simple search)/m, name + ': ordered ordinary workflow');
+    assert.match(text, /^1\. /m, name + ': executable ordered steps');
+    assert.match(text, /Request:.*[“"]/s, name + ': concrete request example');
+    assert.match(text, /Action:/, name + ': example action');
+    assert.match(text, /Result:/, name + ': observable example result');
+    assert.match(text, /^## Best practices/m, name + ': practical guidance');
+    assert.match(text, /^## (?:Advanced references|Advanced search)/m, name + ': conditional depth');
+    assert.match(text, /^## Done/m, name + ': observable completion');
     assert.doesNotMatch(text, /^when_to_use:/m, name + ': portable metadata');
   }
 });
@@ -91,7 +101,7 @@ test('the skill catalog exactly equals current candidate names and descriptions'
 
 test('all capabilities have direct procedures with live helpers, including six capture routes', () => {
   for (const [name, routes] of Object.entries(capabilities)) {
-    const links = localLinks(read(entry(name)));
+    const links = localLinks(read(entry(name))).map(link => link.split('#')[0]);
     for (const [ref, helper] of Object.entries(routes)) {
       assert.ok(links.includes('references/' + ref), name + ': missing direct mode ' + ref);
       assert.ok(read('skills/' + name + '/references/' + ref).includes(helper), ref + ': missing helper ' + helper);
@@ -99,14 +109,21 @@ test('all capabilities have direct procedures with live helpers, including six c
     }
   }
   const clips = readdirSync(join(root, 'scripts')).filter(file => /^clip-.*\.mjs$/.test(file) && file !== 'clip-and-repoint.mjs');
+  const catalogs = read('skills/wiki-project/references/catalogs.md');
+  for (const helper of ['backlog-gen.mjs', 'moc-authored-gen.mjs']) {
+    assert.ok(catalogs.includes(helper), 'standalone project catalog helper: ' + helper);
+    assert.ok(existsSync(join(root, 'scripts', helper)), helper);
+  }
   assert.deepEqual(clips.sort(), Object.values(capabilities['wiki-researcher']).filter(file => /^clip-/.test(file)).sort());
   for (const format of ['PDF', 'Word', 'PowerPoint', 'spreadsheet', 'GitHub', 'Confluence'])
     assert.ok(description('wiki-researcher').includes(format), 'capture discovery metadata: ' + format);
-  assert.ok(localLinks(read(entry('wiki-user'))).includes('../wiki-maintainer/references/obsidian-cli.md'));
+  assert.ok(localLinks(read(entry('wiki-maintainer'))).includes('references/synthesis-filing.md'));
 });
 
 test('every recursively reachable local file and Markdown heading exists', () => {
-  const result = referenceProblems(skills.map(entry));
+  const result = referenceProblems([...skills.map(entry), 'README.md', 'docs/codex.md',
+    'docs/skill-migration.md', 'docs/skill-reliability.md', 'docs/wiki-integrity.md',
+    'docs/wiki-efficacy.md', 'docs/cli-transport-guards.md', 'docs/clipping-fidelity.md', 'docs/reclipping.md']);
   assert.deepEqual(result.problems, []);
   for (const name of skills) {
     const refs = join(root, 'skills', name, 'references');
@@ -127,21 +144,40 @@ test('the recursive guard catches a broken second-hop link and missing heading b
 });
 
 test('roles load shared policy directly while ordinary search has a read-only startup', () => {
-  for (const name of skills) {
+  for (const name of skills.filter(name => name !== 'wiki-search')) {
     const links = localLinks(read(entry(name)));
     assert.ok(links.some(link => link.endsWith('/access.md')), name + ': access policy');
     assert.ok(links.some(link => link.endsWith('/operations.md')), name + ': completion policy');
   }
-  const user = read(entry('wiki-user')), search = read('skills/wiki-user/references/search.md');
-  assert.ok(localLinks(user).includes('references/search.md'));
-  assert.doesNotMatch(user + search, /wiki-maintainer\/SKILL\.md/);
+  const search = read(entry('wiki-search'));
+  assert.match(search, /## Simple search/);
+  assert.match(search, /search\.mjs.*--json --limit=10/);
   assert.doesNotMatch(search, /op-begin\.mjs|\]\([^)]*operations\.md/);
-  assert.match(search, /never writes content/);
+  assert.match(search, /never writes\s+content/);
   assert.match(search, /--include-raw/);
-  for (const file of ['health.md', 'stale.md']) assert.doesNotMatch(read('skills/wiki-maintainer/references/' + file), /op-begin\.mjs/);
-  const author = read('skills/wiki-user/references/authoring.md');
+  assert.doesNotMatch(read('skills/wiki-search/references/answers.md'), /op-begin\.mjs/);
+  assert.doesNotMatch(read('skills/wiki-setup/references/checks.md'), /op-begin\.mjs/);
+  const author = read('skills/wiki-project/references/authoring.md');
   assert.match(author, /before (?:the first |any )?writ/i);
   assert.match(author, /Done only/i);
+});
+
+test('checks and original documentation have canonical owners with direct task obligations', () => {
+  assert.ok(!existsSync(join(root, 'skills/wiki-maintainer/references/health.md')));
+  assert.ok(!existsSync(join(root, 'skills/wiki-maintainer/references/stale.md')));
+  for (const name of ['wiki-project', 'wiki-maintainer', 'wiki-researcher', 'wiki-purge']) {
+    assert.ok(localLinks(read(entry(name))).some(link => link.split('#')[0] === '../wiki-setup/references/validation.md'), name + ': direct validation obligation');
+  }
+  const search = read(entry('wiki-search'));
+  assert.ok(localLinks(search).includes('../wiki-project/SKILL.md'));
+  assert.ok(localLinks(search).includes('../wiki-maintainer/references/synthesis-filing.md'));
+  const filing = read('skills/wiki-maintainer/references/synthesis-filing.md');
+  assert.match(filing, /authoriz/i);
+  assert.match(filing, /--op query/);
+  assert.ok(localLinks(filing).includes('operations.md'));
+  const setup = read(entry('wiki-setup'));
+  assert.match(setup, /Reports, validation and\s+diagnosis are read-only/);
+  assert.match(setup, /does\s+not authorize installing tools, rebuilding indexes, editing content or adding a remote/);
 });
 
 test('operation examples expose both shells and all helper execution uses resolved absolute paths', () => {

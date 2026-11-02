@@ -1,50 +1,24 @@
-# Domain workflow reference
+# Compare wiki workflows
 
-Read this overview only when comparing workflows. Each mode links its complete
-procedure; it is not a prerequisite for a search.
+Read this overview only to select the right task owner. It is never a required
+search preamble; each link leads directly to the canonical procedure.
 
-## Workflows
-- **Ingest** ([researcher ingestion](../../wiki-researcher/references/ingest.md)): read the source → write/update `wiki/sources/<slug>.md`
-  (summary + `sources: ["[[raw link]]"]`) → update the entities/concepts it touches
-  (create stubs where missing) → add `[[links]]` both directions → regenerate the
-  catalog (`node "<absolute-plugin-root>/scripts/index-gen.mjs"`) → write the log entry via `node "<absolute-plugin-root>/scripts/log-entry.mjs"`.
-  Update only pages the source substantively changes. Set `reviewed` only where factual claims were checked against the evidence; mechanical edits preserve it.
-  **Prefer a named source set over the bare "process all new clippings" form.**
-  Two sessions sharing a vault is normal, and ingest is not concurrency-safe:
-  both would rewrite the same concept and index pages, last write silently wins.
-  Scoping to what you clipped keeps sessions out of each other's work.
-  **When a source discusses a concept that already has a page, revise that page
-  rather than adding a parallel one** — accumulating per-concept is what makes the
-  wiki compound instead of sprawl.
-- **Search** ([user search](../../wiki-user/references/search.md)): pure retrieval — find matching `wiki/` pages
-  (and, with `--include-raw`, `raw/` clippings too) and return citation-ready
-  `path:line` results. No synthesis, no writes; use this whenever you just
-  need to locate something, not answer a question.
-- **Query** ([user query](../../wiki-user/references/query.md)): calls user search → synthesize with citations →
-  file back only when authorized, or offer a substantive new answer for filing.
-- **Lint** ([maintainer lint](lint.md)): run [health](health.md) first (cheap); then read the flagged
-  pages and look for contradictions, stale claims, missing concept pages, and
-  missing cross-references; run drift. Report; apply only safe fixes or propose the rest.
-- **Relink** ([maintainer relink](relink.md)): add inferred `[[links]]`; materialize entities
-  referenced ≥3× but unwritten after checking canonical identity; build/refresh MOCs. Prefer real wikilinks so they
-  become part of Obsidian's index.
-- **Authoring** (`wiki/authored/`; [user authoring](../../wiki-user/references/authoring.md)): write these
-  directly — there is no source to ingest from. Place the file per the
-  canonical table in [authoring](../../wiki-user/references/authoring.md); use `_templates/authored-note.md`
-  (`_templates/authored-decision.md` for an ADR,
-  `_templates/authored-backlog-item.md` for a backlog item), set
-  `type: authored` and `sources: []`, and record `ai-generated` honestly
-  (`true` if you drafted it, `false` if the human did). Set `project:`/`kind:`
-  matching the folder — see that reference for the
-  vocabulary. Treat it as a living page like any other: revise it in place as
-  it evolves, set `updated` for edits and `reviewed` only after verifying the factual content or project behavior, and never invent a `raw/` counterpart
-  to satisfy the provenance guardrail — the disclosure *is* satisfying it. Run
-  `node "<absolute-plugin-root>/scripts/moc-authored-gen.mjs" --apply` after adding a page to a
-  project with two or more — it regenerates that project's `moc/<project>.md`
-  hub from `project:`/`kind:`, the same fenced-region contract `index.md`
-  itself uses, so the hub can never silently fall out of sync with the files.
-  For a backlog item specifically, also run
-  `node "<absolute-plugin-root>/scripts/backlog-gen.mjs" --apply` — it regenerates
-  `<project>/roadmap.md`'s itemized list from `backlog/*.md`, the same fence
-  contract, so the roadmap view can never drift from what the items actually
-  say.
+| Request | Owner and boundary |
+|---|---|
+| Find pages, retrieve passages, answer with citations | [Search](../../wiki-search/SKILL.md); read-only, no automatic filing or discovery |
+| Write an overview, architecture, ADR, guide, backlog item or original note | [Project](../../wiki-project/SKILL.md); original authored content and owned catalogs |
+| Initialize, validate, report health/freshness/lint/backlog counts, diagnose failures | [Setup](../../wiki-setup/SKILL.md); reports are read-only, recovery requires scope |
+| Discover sources | [Research discovery](../../wiki-researcher/references/discover.md); independent selection before authorized capture |
+| Capture named URLs/files | [Capture](../../wiki-researcher/references/capture.md); exact named set, raw artifacts only |
+| Ingest selected/new clippings | [Ingestion](../../wiki-researcher/references/ingest.md); exact eligible hash-join set, zero eligible means no writes |
+| Repair integrity or factual claims | [Repair](repair.md) or [factual maintenance](lint.md); actual evidence and authorized scope |
+| Connect concepts and task maps | [Relink](relink.md); explained relationships, no similarity-based merging |
+| File an authorized evidence-derived answer | [Synthesis filing](synthesis-filing.md); query operation, provenance retained |
+| Present/apply source dispositions | [Triage](triage.md); presenting the UI does not apply changes |
+| Perform a native app action | [Obsidian actions](obsidian-cli.md); guarded adapter, no pretend filesystem substitute |
+| Purge, restore or reconcile removal | [Purge](../../wiki-purge/SKILL.md); reviewed plan and explicit publication boundary |
+
+Reuse canonical concepts instead of parallel summaries. Prefer named source sets
+and coordinate overlapping targets; operation ledgers do not isolate two writers
+editing the same concept or catalog. Every authorized mutation follows
+[shared completion](operations.md), except purge's separately owned transaction.

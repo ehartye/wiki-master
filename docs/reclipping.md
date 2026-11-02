@@ -1,5 +1,7 @@
 # Re-clipping layout-flagged evidence
 
+For prerequisite and capture-failure diagnosis use [setup capture prerequisites](../skills/wiki-setup/references/capture-prerequisites.md). Authorized content repair remains in [maintainer repair](../skills/wiki-maintainer/references/repair.md); the helper interfaces below are unchanged.
+
 `apply-reclips.mjs` previews work by default. With no selector it replays pending re-clip/upload dispositions. An explicit request is honored even when a character-only check looks clean. `--include-tabular` also selects captures marked `fidelity: tabular`, `extraction: table-aware` or `extraction: table-flattened`, recursively under `raw/clippings/`.
 
 ```sh

@@ -1,5 +1,7 @@
 # Wiki integrity and repair
 
+For agent checks use [setup health and metrics](../skills/wiki-setup/references/checks.md#health-and-ingest-backlog) and [scoped validation](../skills/wiki-setup/references/validation.md). For authorized changes use [maintainer repair](../skills/wiki-maintainer/references/repair.md). The sections below describe public helper contracts.
+
 `node scripts/health.mjs` reports **open integrity defects**, with a target of zero.
 `--json` supplies the complete version-1 worklist. `--backlog` retains ingest
 reporting; `--legacy` retains the historical capped score and topology diagnostics.
@@ -87,10 +89,12 @@ for presence only.
 
 ## Agent workflow
 
-Invoke `wiki-maintainer` in repair mode to resolve the worklist or selected issue IDs. The mode owns
-investigation, scoped edits, batch verification and the shared vault operation
-lifecycle. Its health mode remains read-only; relink mode curates relationships and
-task maps; lint mode reviews factual content. A named custom agent is not required.
+Use [wiki-setup checks](../skills/wiki-setup/references/checks.md) for read-only
+reports and [wiki-maintainer repair](../skills/wiki-maintainer/references/repair.md)
+to resolve authorized worklist issues. Maintainer owns investigation, scoped
+edits and completion; its workflow links required checks directly to setup.
+Relink curates relationships and task maps; factual fixes and persisted lint
+dispositions remain maintainer actions. A named custom agent is not required.
 
 One writer owns each operation. Preserve raw evidence and intentional forward links.
 Do not clear findings by fabricating support, deleting useful citations, adding empty

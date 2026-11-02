@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-02",
+  "status": "prepared for independent review; no commit or sync yet",
+  "operation": "4998ae357d45a20a",
+  "operationType": "relink",
+  "sourceCommit": "a4ce7e73d3973c42218120fcaf5907c8afd2476a",
+  "ledger": "<VAULT>/.wiki-master/wp5-ledger.json",
+  "paths": [
+    {
+      "path": "wiki/authored/wiki-master/architecture.md",
+      "bytes": 24756,
+      "sha256": "0bb10d388bf6ca4fc127a4140a390835e5e7e674bd84bbff5f8f9e374d4e3a33"
+    },
+    {
+      "path": "wiki/authored/wiki-master/overview.md",
+      "bytes": 3108,
+      "sha256": "54a333d6326a789db22c4e36ff9d98cea5b36dae2ef64a7a1dc397b67675cfe0"
+    },
+    {
+      "path": "wiki/authored/wiki-master/guides/maintenance.md",
+      "bytes": 4739,
+      "sha256": "c1ecaddfa83af28a7308ece36e9e162c15033d90b5704aa2406dda9c1ccc53d0"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/separate-search-project-and-setup-skills.md",
+      "bytes": 24595,
+      "sha256": "415cd29b3893f1e336d6a1ee3073773959bac1e963ebc5859872372ae366229e"
+    },
+    {
+      "path": "wiki/authored/wiki-master/roadmap.md",
+      "bytes": 22440,
+      "sha256": "cefb40541b79fd5515ab9810915ed516d47d6a6d9667c99107c07624678820d8"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/init-preserve-customized-templates.md",
+      "bytes": 2553,
+      "sha256": "043402117d3d9a714219040d038abc25ce9f705727265b58df641a2752dd9461"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/pdf-doctor-render-capability.md",
+      "bytes": 5298,
+      "sha256": "2d54dd7ccdad24a8f742572c8f360a8b0fd2bb186ad3b4ea93350133ffca3471"
+    },
+    {
+      "path": "wiki/authored/wiki-master/notes/six-skill-separation-delivery.md",
+      "bytes": 7437,
+      "sha256": "61c404d2b8dda785aa25274f64b850fa86d2e6ce09eca69f7415617edd825c4a"
+    },
+    {
+      "path": "moc/wiki-master.md",
+      "bytes": 1530,
+      "sha256": "6e916cca2618c7c5aa32dda9af7f9b24d9c333da0c9e8702fa2c22f96567fa65"
+    },
+    {
+      "path": "log/2026-11-02-163821-relink-document-verified-six-skill-separation-and-setup-findings.md",
+      "bytes": 606,
+      "sha256": "b8b88ea15aea8b4df44ded6e24528012513a4aada88f78bb6a6aa571f7a33531"
+    }
+  ],
+  "foreignIndex": {
+    "beforeSha256": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "afterSha256": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "priorNumstat": "16 additions, 0 deletions",
+    "owned": false,
+    "refresh": "deferred"
+  },
+  "catalogCommands": [
+    "backlog-gen.mjs --project wiki-master --apply",
+    "moc-authored-gen.mjs --project wiki-master --apply"
+  ],
+  "frictionDisposition": {
+    "initialization": "new scoped init-preserve-customized-templates item after bounded queries",
+    "pdfDoctor": "update existing pdf-doctor-render-capability item, retain historical scoped-launcher evidence"
+  },
+  "review": "wp5_review will inspect actual vault files; public artifact retains hashes, not private wiki content"
+}

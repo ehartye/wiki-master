@@ -1,44 +1,18 @@
-# Maintenance metrics, repairs and limits
+# Maintenance contracts and content repairs
 
-## Integrity worklist
-
-`health.mjs` now leads with the uncapped open integrity defect count. Use `--json`
-for versioned issues with stable IDs, exact locations, evidence and verification
-conditions. Intentional forward links, orphan/dead-end opportunities and stubs do
-not increase that count. A required citation that fails remains a defect even on
-a stub. Original authored pages may declare `sources: []`; substantive derived
-pages still require evidence. Unresolved navigation, age and fuzzy suggestions
-are never proof of an accidental break. The old capped score is available only
-through `--legacy`, for historical/topology reporting rather than repair targets.
-
-Use [maintainer repair](repair.md) for authorized integrity repairs.
-Compare resolved, remaining and new issue IDs after each batch. `--backlog` keeps
-the ingest contract below. The checker is structural and reports its unchecked
-areas; zero defects is not factual verification. See `docs/wiki-integrity.md` in
-the plugin root for the full contract and coverage limits.
+Use [checks](../../wiki-setup/references/checks.md) for read-only health, metrics,
+freshness and lint reporting. Apply repairs only within authorized content scope,
+with [operations](operations.md), [evidence](evidence.md) and direct
+[scoped validation](../../wiki-setup/references/validation.md).
 
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
 `wiki/sources/` page's `source-hashes`**. Hash equality is the contract — immune to
 the `-<hash7>` filename suffix and the citation-format drift that made
-link-resolution manufacture phantom backlog. Facts the metric reports:
-
-| metric | means | still owes work? |
-|---|---|---|
-| `unparsedSources` | nothing in the wiki cites it at all | yes |
-| `unsummarizedSources` | no `wiki/sources` page records its hash | **yes — this is the backlog** |
-| `missingHash` | a `.md` clipping carrying no `source-hash` | data defect — repair (re-clip) |
-| `backfillPending` | source pages that cite raw but recorded no hash | migrate — see the migration guidance in this reference |
-| `provenanceGaps` | a `wiki/sources` page citing no `raw/` file | yes — scored as a defect |
-
-Report `unsummarizedSources` when asked what still needs ingesting — obtain it
-with `node "<absolute-plugin-root>/scripts/health.mjs" --backlog`, which prints just these ingest lines led
-by the not-ingested count (the full `health.mjs` report carries the same lines at
-the bottom). Do **not** re-derive the backlog by searching `tag:clippings` and
-hand-diffing `wiki/sources/` — that fuzzy link-resolution is the drift this
-content-hash join exists to replace. Only `.md`
-clippings are ingestable units — a binary original (`.pdf/.xlsx/.zip`) is never a
-summary target and is not backlog.
+link-resolution manufacture phantom backlog. Only Markdown clippings are ingestable units; binary originals are not summary
+targets. Use the direct [backlog check](../../wiki-setup/references/checks.md#health-and-ingest-backlog)
+to obtain counts. Never derive eligibility from filename, title, a fuzzy citation
+match or filesystem movement.
 
 **Migrating a vault (agents, any machine).** A vault written before this scheme has
 source pages without `source-hashes`; a transitional fallback keeps them credited by
@@ -173,14 +147,15 @@ implements bounds itself in ways worth tracking:
   upgrade it into a bound the source never stated.
 - **Cheap maintenance is not correct maintenance.** The pattern's justification is
   that upkeep cost approaches zero, which addresses effort, not accuracy. It
-  specifies no verification tier — that is what maintainer lint, quote-lint, and the
+  specifies no verification tier — that is what content lint, quote-lint, and the
   clipping-wins guardrail exist to supply.
 - **Frictionless collection is not free.** Automated discovery plus automated
   ingest removes the cost that used to limit what got kept. Volume is not
   progress; prefer fewer, better-corroborated sources over a larger pile.
 
-## Cost discipline
-During substantive maintenance, cheap structural checks (maintainer health)
-prioritize the expensive semantic passes. A clean graph does not establish factual correctness:
-sample changed or high-use pages during requested maintenance even when structural
-health is clean. Skip an empty vault; avoid a full lint on an unchanged wiki.
+## Verification obligation
+
+Validate actual repairs and inspect changed or high-use claims during substantive
+maintenance. Use the direct [bounded checks](../../wiki-setup/references/checks.md#bounded-maintenance-evaluation)
+for reporting procedures and coverage. A clean graph does not establish factual
+correctness; do not change factual review dates for mechanical repairs.

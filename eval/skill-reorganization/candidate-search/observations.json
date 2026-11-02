@@ -1,0 +1,179 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01MKKj6r5fvR1zZBxm98YMJ6",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-search"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01VdHD2ZMzHjh9n1FHuY14Mm",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-search\\references\\advanced.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 22316,
+    "stop_reason": "end_turn",
+    "session_id": "793a8588-d6aa-4244-ae74-7faf14f2e015",
+    "total_cost_usd": 0.10765369999999999,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 17044,
+      "cache_read_input_tokens": 155597,
+      "output_tokens": 2389,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 17044,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1360,
+          "cache_read_input_tokens": 32034,
+          "cache_creation_input_tokens": 1570,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1570
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2389,
+        "cacheReadInputTokens": 155597,
+        "cacheCreationInputTokens": 17044,
+        "webSearchRequests": 0,
+        "costUSD": 0.10765369999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 17044,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 8,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "No. Beacon ships one dispatcher worker. A second worker is only proposed.\n\nAll paths below are relative to the disposable vault. I wrote nothing, logged nothing and refreshed no indexes.\n\n## Lookups\n\n**Exact phrase \"The copper heron carries seven lanterns\"**\n- It appears at `wiki/concepts/Beacon Protocol.md:10`, a maintained concept page reviewed 2026-10-01.\n- `wiki/concepts/Beacon Protocol Draft.md:7` is a similarly named draft. It says \"A similarly named proposal uses three lanterns.\" It does not contain the phrase, so I did not treat it as a match.\n\n**Alias \"Lantern Relay\"**\n- It resolves to `wiki/concepts/Beacon Protocol.md`, whose `aliases` field is at line 4. The search marked this an exact match.\n- The same query also returned the Beacon architecture and overview pages, but only as lexical matches on the word \"relay\". They are not aliases.\n\n**\"Harbor\"** is ambiguous. Two pages share the title, and the helper raised `ambiguous-identity`. I did not pick one.\n- `wiki/concepts/north/Harbor.md:8`: \"The northern harbor uses violet signal flags.\"\n- `wiki/concepts/south/Harbor.md:8`: \"The southern harbor uses amber signal flags.\"\n\n## Raw evidence for \"quartz otter 817\"\n\n- The raw search returned 1 hit (`rawCount` 1), and the raw channel reported ok.\n- The hit is `raw/clippings/Beacon Study.md:8`: \"Evidence marker quartz otter 817 appears only in raw evidence.\"\n- The file's source is `https://example.org/beacon-study` and its quality is marked high.\n- **Provenance:** `resolve-evidence.mjs` shows `wiki/concepts/Beacon Protocol.md` cites `raw/clippings/Beacon Study.md` directly, through the `sources` field at line 7. The helper notes this shows the route to the evidence, not that the evidence supports the claim.\n- **What the raw text supports:** line 9 says \"The measured protocol delivered seven lantern messages.\" That is related to the wiki's \"seven lanterns\" sentence but is not the same claim. The marker appears only in the raw file, not on any wiki page.\n\n## Does Beacon already ship two dispatcher workers?\n\nI searched with `--project=beacon --include-raw`. The raw channel succeeded and returned 0 raw hits for this query.\n- `wiki/authored/beacon/architecture.md:14`: \"The deployed relay persists messages in a local queue and dispatches them using one worker. A second worker is proposed, not implemented.\"\n- `wiki/authored/beacon/backlog/parallel-workers.md:15`: \"Proposed: introduce a second worker… This has not shipped.\" The backlog item's status is `open`.\n- Both pages are maintained and were reviewed 2026-10-01. Both declare `sources: []`, so they are first-party project documentation with no raw clipping behind them.\n- `wiki/authored/beacon/overview.md:15` only links to the architecture page. Its citation to `architecture.md` is flagged as unresolved in the search metadata, but I opened the file directly.\n\n## Coverage diagnostics\n\n- **Lexical only.** The semantic channel reported `index-unavailable`, so no semantic ranking contributed.\n- **Identity lookup incomplete.** The helper reported `metadata-incomplete`, so title and alias lookup was not exhaustive. The alias hit was confirmed by opening the page, but another page declaring the same alias would not necessarily have shown up.\n- **Fresh index not available.** Every hit showed `indexFreshness: unindexed`. I did not repair or refresh anything, as you asked.\n- **Channels.** The wiki and moc keyword channels were ok in every run. The raw channel was ok in the two runs that included it.\n- **Absence claims.** A claim that something is absent from the vault is therefore limited to these queries and this lexical coverage.",
+    "ttft_ms": 1900,
+    "type": "result",
+    "duration_ms": 24408,
+    "uuid": "56dae94e-51f3-4a1d-8763-76f04918ea65",
+    "ttft_stream_ms": 1722,
+    "time_to_request_ms": 127,
+    "first_content_frame_ms": 1722,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2389,
+        "cacheReadInputTokens": 155597,
+        "cacheCreationInputTokens": 17044,
+        "webSearchRequests": 0,
+        "costUSD": 0.10765369999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 17044,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

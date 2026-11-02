@@ -1,13 +1,14 @@
 # Skill reliability
 
-The source now exposes five roles with task-specific references. See the
+The source now exposes six roles with task-specific references. See the
 [migration mapping](skill-migration.md) and [current catalog](../eval/skill-catalog.md).
-Ordinary search loads the user entry point and short search reference, plus
-applicable vault instructions. Evidence and mutation policies load when needed.
+Ordinary search executes from the search main file, plus applicable vault
+instructions; advanced references load only when needed. Evidence and mutation policies load when needed.
 All six capture routes remain researcher modes; ingestion and capture retain
 separate authorization. Helper interfaces and vault formats are unchanged.
 
-Consolidation evidence is retained under `eval/skill-consolidation/`. Package
+Reorganization evidence is retained under `eval/skill-reorganization/`; prior
+consolidation evidence remains unchanged under `eval/skill-consolidation/`. Package
 reviews and structural tests establish only their stated scope; candidate-loaded
 behavior and publication must be judged from their separate execution artifacts.
 This source change is not a release or global installation instruction.
@@ -18,6 +19,13 @@ Frozen transcripts under other `eval/` directories, `docs/superpowers/` plans an
 specifications, and release history are retained unchanged.
 
 ## Runtime and completion
+
+[Setup checks](../skills/wiki-setup/references/checks.md),
+[app diagnosis](../skills/wiki-setup/references/app-access.md) and
+[operation recovery](../skills/wiki-setup/references/operation-recovery.md)
+own the agent procedures. The contracts and historical measurements below
+remain reference material.
+
 
 The shared Obsidian wrapper defaults to a 10-second timeout. Callers can choose a finite bound for known longer commands. It never automatically retries: a timed-out write may already have happened. Inspect the exact target before continuing.
 
@@ -49,8 +57,9 @@ The independently labeled simulations retain all transcripts and limits; existin
 real-Git fixtures check helper behavior separately.
 
 Historically, version 0.36.0 reduced the maintainer core from 444 to 76 lines and
-gave the then-19 descriptions natural triggers. The five-role layout replaces
-that universal core with shared policy references and a maintenance router.
+gave the then-19 descriptions natural triggers. The 0.88.0 five-role layout replaced
+that universal core with shared policy references and a maintenance router;
+the current six-role source preserves that shared-policy ownership.
 Existing provenance and purge safeguards remain in force.
 
 ## Behavioral suite

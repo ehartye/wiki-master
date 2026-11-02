@@ -1,5 +1,7 @@
 # HTML clipping fidelity
 
+For agent prerequisite checks, failed-capture diagnosis and recovery use [capture prerequisites](../skills/wiki-setup/references/capture-prerequisites.md). [Researcher capture](../skills/wiki-researcher/references/capture.md) owns the capture workflow; this page retains the public format and fidelity contract.
+
 `clip.mjs` uses an owned extraction wrapper with pinned Defuddle 0.19.5, linkedom 0.18.12 and Turndown 7.2.0. Development uses `npm ci`; installed plugins acquire the same versions through npm exec when local dependencies are absent. The fetcher retains Defuddle's proxy support, encoding detection, size/time limits and bare-request bot retry. English remains explicit on every request.
 
 Before extraction, the wrapper preserves meaningful fragment-linked API heading text. Recognized documentation structures select their enclosing content container, preserve introductions outside `<article>`, and turn warning/availability boxes into blockquotes before readability cleanup. Navigation, footers, hidden controls and buttons are removed. Ordinary articles retain default readability selection. Rendered HTML follows the same path, with the original URL supplied for relative links.

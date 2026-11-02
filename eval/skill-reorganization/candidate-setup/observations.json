@@ -1,0 +1,223 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "plugins": [
+    {
+      "name": "wiki-master",
+      "path": "<PLUGIN>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    },
+    {
+      "name": "cc-plugin-agents-md",
+      "path": "builtin",
+      "source": "cc-plugin-agents-md@builtin"
+    },
+    {
+      "name": "cc-plugin-telemetry",
+      "path": "builtin",
+      "source": "cc-plugin-telemetry@builtin"
+    },
+    {
+      "name": "cc-plugin-plugin-authoring",
+      "path": "builtin",
+      "source": "cc-plugin-plugin-authoring@builtin"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01YWPMrgK1XFRPLRL4j1WDti",
+      "name": "Skill",
+      "input": {
+        "skill": "wiki-master:wiki-setup"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "reads": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01RoEaDSkQW3VyNXdFs3BqMH",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-maintainer\\references\\access.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01SVKCeMuAg3z38gMhVrgLPZ",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\validation.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01VScdfZe2NysU59M17ArH9X",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\checks.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_01FkbUdKmT2qC7GAiYCCweyc",
+      "name": "Read",
+      "input": {
+        "file_path": "<PLUGIN>\\skills\\wiki-setup\\references\\search-diagnostics.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    },
+    {
+      "type": "tool_use",
+      "id": "toolu_016vR8SGxtVRcXmhijDDq55S",
+      "name": "Read",
+      "input": {
+        "file_path": "<SCRATCH>\\candidate-setup\\AGENTS.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  ],
+  "final": {
+    "duration_api_ms": 34863,
+    "stop_reason": "end_turn",
+    "session_id": "e19d5968-ce0f-4661-a3e9-839ad10796c0",
+    "total_cost_usd": 0.1348588,
+    "usage": {
+      "input_tokens": 14,
+      "cache_creation_input_tokens": 22170,
+      "cache_read_input_tokens": 175408,
+      "output_tokens": 2861,
+      "output_tokens_details": {
+        "thinking_tokens": 102
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 22170,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1382,
+          "cache_read_input_tokens": 38408,
+          "cache_creation_input_tokens": 322,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 322
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2861,
+        "cacheReadInputTokens": 175408,
+        "cacheCreationInputTokens": 22170,
+        "webSearchRequests": 0,
+        "costUSD": 0.1348588,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 102,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 22170,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 12,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "This was a read-only diagnostic. I changed nothing in the vault and ran no repair, init, install, index rebuild, log, commit or sync. The only file I wrote was the path ledger, `%TEMP%\\ledger-diag.json`.\n\n## Scoped validation (exit 1, 2 pages checked, 0 skipped)\n- `wiki/authored/beacon/architecture.md` has no defects.\n- `wiki/authored/beacon/backlog/parallel-workers.md:11` has a `bad-value` defect. Its `backlog-status` is `open`, which is not one of in-progress, planned, blocked, shipped or dropped.\n- Structural validation doesn't check facts, so a clean page here isn't a factual review.\n\n## Vault health (`health.mjs --json`, exit 0, status \"defects\")\n- **Coverage:** 9 content pages were scanned, 2 are provenance-eligible, and 4 are stubs. No operations are open and there are no op refusals.\n- **Defect (1):** `wiki/concepts/Beacon Protocol Draft.md:4` has `missing-evidence`. It's a substantive derived page with no evidence route to raw within three hops.\n- **Unrecognized backlog status:** the same `parallel-workers.md` page, status `open`.\n- **Ingest backlog:** 1 clipping isn't ingested, `raw/clippings/Beacon Study.md`. No clippings are unparsed, none lack a `source-hash`, and none await hash backfill.\n- **Not checked by health:** factual correctness, external URLs, heading and block anchors, historical moves and deletions, and Markdown-style links.\n\n## Freshness\n- **Backend:** `stale.mjs` fell back to the filesystem because `obsidian base:query` returned invalid JSON.\n- **Counts:** 0 fresh, 4 aging, 0 stale, 3 rotten, and 3 with no review date.\n- **Missing review:** `Beacon Protocol Draft.md`, `concepts/north/Harbor.md` and `concepts/south/Harbor.md`.\n- **Drift coverage (`drift.mjs --coverage`):** 4 total, 1 eligible, 3 ineligible, 0 evaluated, 0 failed, 4 skipped. Zero evaluated is not \"no drift.\" Embeddings were not run, as read-only requires.\n\n## Lint (scoped to the 2 pages)\nNo findings. 0 quotes were examined, with 0 gapped, 0 unverified and 0 style flags. That means no quotations were available to check, not that the quotes are verified.\n\n## Why search has no semantic coverage\n`search.mjs --health` reports the tier as **lexical**, for two independent reasons:\n1. **Backend unreachable.** The environment sets `OLLAMA_HOST=http://127.0.0.1:1`, which is a dead port. Ollama reports `reachable=false` and `model-pulled=false` for `nomic-embed-text`. The suggested fix, `ollama serve`, would not help while that host override stays in place. I did not run it or change the environment.\n2. **No index.** The semantic index has 0 files and 0 chunks, with 8 files changed since the last refresh. I did not run `index-embed.mjs`, so nothing could be built or tested.\n\n## Actual coverage limits\n- Search works only through keyword matching over `wiki/` and `moc/`, plus identity channels. It has no semantic ranking and no semantic recall.\n- The vault is small: 9 content pages. Drift evaluation reaches 0 of 1 eligible page, and lint saw no quotations.\n- Health says nothing about factual correctness.\n- The `.recycle/` folder was not read.\n\n**Next actions, if you want them done:**\n- Fix the backlog status through wiki-project.\n- Resolve the evidence route and the missing review dates through wiki-maintainer.\n- Ingest the one clipping through wiki-researcher.\n- For semantic search, point `OLLAMA_HOST` at a running Ollama with `nomic-embed-text` pulled, then run `index-embed.mjs`. Each of these needs your authorization.",
+    "ttft_ms": 7000,
+    "type": "result",
+    "duration_ms": 36890,
+    "uuid": "a4ab9873-6af2-4c89-921c-0c65eda5e712",
+    "ttft_stream_ms": 6216,
+    "time_to_request_ms": 126,
+    "first_content_frame_ms": 6216,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 14,
+        "outputTokens": 2861,
+        "cacheReadInputTokens": 175408,
+        "cacheCreationInputTokens": 22170,
+        "webSearchRequests": 0,
+        "costUSD": 0.1348588,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 102,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 22170,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  },
+  "grading": "Not graded by executor; independent reviewer required."
+}

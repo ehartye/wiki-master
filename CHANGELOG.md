@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.89.0 — 2026-11-02
+
+- Separate retrieval, original project documentation and setup into wiki-search, wiki-project and wiki-setup; retain wiki-maintainer, wiki-researcher and wiki-purge for exactly six skills. Remove wiki-user and wiki-init without forwarding aliases.
+- Give every entry point executable workflows, examples and completion conditions; centralize checks and recovery while preserving read-only search, evidence rules, scoped publication, ingestion eligibility and purge approvals.
+- Breaking skill-name migration: coordinate with hartye-skills 0.9.5, agent-game-studio 0.4.1 and agent-unreal 0.38.2. Runtime helper interfaces remain unchanged; app-registration guidance now names wiki-setup.
+- Retain section-level migration coverage, independent package reviews and real baseline/candidate execution evidence under eval/skill-reorganization.
+
 ## 0.88.0 — 2026-11-02
 
 - Replace 21 visible skills with five roles: wiki-user, wiki-researcher, wiki-maintainer, wiki-init and wiki-purge, without forwarding aliases.

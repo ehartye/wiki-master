@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-02",
+  "status": "published; independent post-publication review passed",
+  "operation": "4998ae357d45a20a",
+  "operationClosed": true,
+  "commit": "92943db1946f43e835149e6aef2baefd5d35d5a7",
+  "paths": [
+    "log/2026-11-02-163821-relink-document-verified-six-skill-separation-and-setup-findings.md",
+    "moc/wiki-master.md",
+    "wiki/authored/wiki-master/architecture.md",
+    "wiki/authored/wiki-master/backlog/init-preserve-customized-templates.md",
+    "wiki/authored/wiki-master/backlog/pdf-doctor-render-capability.md",
+    "wiki/authored/wiki-master/backlog/separate-search-project-and-setup-skills.md",
+    "wiki/authored/wiki-master/guides/maintenance.md",
+    "wiki/authored/wiki-master/notes/six-skill-separation-delivery.md",
+    "wiki/authored/wiki-master/overview.md",
+    "wiki/authored/wiki-master/roadmap.md"
+  ],
+  "scopeMatchesPreparedLedger": true,
+  "commitCommand": "op-commit.mjs --op relink --title <reviewed-title> --since <operation> --paths-file <exact-ledger>",
+  "sync": {
+    "command": "wiki-sync.mjs",
+    "pulled": 0,
+    "pushed": 1,
+    "exitCode": 0
+  },
+  "freshRemote": {
+    "ref": "refs/heads/main",
+    "commit": "92943db1946f43e835149e6aef2baefd5d35d5a7",
+    "matches": true
+  },
+  "validation": {
+    "version": 1,
+    "checked": 9,
+    "skipped": 1,
+    "defects": []
+  },
+  "foreignIndex": {
+    "beforeSha256": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "afterSha256": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "refresh": "deferred"
+  },
+  "foreignState": {
+    "beforeCount": 74,
+    "byteIdenticalCount": 69,
+    "concurrentLogicalChanges": 5,
+    "newOutsideScopePaths": 2,
+    "allOutsidePublishedScope": true,
+    "attribution": "The author did not edit these paths. Independent review verified their exclusion; the receipt does not attribute unseen concurrent writes."
+  },
+  "productRelease": false,
+  "independentReview": "wp5-review.md"
+}

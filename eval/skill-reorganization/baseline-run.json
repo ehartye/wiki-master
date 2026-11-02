@@ -1,0 +1,7 @@
+{
+  "batches": [
+    "baseline-run-project-setup-search.json",
+    "baseline-run-init-recovery.json"
+  ],
+  "note": "Both original batches completed before candidate authoring; individual request/execution receipts are authoritative."
+}

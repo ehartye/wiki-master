@@ -15,7 +15,7 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   `wiki/authored/`, a page belonging to a multi-doc project lives at
   `wiki/authored/<project>/[<subproject>/]<file>.md` — see the Frontmatter contract
   below for the `project`/`kind` fields that drive this, and
-  `skills/wiki-user/references/authoring.md` for the canonical per-kind placement table
+  `skills/wiki-project/references/authoring.md` for the canonical per-kind placement table
   ("write a user guide" always resolves to `<project>/guides/user.md`, etc.).
 - `moc/` — Maps of Content. `index.md` — catalog. `log/` — one file per operation, viewed via `log.base`.
 - `.recycle/` — purged topics, one folder per purge with a `manifest.json` recording what

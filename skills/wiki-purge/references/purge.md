@@ -1,5 +1,5 @@
 Read directly for this operation: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [operations](../../wiki-maintainer/references/operations.md).
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Purge owns its transaction and separate approvals. Only collateral edits use an ordinary scoped operation; retain the shared ownership and evidence rules without wrapping purge in a competing operation.
 
 # Purging a topic
 
@@ -21,30 +21,12 @@ machine. **It cannot close the fourth** — recognizing that one is on you.
    auto-sync can keep committing to it. When the lineages have **no merge base**,
    the clone can retain every removed file even though the remote records removal.
 
-**On the fourth, check before you purge.** From inside an orphaned clone a purge
-succeeds, commits, and is invisible to every other machine — and the clone will look
-to you like the topic keeps coming back:
-
-```
-git -C "<vault>" fetch
-git -C "<vault>" merge-base HEAD "<configured-upstream>"
-```
-
-Use the vault's actual upstream, not an assumed branch. A failed fetch or missing
-upstream is a distinct failure, not proof of unrelated histories. A non-Git vault
-has no history to compare and must be reported as local-only.
-If Git confirms there is no merge base, **stop and say so.** Nothing purge does will reach the
-other machines until the lineages are reconciled, and that is a decision about which
-history is canonical — not one to make inside a purge.
+**Check before mutation:** follow the direct [history-connectivity diagnostic](../../wiki-setup/references/operation-recovery.md#purge-history-connectivity). Stop on confirmed unrelated histories. A missing upstream/fetch failure is a distinct condition; non-Git work is local-only. Choosing a canonical history is not a purge decision.
 
 ## Steps
 
-1. **Reconcile first.**
-   Save a baseline with `node "<absolute-plugin-root>/scripts/health.mjs" --legacy`
-   before any purge mutation; retain its **broken links** count for step 6.
-   `node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile`
-   Sweeps anything an earlier purge lost, on this machine. Cheap and silent on a
-   clean vault. It commits whatever it moves.
+1. **Establish the baseline; reconcile only when authorized.**
+   Follow the direct [broken-link verification procedure](../../wiki-setup/references/checks.md#purge-broken-link-verification) before any mutation and retain its initial count. For a preview-only request, do not reconcile: proceed directly to the read-only plan. When completing an explicitly authorized prior removal, use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge); reconciliation moves files and commits, even when it is silent on a clean vault.
 
 2. **Plan.**
    `node "<absolute-plugin-root>/scripts/purge.mjs" --plan "<topic>"`
@@ -84,7 +66,7 @@ history is canonical — not one to make inside a purge.
    - open an ordinary relink operation before repairing references on every
      COLLATERAL page (the log entry lists them);
    - regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`;
-   - validate, log and close that repair operation through the shared contract,
+   - [validate changed paths](../../wiki-setup/references/validation.md), log and close that repair operation through the shared contract,
      preserving already-dirty files. Never `git add -A`. The purge transaction
      itself already owns its commit and must not be wrapped in a competing one.
      Defer publication of both commits until the explicit push approval in step 5.
@@ -96,36 +78,11 @@ history is canonical — not one to make inside a purge.
    repo, say plainly that the purge is local and will not reach other copies.
 
 6. **Verify — on the broken-link count, not the score.**
-   `node "<absolute-plugin-root>/scripts/health.mjs" --legacy`, and compare the
-   **broken links** line against the saved baseline. It must not have grown.
-   The default integrity report cannot replace this check: it leaves unresolved
-   navigation links unscored and does not know which targets this purge removed.
-
-   Do **not** verify with the score. An unrepaired purge can improve it:
-   purging an orphaned page removes
-   an orphan penalty, and the dangling links left behind are classified `deferred`
-   by `classifyBrokenLinks` — which is unscored. A link only escapes `deferred` if a
-   similarly-named page still exists (impossible, the target was just purged) or the
-   citing page is more than 90 days stale. So on any collateral page touched in the
-   last three months, a skipped repair is invisible to the score.
-
-   When app access is available, the guarded
-   `node "<absolute-plugin-root>/scripts/obsidian.mjs" unresolved verbose format=json`
-   also lists them, attributed to the pages that carry them.
+   Repeat the direct [broken-link check](../../wiki-setup/references/checks.md#purge-broken-link-verification) and compare with the saved baseline. The count must not have grown. Inspect collateral and report actual publication state; a better score never proves a safe purge.
 
 ## When a purge stops partway
 
-`--apply` reports the files it could not move and **stops before committing**. The
-usual cause is a Windows file lock — antivirus mid-scan, the Search indexer, a sync
-client holding a read-only handle.
-
-Close whatever holds them open, then run **`--reconcile`**. It finishes this purge in
-place, into the same bin folder, and commits.
-
-**Do not re-run `--apply`.** The seed pages are already gone, so its plan comes back
-empty; it starts a *second* purge under a new id, writes a manifest with no entries,
-and commits something that claims a purge and contains none — while the real
-half-purge stays uncommitted and gets reported back as the user's own work.
+Use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge) to inspect and finish the same authorized transaction. Do not rerun `--apply` as a substitute; preserve its original manifest, scope and publication boundary.
 
 ## Restoring
 
@@ -155,5 +112,5 @@ back and commits.
 - **An empty result is not an answer.** If `--plan` reports no wiki pages for a
   topic, inspect its search diagnostics: the helper refuses to trust an empty
   result when the primary wiki keyword scan failed. Do not reinterpret unavailable
-  coverage as "this topic does not exist". Healthy search still requires reviewing
+  coverage as "this topic does not exist"; use [search diagnostics](../../wiki-setup/references/search-diagnostics.md) when needed. Healthy search still requires reviewing
   seeds for relevance; it does not authorize applying a plan.

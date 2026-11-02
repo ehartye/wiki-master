@@ -19,30 +19,16 @@ HttpOnly cookie for 30 days. `url` is the clean form, for liveness checks and lo
 own it renders a 401. Hand over the link with a one-line summary of what is waiting, then
 **end your turn**. They disposition in the browser; you read the results next turn.
 
-The server reuses one session directory per vault (`.wiki-master/triage-ui/`), so re-running
-refreshes the open page rather than starting a second server. It idles out after 30 minutes.
-
 ### Triaging from another machine
-```bash
+
+When the user requests remote access, run:
+
+```sh
 node "<absolute-plugin-root>/scripts/triage.mjs" --remote
 ```
-Default is loopback-only. `--remote` binds every interface and advertises a reachable
-address instead of `0.0.0.0`, which no browser will open. Everything else is unchanged:
-the same link, the same token, and uploads still land on the **server's** disk, which is
-where `apply-reclips` will look for them.
 
-- **The token is re-printable, never memorized.** It lives in
-  `.wiki-master/triage-ui/state/token` (gitignored, machine-local, `0600`) and is stable
-  across restarts. If the user loses the link, read the file and rebuild it — do not
-  regenerate it, or you invalidate the link they already have.
-- **To rotate:** delete that file and re-run. Every existing session cookie stops working.
-- **The port is remembered too** (`state/port`), because the cookie is scoped to
-  `host:port` — a new port would silently force a fresh login every run.
-- **Over a plain LAN the token crosses the wire in cleartext.** On a tailnet (WireGuard)
-  or behind an HTTPS front that is fine; on an untrusted network, say so rather than
-  assuming the user has thought about it.
-- `WM_TRIAGE_URL_HOST` overrides the advertised hostname when the derived IP is not the
-  one the user reaches the machine on.
+Return its token-bearing `link`. Uploads land on the server's disk, where
+`apply-reclips` reads them. Setup owns [session/reachability recovery](../../wiki-setup/references/app-access.md#triage-ui-reachability-and-session-recovery), including binding, remembered port/token, lost links, rotation and network diagnostics. Do not rotate a session merely because its link was lost.
 
 ### Grouping by research topic
 Rows are grouped by **kind** (kind decides which actions a row offers) and filtered by
@@ -71,7 +57,7 @@ const stillOpen = openIssues(loadIssueLog(vaultPath));
 
 Then act on what the user chose. Starting the UI alone needs no content operation.
 Before applying a disposition that changes tracked content or pipeline state, open
-or reuse an operation; validate, log, commit, push and verify remote publication
+or reuse an operation; [validate changed paths](../../wiki-setup/references/validation.md), log, commit, push and verify remote publication
 through the completion contract. Handoffs such as ingest own their transaction.
 
 The dispositions a row offers depend on its kind. Clip failures (`failed`, `gone`,

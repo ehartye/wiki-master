@@ -4,9 +4,11 @@ Use this contract when creating concepts, linking topics, discovering sources or
 
 ## Concept identity
 
-Before creating a concept, search its intended title, common alternative wording, and the nearest existing concepts. Choose explicitly: extend the canonical page, add an equivalent alias, or create a distinct concept with a scope boundary. Run `node "<absolute-plugin-root>/scripts/identity-audit.mjs" --json` from the plugin root when ambiguity is suspected. Never merge based on embedding similarity alone.
+Before creating a concept, search its intended title, common alternative wording, and the nearest existing concepts. Choose explicitly: extend the canonical page, add an equivalent alias, or create a distinct concept with a scope boundary. Use the direct [identity check](../../wiki-setup/references/checks.md#identity-and-relationship-checks) when ambiguity is suspected. Never merge based on embedding similarity alone.
 
 Use `aliases: ["equivalent phrase"]` and a one-sentence `scope:` on concept pages. Aliases name the same concept; broader, narrower and complementary concepts remain separate pages. Use full-path wikilinks for ambiguous names. A source page and a concept may legitimately share a basename; a warning is a review queue, not permission to rename everything.
+
+Two rules decide a bare name before it counts as ambiguous. A file whose own name equals the link outranks files that only share that name as a `title:` or alias (a site that serves a case's syllabus and opinion under one title gives two clippings one title; the clipping named for the link is the one Obsidian opens). And in navigation a project's generated hub MOC (`moc/<project>.md`) yields to a page of the same name, so a bare `[[<project>]]` reaches the entity page; the MOC is still reached by `[[moc/<project>]]`. Two files with the same name stay ambiguous. After a refresh scoped to one project, the result's `staleCatalogs` names other projects' generated catalogs whose bare link your new pages made ambiguous; refresh each named project.
 
 ## Relationships and citations
 
@@ -22,13 +24,11 @@ Curated `moc/` maps answer a recurring task: where to start, prerequisites, comp
 
 Discovery starts with an unanswered question and bounded search of the existing wiki/MOCs. Each candidate source must state what evidence it adds and which existing or proposed concept/synthesis it changes. Deduplicate source URLs as before. Read the manual Start here section of `index.md` only if needed; never load its generated catalog as the default coverage summary. Promote high-use stubs and missing bridges when their current evidence is sufficient; do not pad stubs or enforce a source:synthesis ratio.
 
-## Verification and maintenance cadence
+## Verification obligations
 
-- **Each ingest or substantive edit:** check identity and citation paths, update the affected task map, refresh the index through the operation helper. Update `updated` for edits; set `reviewed` only after checking factual claims against evidence or project behavior.
-- **Each requested maintenance pass:** inspect structural defects, then sample changed/high-use pages even if the structural score is perfect. Run drift coverage first; choose a bounded sample for embeddings and claim inspection. Record evaluated, skipped and failed counts, plus document/chunk sampling coverage. Long documents are sampled; a page counted as evaluated is not an exhaustive factual review.
-- **Weekly when actively growing:** review up to ten relationship candidates, high-demand stubs and discovery gaps. This is a workflow cadence, not an installed scheduler.
-- **After search/schema changes and periodically as vocabulary evolves:** run the retrieval regression set, inspect development failures, then measure held-out queries without tuning to them. Keep results by category rather than one misleading health score.
-
-`reviewed` means factual verification; `updated` means edited; search index freshness means the indexed file version matches the file. None substitutes for the others. Missing review dates remain unverified. Cosine drift is a topical diagnostic, not a truth or contradiction detector. A zero-evaluated run cannot justify saying the wiki has no drift.
-
-Read [wiki efficacy](../../../docs/wiki-efficacy.md) for command contracts and evaluation examples.
+Each ingest or substantive edit verifies identity and citation paths, updates the
+affected task map, and completes the operation. `reviewed` means factual claims
+were checked; `updated` means edited; index freshness is a file-version match.
+None substitutes for another. Mechanical edits preserve `reviewed`.
+Use [checks and cadence](../../wiki-setup/references/checks.md#verification-cadence)
+for diagnostic procedures and bounded maintenance evaluation.

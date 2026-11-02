@@ -7,8 +7,8 @@ Resolve and quote absolute helper paths before running commands. Treat
 `$ARGUMENTS` as the user's request when the host has not substituted it. A linked
 skill or reference can be read directly when the host has no skill loader; shared
 policy does not require loading the maintenance-role entry point.
-Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`; with `WIKI_MASTER_REQUIRE_VAULT=1` set and no vault named, a script stops with exit 2 instead of using the default) and verify the expected
-vault layout. Read local `AGENTS.md` and schema before edits. A known root and
+Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`; with `WIKI_MASTER_REQUIRE_VAULT=1` set and no vault named, a script stops with exit 2 instead of using the default) and inspect only the expected
+vault paths needed by the task. Read local `AGENTS.md` and schema before edits. A known root and
 filesystem access are sufficient for the supported operations below; do not ask
 the user to restart Obsidian as a prerequisite for all work.
 
@@ -48,12 +48,11 @@ to a conservative 2,048-byte UTF-8 JSON envelope and rejects physical CR/LF/NUL.
 This policy is not Obsidian's documented maximum. If rejected before sending,
 use filesystem Markdown editing or narrow the read query; do not split a note
 into many CLI writes or disable the guard. No fallback performs writes implicitly.
-After an unavailable CLI or timeout, choose the supported fallback once; never
-loop waiting for the app. **A timed-out mutation has an uncertain outcome.** Read
-the exact target and check the intended effect before retrying or switching to
-filesystem writes. An exit or timeout alone does not establish that nothing ran.
-OS cleanup releases a lock after process death, but cannot prove a surviving CLI
-child or an already-submitted Obsidian mutation finished. Inspect uncertain targets.
+For unavailable, rejected or uncertain requests, follow the direct
+[app diagnosis](../../wiki-setup/references/app-access.md#failure-refusal-and-uncertain-mutation).
+A timed-out mutation has an uncertain outcome: inspect the exact target before
+retrying or switching channels. Never claim a filesystem fallback executed an
+app-only action. No fallback implicitly authorizes a write.
 
 Validate resolved paths stay under the known root. Restrict searches to explicit
 content directories; exclude `.recycle/`, dot folders, dependency trees and binary
@@ -87,7 +86,7 @@ POSIX shell (one command's environment only):
 WIKI_MASTER_VAULT='/absolute/path/to/vault' node '/absolute/installed/plugin/scripts/health.mjs'
 ```
 
-On Windows, use PowerShell or the Node wrapper for Obsidian; Git Bash can select
-the GUI executable instead of `Obsidian.com` and return misleading empty output.
-These reporting examples are read-only: do not open an operation or rebuild the
-index merely to answer a question.
+For Windows redirector and empty-output diagnosis, read
+[app access](../../wiki-setup/references/app-access.md#windows-invocation) only
+when needed. These reporting examples are read-only: no operation or rebuild is
+needed to answer a question.

@@ -1,0 +1,182 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-project",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-setup"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.88.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<SCRATCH>\\candidate-flow\\wiki\\concepts\\Message Delivery.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 156458,
+    "stop_reason": "end_turn",
+    "session_id": "c432073a-42db-4178-9c13-0b3a9af6acf0",
+    "total_cost_usd": 0.41361498499999994,
+    "usage": {
+      "input_tokens": 38,
+      "cache_creation_input_tokens": 53777,
+      "cache_read_input_tokens": 941159,
+      "output_tokens": 9130,
+      "output_tokens_details": {
+        "thinking_tokens": 348
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 53777,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1184,
+          "cache_read_input_tokens": 69949,
+          "cache_creation_input_tokens": 388,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 388
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 38,
+        "outputTokens": 9130,
+        "cacheReadInputTokens": 941159,
+        "cacheCreationInputTokens": 53777,
+        "webSearchRequests": 0,
+        "costUSD": 0.4005998999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 348,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 53777,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 10908,
+        "cacheReadInputTokens": 140346,
+        "cacheCreationInputTokens": 49245,
+        "webSearchRequests": 0,
+        "costUSD": 0.013015085000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 3883,
+        "cacheCreationEphemeral5mInputTokens": 49245,
+        "cacheCreationEphemeral1hInputTokens": 0,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 5,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "general-purpose": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 23,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The Harbor fixture allows 3 retries, which permits 4 total attempts. If an accepted identifier arrives again with the same digest, the receiver delivers it to the application only once and re-sends the cached acknowledgement.\n\n## Answer\n\n- **Retries:** the sender may retry 3 times after the first transmission. This is within a 12-second overall trial deadline, and the sender keeps the same message identifier on every retry.\n- **Total attempts:** 4 in all, the first transmission plus the 3 retries. The source says that counting these as four permitted application deliveries \"would therefore misrepresent the protocol.\"\n- **Accepted identifier and digest arrive again:** the payload is not delivered a second time. The receiver checks its acknowledgement cache first and sends the cached acknowledgement again.\n- **Same identifier, different digest:** the receiver rejects it as a conflict. A packet is accepted only when its digest matches the advertised checksum.\n\n## Evidence\n\n- **Newly captured source:** `raw/clippings/Harbor Retry Protocol.md`, from http://127.0.0.1:54749/protocol, with source-hash `254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c`.\n  - The retry count, attempt total and deadline are at line 16.\n  - The duplicate and conflict rules are at line 18.\n- **Wiki pages:**\n  - `wiki/sources/Harbor Retry Protocol.md`\n  - `wiki/concepts/Message Delivery.md`, an existing concept that I extended rather than creating a new one.\n- **Existing page:** `raw/clippings/Acknowledgement Basics.md` says a retry budget needs a separate specification and gives no numbers.\n\n## Fixture specification vs empirical claims\n\nEvery number above is a rule of a synthetic test protocol. The source calls itself \"a test receiver and sender, not a production network\" and says its values \"do not establish any empirical reliability rate.\"\n\nIt gives no throughput, packet-loss or reliability measurements. It also doesn't state per-attempt timeouts, backoff, how long the cache keeps entries, or the checksum algorithm. That means I can't say what happens to a repeat after the cache entry is gone.\n\n## What was done\n\n- **Discovery:** five read-only finders (academic, technical, applied, news, contrarian) reviewed the four catalog pages. I selected on my own reading of the pages, not the catalog labels.\n  - The catalog calls the protocol page a \"current specification,\" but the page describes itself as a test fixture.\n  - I captured only `/protocol`, one new capture against the limit of two.\n  - `/known` was already in the vault.\n  - I declined `/promotion` as promotional with no evidence, and `/thin` as a preview stub.\n- **Publication:** the capture was committed as `dd43c40` and the ingest as `89c188f`. Local `HEAD` matches `origin/main` after a fresh fetch. Each operation has one log, and the ingest backlog is back to 0.\n- **Retrieval:** I ran `search.mjs` and `resolve-evidence.mjs` against the updated vault and read the returned passages. Search was lexical only, because ollama isn't running and there is no semantic index. The index also reported incomplete title and alias metadata.\n- **Scope:** I wrote only to the scratch vault and its local origin, and used the case TMPDIR for temporary files.\n\nThe decline records are in `.wiki-master`, which is not tracked in Git, so they don't appear in the commits.",
+    "ttft_ms": 16442,
+    "type": "result",
+    "duration_ms": 122880,
+    "uuid": "11cbf202-8526-4261-9a72-9607fe86ec3f",
+    "ttft_stream_ms": 15512,
+    "time_to_request_ms": 89,
+    "first_content_frame_ms": 15512,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 38,
+        "outputTokens": 9130,
+        "cacheReadInputTokens": 941159,
+        "cacheCreationInputTokens": 53777,
+        "webSearchRequests": 0,
+        "costUSD": 0.4005998999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 348,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 53777,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      },
+      "claude-haiku-5-5": {
+        "inputTokens": 20,
+        "outputTokens": 10908,
+        "cacheReadInputTokens": 140346,
+        "cacheCreationInputTokens": 49245,
+        "webSearchRequests": 0,
+        "costUSD": 0.013015085000000001,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 3883,
+        "cacheCreationEphemeral5mInputTokens": 49245,
+        "cacheCreationEphemeral1hInputTokens": 0,
+        "canonicalModel": "claude-haiku-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

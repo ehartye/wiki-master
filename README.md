@@ -35,13 +35,13 @@ index built from your own Ollama instance and ranks chunks by cosine similarity.
 
 To print a project's state from inside its repository, run `node scripts/session-brief.mjs` there. It finds the wiki project from a `repo:` line on the project's overview page (the repository's `origin` remote, in any spelling, or its folder name must match; `--project <slug>` names it directly), then prints the studio state page in three lines (phase and tier, next step, blocked by), the artifacts not verified for more than `--stale-days` days (default 30), the blocked backlog items and the open questions past their gate. No match, or more than one, exits 1 with how to bind; it never writes and opens no operation.
 
-To see what this machine has and lacks, run `node scripts/doctor.mjs` (all commands) or `node scripts/doctor.mjs clip-docx clip-xlsx` (named commands; exit status 1 when a required program of one is missing). It lists, for each command, the programs and packages it needs, the path and version found, and how to fix what is missing; `--json` prints the same as one object. It starts each program once with its version flag, never the Obsidian CLI, and writes nothing. It also says when the copy it runs from is not the installed version.
+For the agent procedure, use [capture prerequisites](skills/wiki-setup/references/capture-prerequisites.md). To see what the environment has and lacks, run `node scripts/doctor.mjs` (all commands) or `node scripts/doctor.mjs clip-docx clip-xlsx` (named commands; exit status 1 when a required program of one is missing). It lists, for each command, the programs and packages it needs, the path and version found, and how to fix what is missing; `--json` prints the same as one object. It starts each program once with its version flag, never the Obsidian CLI, and writes nothing. It also says when the copy it runs from is not the installed version.
 
 ## Install
 
 The plugin ships its operations as **skills** and shares the same `scripts/`
 (Node) across all three hosts. Claude Code and Copilot CLI expose `/wiki-*`;
-in Codex, select a skill or ask for it by name (for example, “use wiki-maintainer to report vault health”).
+in Codex, select a skill or ask for it by name (for example, “use wiki-setup to report vault health”).
 
 **Claude Code:**
 ```
@@ -68,13 +68,13 @@ plugin folder together: the skills use the sibling `scripts/` and `templates/`.
 
 ## Quick start
 
-1. `/wiki-init` — scaffolds the vault and prints one-time setup.
+1. `/wiki-setup` — preflights existing content, scaffolds a new vault and prints one-time setup.
 2. In Obsidian: **Open folder as vault** → the scaffolded path.
 3. Verify: `node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults` lists the vault.
 4. Import `templates/webclipper-template.json` into the Obsidian Web Clipper.
 5. Ask `/wiki-researcher` to capture web pages (they land in `raw/clippings/`),
    then explicitly request ingestion to compile them into the wiki. Use
-   `/wiki-user` to find pages or answer questions with citations.
+   `/wiki-search` to find pages or answer questions with citations.
 
 Use the [guarded CLI caller](docs/cli-transport-guards.md) for app commands. It
 serializes cooperating sessions and rejects oversized requests before launch.
@@ -82,22 +82,23 @@ Edit ordinary Markdown through the filesystem, preserving the wiki operation lif
 
 ## Skills
 
-Five skills route requests to focused references. Select the matching skill or
+Six skills separate retrieval, original documentation, setup and content operations. Select the matching skill or
 ask naturally for its capability. In hosts that namespace plugin commands, use
-the `wiki-master:` prefix, for example `/wiki-master:wiki-user`.
+the `wiki-master:` prefix, for example `/wiki-master:wiki-search`.
 
 | Skill | Purpose |
 |---|---|
-| [`wiki-user`](skills/wiki-user/SKILL.md) | Find pages and passages, answer with citations, author original documentation, or perform a requested Obsidian app action. |
+| [`wiki-search`](skills/wiki-search/SKILL.md) | Find pages and passages, inspect raw evidence and provenance, or answer with citations. Strictly read-only. |
+| [`wiki-project`](skills/wiki-project/SKILL.md) | Write original project documentation, architecture, decisions, guides, notes and backlog; list project work by lifecycle. |
 | [`wiki-researcher`](skills/wiki-researcher/SKILL.md) | Discover external sources, capture named URLs or files, and ingest captured evidence. Includes PDF, Word, PowerPoint, spreadsheets, GitHub and authenticated Confluence capture. |
-| [`wiki-maintainer`](skills/wiki-maintainer/SKILL.md) | Report health, backlog counts and freshness; review factual content, repair integrity, connect concepts and triage sources. |
-| [`wiki-init`](skills/wiki-init/SKILL.md) | Scaffold a new vault and report filesystem setup separately from app registration. |
+| [`wiki-maintainer`](skills/wiki-maintainer/SKILL.md) | Repair content and citations, connect concepts, apply triage decisions, file authorized derived syntheses and perform requested native app actions. |
+| [`wiki-setup`](skills/wiki-setup/SKILL.md) | Initialize safely; check prerequisites, health, freshness and lint; validate paths; diagnose failures and recover authorized operations. |
 | [`wiki-purge`](skills/wiki-purge/SKILL.md) | Plan, approve and apply recoverable removal, reconcile an interrupted purge, or restore it. Publication needs separate explicit approval. |
 
 Search and unfiled answers are read-only. Capture-only does not authorize source
 summaries or concepts. Ask explicitly to ingest named clippings or process new
 clippings; an empty eligible backlog performs no writes. A backlog count belongs
-to maintainer reporting. An ambiguous researcher invocation does not ingest all.
+to setup reporting. An ambiguous researcher invocation does not ingest all.
 Helper command names and flags are unchanged. See the
 [old-to-new workflow mapping](docs/skill-migration.md) for retired entry points;
 there are no forwarding aliases.
@@ -181,7 +182,7 @@ A release changes the version in ten places: the nine JSON fields listed in `VER
 
 Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run: it writes nothing, and its `changed` list names the files an apply would change (an apply on the same, unchanged vault changes exactly those). `--diff` adds, on stderr after the one-line JSON, one block per changed file with the lines it would lose (`-`) and gain (`+`). It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` keeps another writer's uncommitted pages out of the catalogs: a page counts when it is in the last commit or the ledger names it, so a page another writer has only staged is left out. A line a catalog already lists for a left-out page that still exists is kept, not deleted; a line for a page that is gone is removed. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately, and their dry run lists the files that would change too; they refuse `--diff` and `--paths-file` with one line and exit 2. `index-gen.mjs` (the ingest path) lists every page on disk unless given the same `--paths-file`, which scopes it as above. Cross-project ambiguity detection still requires one vault scan.
 
-Use `node scripts/validate-authored.mjs --paths-file <JSON array>` (add `--terms-file <path>` and, to limit it to the plugin projects, `--terms-projects a,b` to run the private list over those pages as `private-term` defects, by line and rule number only) to check only the pages one authoring task wrote, with the same ledger `op-commit.mjs` takes: it is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. `node scripts/op-ledger.mjs show --since <token> --out <file>` builds that ledger from the paths the writers recorded (the clippers, `log-entry`, `index-gen` and `refresh-catalogs --apply` take `--since <token>`; `op-ledger.mjs add` records a page you wrote yourself) and lists on stderr what the close would get wrong: a recorded path that was already dirty before `op-begin`, one that is not dirty now, and every changed path nobody recorded. The ledger, rules and `--json` shape are in the authoring reference (`skills/wiki-user/references/authoring.md`). `op-commit` without `--paths-file` is refused (exit 1, nothing committed, token kept) while any other operation is open, with the two commands that scope it; every refused close, and every `wiki-sync` refused because uncommitted edits overlap incoming changes (exit 3, nothing changed, a hint of which open operation recorded each file; never reset, check out, stash or delete a file you did not write, wait and sync again), appends a counts-only line to `.wiki-master/op-refusals.jsonl`, and `health` prints `Recorded refusals: N (pre-dirty a, evidence b, unscoped c, sync-overlap d).` when N is above zero (`opRefusals` in `--json`, with `syncOverlap`). The plugin's scripts make the vault's scoped commits and sync; Obsidian Git is for viewing and pulling, with auto-commit off. `node scripts/wiki-sync.mjs --op <token> [--paths-file <ledger>] [--title "<title>"]` closes that one operation (scoped by `--paths-file`, else by the paths its writers recorded) and publishes it in one verified command; the rules are in the operations reference (`skills/wiki-maintainer/references/operations.md`).
+Use `node scripts/validate-authored.mjs --paths-file <JSON array>` (add `--terms-file <path>` and, to limit it to the plugin projects, `--terms-projects a,b` to run the private list over those pages as `private-term` defects, by line and rule number only) to check only the pages one authoring task wrote, with the same ledger `op-commit.mjs` takes: it is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. `node scripts/op-ledger.mjs show --since <token> --out <file>` builds that ledger from the paths the writers recorded (the clippers, `log-entry`, `index-gen` and `refresh-catalogs --apply` take `--since <token>`; `op-ledger.mjs add` records a page you wrote yourself) and lists on stderr what the close would get wrong: a recorded path that was already dirty before `op-begin`, one that is not dirty now, and every changed path nobody recorded. The ledger, rules and `--json` shape are in [scoped validation](skills/wiki-setup/references/validation.md). `op-commit` without `--paths-file` is refused (exit 1, nothing committed, token kept) while any other operation is open, with the two commands that scope it; every refused close, and every `wiki-sync` refused because uncommitted edits overlap incoming changes (exit 3, nothing changed, a hint of which open operation recorded each file; never reset, check out, stash or delete a file you did not write, wait and sync again), appends a counts-only line to `.wiki-master/op-refusals.jsonl`, and `health` prints `Recorded refusals: N (pre-dirty a, evidence b, unscoped c, sync-overlap d).` when N is above zero (`opRefusals` in `--json`, with `syncOverlap`). The plugin's scripts make the vault's scoped commits and sync; Obsidian Git is for viewing and pulling, with auto-commit off. `node scripts/wiki-sync.mjs --op <token> [--paths-file <ledger>] [--title "<title>"]` closes that one operation (scoped by `--paths-file`, else by the paths its writers recorded) and publishes it in one verified command; the rules are in the operations reference (`skills/wiki-maintainer/references/operations.md`).
 
 ### Content lint
 

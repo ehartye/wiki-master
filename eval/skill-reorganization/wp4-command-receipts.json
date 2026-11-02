@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-02",
+  "executor": "orchestrator",
+  "commands": [
+    {
+      "command": "npm.cmd ci --ignore-scripts",
+      "exit": 0,
+      "result": "22 declared development packages installed in ignored node_modules; no source or lockfile changes"
+    },
+    {
+      "command": "npm.cmd test",
+      "exit": 0,
+      "tests": 2310,
+      "passed": 2308,
+      "failed": 0,
+      "skipped": 2,
+      "durationMs": 104659.7107,
+      "output": "wp4-full-test.tap",
+      "skipReasons": [
+        "PDF aligned-mode integration requires unavailable pdftotext -table mode",
+        "Owner private-term dictionary test: neither WIKI_MASTER_PRIVATE_TERMS_FILE nor PRIVATE_TERMS_FILE configured"
+      ]
+    },
+    {
+      "command": "node --test test/clip-pdf.test.mjs test/clip-pdf-url-routing.test.mjs test/clip-pdf-tabular.test.mjs test/clip-pdf-figures.test.mjs test/clip-pdf-deps-and-mode.test.mjs test/pdf-extract.test.mjs",
+      "condition": "Full Xpdf tools directory precedes Poppler",
+      "exit": 1,
+      "tests": 72,
+      "passed": 66,
+      "failed": 6,
+      "skipped": 0,
+      "output": "wp4-pdf-xpdf.tap",
+      "finding": "Table extraction passed but incompatible Xpdf figure utility interfaces shadowed Poppler; retained failed configuration evidence."
+    },
+    {
+      "command": "node --test test/clip-pdf.test.mjs test/clip-pdf-url-routing.test.mjs test/clip-pdf-tabular.test.mjs test/clip-pdf-figures.test.mjs test/clip-pdf-deps-and-mode.test.mjs test/pdf-extract.test.mjs",
+      "condition": "Xpdf 4.06 pdftotext only takes precedence; Poppler figure utilities retained",
+      "exit": 0,
+      "tests": 72,
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 11481.7063,
+      "output": "wp4-pdf-xpdf-corrected.tap",
+      "finding": "Previously skipped aligned table mode now executes and passes; all PDF regression cases pass."
+    },
+    {
+      "command": "npm.cmd test",
+      "condition": "Final source after reviewed ingestion correction and PDF prerequisite guidance; Xpdf text converter with Poppler figures",
+      "exit": 0,
+      "tests": 2310,
+      "passed": 2309,
+      "failed": 0,
+      "skipped": 1,
+      "durationMs": 92127.0227,
+      "output": "wp4-final-full-test.tap",
+      "skipReasons": [
+        "Owner-specific private-term dictionary is not configured"
+      ]
+    }
+  ],
+  "hygiene": {
+    "scope": "Changed and untracked files, using existing private-terms scanner built-in rules",
+    "hits": 0,
+    "privateTermsFileConfigured": false,
+    "limitation": "This checks built-in patterns, not an absent owner-specific dictionary. Later added execution evidence must be checked separately."
+  },
+  "interpretation": "Final full regression suite:2309 passes,0 failures,1 explicit absent owner-dictionary skip. PDF table mode executes and passes. Earlier failures/skips remain retained; actual actor grades and optional authenticated/converter limits are separate."
+}

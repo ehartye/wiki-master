@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "scenarioHash": "cf893e8f8bf62b13b38e6b323402973082c39658c980045e06e4982871881fd4",
+  "condition": "with",
+  "mode": "execution",
+  "observer": {
+    "id": "wp4_review",
+    "independent": true
+  },
+  "status": "pass",
+  "coverage": {
+    "expected": 9,
+    "observed": 9,
+    "missing": 0,
+    "incomplete": 0
+  },
+  "missingScenarios": [],
+  "passedScenarios": 9,
+  "limitations": "Independent labels are checked against supplied transcripts; this is not a self-running agent evaluator or proof that supplied artifacts are authentic. Simulation measures proposed behavior, not executed success.",
+  "runs": [
+    {
+      "id": "actions/candidate-repair",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "actions/candidate-repair/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "actions/candidate-repair/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "actions/candidate-repair/after.json"
+        }
+      ]
+    },
+    {
+      "id": "actions/candidate-synthesis",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "actions/candidate-synthesis/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "actions/candidate-synthesis/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "actions/candidate-synthesis/after.json"
+        }
+      ]
+    },
+    {
+      "id": "actions/candidate-native",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "actions/candidate-native/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "actions/candidate-native/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "actions/candidate-native/after.json"
+        }
+      ]
+    },
+    {
+      "id": "actions/candidate-purge",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "actions/candidate-purge/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "actions/candidate-purge/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "actions/candidate-purge/after.json"
+        }
+      ]
+    },
+    {
+      "id": "research/candidate-capture",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "research/candidate-capture/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "research/candidate-capture/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "research/candidate-capture/after.json"
+        }
+      ]
+    },
+    {
+      "id": "research/candidate-zero",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "research/candidate-zero/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "research/candidate-zero/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "research/candidate-zero/after.json"
+        }
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-mixed",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "research/correction1/candidate-mixed/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "research/correction1/candidate-mixed/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "research/correction1/candidate-mixed/after.json"
+        }
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-named",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "research/correction1/candidate-named/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "research/correction1/candidate-named/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "research/correction1/candidate-named/after.json"
+        }
+      ]
+    },
+    {
+      "id": "research/correction1/candidate-flow",
+      "status": "pass",
+      "missingActions": [],
+      "forbiddenActions": [],
+      "requiredActionRecall": 1,
+      "contextCharacters": null,
+      "durationMs": null,
+      "artifacts": [
+        {
+          "kind": "tool-output",
+          "reference": "research/correction1/candidate-flow/transcript.jsonl"
+        },
+        {
+          "kind": "file-diff",
+          "reference": "research/correction1/candidate-flow/before.json"
+        },
+        {
+          "kind": "git-state",
+          "reference": "research/correction1/candidate-flow/after.json"
+        }
+      ]
+    }
+  ]
+}

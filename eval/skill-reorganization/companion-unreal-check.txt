@@ -1,0 +1,25 @@
+✔ plugin.json and marketplace.json carry the same version (1.5698ms)
+✔ bundled AgentVerify source identifies this release and every supplied source byte (21.1963ms)
+✔ the README status line names the current plugin version (0.9482ms)
+✔ the README skills table lists every skill folder, and nothing else (1.3247ms)
+✔ the README status line states the number of skills (1.0415ms)
+✔ plugin.json keywords name the engine and UEFN (0.4991ms)
+✔ plugin content names no home directory, GPU model, non-plugin repository or wiki path (231.6265ms)
+✔ a /pattern/flags line in the private-terms file is a regular expression; a plain line stays a literal; a bad pattern is reported, not thrown (9.2792ms)
+✔ the generic hygiene patterns catch a home path, a GPU model, a non-plugin repository link and a wiki path in a fixture (6.1611ms)
+✔ every citation of another plugin's skill names a skill that exists in the snapshot (and in live siblings when AGENT_UNREAL_SIBLING_PLUGINS is set) (132.6258ms)
+✔ the sibling snapshot is names only: plugin -> sorted kebab-case skill names, no paths, and it covers every plugin the tree cites (0.427ms)
+✔ citation grammar: the forms the skills use are read, with the plugin each binds to (1.1775ms)
+✔ a citation of a skill that does not exist fails, with the plugin's skill names in the message; one that exists passes (8.6122ms)
+✔ an unqualified skill name resolves in this plugin, then in the plugin named earlier in its paragraph, and otherwise fails (9.9424ms)
+✔ limit: a name check passes a skill that exists but no longer holds the cited content (the stale engine-phaser pointer) (2.9379ms)
+✔ citations are checked in skills, examples and the README (3.5596ms)
+✔ sibling mode: a snapshot name the checkout lacks and a checkout name the snapshot lacks fail; a missing plugin folder is a note; versioned folders use the newest (13.0811ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 516.277

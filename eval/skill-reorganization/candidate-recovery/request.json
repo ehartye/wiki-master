@@ -1,0 +1,28 @@
+{
+  "prompt": "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. The fixture contains an abandoned operation opened by this same evaluation session. Diagnose it, then perform the explicitly authorized recovery: abort that owned abandoned token, preserving every content file. Do not abort another operation or change content, logs, commits or remote state. Verify that the abandoned operation is no longer open. Owned token from op-begin: a4a8d963c043ae0e",
+  "command": [
+    "claude",
+    "-p",
+    "Execute the requested task using actual helper commands and file inspection, not a proposed plan. Work only in the configured disposable vault. Helper installation: <PLUGIN>. Use absolute helper paths. Do not modify the plugin, installed caches or global settings. Ephemeral scratch files belong in TEMP/TMPDIR. Use the session-loaded wiki-master skill and its relevant references. The fixture contains an abandoned operation opened by this same evaluation session. Diagnose it, then perform the explicitly authorized recovery: abort that owned abandoned token, preserving every content file. Do not abort another operation or change content, logs, commits or remote state. Verify that the abandoned operation is no longer open. Owned token from op-begin: a4a8d963c043ae0e",
+    "--plugin-dir",
+    "<PLUGIN>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit"
+  ],
+  "condition": "with current/candidate skill",
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-recovery",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "scenario": "The fixture contains an abandoned operation opened by this same evaluation session. Diagnose it, then perform the explicitly authorized recovery: abort that owned abandoned token, preserving every content file. Do not abort another operation or change content, logs, commits or remote state. Verify that the abandoned operation is no longer open."
+}

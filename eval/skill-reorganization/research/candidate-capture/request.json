@@ -1,0 +1,32 @@
+{
+  "name": "candidate-capture",
+  "prompt": "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Capture-only request: save these exact named sources as wiki evidence for the research topic \"Harbor delivery\": http://127.0.0.1:54749/protocol, http://127.0.0.1:54749/known, http://127.0.0.1:54749/thin, and http://127.0.0.1:54749/failed. Do not broadly research this named list. Do not ingest or create derived pages. Preserve an already held capture rather than recapturing it. Complete the authorized capture lifecycle and report the exact evidence paths and outcomes.",
+  "command": [
+    "claude",
+    "-p",
+    "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Capture-only request: save these exact named sources as wiki evidence for the research topic \"Harbor delivery\": http://127.0.0.1:54749/protocol, http://127.0.0.1:54749/known, http://127.0.0.1:54749/thin, and http://127.0.0.1:54749/failed. Do not broadly research this named list. Do not ingest or create derived pages. Preserve an already held capture rather than recapturing it. Complete the authorized capture lifecycle and report the exact evidence paths and outcomes.",
+    "--plugin-dir",
+    "<CANDIDATE>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit,Task,WebFetch,WebSearch"
+  ],
+  "cwd": "<SCRATCH>\\candidate-capture",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-capture",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://127.0.0.1:1",
+    "TEMP": "<SCRATCH>\\temporary\\candidate-capture",
+    "TMP": "<SCRATCH>\\temporary\\candidate-capture",
+    "TMPDIR": "<SCRATCH>\\temporary\\candidate-capture"
+  },
+  "predeclaredScenario": "named capture"
+}

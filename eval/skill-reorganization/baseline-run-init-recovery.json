@@ -1,0 +1,12 @@
+{
+  "host": "Claude Code 2.1.316",
+  "cases": [
+    "init",
+    "recovery"
+  ],
+  "revision": "8720f90bee85631b454c88eb4078a8e753b440b8",
+  "condition": "baseline",
+  "scratch": "<SCRATCH>",
+  "recoveredFrom": "request.json and retained private execution stream",
+  "adaptation": "skill-consolidation/research/harness.mjs"
+}
