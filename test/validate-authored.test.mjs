@@ -566,7 +566,7 @@ test('the vocabulary the validator uses is the vocabulary written in the schema,
   assert.deepEqual(one(schema, /`decision-status`\s*\(`([^`]+)`\)/, 'schema decision-status'), decisions);
   assert.deepEqual(one(schema, /`backlog-status`\s*\(`([^`]+)`\)/, 'schema backlog-status'), backlog);
 
-  const authoring = read('skills/wiki-maintainer/references/authoring.md');
+  const authoring = read('skills/wiki-user/references/authoring.md');
   assert.deepEqual(one(authoring, /`kind:`[^`]*?one of\s+`([^`]+)`/, 'authoring kind'), kinds);
   for (const [key, expected] of [['decision-status', decisions], ['backlog-status', backlog]]) {
     const r = vocabularyDrift(authoring, key, expected);
@@ -580,7 +580,7 @@ test('the vocabulary the validator uses is the vocabulary written in the schema,
 });
 
 test('the folder-to-kind table the validator uses is the placement table in the authoring reference', () => {
-  const rows = readFileSync(join(ROOT, 'skills/wiki-maintainer/references/authoring.md'), 'utf8').split(/\r?\n/).filter(line => line.trimStart().startsWith('|'));
+  const rows = readFileSync(join(ROOT, 'skills/wiki-user/references/authoring.md'), 'utf8').split(/\r?\n/).filter(line => line.trimStart().startsWith('|'));
   const table = rows.join('\n');
   const folders = [...new Set([...table.matchAll(/`<project>\/([\w-]+)\/[^`]*`/g)].map(m => m[1]))].sort();
   const files = [...new Set([...table.matchAll(/`<project>\/([\w-]+\.md)`/g)].map(m => m[1]))].sort();
@@ -692,7 +692,7 @@ test('the command prints a dependency defect and exits 1', t => {
 
 test('the depends-on key and its five defect rules are written where authors read them', () => {
   const read = file => readFileSync(join(ROOT, file), 'utf8');
-  const authoring = read('skills/wiki-maintainer/references/authoring.md');
+  const authoring = read('skills/wiki-user/references/authoring.md');
   for (const [label, text] of [['schema', read('templates/vault-schema.md')], ['authoring reference', authoring], ['backlog template', read('templates/_templates/authored-backlog-item.md')]]) {
     assert.ok(text.includes('depends-on'), `${label} names depends-on`);
   }

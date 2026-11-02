@@ -96,7 +96,7 @@ export function supersedeDecline(vaultPath, url, reason, { onlyAutomatic = false
 
 // The inverse of recordDecline, for --restore: a file coming back is not a
 // true undo of the purge that removed it if the decline it recorded on the
-// way out survives for another 180 days — /wiki-discover would keep silently
+// way out survives for another 180 days — wiki-researcher discovery would keep silently
 // skipping a source the user now has back. Scoped to an EXACT reason match,
 // not just the URL: a decline the user made independently (or that some
 // other, later purge recorded against the same URL) must never be silently

@@ -189,7 +189,7 @@ export function fileClipContent({ owner, repo, ref, relPath, content, quality = 
 }
 
 // The one clipping that represents the REPO itself, not a file in it — cites
-// the repo tree (not a blob), and is the natural entry point /wiki-ingest
+// the repo tree (not a blob), and is the natural entry point wiki-researcher ingestion
 // reaches for first when summarizing the whole clone into wiki/sources/.
 export function repoManifestContent({ owner, repo, ref, description, primaryLanguage, includedPaths = [], excludedCount = 0, quality = 'medium', created = today(), topic } = {}) {
   const source = `https://github.com/${owner}/${repo}/tree/${ref}`;

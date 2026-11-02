@@ -47,7 +47,7 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, monoli
     //    without sources — so it penalized a state the contract bars you from
     //    clearing quickly.
     // It remains a real signal ("5+ pages route through an empty page"), so it is
-    // surfaced as a WORKLIST in /wiki-triage instead, where it is actionable.
+    // surfaced as a WORKLIST in wiki-maintainer triage instead, where it is actionable.
     // Health now means one clean thing: no broken edges.
     // A source page citing no raw file is a broken provenance contract: it
     // claims an ingest while leaving its clipping indistinguishable from one
@@ -107,7 +107,7 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, monoli
   return { score, orphans, deadEnds, brokenLinks, hubStubs, monolithCandidates, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
 
-// The ingest backlog is the first question /wiki-ingest asks, and in the full
+// The ingest backlog is the first question wiki-researcher ingestion asks, and in the full
 // report its four lines sit last, under every deferred forward-link. --backlog
 // prints just those lines so the answer is not buried.
 export function backlogReport({ unparsedSources = [], unsummarizedSources = [], missingHash = [], backfillPending = 0 }) {

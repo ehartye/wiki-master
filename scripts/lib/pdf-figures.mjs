@@ -22,7 +22,7 @@ import { tmpdir } from 'node:os';
 export const FIGURE_DPI = 200;
 export const DEFAULT_FIGURES_MAX = 40;
 
-// ---- heuristic thresholds (documented in skills/clip-pdf/SKILL.md) -----------
+// ---- heuristic thresholds (documented in skills/wiki-researcher/references/clip-pdf.md) -----------
 // A raster counts when it is at least this big in pixels AND, where pdfimages
 // reports resolution, at least this big on the page. Below that it is an icon,
 // a bullet, a rule or a logo.

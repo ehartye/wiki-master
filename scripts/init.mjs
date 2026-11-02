@@ -40,7 +40,7 @@ export function main() {
   console.log(`  2. Verify: node "${fileURLToPath(new URL('./obsidian.mjs', import.meta.url))}" vaults   (should list "${name}")`);
   console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
   if (!extractionAvailable()) {
-    console.log(`\n  Note: /wiki-discover needs npm/npx to acquire its pinned HTML extraction runtime.`);
+    console.log(`\n  Note: wiki-researcher discovery needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }
 }
 

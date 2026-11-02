@@ -261,7 +261,7 @@ function editDistance(a, b) {
 //               written — abandoned intent worth pruning or promoting.
 //   - deferred: everything else — a fresh, or corroborated (≥ demandThreshold),
 //               forward-link to a not-yet-written concept. Healthy by design;
-//               `/wiki-relink` materializes these on demand, not eagerly.
+//               `wiki-maintainer relink` materializes these on demand, not eagerly.
 // Age uses the linking page's `updated`/`created` frontmatter; pass `now` (a Date)
 // for determinism. Without `now`, nothing can be proven stale (all → deferred).
 export function classifyBrokenLinks(brokenLinks, pages, { now = null, staleDays = 90, demandThreshold = 3 } = {}) {

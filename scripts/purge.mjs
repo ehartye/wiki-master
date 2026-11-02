@@ -348,7 +348,7 @@ export async function main(argv, {
     if (r.missing.length) process.exitCode = 1;
     // The inverse of the decline this purge itself recorded on the way out —
     // without this, a restored source's URL stays declined for up to 180
-    // days and /wiki-discover silently keeps skipping it. Scoped to exactly
+    // days and wiki-researcher discovery silently keeps skipping it. Scoped to exactly
     // this purge's own reason tag (see removeDecline's own comment): a
     // decline the user made independently, on the same URL, must survive.
     let clearedDeclines = 0;

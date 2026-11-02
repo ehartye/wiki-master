@@ -227,7 +227,7 @@ test('every skills/<name>/SKILL.md has a frontmatter block with name: <name> and
   const skillsDir = join(ROOT, 'skills');
   for (const dirName of readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)) {
     const f = join(skillsDir, dirName, 'SKILL.md');
-    if (!existsSync(f)) continue; // covered separately by the former-commands test
+    if (!existsSync(f)) continue; // exact role inventory is checked by skill-contracts.test.mjs
     const text = readFileSync(f, 'utf8');
     const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
     if (!fm) { missing.push(`${dirName}/SKILL.md -> no frontmatter block at all`); continue; }
@@ -239,15 +239,10 @@ test('every skills/<name>/SKILL.md has a frontmatter block with name: <name> and
   assert.deepEqual(missing, [], `skill frontmatter drift:\n${missing.join('\n')}`);
 });
 
-test('commands/ is retired — every former op exists as a skill', () => {
-  // 0.3.0 migrated commands→skills (Copilot has no commands tier; skills are
-  // the portable entry-point both hosts load as /wiki-*). No commands/ dir may
-  // linger, and each former command must exist as skills/<name>/SKILL.md.
+test('commands/ remains retired; portable workflows live under skills/', () => {
   assert.ok(!existsSync(join(ROOT, 'commands')), 'commands/ must be removed');
-  const ops = ['wiki-discover', 'wiki-health', 'wiki-ingest', 'wiki-init',
-    'wiki-lint', 'wiki-query', 'wiki-relink', 'wiki-stale'];
-  const missing = ops.filter((op) => !existsSync(join(ROOT, 'skills', op, 'SKILL.md')));
-  assert.deepEqual(missing, [], `missing skills for former commands: ${missing.join(', ')}`);
+  // Capability coverage and recursive procedure reachability are asserted in
+  // skill-contracts.test.mjs, independent of the removed one-operation/one-skill layout.
 });
 
 test('wiki-page contract declares every field the health graph reads', () => {
