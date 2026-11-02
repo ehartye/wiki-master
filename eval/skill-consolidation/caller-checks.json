@@ -1,0 +1,34 @@
+{
+  "checks": [
+    {
+      "repo": "hartye-skills",
+      "path": "skills/spec-plan/SKILL.md",
+      "sha256": "d915d2001306c79734115b20703033cc8abeb7cc5233588c178e903eb179bc49",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "hartye-skills",
+      "path": "skills/q-master/SKILL.md",
+      "sha256": "4817d16ded3ea16e7d401094cf42b556c8e527a1f5e6c4269b398f9095d5794e",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    },
+    {
+      "repo": "agent-game-studio",
+      "path": "references/plugin-map.md",
+      "sha256": "a2116f0fb529efa0af0a6d651e8d5bf27c7d168b42a661e7b5766e15cb0372a8",
+      "metadataUnchanged": true,
+      "missingRelativeLinks": []
+    }
+  ],
+  "studioCheck": {
+    "command": "node scripts/check.mjs",
+    "exit": 0,
+    "tests": 123,
+    "passed": 123,
+    "failed": 0,
+    "skipped": 0
+  },
+  "limits": "Dependency resolution and source/link checks only; not end-to-end spec-plan, q-master, or studio workflow execution."
+}

@@ -1,0 +1,30 @@
+✔ every script path referenced in skills/commands exists on disk (19.7265ms)
+✔ clipping frontmatter contract: schema template and clip.mjs agree (0.9784ms)
+✔ version is identical in every field of the manifests (Claude + Copilot + Codex + lockfile) (9.0684ms)
+✔ the newest CHANGELOG.md entry is the package version, with an entry under it (1.9644ms)
+✔ every version field in the manifests is listed in VERSION_FIELDS (1.1984ms)
+✔ the coverage guard names an unlisted or a missing version field (0.9597ms)
+✔ shared plugin hooks use supported fields and remain opt-in on every host (0.5696ms)
+✔ Copilot manifests are structurally valid and point at skills/ (0.5711ms)
+✔ skill argument-hint frontmatter is a string, not a YAML collection (10.6634ms)
+✔ every skills/<name>/SKILL.md has a frontmatter block with name: <name> and a description (8.1913ms)
+✔ commands/ is retired — every former op exists as a skill (0.6271ms)
+✔ wiki-page contract declares every field the health graph reads (0.5988ms)
+✔ no source file contains a literal NUL byte, which would make git treat it as binary (234.341ms)
+✔ all twenty-one portable skill descriptions identify triggers and resolve direct references (17.4378ms)
+✔ shared core is bounded and each operation can reach access policy directly (7.1374ms)
+✔ writing routes share completion policy while read-only entry points do not open operations (6.9452ms)
+✔ operation examples expose both shells without mixed token syntax or relative helper execution (12.0393ms)
+✔ every document-format clipper has a skill that can trigger it (0.6354ms)
+✔ the skill table lists every disposition the queue offers and nothing the queue does not (0.9775ms)
+✔ the check fails on a table that names clipped-by-hand, or lacks downloaded (0.279ms)
+✔ the reclip row names the three clippers that can re-clip a file (0.1497ms)
+✔ the exported arrays are the ones the screen offers (0.2901ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 362.7438

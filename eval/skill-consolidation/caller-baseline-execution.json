@@ -1,0 +1,26 @@
+{
+  "host": "Claude Code 2.1.316",
+  "stage": "baseline",
+  "command": [
+    "claude",
+    "-p",
+    "Perform a read-only dependency compatibility check. Read exactly <HOME>/repos/hartye-skills/skills/spec-plan/SKILL.md and <HOME>/repos/hartye-skills/skills/q-master/SKILL.md. Extract the wiki-master qualified skills those callers require for search, source discovery, ingestion, and original authoring. Invoke each distinct named wiki-master skill using the Skill tool only to verify that it resolves in this session. Do not execute any wiki procedure, search the actual vault, write files, call shells, or substitute a different skill if a named dependency is unavailable. Report the exact tool errors and resolved role/mode for each caller. This is dependency resolution only, not a specification or tooling-configuration task.",
+    "--plugin-dir",
+    "<HOME>/repos/wiki-master-worktrees/five-skills",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read"
+  ],
+  "exit": 0,
+  "signal": null,
+  "stderr": "",
+  "limitations": "Fresh candidate-loaded dependency resolution only; no actual wiki workflow was executed."
+}

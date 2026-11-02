@@ -1,0 +1,300 @@
+{
+  "declaredBeforeExecution": "2026-11-02T18:14:10.210Z",
+  "candidateRevision": "082de0b4ee151d51cc504de825d3b92b7590a5b1",
+  "classification": "candidate-loaded routing probes; not workflow execution",
+  "cases": [
+    {
+      "id": "search",
+      "request": "Find the wiki passage containing \"copper heron\".",
+      "expectedRole": "wiki-user",
+      "expectedMode": "search",
+      "requiredReferences": [
+        "wiki-user/references/search.md"
+      ],
+      "legacy": "wiki-search"
+    },
+    {
+      "id": "query",
+      "request": "What does our wiki say about delivery reliability? Answer with citations; do not file an answer.",
+      "expectedRole": "wiki-user",
+      "expectedMode": "query",
+      "requiredReferences": [
+        "wiki-user/references/query.md",
+        "wiki-user/references/search.md",
+        "wiki-maintainer/references/evidence.md"
+      ],
+      "legacy": "wiki-query"
+    },
+    {
+      "id": "author",
+      "request": "Write an original wiki guide for the fictional Beacon project.",
+      "expectedRole": "wiki-user",
+      "expectedMode": "authoring",
+      "requiredReferences": [
+        "wiki-user/references/authoring.md"
+      ],
+      "legacy": "wiki-author"
+    },
+    {
+      "id": "author-validate",
+      "request": "Validate the wiki project guide this authoring task just wrote; do not audit the whole vault.",
+      "expectedRole": "wiki-user",
+      "expectedMode": "authoring validation",
+      "requiredReferences": [
+        "wiki-user/references/authoring.md"
+      ],
+      "legacy": "wiki-author"
+    },
+    {
+      "id": "app",
+      "request": "Open the Beacon Protocol note in the Obsidian app.",
+      "expectedRole": "wiki-user",
+      "expectedMode": "native app action",
+      "requiredReferences": [
+        "wiki-maintainer/references/obsidian-cli.md",
+        "wiki-maintainer/references/access.md"
+      ],
+      "legacy": "obsidian-cli"
+    },
+    {
+      "id": "discover",
+      "request": "Find new external sources for the wiki on delivery reliability. Return candidates only; do not capture them yet.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "topic discovery",
+      "requiredReferences": [
+        "wiki-researcher/references/discover.md"
+      ],
+      "legacy": "wiki-discover"
+    },
+    {
+      "id": "named-url",
+      "request": "Capture https://example.org/beacon-study as wiki evidence only. Do not ingest it.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "named capture",
+      "requiredReferences": [
+        "wiki-researcher/references/capture.md"
+      ],
+      "legacy": "wiki-discover"
+    },
+    {
+      "id": "named-ingest",
+      "request": "Ingest the already captured raw/clippings/Beacon Study.md into the wiki. Do not discover new sources.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "named ingestion",
+      "requiredReferences": [
+        "wiki-researcher/references/ingest.md"
+      ],
+      "legacy": "wiki-ingest"
+    },
+    {
+      "id": "backlog-ingest",
+      "request": "Process the new un-ingested clippings in the wiki. I am not supplying a filename.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "backlog ingestion",
+      "requiredReferences": [
+        "wiki-researcher/references/ingest.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "legacy": "wiki-ingest"
+    },
+    {
+      "id": "empty-backlog",
+      "request": "Process any new un-ingested clippings. The last check said the backlog was empty; verify before doing any writing.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "backlog ingestion with empty guard",
+      "requiredReferences": [
+        "wiki-researcher/references/ingest.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "legacy": "wiki-ingest"
+    },
+    {
+      "id": "clip-pdf",
+      "request": "Save the provided report.pdf into the wiki as evidence.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "PDF capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-pdf.md"
+      ],
+      "legacy": "clip-pdf"
+    },
+    {
+      "id": "clip-docx",
+      "request": "Capture the provided Word document report.docx into the wiki.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "Word capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-docx.md"
+      ],
+      "legacy": "clip-docx"
+    },
+    {
+      "id": "clip-pptx",
+      "request": "Clip the provided PowerPoint deck report.pptx into the wiki.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "PowerPoint capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-pptx.md"
+      ],
+      "legacy": "clip-pptx"
+    },
+    {
+      "id": "clip-xlsx",
+      "request": "Capture the provided spreadsheet report.xlsx as wiki evidence.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "spreadsheet capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-xlsx.md"
+      ],
+      "legacy": "clip-xlsx"
+    },
+    {
+      "id": "clip-gh",
+      "request": "Capture the GitHub repository https://github.com/example/beacon into the wiki.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "GitHub capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-gh.md"
+      ],
+      "legacy": "clip-gh"
+    },
+    {
+      "id": "clip-confluence",
+      "request": "Save the authenticated Confluence page https://example.atlassian.net/wiki/spaces/BEACON/pages/123 into the wiki.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "Confluence capture",
+      "requiredReferences": [
+        "wiki-researcher/references/clip-confluence.md"
+      ],
+      "legacy": "clip-confluence"
+    },
+    {
+      "id": "health",
+      "request": "Report current wiki integrity defects without changing anything.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "health report",
+      "requiredReferences": [
+        "wiki-maintainer/references/health.md"
+      ],
+      "legacy": "wiki-health"
+    },
+    {
+      "id": "orphans",
+      "request": "How many orphan pages does the wiki have? Report only.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "health report",
+      "requiredReferences": [
+        "wiki-maintainer/references/health.md"
+      ],
+      "legacy": "wiki-health"
+    },
+    {
+      "id": "backlog-count",
+      "request": "How many wiki clippings remain un-ingested? Count only; do not process them.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "backlog count",
+      "requiredReferences": [
+        "wiki-maintainer/references/health.md",
+        "wiki-maintainer/references/maintenance.md"
+      ],
+      "legacy": "wiki-health"
+    },
+    {
+      "id": "stale",
+      "request": "Which wiki pages are due for factual review? Report their freshness and missing review dates.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "freshness report",
+      "requiredReferences": [
+        "wiki-maintainer/references/stale.md"
+      ],
+      "legacy": "wiki-stale"
+    },
+    {
+      "id": "lint",
+      "request": "Check the wiki for unsupported quotations and contradictory claims; give a report before any fixes.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "factual lint",
+      "requiredReferences": [
+        "wiki-maintainer/references/lint.md",
+        "wiki-maintainer/references/evidence.md"
+      ],
+      "legacy": "wiki-lint"
+    },
+    {
+      "id": "repair",
+      "request": "Repair the broken evidence citations reported by the wiki integrity worklist.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "integrity repair",
+      "requiredReferences": [
+        "wiki-maintainer/references/repair.md"
+      ],
+      "legacy": "wiki-repair"
+    },
+    {
+      "id": "relink",
+      "request": "Connect related wiki concepts and improve orphan navigation.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "relink",
+      "requiredReferences": [
+        "wiki-maintainer/references/relink.md"
+      ],
+      "legacy": "wiki-relink"
+    },
+    {
+      "id": "triage",
+      "request": "Show me the wiki clipping failures and fidelity issues needing human decisions.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "triage",
+      "requiredReferences": [
+        "wiki-maintainer/references/triage.md"
+      ],
+      "legacy": "wiki-triage"
+    },
+    {
+      "id": "maintainer",
+      "request": "Orient me to the wiki maintenance workflows, without performing changes.",
+      "expectedRole": "wiki-maintainer",
+      "expectedMode": "maintenance orientation",
+      "requiredReferences": [
+        "wiki-maintainer/references/workflows.md"
+      ],
+      "legacy": "wiki-maintainer"
+    },
+    {
+      "id": "init",
+      "request": "Initialize a new wiki-master vault at the explicitly supplied empty fixture root.",
+      "expectedRole": "wiki-init",
+      "expectedMode": "setup",
+      "requiredReferences": [
+        "wiki-init/references/setup.md"
+      ],
+      "legacy": "wiki-init"
+    },
+    {
+      "id": "purge",
+      "request": "Prepare to purge the Beacon topic from the wiki and its evidence. Show a removal plan for my approval.",
+      "expectedRole": "wiki-purge",
+      "expectedMode": "purge planning",
+      "requiredReferences": [
+        "wiki-purge/references/purge.md"
+      ],
+      "legacy": "wiki-purge"
+    },
+    {
+      "id": "researcher-ambiguous",
+      "request": "Use the wiki researcher role.",
+      "expectedRole": "wiki-researcher",
+      "expectedMode": "clarify mode",
+      "requiredReferences": [],
+      "legacy": "wiki-researcher guard"
+    },
+    {
+      "id": "application-near-miss",
+      "request": "Implement a search box in my ordinary web application. This task does not use or update the wiki.",
+      "expectedRole": "none",
+      "expectedMode": "ordinary application work",
+      "requiredReferences": [],
+      "legacy": "negative control"
+    }
+  ]
+}

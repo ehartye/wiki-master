@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\repair.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill chosen:** `wiki-master:wiki-maintainer`. I invoked it through the Skill tool. The request is to repair broken citations from the integrity worklist, which that skill's description covers. wiki-researcher doesn't apply because nothing is being captured or ingested. wiki-purge doesn't apply because nothing is being removed. wiki-user doesn't apply because the work is repair, not a lookup.\n- **Role:** wiki maintainer.\n- **Mode:** integrity repair, meaning \"Broken citations or integrity worklist repairs\". It is a mutating mode, and it is not health reporting.\n- **References loaded:**\n  - `references/access.md`\n  - `references/repair.md`\n\n  I did not read `evidence.md`, `operations.md` or `maintenance.md`. `repair.md` says to read them before the first write, so I'd read them before any actual repair. `maintenance.md` is only needed if a finding calls for a helper.\n\n**Scope and approval boundaries**\n\n- **Not executed:** I did not run `health.mjs --json`, `op-begin.mjs` or any other command. I did not touch a vault.\n- **Worklist first:** A real run would start with `health.mjs --json`. It would keep the initial issue IDs, `defectCount` and coverage as the baseline. A scan failure or an empty scan doesn't mean zero defects.\n- **Issue types:** \"Broken evidence citations\" mostly means `unresolved-citation` issues. A unique matching source hash can identify the intended clipping. Name similarity cannot, so I wouldn't swap one numbered source for another because the names look close. `cites-retired-page` and `missing-evidence` issues need real supporting evidence, or the claim has to be dropped. I wouldn't invent citations, delete citations, or change a page to `stub` or `sources: []` just to lower the count.\n- **Raw bodies:** Raw clippings stay immutable.\n- **Scope:** The request names no issue IDs or pages. I'd process the worklist in batches with a single writer, or ask whether to limit it to certain IDs or pages.\n- **Writes need authorization:** A report-only or preview request would not write, log or commit. Repairs would need `op-begin.mjs --op relink`, a `log-entry.mjs` narrative and `op-commit.mjs`, scoped by a ledger when other operations are open. Then I'd push and verify publication, unless you hold publication.\n- **Verification:** After each batch I'd rerun health and compare issue IDs. I'd report resolved, remaining and new IDs, with a reason for each remaining one.\n\n**Clarification:** I need the vault to repair. If you don't name one, it falls back to `WIKI_MASTER_VAULT` or `~/.wiki-master-vault`. I also need to know whether you want a preview or applied repairs, and whether to cover the whole worklist or specific IDs.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 9267,
+    "cache_read_input_tokens": 25007,
+    "output_tokens": 1275,
+    "output_tokens_details": {
+      "thinking_tokens": 58
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 9267,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 971,
+        "cache_read_input_tokens": 10253,
+        "cache_creation_input_tokens": 4484,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4484
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

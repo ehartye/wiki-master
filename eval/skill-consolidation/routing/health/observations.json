@@ -1,0 +1,69 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\health.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\maintenance.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill chosen:** `wiki-master:wiki-maintainer`. I invoked it through the Skill tool. The request asks for a report on wiki integrity defects, and that is the maintainer's health-reporting job. `wiki-init`, `wiki-researcher`, `wiki-user` and `wiki-purge` don't fit.\n- **Role:** wiki maintainer, read-only reporting.\n- **Mode:** health / structural defects report. The skill's first routing bullet covers \"Health, structural defects or backlog counts\".\n- **References loaded:**\n  - `references/access.md`\n  - `references/health.md`\n  - `references/maintenance.md` (the \"metrics\" link in the skill)\n  - I did not read freshness, lint, repair, relink, triage or the Obsidian CLI references, because this mode doesn't need them.\n\n**What the workflow would do (not run in this probe):**\n1. Resolve the vault from `WIKI_MASTER_VAULT` and the installed plugin root, then run `health.mjs`.\n2. Present \"Open integrity defects\" with scanned-page coverage. Use `--json` for issue IDs, locations, evidence and verification conditions.\n3. Keep unscored forward links separate from real defects.\n4. Use `--backlog` only if ingest counts are wanted.\n\n**Boundaries:**\n- The report is read-only. It doesn't open an operation, write a log, commit, refresh the index or modify any file.\n- The request authorizes no repairs. Fixing defects would be a separate request routed to `repair.md` with its own approval.\n- It must not read, count or cite `.recycle/`.\n- An empty scan isn't a healthy-wiki verdict. Zero defects doesn't establish factual accuracy, and the report should state its coverage limits.\n- No clarification is needed, apart from the vault path if `WIKI_MASTER_VAULT` is unset and the default isn't intended.\n- Per the probe instructions, I ran no commands and touched no vault.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 13474,
+    "cache_read_input_tokens": 24991,
+    "output_tokens": 1033,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 13474,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 669,
+        "cache_read_input_tokens": 10245,
+        "cache_creation_input_tokens": 8699,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8699
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

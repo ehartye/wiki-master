@@ -1,0 +1,57 @@
+
+> wiki-master@0.87.0 test:skills
+> node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs test/cli-transport.test.mjs
+
+✔ preflight counts UTF-8 JSON bytes and rejects multiline/NUL without echoing content (1.7843ms)
+✔ request size boundary includes escaped content and the current directory (0.1865ms)
+✔ preflight rejects unsafe requests before acquiring the gate or invoking an executor (0.2559ms)
+✔ agent proxy rejects oversized payloads and missing commands without touching Obsidian (121.6733ms)
+✔ separate worker processes serialize fake CLI calls across vault arguments (609.2321ms)
+✔ a held gate times out without executing and can be reacquired after release (77.077ms)
+✔ CLI failure and timeout release the gate without retrying or leaking note text (336.717ms)
+✔ sync adapter honors the same gate held by an asynchronous caller (123.6374ms)
+✔ sync adapter preserves successful output and does not leak native failure arguments (259.7091ms)
+✔ OS releases the gate when an owner with no CLI child terminates (65.2077ms)
+✔ a required action does not conceal a forbidden write (1.7854ms)
+✔ missing scenarios and truncated traces are incomplete, not successful (0.1415ms)
+✔ unobserved actions and self-grades cannot masquerade as independent evidence (0.3333ms)
+✔ rejects duplicate/unknown scenarios, mismatched suite, and unsupported modes (0.2092ms)
+✔ comparison preserves failures, omissions and matched conditions (0.2237ms)
+✔ execution mode requires independently captured tool/artifact evidence (0.1637ms)
+✔ CLI reports incomplete coverage with exit 2, writes a report and rejects malformed combinations (105.4327ms)
+✔ exactly five portable role entry points have bounded metadata and no procedural inventories (2.9043ms)
+✔ the skill catalog exactly equals current candidate names and descriptions (0.8767ms)
+✔ all capabilities have direct procedures with live helpers, including six capture routes (4.2831ms)
+✔ every recursively reachable local file and Markdown heading exists (24.0615ms)
+✔ the recursive guard catches a broken second-hop link and missing heading but ignores code examples (0.2397ms)
+✔ roles load shared policy directly while ordinary search has a read-only startup (0.7762ms)
+✔ operation examples expose both shells and all helper execution uses resolved absolute paths (1.3156ms)
+✔ offline authored workflow commits only its edit and publishes to its configured local remote from unrelated cwd (1962.1616ms)
+✔ computeStale buckets by factual review date despite mechanical updates (1.2063ms)
+✔ a recent updated date cannot hide a missing factual review (0.2057ms)
+✔ computeStale treats missing dates as rotten (0.1225ms)
+✔ freshness falls back to wiki metadata, preserving review dates and all files (19.4871ms)
+✔ valid CLI rows remain the preferred backend (7.2088ms)
+✔ invalid or suspiciously empty CLI data cannot report an empty green vault (21.9503ms)
+✔ explicit configured root retains its registered Obsidian vault name (7.2383ms)
+✔ an alternate filesystem root never guesses another registered vault name (8.3739ms)
+✔ missing vault or wiki root fails explicitly instead of reporting healthy emptiness (7.0369ms)
+✔ a verified empty wiki is reported explicitly (3.7034ms)
+✔ resolveVault defaults to ~/.wiki-master-vault (0.5864ms)
+✔ resolveVault honors WIKI_MASTER_VAULT override (0.0917ms)
+✔ resolveVault honors WIKI_MASTER_VAULT_NAME override (0.27ms)
+✔ buildArgs prepends vault= and passes through args (1.1777ms)
+✔ shared wrapper rejects unsafe note payloads before invoking its executor (0.636ms)
+✔ Obsidian calls are bounded, hidden and retain argument boundaries (0.1192ms)
+✔ timeout errors name the bound and never retry uncertain mutations (0.1238ms)
+✔ invalid timeout overrides cannot disable the bound (0.1026ms)
+✔ invalid CLI JSON identifies the command without swallowing the failure (0.1721ms)
+✔ assertRunning preserves the timeout reason for app-only operations (0.3169ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 45
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2047.6937

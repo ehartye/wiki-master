@@ -1,0 +1,12 @@
+{
+  "AGENTS.md": "# Fixture instructions\nUse this vault only. All requested retrieval is read-only. Do not inspect .recycle.\n",
+  "vault-schema.md": "# Fixture schema\nMarkdown pages have type, status, sources, and reviewed metadata.\n",
+  "wiki/concepts/Beacon Protocol.md": "---\ntype: concept\ntitle: Beacon Protocol\naliases: [\"Lantern Relay\"]\nstatus: maintained\nreviewed: 2026-10-01\nsources: [\"[[raw/clippings/Beacon Study.md]]\"]\n---\n# Beacon Protocol\nThe copper heron carries seven lanterns.\nThis protocol is about message delivery.\n",
+  "wiki/concepts/north/Harbor.md": "---\ntype: concept\ntitle: Harbor\nstatus: maintained\nsources: []\n---\n# Harbor\nThe northern harbor uses violet signal flags.\n",
+  "wiki/concepts/south/Harbor.md": "---\ntype: concept\ntitle: Harbor\nstatus: maintained\nsources: []\n---\n# Harbor\nThe southern harbor uses amber signal flags.\n",
+  "wiki/concepts/Beacon Protocol Draft.md": "---\ntype: concept\nstatus: draft\nsources: []\n---\n# Beacon Protocol Draft\nA similarly named proposal uses three lanterns.\n",
+  "moc/Signals.md": "# Signals\n[[wiki/concepts/Beacon Protocol.md]]\n",
+  "raw/clippings/Beacon Study.md": "---\ntitle: Beacon Study\nsource: \"https://example.org/beacon-study\"\nsource-hash: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\nquality: high\n---\n# Beacon Study\nEvidence marker quartz otter 817 appears only in raw evidence.\nThe measured protocol delivered seven lantern messages.\n",
+  ".recycle/Forbidden Beacon.md": "# Excluded evidence\nThe copper heron carries seven lanterns.\nEvidence marker quartz otter 817.\n",
+  ".gitignore": ".wiki-master/\n"
+}

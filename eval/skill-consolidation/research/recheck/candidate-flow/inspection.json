@@ -1,0 +1,93 @@
+{
+  "name": "candidate-flow",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      "index.md",
+      "log/2026-11-02-133058-discover-harbor-retry-policy-1-clipped.md",
+      "log/2026-11-02-133116-ingest-harbor-retry-protocol.md",
+      "moc/Delivery.md",
+      "raw/clippings/Harbor Retry Protocol.md",
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-researcher",
+      "wiki-master:wiki-user"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-researcher"
+      }
+    ],
+    "taskCalls": [
+      {
+        "description": "Academic lens finder",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Do NOT write any files or run clip tools. Topic: Harbor retry policy and duplicate handling. Lens: ACADEMIC (primary research, rigor). Corpus (only source, no public web): http://127.0.0.1:61854/catalog links /protocol, /promotion, /thin (and /known, already in the wiki - skip). Fetch each with curl and inspect actual content (ignore catalog labels). Existing coverage: acknowledgement definitions, no retry budget. Return a ranked candidate list; for each: title, url, quality_guess high|medium|low, key_findings (exact numbers/rules quoted), why_ingest, adds_evidence, changes_page, and whether it is a specification or empirical performance claim, plus author/date/length."
+      },
+      {
+        "description": "Technical lens finder",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Do NOT write any files or run clip tools. Topic: Harbor retry policy and duplicate handling. Lens: TECHNICAL (official docs, specs). Corpus (only source, no public web): http://127.0.0.1:61854/catalog links /protocol, /promotion, /thin (and /known, already in the wiki - skip). Fetch each with curl and inspect actual content (ignore catalog labels). Existing coverage: acknowledgement definitions, no retry budget. Return a ranked candidate list; for each: title, url, quality_guess high|medium|low, key_findings (exact numbers/rules quoted), why_ingest, adds_evidence, changes_page, and whether it is a specification or empirical performance claim, plus author/date/length."
+      },
+      {
+        "description": "Applied lens finder",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Do NOT write any files or run clip tools. Topic: Harbor retry policy and duplicate handling. Lens: APPLIED (practitioner usage). Corpus (only source, no public web): http://127.0.0.1:61854/catalog links /protocol, /promotion, /thin (and /known, already in the wiki - skip). Fetch each with curl and inspect actual content (ignore catalog labels). Existing coverage: acknowledgement definitions, no retry budget. Return a ranked candidate list; for each: title, url, quality_guess high|medium|low, key_findings (exact numbers/rules quoted), why_ingest, adds_evidence, changes_page, and whether it is a specification or empirical performance claim, plus author/date/length."
+      },
+      {
+        "description": "News lens finder",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Do NOT write any files or run clip tools. Topic: Harbor retry policy and duplicate handling. Lens: NEWS/TRENDS (recent, reputable reporting, last ~2 years). Corpus (only source, no public web): http://127.0.0.1:61854/catalog links /protocol, /promotion, /thin (and /known, already in the wiki - skip). Fetch each with curl and inspect actual content (ignore catalog labels). Existing coverage: acknowledgement definitions, no retry budget. Return a ranked candidate list; for each: title, url, quality_guess high|medium|low, key_findings (exact numbers/rules quoted), why_ingest, adds_evidence, changes_page, and whether it is a specification or empirical performance claim, plus author/date/length."
+      },
+      {
+        "description": "Contrarian lens finder",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Do NOT write any files or run clip tools. Topic: Harbor retry policy and duplicate handling. Lens: CONTRARIAN (critiques, failure modes, dissent). Corpus (only source, no public web): http://127.0.0.1:61854/catalog links /protocol, /promotion, /thin (and /known, already in the wiki - skip). Fetch each with curl and inspect actual content (ignore catalog labels). Existing coverage: acknowledgement definitions, no retry budget. Return a ranked candidate list; for each: title, url, quality_guess high|medium|low, key_findings (exact numbers/rules quoted), why_ingest, adds_evidence, changes_page, and whether it is a specification or empirical performance claim, plus author/date/length."
+      }
+    ],
+    "webSearches": [],
+    "searchHelperCalls": [],
+    "shellReferenceLoadCommands": [
+      "cd \"<CANDIDATE>/skills/wiki-researcher/references\" && cat discover.md ../../wiki-maintainer/references/access.md; echo; env | grep -i -E \"^(TEMP|TMPDIR|WIKI|VAULT)\"; pwd",
+      "cd \"<CANDIDATE>/skills/wiki-researcher/references\" && cat capture.md ingest.md ../../wiki-maintainer/references/operations.md ../../wiki-maintainer/references/evidence.md ../../wiki-maintainer/references/efficacy.md"
+    ],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

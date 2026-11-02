@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-purge"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-purge\\references\\purge.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Skill chosen:** `wiki-master:wiki-purge`. I invoked it through the Skill tool.\n\n**Role and mode:** Purge. The mode is the plan-for-approval step, which is steps 2–3 of the purge procedure. It is not apply, reconcile or restore.\n\n**References loaded:** I read only `skills/wiki-purge/references/purge.md`, which was enough to identify the mode. I did not open the other three references the skill lists: `access.md`, `evidence.md` and `operations.md`, all in `wiki-maintainer/references`. They have to be read before any real run. I did no other reads and ran no commands.\n\n**What I did not do:** I ran no scripts and did not touch a vault. The probe said not to, so I have no plan output, seed list, collateral pages or blocking pages to show you yet.\n\n**What a real run would do, in order:**\n1. Check that the vault's history reaches its upstream with `git fetch` and `git merge-base`. If there is no merge base, stop and report it.\n2. Save a baseline `health.mjs --legacy` and record the broken-links count.\n3. Run `purge.mjs --reconcile`.\n4. Run `purge.mjs --plan \"Beacon\"`, which moves nothing.\n5. Inspect each seed page for relevance. Strike off-topic seeds and re-run with `--seeds`.\n6. Show you the plan grouped by layer with counts, naming the collateral and blocking pages.\n\n**Approval boundaries:**\n- **Plan approval:** `--apply` needs your explicit yes to the plan. Selecting the skill does not count as approval.\n- **Blocking pages:** `--apply` refuses while any exist. Each one needs a decision from you: add it to the purge or keep its sources.\n- **Collateral repair:** this is a separate scoped relink operation, followed by an index regeneration.\n- **Publishing:** pushing needs its own explicit approval (\"publish this purge to the configured upstream?\"). It is deferred until then.\n- **Final check:** the broken-link count must not have grown. The health score is not accepted as proof.\n- **Never:** read or cite `.recycle/`, hard-delete the bin, or run `git add -A`.\n\n**Clarification needed before a real run:** I need the vault path. I also need to know whether \"Beacon\" means the Beacon topic as a whole or only certain pages. The seed review will test that anyway.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 8090,
+    "cache_read_input_tokens": 24601,
+    "output_tokens": 1058,
+    "output_tokens_details": {
+      "thinking_tokens": 111
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 8090,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 795,
+        "cache_read_input_tokens": 9835,
+        "cache_creation_input_tokens": 3725,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3725
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

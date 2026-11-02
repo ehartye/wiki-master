@@ -1,0 +1,32 @@
+{
+  "name": "candidate-live",
+  "prompt": "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Perform bounded LIVE public-source discovery and capture-only work on HTTP conditional requests: how ETag and If-None-Match can avoid transferring an unchanged representation. Use actual public WebSearch and inspect independently found official sources. Limit the entire run to at most five web searches and at most two new captured URLs. Use topic \"HTTP conditional requests\" consistently, deduplicate first, and follow the skill's independent selection requirement using read-only perspective workers within that bound. Prefer current official protocol documentation; do not treat a web-search snippet as captured evidence. Complete the capture lifecycle to the local remote, but do not ingest or create derived pages. Report the exact searches, captured URLs, evidence paths and any fetch or fidelity failures. This live run is separate from the local synthetic HTTP corpus, which must not be used as source evidence.",
+  "command": [
+    "claude",
+    "-p",
+    "Use the session-loaded wiki-master skill through the Skill tool and its relevant references. Work only in the configured scratch vault. The local bare origin is authorized for scoped commit/sync and verification; no other remote or vault is authorized. Do not edit plugin sources, installed caches or global configuration. Ephemeral files must use the case-specific TEMP or TMPDIR environment directory. Never use literal /tmp paths or shared temporary filenames outside that directory. This is actual execution: run the helpers and inspect files, do not just propose commands. Report actual limits and stop honestly if an operation cannot be completed. Perform bounded LIVE public-source discovery and capture-only work on HTTP conditional requests: how ETag and If-None-Match can avoid transferring an unchanged representation. Use actual public WebSearch and inspect independently found official sources. Limit the entire run to at most five web searches and at most two new captured URLs. Use topic \"HTTP conditional requests\" consistently, deduplicate first, and follow the skill's independent selection requirement using read-only perspective workers within that bound. Prefer current official protocol documentation; do not treat a web-search snippet as captured evidence. Complete the capture lifecycle to the local remote, but do not ingest or create derived pages. Report the exact searches, captured URLs, evidence paths and any fetch or fidelity failures. This live run is separate from the local synthetic HTTP corpus, which must not be used as source evidence.",
+    "--plugin-dir",
+    "<CANDIDATE>",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell,Write,Edit,Task,WebFetch,WebSearch"
+  ],
+  "cwd": "<SCRATCH>\\candidate-live",
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>\\candidate-live",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://127.0.0.1:1",
+    "TEMP": "<SCRATCH>\\temporary\\candidate-live",
+    "TMP": "<SCRATCH>\\temporary\\candidate-live",
+    "TMPDIR": "<SCRATCH>\\temporary\\candidate-live"
+  },
+  "predeclaredScenario": "bounded live discovery"
+}

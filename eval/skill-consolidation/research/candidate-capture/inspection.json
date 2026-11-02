@@ -1,0 +1,56 @@
+{
+  "name": "candidate-capture",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      ".wiki-master/triage.jsonl",
+      "log/2026-11-02-132401-discover-harbor-delivery-capture.md",
+      "raw/clippings/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-researcher",
+      "wiki-master:wiki-user"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-researcher"
+      }
+    ],
+    "taskCalls": [],
+    "webSearches": [],
+    "searchHelperCalls": [],
+    "shellReferenceLoadCommands": [],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

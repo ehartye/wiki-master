@@ -1,0 +1,165 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<BASELINE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-discover"
+    },
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    },
+    {
+      "skill": "wiki-master:wiki-ingest"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\operations.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\efficacy.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 108698,
+    "stop_reason": "end_turn",
+    "session_id": "3137a5da-1375-489d-af1c-b5bd44fe80e2",
+    "total_cost_usd": 0.4053613,
+    "usage": {
+      "input_tokens": 22,
+      "cache_creation_input_tokens": 14658,
+      "cache_read_input_tokens": 524524,
+      "output_tokens": 4891,
+      "output_tokens_details": {
+        "thinking_tokens": 296
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 14658,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 1123,
+          "cache_read_input_tokens": 65222,
+          "cache_creation_input_tokens": 860,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 860
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 44,
+        "outputTokens": 9189,
+        "cacheReadInputTokens": 797878,
+        "cacheCreationInputTokens": 63725,
+        "webSearchRequests": 0,
+        "costUSD": 0.4053613,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 492,
+        "cacheCreationEphemeral5mInputTokens": 14203,
+        "cacheCreationEphemeral1hInputTokens": 49522,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzlif2z-914f96c1"
+    },
+    "subagent_stats": {
+      "spawned": 2,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 2
+      },
+      "started_in_background": 2,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 2,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "Explore": 2
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 11,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The fixture allows 3 retries, which permits 4 attempts in total. If an accepted identifier arrives again with the same digest, the application gets the payload only once and the receiver resends its cached acknowledgement. This comes from one captured source, the fixture specification `raw/clippings/Harbor Retry Protocol.md`, and I did not run `search.mjs`; I answered from the pages I wrote and re-read.\n\n## Answer\n\n- **Retries allowed:** three retries after the first transmission. The trial deadline is 12 seconds.\n- **Total attempts:** four, which is the first send plus three retries.\n- **Same identifier and same digest again:** the receiver delivers the payload to the application only once and sends the cached acknowledgement again. The acknowledgement cache is checked before a repeat can reach the application.\n- **Same identifier with a different digest:** the receiver rejects it as a conflict.\n- **Attempts versus deliveries:** four permitted attempts are not four permitted application deliveries.\n\nSources: `raw/clippings/Harbor Retry Protocol.md`, summarised in `wiki/sources/Harbor Retry Protocol.md` and the concept page `wiki/concepts/Message Delivery.md`.\n\n## Specification versus empirical\n\nEverything above is a rule of a synthetic fixture protocol, published by the Evaluation Standards Working Group on 2026-10-15 for a test sender and receiver. The source says these values \"do not establish any empirical reliability rate\", and it gives no throughput or packet-loss figure. The wiki holds no empirical performance evidence on this topic.\n\n`wiki/sources/Acknowledgement Basics.md` was already in the wiki. It only defines terms, and it says retry budgets and timeouts need a separate specification. The Harbor page is that specification.\n\nThe source does not say what happens if the deadline expires mid-retry, how long the acknowledgement cache lasts, or whether a conflict rejection is reported to the sender.\n\n## What I did\n\n- **Deduplication:** `Acknowledgement Basics` was already clipped, so I didn't capture it again.\n- **Source selection:** I inspected all four catalog pages myself. Two read-only workers (technical and contrarian lenses) reviewed them independently and agreed with me. I ran two of the five perspective lenses, not all five, because the corpus has only four pages.\n- **Captured (1 of the 2 allowed):** `/protocol`, rated high quality.\n- **Declined:** `/promotion` (promotional, no method or retry rule) and `/thin` (one sentence). The clipper treated `/thin` as thin content, so it is auto-declined and queued in triage.\n- **Ingest:** I created the source page and extended the existing `Message Delivery` concept instead of making a new one. I also updated `moc/Delivery.md` and regenerated `index.md`.\n- **Commits:** the capture is `ae0deeb` and the ingest is `b181165`, one operation log each. Both are pushed to the local bare origin. A fetch confirmed `origin/main` is at `b181165`, and the ingest backlog is 0.\n- **Not done:** no semantic index exists, since the helper says a first build takes minutes. I did not use any other remote or vault.",
+    "ttft_ms": 2474,
+    "type": "result",
+    "duration_ms": 70084,
+    "uuid": "aab630f9-d755-4d83-85b9-58b549230bf6",
+    "ttft_stream_ms": 1135,
+    "time_to_request_ms": 16,
+    "first_content_frame_ms": 1135,
+    "queued_turn_count": 0,
+    "result_index": 1,
+    "model_usage_since_last_result": {}
+  }
+}

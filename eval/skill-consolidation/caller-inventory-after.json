@@ -1,0 +1,602 @@
+{
+  "date": "2026-11-02",
+  "stage": "after",
+  "pattern": "wiki-master:(?:wiki-search|wiki-query|wiki-author|wiki-discover|wiki-ingest|wiki-health|wiki-lint|wiki-stale|wiki-repair|wiki-relink|wiki-triage|clip-pdf|clip-docx|clip-pptx|clip-xlsx|clip-gh|clip-confluence|obsidian-cli)\\b|skills[\\\\/](?:wiki-search|wiki-query|wiki-author|wiki-discover|wiki-ingest|wiki-health|wiki-lint|wiki-stale|wiki-repair|wiki-relink|wiki-triage|clip-pdf|clip-docx|clip-pptx|clip-xlsx|clip-gh|clip-confluence|obsidian-cli)(?:[\\\\/]SKILL\\.md)?",
+  "scope": "Installed first-party hartye plugin set excluding wiki-master itself (owned by main WP3 author), plus corresponding maintained source repositories. Includes all tracked Markdown, records historical matches separately; no unbounded external compatibility claim.",
+  "exclusions": [
+    "plugin-install-* staging directories are not installed plugin catalog entries",
+    "wiki-master own source and legacy evaluation artifacts are covered by the main WP3 migration",
+    "Non-Markdown executable and data files are outside this skill/documentation caller scan"
+  ],
+  "sources": [
+    {
+      "plugin": "agent-beeps",
+      "kind": "installed-cache",
+      "version": "0.36.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-beeps",
+      "kind": "source-repository",
+      "revision": "377a95eeabbac7da2609dc4aa0862bb9b1bffeae",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-draw",
+      "kind": "installed-cache",
+      "version": "0.5.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-draw",
+      "kind": "source-repository",
+      "revision": "83e08e79997fca3d75b2c64612e66d742650d8c8",
+      "dirty": false,
+      "source": "read-only shallow source clone",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-engine",
+      "kind": "installed-cache",
+      "version": "0.34.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-engine",
+      "kind": "source-repository",
+      "revision": "cfe89a2b099b86b070b6c75babbf67a1d19d5a1d",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "version": "0.3.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "a5e9269c39c82a34e05ca1ce842b5982c4674dec",
+      "dirty": true,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-marketing",
+      "kind": "installed-cache",
+      "version": "0.11.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-marketing",
+      "kind": "source-repository",
+      "revision": "ea4af2e0d2197306230520f8bd5e4f40a9c4e958",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-meshes",
+      "kind": "installed-cache",
+      "version": "0.40.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-meshes",
+      "kind": "source-repository",
+      "revision": "f6880146d7b191a771f95a22cdfad469584cf930",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-phaser",
+      "kind": "installed-cache",
+      "version": "0.1.11",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-phaser",
+      "kind": "source-repository",
+      "revision": "a4ae199b20e0fb6b0736f78f55821292cede4dab",
+      "dirty": true,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-prose",
+      "kind": "installed-cache",
+      "version": "0.13.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-prose",
+      "kind": "source-repository",
+      "revision": "00dbaad534e32988c5b48a064a4c9a4dc61c7581",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-sprites",
+      "kind": "installed-cache",
+      "version": "0.101.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-sprites",
+      "kind": "source-repository",
+      "revision": "47b409bac6f3eb51fb09de09b884c1a0481f6280",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-stalker",
+      "kind": "installed-cache",
+      "version": "0.5.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-stalker",
+      "kind": "source-repository",
+      "revision": "a823ed5fd0e09b2cf0ce5b939efe259f31137b58",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "installed-cache",
+      "version": "0.9.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "installed-cache",
+      "version": "0.38.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-unreal",
+      "kind": "source-repository",
+      "revision": "ebf5bccec6480e4c12000278b3622e40d9e60708",
+      "dirty": true,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-vids",
+      "kind": "installed-cache",
+      "version": "0.5.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-vids",
+      "kind": "source-repository",
+      "revision": "90fa638795ed2d0eb2996335c8da0bef8e09170a",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "version": "0.6.3",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "dirty": false,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "h-superpowers",
+      "kind": "installed-cache",
+      "version": "4.16.0",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "h-superpowers",
+      "kind": "source-repository",
+      "revision": "714599c2769f606605d461d13579d48bb8778dc7",
+      "dirty": true,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "version": "0.9.1",
+      "scope": "all Markdown; dependency/build directories excluded"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "source-repository",
+      "revision": "0b86d8e5be41b1aeeaf7f2bae89a47da0c1e4f91",
+      "dirty": true,
+      "source": "local source checkout",
+      "scope": "Git-tracked Markdown"
+    }
+  ],
+  "matches": [
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "docs/superpowers/plans/2026-10-26-agent-game-studio-phase-1.md",
+      "line": 2307,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "docs/superpowers/plans/2026-10-26-agent-game-studio-phase-1.md",
+      "line": 2307,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 311,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 311,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "references/plugin-map.md",
+      "line": 30,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "references/plugin-map.md",
+      "line": 30,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "references/plugin-map.md",
+      "line": 51,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "installed-cache",
+      "revision": "0.3.1",
+      "path": "references/plugin-map.md",
+      "line": 51,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "a5e9269c39c82a34e05ca1ce842b5982c4674dec",
+      "path": "docs/superpowers/plans/2026-10-26-agent-game-studio-phase-1.md",
+      "line": 2307,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "a5e9269c39c82a34e05ca1ce842b5982c4674dec",
+      "path": "docs/superpowers/plans/2026-10-26-agent-game-studio-phase-1.md",
+      "line": 2307,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "a5e9269c39c82a34e05ca1ce842b5982c4674dec",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 311,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-game-studio",
+      "kind": "source-repository",
+      "revision": "a5e9269c39c82a34e05ca1ce842b5982c4674dec",
+      "path": "docs/superpowers/specs/2026-10-26-agent-game-studio-design.md",
+      "line": 311,
+      "oldReference": "wiki-master:wiki-health",
+      "replacement": "wiki-master:wiki-maintainer (matching maintenance mode)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "installed-cache",
+      "revision": "0.9.0",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 419,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "installed-cache",
+      "revision": "0.9.0",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 438,
+      "oldReference": "wiki-master:wiki-discover",
+      "replacement": "wiki-master:wiki-researcher (discovery)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "installed-cache",
+      "revision": "0.9.0",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 438,
+      "oldReference": "wiki-master:wiki-ingest",
+      "replacement": "wiki-master:wiki-researcher (ingestion)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 419,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 438,
+      "oldReference": "wiki-master:wiki-discover",
+      "replacement": "wiki-master:wiki-researcher (discovery)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-tests",
+      "kind": "source-repository",
+      "revision": "118b1201ac922673146669a32d73fbea62cd064b",
+      "path": "docs/superpowers/plans/2026-10-11-agent-tests-v0.1-static-audit.md",
+      "line": 438,
+      "oldReference": "wiki-master:wiki-ingest",
+      "replacement": "wiki-master:wiki-researcher (ingestion)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "revision": "0.6.3",
+      "path": "docs/reviews/2026-10-14/prior-art.md",
+      "line": 12,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "revision": "0.6.3",
+      "path": "docs/reviews/2026-10-14/prior-art.md",
+      "line": 12,
+      "oldReference": "skills\\wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "revision": "0.6.3",
+      "path": "docs/reviews/2026-10-14/roadmap.md",
+      "line": 16,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "revision": "0.6.3",
+      "path": "docs/reviews/2026-10-14/roadmap.md",
+      "line": 16,
+      "oldReference": "skills/wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "installed-cache",
+      "revision": "0.6.3",
+      "path": "docs/superpowers/plans/2026-10-15-roadmap-pipeline.md",
+      "line": 78,
+      "oldReference": "skills/wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "path": "docs/reviews/2026-10-14/prior-art.md",
+      "line": 12,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "path": "docs/reviews/2026-10-14/prior-art.md",
+      "line": 12,
+      "oldReference": "skills\\wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "path": "docs/reviews/2026-10-14/roadmap.md",
+      "line": 16,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "path": "docs/reviews/2026-10-14/roadmap.md",
+      "line": 16,
+      "oldReference": "skills/wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "agent-workflow",
+      "kind": "source-repository",
+      "revision": "d9d09f1a128a5056d77065ed79a69f2e4c392583",
+      "path": "docs/superpowers/plans/2026-10-15-roadmap-pipeline.md",
+      "line": 78,
+      "oldReference": "skills/wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "historical",
+      "disposition": "Preserve historical evidence unchanged"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.1",
+      "path": "skills/q-master/SKILL.md",
+      "line": 61,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.1",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 53,
+      "oldReference": "wiki-master:wiki-search",
+      "replacement": "wiki-master:wiki-user (search)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.1",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 55,
+      "oldReference": "wiki-master:wiki-discover",
+      "replacement": "wiki-master:wiki-researcher (discovery)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.1",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 55,
+      "oldReference": "wiki-master:wiki-ingest",
+      "replacement": "wiki-master:wiki-researcher (ingestion)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    },
+    {
+      "plugin": "hartye-skills",
+      "kind": "installed-cache",
+      "revision": "0.9.1",
+      "path": "skills/spec-plan/SKILL.md",
+      "line": 85,
+      "oldReference": "wiki-master:wiki-author",
+      "replacement": "wiki-master:wiki-user (authoring)",
+      "classification": "maintained-caller",
+      "disposition": "Preserve installed cache; source migration ships in coordinated future release"
+    }
+  ]
+}

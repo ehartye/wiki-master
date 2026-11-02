@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\workflows.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Skill chosen:** `wiki-master:wiki-maintainer`, invoked through the Skill tool. The request is general orientation to maintenance workflows. The maintainer skill's own text points to its cross-mode overview for that.\n\n**Role and mode:** The role is wiki maintainer, in read-only orientation mode. The request doesn't name a specific mode (health, freshness, lint, repair, relink or triage), so I selected none of them.\n\n**References loaded:**\n- `references/access.md`, which the skill requires for every mode.\n- `references/workflows.md`, the \"cross-mode orientation only\" overview.\n\nI did not read the health, stale, lint, repair, relink, triage, evidence, operations or Obsidian CLI references. None is needed to identify this mode.\n\n**Maintenance modes available:**\n- **Health and backlog counts:** Reports structural defects, orphan counts and the ingest backlog. It is read-only and does not process clippings.\n- **Freshness:** Shows what needs factual review.\n- **Lint:** Checks consistency, contradictions and unsupported claims. It runs health first, then reads the flagged pages.\n- **Repair:** Fixes broken citations and integrity worklist items.\n- **Relink:** Adds useful links, builds task maps and handles orphan navigation.\n- **Triage:** Handles clipping failures, fidelity flags and declines. Showing the triage UI only creates local session state. Applying dispositions is a separate action.\n- **Obsidian CLI mechanics:** Used only when a maintenance step needs them.\n\nThree workflows sit next to maintenance but belong to other skills:\n- **Ingest:** Belongs to `wiki-researcher`.\n- **Search and query:** Belong to `wiki-user`.\n- **Purge:** Belongs to `wiki-purge`.\n\n**Scope and approval boundaries:**\n- Health, freshness and preview reports don't open operations, write logs, commit or refresh indexes. A request for a report does not authorize repairs.\n- Before any authorized change, the skill requires reading the evidence and operation-completion references.\n- Purge needs a reviewed removal plan and separate publication approval.\n- I did not resolve or inspect any vault, run any command or script, or change anything.\n- A clean link graph doesn't prove the wiki is factually accurate.\n\n**Clarification:** None needed for orientation. To go further, name a mode, such as \"report wiki health\" or \"show what's stale\". I'd then load only that mode's references.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 9034,
+    "cache_read_input_tokens": 25040,
+    "output_tokens": 1134,
+    "output_tokens_details": {
+      "thinking_tokens": 60
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 9034,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 826,
+        "cache_read_input_tokens": 10288,
+        "cache_creation_input_tokens": 4216,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4216
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

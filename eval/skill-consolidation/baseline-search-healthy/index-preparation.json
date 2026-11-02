@@ -1,0 +1,1 @@
+{"exit":0,"stdout":"","stderr":"  chunking: 5/5 changed file(s)\n  embedding 5 chunk(s) -- this can take minutes on a cold build\n    embedded 1/5\n    embedded 5/5\nindex-embed: done in 0.1s -- 5 file(s) changed, 5 chunk(s) embedded, 0 pruned, 5 total chunk(s) indexed\n"}

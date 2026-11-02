@@ -1,0 +1,29 @@
+{
+  "compared": "initial baseline flow vs final candidate flow",
+  "initialOrigin": "http://127.0.0.1:57281",
+  "finalOrigin": "http://127.0.0.1:62982",
+  "pages": [
+    {
+      "page": "known",
+      "initialSHA256": "0298445619df1dc9bff49cfac15a843b657ae5fbaa7351f87dc7aa7926ec3283",
+      "finalSHA256": "0298445619df1dc9bff49cfac15a843b657ae5fbaa7351f87dc7aa7926ec3283",
+      "equal": true
+    },
+    {
+      "page": "reliable",
+      "initialSHA256": "d3be1120673dc054060109bf74cb771a2a5f0945cb3643237f678ad99a0c0792",
+      "finalSHA256": "d3be1120673dc054060109bf74cb771a2a5f0945cb3643237f678ad99a0c0792",
+      "equal": true
+    },
+    {
+      "page": "weak",
+      "initialSHA256": "02c175b3b66df53ea708a2bdc7a20b6256fe7d6519935602033ba299cc76bdd6",
+      "finalSHA256": "02c175b3b66df53ea708a2bdc7a20b6256fe7d6519935602033ba299cc76bdd6",
+      "equal": true
+    }
+  ],
+  "startingFileHashDifferences": [
+    "raw/clippings/Acknowledgement Basics.md"
+  ],
+  "expectedDifference": "Ephemeral loopback HTTP port changes the source URL in the seeded raw clipping metadata; extracted body and source-hash remain identical. No semantic source or workflow outcome content changed."
+}

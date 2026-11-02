@@ -1,0 +1,83 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\ingest.md",
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\maintenance.md",
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\evidence.md",
+    "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\efficacy.md"
+  ],
+  "tools": [
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell"
+  ],
+  "usage": {
+    "input_tokens": 22,
+    "cache_creation_input_tokens": 45880,
+    "cache_read_input_tokens": 469778,
+    "output_tokens": 3746,
+    "output_tokens_details": {
+      "thinking_tokens": 99
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 45880,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 530,
+        "cache_read_input_tokens": 61883,
+        "cache_creation_input_tokens": 557,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 557
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "I ingested one of the two pending clippings, \"Relay Trial: Phase/7\". The other, \"Restricted Relay Claim\", is quarantined (`citation-status: quarantined`), so I left it out. It's still on the backlog and nothing cites it.\n\n- **New source page:** `wiki/sources/Relay Trial - Phase-7.md`. It cites the clipping by its exact path and records the `source-hash`. It says the trial was a single controlled fixture run: 11 of 12 messages were acknowledged and one timed out. It carries the clipping's limits: no proof of exactly-once processing, durable storage, or a general guarantee.\n- **Existing concept updated:** `wiki/concepts/Acknowledged Delivery.md` now has a \"Controlled trial example\" section, the second source and a relationship line. I didn't create a new concept, because the trial fits the existing one. I left `reviewed` unchanged.\n- **Publication:** `wiki-sync` closed the operation and pushed commit `afade00` (4 files: the source page, the concept, `index.md` and the log entry) to the local bare remote. A fresh fetch shows `origin/main` at that commit, and I didn't check the quarantined clipping's raw body.\n- **Backlog check:** a rerun of `health.mjs --backlog` shows only the quarantined clipping.\n- **Your draft:** `personal.md` is still modified and uncommitted, with its bytes untouched.\n\nThe log entry and the temp ledger and token files are under the case TEMP directory or the vault's `log/`. I changed nothing outside this fixture vault.",
+  "terminalReason": "completed"
+}

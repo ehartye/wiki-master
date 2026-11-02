@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-user"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\obsidian-cli.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only, nothing executed)**\n\n- **Skill:** `wiki-master:wiki-user`. I invoked it through the Skill tool.\n- **Role:** wiki user.\n- **Mode:** perform a requested native Obsidian app action. The request is to open a note in the UI, which `access.md` lists as needing a working Obsidian CLI.\n- **References loaded:**\n  - `skills/wiki-maintainer/references/obsidian-cli.md`\n  - `skills/wiki-maintainer/references/access.md`\n  - I didn't load search, query, authoring, evidence or operations.\n\n**Scope and approval boundaries**\n- **Read-only action:** opening a note changes no vault content. It needs no operation, log, commit, index refresh or publication step, so no approval gate applies.\n- **Channel:**\n  - It would go through `node \"<absolute-plugin-root>/scripts/obsidian.mjs\" ...` on the PowerShell tool or `vault.mjs`, with `vault=<name>` first.\n  - Native `obsidian` is never called directly, and not from Git Bash.\n  - The Obsidian app must be running. If it isn't, I'd report that and not fake the action with a filesystem approximation.\n- **Resolving \"Beacon Protocol\":**\n  - The CLI's `file=` resolves by name, like a wikilink, so `file=\"Beacon Protocol\"` would be the target.\n  - If more than one note could match, I'd ask which one before opening anything.\n  - I'd resolve the root from `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`) and wouldn't search the disk for it.\n- **Not done here:** I ran no commands and inspected no vault. The `obsidian.mjs open` syntax isn't in the references I read, so a real run would check `obsidian.mjs help open` first.\n- **Clarification:** none is needed unless the name matches several notes.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 10770,
+    "cache_read_input_tokens": 24746,
+    "output_tokens": 917,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 10770,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 644,
+        "cache_read_input_tokens": 9996,
+        "cache_creation_input_tokens": 6244,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 6244
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

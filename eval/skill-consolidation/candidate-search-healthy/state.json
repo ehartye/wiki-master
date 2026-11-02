@@ -1,0 +1,41 @@
+{
+  "before": {
+    "head": "6626622346782068e9eac02bc9b4a386dc9cdf4c",
+    "status": "",
+    "files": {
+      ".gitignore": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419",
+      ".recycle/Forbidden Beacon.md": "ea5dd8b1b0c419bd4ecb612cbd29fffc56a8f0de223929bcf9c4a3ac3b86be96",
+      ".wiki-master/chunks.json": "eb61d6d51cebe5dd733f1e194252b81dc3e4c427ce172f74e9ffeb484ded5f7c",
+      ".wiki-master/vectors.bin": "4f6170164a69b9385b25f4a3ec9a02b6a1ae96f37369119ba46e412efd67ae49",
+      ".wiki-master/vectors.idx.json": "55537b976b593ec1b356502a03a4088b52c4b4501d30911badbd22e77eccbc92",
+      "AGENTS.md": "4ba3d7909ed885f2a65ea2796ac12a0ce8e072c5ff0ffb052d412275975417bc",
+      "moc/Signals.md": "69e256c49dee616432ce49e8959f75e1415e56dc6d1aa2444cc20f62504f1630",
+      "raw/clippings/Beacon Study.md": "367824bc06464bdbde493390c8851f633ff6a7c95c5a65965742b13b02f545ad",
+      "vault-schema.md": "999ab9ddd4092326b2d1375dbb2f3bde47e620196fc9d7c8bfec5b22fe3cb0cf",
+      "wiki/concepts/Beacon Protocol Draft.md": "e9dd219a3094f0d09644ee40787761aeb5d467ecdc019034f6d9186693f3c3f9",
+      "wiki/concepts/Beacon Protocol.md": "550d777d567b0b7a9284ff3571e26d8b94b15eaff933083ed2d9c738619458a9",
+      "wiki/concepts/north/Harbor.md": "f20d4aa882996f03608a2c0e6444da27ab7637d71e381130ffc02ee150fe709e",
+      "wiki/concepts/south/Harbor.md": "3cc4e7abb7e174cedd6c8e35918714e850c28b9ae9ac30bdf3eca249c8c77484"
+    }
+  },
+  "after": {
+    "head": "6626622346782068e9eac02bc9b4a386dc9cdf4c",
+    "status": "",
+    "files": {
+      ".gitignore": "d435e433ee28a29dda76fcf322786991be44ef1407470cf33431d9b9cef01419",
+      ".recycle/Forbidden Beacon.md": "ea5dd8b1b0c419bd4ecb612cbd29fffc56a8f0de223929bcf9c4a3ac3b86be96",
+      ".wiki-master/chunks.json": "eb61d6d51cebe5dd733f1e194252b81dc3e4c427ce172f74e9ffeb484ded5f7c",
+      ".wiki-master/vectors.bin": "4f6170164a69b9385b25f4a3ec9a02b6a1ae96f37369119ba46e412efd67ae49",
+      ".wiki-master/vectors.idx.json": "55537b976b593ec1b356502a03a4088b52c4b4501d30911badbd22e77eccbc92",
+      "AGENTS.md": "4ba3d7909ed885f2a65ea2796ac12a0ce8e072c5ff0ffb052d412275975417bc",
+      "moc/Signals.md": "69e256c49dee616432ce49e8959f75e1415e56dc6d1aa2444cc20f62504f1630",
+      "raw/clippings/Beacon Study.md": "367824bc06464bdbde493390c8851f633ff6a7c95c5a65965742b13b02f545ad",
+      "vault-schema.md": "999ab9ddd4092326b2d1375dbb2f3bde47e620196fc9d7c8bfec5b22fe3cb0cf",
+      "wiki/concepts/Beacon Protocol Draft.md": "e9dd219a3094f0d09644ee40787761aeb5d467ecdc019034f6d9186693f3c3f9",
+      "wiki/concepts/Beacon Protocol.md": "550d777d567b0b7a9284ff3571e26d8b94b15eaff933083ed2d9c738619458a9",
+      "wiki/concepts/north/Harbor.md": "f20d4aa882996f03608a2c0e6444da27ab7637d71e381130ffc02ee150fe709e",
+      "wiki/concepts/south/Harbor.md": "3cc4e7abb7e174cedd6c8e35918714e850c28b9ae9ac30bdf3eca249c8c77484"
+    }
+  },
+  "unchanged": true
+}

@@ -1,0 +1,550 @@
+[
+  {
+    "id": "search",
+    "expectedRole": "wiki-user",
+    "expectedMode": "search",
+    "actualSkillCalls": [
+      "wiki-master:wiki-user"
+    ],
+    "actualReferenceReads": [
+      "wiki-user/references/search.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "query",
+    "expectedRole": "wiki-user",
+    "expectedMode": "query",
+    "actualSkillCalls": [
+      "wiki-master:wiki-user"
+    ],
+    "actualReferenceReads": [
+      "wiki-user/references/query.md",
+      "wiki-user/references/search.md",
+      "wiki-maintainer/references/evidence.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "author",
+    "expectedRole": "wiki-user",
+    "expectedMode": "authoring",
+    "actualSkillCalls": [
+      "wiki-master:wiki-user"
+    ],
+    "actualReferenceReads": [
+      "wiki-user/references/authoring.md",
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/evidence.md",
+      "wiki-maintainer/references/operations.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "author-validate",
+    "expectedRole": "wiki-user",
+    "expectedMode": "authoring validation",
+    "actualSkillCalls": [
+      "wiki-master:wiki-user"
+    ],
+    "actualReferenceReads": [
+      "wiki-user/references/authoring.md",
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/evidence.md",
+      "wiki-maintainer/references/operations.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "app",
+    "expectedRole": "wiki-user",
+    "expectedMode": "native app action",
+    "actualSkillCalls": [
+      "wiki-master:wiki-user"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/obsidian-cli.md",
+      "wiki-maintainer/references/access.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "discover",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "topic discovery",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/discover.md",
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/evidence.md",
+      "wiki-maintainer/references/efficacy.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "named-url",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "named capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/capture.md",
+      "wiki-maintainer/references/access.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "named-ingest",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "named ingestion",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/ingest.md",
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/evidence.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "backlog-ingest",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "backlog ingestion",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/ingest.md",
+      "wiki-maintainer/references/maintenance.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "empty-backlog",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "backlog ingestion with empty guard",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/ingest.md",
+      "wiki-maintainer/references/maintenance.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-pdf",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "PDF capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-pdf.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-docx",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "Word capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-docx.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-pptx",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "PowerPoint capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-pptx.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-xlsx",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "spreadsheet capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-xlsx.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-gh",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "GitHub capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-gh.md",
+      "wiki-maintainer/references/access.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "clip-confluence",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "Confluence capture",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [
+      "wiki-researcher/references/clip-confluence.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "health",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "health report",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/health.md",
+      "wiki-maintainer/references/maintenance.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "orphans",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "health report",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/health.md",
+      "wiki-maintainer/references/maintenance.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "backlog-count",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "backlog count",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/health.md",
+      "wiki-maintainer/references/maintenance.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "stale",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "freshness report",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/stale.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "lint",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "factual lint",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/lint.md",
+      "wiki-maintainer/references/evidence.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "repair",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "integrity repair",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/repair.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "relink",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "relink",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/relink.md",
+      "wiki-maintainer/references/efficacy.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "triage",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "triage",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/triage.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "maintainer",
+    "expectedRole": "wiki-maintainer",
+    "expectedMode": "maintenance orientation",
+    "actualSkillCalls": [
+      "wiki-master:wiki-maintainer"
+    ],
+    "actualReferenceReads": [
+      "wiki-maintainer/references/access.md",
+      "wiki-maintainer/references/workflows.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "init",
+    "expectedRole": "wiki-init",
+    "expectedMode": "setup",
+    "actualSkillCalls": [
+      "wiki-master:wiki-init"
+    ],
+    "actualReferenceReads": [
+      "wiki-init/references/setup.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "purge",
+    "expectedRole": "wiki-purge",
+    "expectedMode": "purge planning",
+    "actualSkillCalls": [
+      "wiki-master:wiki-purge"
+    ],
+    "actualReferenceReads": [
+      "wiki-purge/references/purge.md"
+    ],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "researcher-ambiguous",
+    "expectedRole": "wiki-researcher",
+    "expectedMode": "clarify mode",
+    "actualSkillCalls": [
+      "wiki-master:wiki-researcher"
+    ],
+    "actualReferenceReads": [],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  },
+  {
+    "id": "application-near-miss",
+    "expectedRole": "none",
+    "expectedMode": "ordinary application work",
+    "actualSkillCalls": [],
+    "actualReferenceReads": [],
+    "exit": 0,
+    "roleMatches": true,
+    "missingRequiredReferences": [],
+    "exactCandidateInventory": true,
+    "candidateOnlyWikiPlugin": true,
+    "permissionDenials": 0,
+    "classification": "mechanical observation; independent behavioral grade pending"
+  }
+]

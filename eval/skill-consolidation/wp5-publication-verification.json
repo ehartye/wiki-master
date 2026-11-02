@@ -1,0 +1,74 @@
+{
+  "commit": "8694e970cd3f21cd44abe651b0df7a21810b2b92",
+  "head": "8694e970cd3f21cd44abe651b0df7a21810b2b92",
+  "remote": "8694e970cd3f21cd44abe651b0df7a21810b2b92",
+  "remoteMatches": true,
+  "exactMembership": true,
+  "committedPaths": [
+    "log/2026-11-02-135428-relink-document-reviewed-five-skill-consolidation-delivery.md",
+    "moc/wiki-master.md",
+    "wiki/authored/wiki-master/architecture.md",
+    "wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md",
+    "wiki/authored/wiki-master/backlog/search-startup-weight.md",
+    "wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md",
+    "wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md",
+    "wiki/authored/wiki-master/guides/maintenance.md",
+    "wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md",
+    "wiki/authored/wiki-master/overview.md",
+    "wiki/authored/wiki-master/roadmap.md"
+  ],
+  "draftChecks": [
+    {
+      "path": "wiki/authored/wiki-master/overview.md",
+      "reviewed": "9fd842ad17e80e42751918fcd02c42cf0954a5517b114785acaf931e337da4fa",
+      "committed": "9fd842ad17e80e42751918fcd02c42cf0954a5517b114785acaf931e337da4fa",
+      "disk": "9fd842ad17e80e42751918fcd02c42cf0954a5517b114785acaf931e337da4fa"
+    },
+    {
+      "path": "wiki/authored/wiki-master/architecture.md",
+      "reviewed": "d10c68fe59319ee052bf24cbe13835a6a2cd377f5b8b4060167b8bb7f13f4558",
+      "committed": "d10c68fe59319ee052bf24cbe13835a6a2cd377f5b8b4060167b8bb7f13f4558",
+      "disk": "d10c68fe59319ee052bf24cbe13835a6a2cd377f5b8b4060167b8bb7f13f4558"
+    },
+    {
+      "path": "wiki/authored/wiki-master/guides/maintenance.md",
+      "reviewed": "e27d134500e5b235b01d1c9b11d61ba21ea7ff84339494de4ee20f811b44c207",
+      "committed": "e27d134500e5b235b01d1c9b11d61ba21ea7ff84339494de4ee20f811b44c207",
+      "disk": "e27d134500e5b235b01d1c9b11d61ba21ea7ff84339494de4ee20f811b44c207"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md",
+      "reviewed": "d67b248617d1382fdb4cac2b81c9a8d62636bce24fb0523916aa0c694526b2fa",
+      "committed": "d67b248617d1382fdb4cac2b81c9a8d62636bce24fb0523916aa0c694526b2fa",
+      "disk": "d67b248617d1382fdb4cac2b81c9a8d62636bce24fb0523916aa0c694526b2fa"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md",
+      "reviewed": "f9f3e6e4f003387b399da1e375d1aa3ea664316ce35e3dc1399489ef837717af",
+      "committed": "f9f3e6e4f003387b399da1e375d1aa3ea664316ce35e3dc1399489ef837717af",
+      "disk": "f9f3e6e4f003387b399da1e375d1aa3ea664316ce35e3dc1399489ef837717af"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/search-startup-weight.md",
+      "reviewed": "3bcaa111437e8fbb293a83e99e148c1cd1fa55a3ac77130dd2e1d69c10eb1cfe",
+      "committed": "3bcaa111437e8fbb293a83e99e148c1cd1fa55a3ac77130dd2e1d69c10eb1cfe",
+      "disk": "3bcaa111437e8fbb293a83e99e148c1cd1fa55a3ac77130dd2e1d69c10eb1cfe"
+    },
+    {
+      "path": "wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md",
+      "reviewed": "4dc162d542ded15e67847b2cd8b8fce602c636efc4d721976ec6f8b892e0103e",
+      "committed": "4dc162d542ded15e67847b2cd8b8fce602c636efc4d721976ec6f8b892e0103e",
+      "disk": "4dc162d542ded15e67847b2cd8b8fce602c636efc4d721976ec6f8b892e0103e"
+    },
+    {
+      "path": "wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md",
+      "reviewed": "20cfbb82f3daa3b67f1dbc32c52cf00c29bfc6101c825e13404794e84d59446a",
+      "committed": "20cfbb82f3daa3b67f1dbc32c52cf00c29bfc6101c825e13404794e84d59446a",
+      "disk": "20cfbb82f3daa3b67f1dbc32c52cf00c29bfc6101c825e13404794e84d59446a"
+    }
+  ],
+  "allDraftsExact": true,
+  "indexPreserved": true,
+  "indexNotCommitted": true,
+  "tokenClosed": true
+}

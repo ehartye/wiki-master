@@ -1,0 +1,123 @@
+{
+  "execution": "baseline plugin-loaded actor; explicit search role",
+  "initWikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "initWikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "loads": [
+    {
+      "tool": "Skill",
+      "skill": "wiki-master:wiki-search"
+    },
+    {
+      "tool": "Read",
+      "file_path": "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "tool": "Read",
+      "file_path": "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\SKILL.md"
+    }
+  ],
+  "referenceSizes": [
+    {
+      "path": "skills/wiki-search/SKILL.md",
+      "bytes": 9413,
+      "characters": 9362,
+      "lines": 146
+    },
+    {
+      "path": "skills/wiki-maintainer/SKILL.md",
+      "bytes": 5889,
+      "characters": 5889,
+      "lines": 92
+    },
+    {
+      "path": "skills/wiki-maintainer/references/access.md",
+      "bytes": 4934,
+      "characters": 4934,
+      "lines": 75
+    }
+  ],
+  "referenceBytesTotal": 20236,
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 22063,
+    "cache_read_input_tokens": 171898,
+    "output_tokens": 2024,
+    "output_tokens_details": {
+      "thinking_tokens": 96
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 22063,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1146,
+        "cache_read_input_tokens": 37715,
+        "cache_creation_input_tokens": 908,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 908
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 14,
+      "outputTokens": 2024,
+      "cacheReadInputTokens": 171898,
+      "cacheCreationInputTokens": 22063,
+      "webSearchRequests": 0,
+      "costUSD": 0.12570979999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 96,
+      "cacheCreationEphemeral5mInputTokens": 0,
+      "cacheCreationEphemeral1hInputTokens": 22063,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permissionDenials": [],
+  "result": "I've finished the four lookups and opened each matching passage in the file to check it. Here are the results.\n\n**Status:** all searches reported `hybrid`. Keyword `wiki`, `moc` and `raw` were `ok`, and so were semantic and identity. `--health` found the Ollama host reachable and the model pulled. The index has 5 files and 5 chunks (5 embedded, 0 missing), with 0 changed or removed since the last refresh. Result freshness was `current`, except the raw hit, which is `unindexed` as expected because raw files aren't in the semantic index. I changed nothing.\n\n**1. Exact phrase \"The copper heron carries seven lanterns\"**\n- The phrase is at `wiki/concepts/Beacon Protocol.md:10`. I opened the file and the line matches exactly.\n- Only one page holds the phrase, and the semantic gate (`reason: phrase`) fired for it.\n- `wiki/concepts/Beacon Protocol Draft.md:7` is a near-miss. It says \"three lanterns\", so it is not the phrase.\n- `moc/Signals.md:2` only links to the Beacon Protocol page.\n\n**2. Alias \"Lantern Relay\"**\n- The alias resolves to `wiki/concepts/Beacon Protocol.md`. The `aliases: [\"Lantern Relay\"]` entry is on line 4, and the search returned it as an `exact` identity match.\n- The page body starts at line 9, and the heading and first passage run through lines 9–11.\n- The page is `maintained`, `reviewed: 2026-10-01`, with `sources` pointing to `raw/clippings/Beacon Study.md`. The Draft page has no alias and no sources.\n\n**3. \"Harbor\" (ambiguous)**\n- Two pages have the identical title and both matched exactly, and the search raised an `ambiguous-identity` diagnostic. I did not pick one.\n  - `wiki/concepts/north/Harbor.md:8`: \"The northern harbor uses violet signal flags.\"\n  - `wiki/concepts/south/Harbor.md:8`: \"The southern harbor uses amber signal flags.\"\n- You need to give a full path to disambiguate. The two pages are both `maintained`, both have `sources: []`, and they give different facts.\n\n**4. Raw evidence for \"quartz otter 817\"**\n- The evidence is at `raw/clippings/Beacon Study.md:8`: \"Evidence marker quartz otter 817 appears only in raw evidence.\"\n- Line 9 says \"The measured protocol delivered seven lantern messages.\"\n- Only one raw hit was found, and the raw channel was `ok`, so that count is trustworthy.\n- No `wiki/` page contains the marker. The Beacon Protocol page is linked to this clipping through its `sources`, but that page doesn't repeat the marker.\n- The raw clipping is unvetted evidence, so treat it as what the file says, not as verified fact.\n\n**Caveats**\n- Every result reported `provenanceStatus: citation-targets-not-resolved`. I didn't run `resolve-evidence.mjs`, so the Beacon Protocol → `Beacon Study` link comes from the page's `sources` field only.\n- Wiki results from the semantic channel are padded with unrelated neighbours (`moc/Signals.md`, the Harbor pages and the Draft page, depending on the query), each with a score of 0. They are not matches for those queries."
+}

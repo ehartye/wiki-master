@@ -1,0 +1,101 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-ingest"
+    },
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\evidence.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\efficacy.md"
+  ],
+  "tools": [
+    "Skill",
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "PowerShell",
+    "Write",
+    "Edit",
+    "Edit",
+    "PowerShell",
+    "PowerShell"
+  ],
+  "usage": {
+    "input_tokens": 22,
+    "cache_creation_input_tokens": 39603,
+    "cache_read_input_tokens": 435529,
+    "output_tokens": 3698,
+    "output_tokens_details": {
+      "thinking_tokens": 21
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 39603,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 486,
+        "cache_read_input_tokens": 55616,
+        "cache_creation_input_tokens": 547,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 547
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "I ingested `Relay Trial - Phase-7.md`, committed it as `20dc1b1` (\"ingest: Relay Trial Phase-7\"), and pushed it. After a fresh fetch, `origin/main` is at `20dc1b1`. I didn't run any health or structural checks beyond the helper scripts' own output.\n\n- **Source page:** I added `wiki/sources/Relay Trial - Phase-7.md`. It covers the single controlled run: 12 messages, 11 acknowledgements within 2 seconds, 1 timeout at the 5-second deadline, and retries disabled. It also records the clipping's own limits. It doesn't establish exactly-once processing or durable storage, and a timeout alone doesn't show whether the receiver got the message. It is one fixture run with no protocol comparison.\n- **Existing concept:** I extended `wiki/concepts/Acknowledged Delivery.md` with a \"Trial evidence\" section, the new citation, and a relationship link to the source page. I made no new concept or alias, since the clipping fits that concept's scope.\n- **Task map and bookkeeping:** I added a pointer in `moc/Delivery Operations.md`, regenerated `index.md`, and wrote the operation log. The commit contains exactly those five files.\n- **Owner draft:** `personal.md` was already modified before I started, and I left it uncommitted and untouched.\n\nThe semantic index doesn't exist yet. I didn't build it.",
+  "terminalReason": "completed"
+}

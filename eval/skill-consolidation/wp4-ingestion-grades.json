@@ -1,0 +1,61 @@
+{
+  "reviewer": "wp4_review",
+  "status": "PASS all eight final isolated ingestion cases",
+  "grades": [
+    {
+      "case": "baseline-named",
+      "grade": "PASS",
+      "evidence": "ingestion/baseline-named",
+      "observations": "Independently inspected raw/derived text: 12 sent, 11 acknowledgements under two seconds, one five-second timeout, retries disabled; limits faithful; exact path/hash provenance; concept reuse, old summary and all raw/draft hashes unchanged; scoped 5-path commit and matching local remote; isolated temp environment.",
+      "limitations": ""
+    },
+    {
+      "case": "baseline-named-rerun",
+      "grade": "PASS",
+      "evidence": "ingestion/baseline-named-rerun",
+      "observations": "Complete before/after snapshot objects deep-equal, including content hashes, Git and remote; actual actor confirms matching source hash and performs no operation or content write.",
+      "limitations": ""
+    },
+    {
+      "case": "candidate-named",
+      "grade": "PASS",
+      "evidence": "ingestion/candidate-named",
+      "observations": "Independently inspected raw/derived text: 12 sent, 11 acknowledgements under two seconds, one five-second timeout, retries disabled; limits faithful; exact path/hash provenance; concept reuse, old summary and all raw/draft hashes unchanged; scoped 5-path commit and matching local remote; isolated temp environment.",
+      "limitations": ""
+    },
+    {
+      "case": "candidate-named-rerun",
+      "grade": "PASS",
+      "evidence": "ingestion/candidate-named-rerun",
+      "observations": "Complete before/after snapshot objects deep-equal, including content hashes, Git and remote; actual actor confirms matching source hash and performs no operation or content write.",
+      "limitations": "Actor could not locate plugin root, used direct raw-summary hash match instead of backlog helper; valid named no-op evidence."
+    },
+    {
+      "case": "baseline-backlog",
+      "grade": "PASS",
+      "evidence": "ingestion/baseline-backlog",
+      "observations": "Actual health hash join selects trial and quarantined pending sources; actor ingests only eligible trial, creates one exact-path/hash source summary and reuses concept. Independently compared all raw and pre-existing source/draft hashes unchanged; inspected faithful derived text and scoped four-path commit, local remote matches 4d13572702ecb78f0a92371a8b4296194ec6862c. Remaining backlog only quarantined source; unsupported guarantee not cited.",
+      "limitations": ""
+    },
+    {
+      "case": "candidate-backlog",
+      "grade": "PASS",
+      "evidence": "ingestion/candidate-backlog",
+      "observations": "Actual health hash join selects trial and quarantined pending sources; actor ingests only eligible trial, creates one exact-path/hash source summary and reuses concept. Independently compared all raw and pre-existing source/draft hashes unchanged; inspected faithful derived text and scoped four-path commit, local remote matches afade00cbce53f0425f67e47af87f2d84f3c77fc. Remaining backlog only quarantined source; unsupported guarantee not cited.",
+      "limitations": "Final response says it did not check quarantined raw body, but actual Get-Content reads it. This self-report is inaccurate; restriction remains enforced and no derived claim uses it."
+    },
+    {
+      "case": "baseline-empty",
+      "grade": "PASS",
+      "evidence": "ingestion/baseline-empty",
+      "observations": "Actual health.mjs --backlog returns zero; actor stops with no operation/log/index/commit/sync. Independently deep-compared complete before/after snapshots including all content hashes, Git HEAD/status, remote and backlog. All identical."
+    },
+    {
+      "case": "candidate-empty",
+      "grade": "PASS",
+      "evidence": "ingestion/candidate-empty",
+      "observations": "Actual health.mjs --backlog returns zero; actor stops with no operation/log/index/commit/sync. Independently deep-compared complete before/after snapshots including all content hashes, Git HEAD/status, remote and backlog. All identical."
+    }
+  ],
+  "actualDiskVerification": "Independently recomputed SHA-256 for every recorded final file in six named/backlog/empty scratch vaults (23/23/19 files each baseline and candidate) and independently read each bare remote refs/heads/main. All match saved snapshots. Named-reruns use the same unchanged named vaults."
+}

@@ -1,0 +1,28 @@
+{
+  "start": "2026-11-02T18:15:30.583Z",
+  "finish": "2026-11-02T18:15:43.595Z",
+  "prompt": "Routing probe: the following is a realistic user request. Select the installed skill that applies and actually invoke it through the Skill tool, then actually read only the reference files needed to identify the requested mode. Do not execute the workflow or inspect or mutate a real vault. Do not run commands, web research, captures, ingestion, app actions, setup or purge. Report the chosen role, mode, loaded references, and any scope or approval boundary. If no wiki skill applies, do not invoke one. If the request is ambiguous, report what clarification is needed. Request: How many wiki clippings remain un-ingested? Count only; do not process them.",
+  "command": [
+    "claude",
+    "-p",
+    "Routing probe: the following is a realistic user request. Select the installed skill that applies and actually invoke it through the Skill tool, then actually read only the reference files needed to identify the requested mode. Do not execute the workflow or inspect or mutate a real vault. Do not run commands, web research, captures, ingestion, app actions, setup or purge. Report the chosen role, mode, loaded references, and any scope or approval boundary. If no wiki skill applies, do not invoke one. If the request is ambiguous, report what clarification is needed. Request: How many wiki clippings remain un-ingested? Count only; do not process them.",
+    "--plugin-dir",
+    "<HOME>/repos/wiki-master-worktrees/five-skills",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--tools",
+    "Skill,Read,Glob,Grep",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep"
+  ],
+  "exit": 0,
+  "signal": null,
+  "classification": "candidate-loaded routing probe, not workflow execution"
+}

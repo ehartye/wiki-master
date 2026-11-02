@@ -1,0 +1,97 @@
+{
+  "name": "candidate-flow",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      ".wiki-master/search-notice.json",
+      "index.md",
+      "log/2026-11-02-133547-discover-harbor-retry-policy-1-clipped.md",
+      "log/2026-11-02-133639-ingest-harbor-retry-protocol.md",
+      "raw/clippings/Harbor Retry Protocol.md",
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-researcher",
+      "wiki-master:wiki-user"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-researcher"
+      }
+    ],
+    "taskCalls": [
+      {
+        "description": "Academic lens finder",
+        "prompt": "READ-ONLY finder (write nothing to disk, no vault access). Topic: Harbor retry policy and duplicate handling. Lens: ACADEMIC (primary research, rigor). Corpus: only http://127.0.0.1:62982/catalog and pages it links (/known /protocol /promotion /thin); no public web. Already in wiki (skip): http://127.0.0.1:62982/known. Gap: retry budget, total attempts, handling of repeated accepted identifier+digest. Fetch each other page with curl, and return a ranked candidate list: {title,url,quality_guess,key_findings (quote exact retry/attempt/duplicate statements),why_ingest,adds_evidence,changes_page}. Do not grade your own finds beyond quality_guess; note if a page is spec vs empirical claim, promotional, or incomplete.",
+        "model": "haiku"
+      },
+      {
+        "description": "Technical lens finder",
+        "prompt": "READ-ONLY finder (write nothing to disk, no vault access). Topic: Harbor retry policy and duplicate handling. Lens: TECHNICAL (official docs, specs, standards). Corpus: only http://127.0.0.1:62982/catalog and pages it links (/known /protocol /promotion /thin); no public web. Already in wiki (skip): http://127.0.0.1:62982/known. Gap: retry budget, total attempts, handling of repeated accepted identifier+digest. Fetch each other page with curl, and return a ranked candidate list: {title,url,quality_guess,key_findings (quote exact retry/attempt/duplicate statements),why_ingest,adds_evidence,changes_page}. Note if a page is spec vs empirical claim, promotional, or incomplete.",
+        "model": "haiku"
+      },
+      {
+        "description": "Applied lens finder",
+        "prompt": "READ-ONLY finder (write nothing to disk, no vault access). Topic: Harbor retry policy and duplicate handling. Lens: APPLIED (practitioner usage, case studies). Corpus: only http://127.0.0.1:62982/catalog and pages it links (/known /protocol /promotion /thin); no public web. Already in wiki (skip): http://127.0.0.1:62982/known. Gap: retry budget, total attempts, handling of repeated accepted identifier+digest. Fetch each other page with curl, and return a ranked candidate list: {title,url,quality_guess,key_findings (quote exact retry/attempt/duplicate statements),why_ingest,adds_evidence,changes_page}. Note if a page is spec vs empirical claim, promotional, or incomplete.",
+        "model": "haiku"
+      },
+      {
+        "description": "News lens finder",
+        "prompt": "READ-ONLY finder (write nothing to disk, no vault access). Topic: Harbor retry policy and duplicate handling. Lens: NEWS/TRENDS (recency, dates, reputable reporting). Corpus: only http://127.0.0.1:62982/catalog and pages it links (/known /protocol /promotion /thin); no public web. Already in wiki (skip): http://127.0.0.1:62982/known. Gap: retry budget, total attempts, handling of repeated accepted identifier+digest. Fetch each other page with curl, and return a ranked candidate list: {title,url,quality_guess,key_findings (quote exact retry/attempt/duplicate statements),why_ingest,adds_evidence,changes_page}. Report publication dates/currency; note spec vs empirical claim, promotional, or incomplete.",
+        "model": "haiku"
+      },
+      {
+        "description": "Contrarian lens finder",
+        "prompt": "READ-ONLY finder (write nothing to disk, no vault access). Topic: Harbor retry policy and duplicate handling. Lens: CONTRARIAN (critiques, failure modes, dissent, unsupported claims). Corpus: only http://127.0.0.1:62982/catalog and pages it links (/known /protocol /promotion /thin); no public web. Already in wiki (skip): http://127.0.0.1:62982/known. Gap: retry budget, total attempts, handling of repeated accepted identifier+digest. Fetch each other page with curl, and return a ranked candidate list: {title,url,quality_guess,key_findings (quote exact retry/attempt/duplicate statements),why_ingest,adds_evidence,changes_page}. Flag any page that is promotional, unsupported, or incomplete.",
+        "model": "haiku"
+      }
+    ],
+    "webSearches": [],
+    "searchHelperCalls": [
+      "R=\"<CANDIDATE>/scripts\"; cd \"$WIKI_MASTER_VAULT\"; node \"$R/search.mjs\" \"retries total attempts duplicate identifier digest\" --json --limit=6 2>&1 | head -60; node \"$R/search.mjs\" \"retries attempts duplicate\" --include-raw --limit=5 2>&1 | tail -15; node \"$R/resolve-evidence.mjs\" \"wiki/sources/Harbor Retry Protocol.md:12\"; grep -n \"\" \"wiki/sources/Harbor Retry Protocol.md\" | sed -n 12,17p | cut -c1-80"
+    ],
+    "shellReferenceLoadCommands": [
+      "cd \"<CANDIDATE>/skills\"; cat wiki-researcher/references/discover.md wiki-maintainer/references/access.md; echo ENV; env | grep -i -E \"TEMP|TMPDIR|WIKI|VAULT\"",
+      "cd \"<CANDIDATE>/skills\"; cat wiki-researcher/references/capture.md wiki-maintainer/references/operations.md wiki-maintainer/references/evidence.md wiki-maintainer/references/efficacy.md | head -400; ls ../scripts | head -50",
+      "cd \"<CANDIDATE>/skills\"; cat wiki-researcher/references/ingest.md | cut -c1-900; cat \"$WIKI_MASTER_VAULT/raw/clippings/Harbor Retry Protocol.md\"; cat \"$WIKI_MASTER_VAULT/AGENTS.md\" | head -60",
+      "cd \"<CANDIDATE>/skills/wiki-user/references\"; head -c 2500 search.md; echo ----; head -c 2000 query.md"
+    ],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

@@ -1,0 +1,15 @@
+✔ exactly five portable role entry points have bounded metadata and no procedural inventories (2.6884ms)
+✔ the skill catalog exactly equals current candidate names and descriptions (0.8646ms)
+✔ all capabilities have direct procedures with live helpers, including six capture routes (3.1972ms)
+✔ every recursively reachable local file and Markdown heading exists (16.2816ms)
+✔ the recursive guard catches a broken second-hop link and missing heading but ignores code examples (0.2096ms)
+✔ roles load shared policy directly while ordinary search has a read-only startup (0.779ms)
+✔ operation examples expose both shells and all helper execution uses resolved absolute paths (1.0103ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 81.3643

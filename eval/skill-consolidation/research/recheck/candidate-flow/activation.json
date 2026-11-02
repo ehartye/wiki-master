@@ -1,0 +1,138 @@
+{
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<CANDIDATE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<HOME>\\.claude\\projects\\<ENCODED_PROJECT_PATH>\\fe75ccfb-005b-4ad5-b613-bc807b3d1965\\tool-results\\bcqdz3jnh.txt",
+      "limit": 400
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 130110,
+    "stop_reason": "end_turn",
+    "session_id": "fe75ccfb-005b-4ad5-b613-bc807b3d1965",
+    "total_cost_usd": 0.5241172999999999,
+    "usage": {
+      "input_tokens": 18,
+      "cache_creation_input_tokens": 15629,
+      "cache_read_input_tokens": 476344,
+      "output_tokens": 4503,
+      "output_tokens_details": {
+        "thinking_tokens": 200
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 15629,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 939,
+          "cache_read_input_tokens": 65369,
+          "cache_creation_input_tokens": 519,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 519
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 54,
+        "outputTokens": 14916,
+        "cacheReadInputTokens": 802623,
+        "cacheCreationInputTokens": 88238,
+        "webSearchRequests": 0,
+        "costUSD": 0.5241172999999999,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 348,
+        "cacheCreationEphemeral5mInputTokens": 38910,
+        "cacheCreationEphemeral1hInputTokens": 49328,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "origin": {
+      "kind": "task-notification",
+      "producer": "session-task",
+      "runId": "0mvzlgd26-fd781f20"
+    },
+    "subagent_stats": {
+      "spawned": 5,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 5
+      },
+      "started_in_background": 5,
+      "max_depth": 1,
+      "spawned_by_subagents": 0,
+      "completed": 5,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {
+        "Explore": 5
+      }
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 8,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "Three retries are allowed, which permits four attempts in total. If an accepted identifier arrives again with the same digest, the receiver delivers the payload to the application only once and sends its cached acknowledgement again.\n\n**Answer** (from `wiki/concepts/Message Delivery.md` and `wiki/sources/Harbor Retry Protocol.md`)\n- **Retries and attempts:** the protocol allows three retries after the first transmission. That makes four attempts in total, within a twelve-second overall trial deadline. The sender keeps the same message identifier on every retry.\n- **Same identifier, same digest:** this is the duplicate case above. The acknowledgement cache is checked before a repeat can reach the application.\n- **Same identifier, different digest:** the packet is rejected as a conflict.\n- **Attempts versus deliveries:** the source says that counting four permitted attempts as four permitted deliveries would misrepresent the protocol.\n\n**Evidence:** the newly captured file is `raw/clippings/Harbor Retry Protocol.md` (from `http://127.0.0.1:61854/protocol`, source-hash `254b2aa6…aa4c`, evidence marker `violet-cedar-427`).\n\n**Specification versus empirical claims**\n- Everything above is fixture specification: it describes a test sender and receiver, not a production network.\n- The source says its values \"do not establish any empirical reliability rate\". It gives no throughput measurement and no public-network packet-loss claim, so the wiki has no empirical performance evidence on this topic.\n- The source does not say how the twelve seconds is split across attempts, or what happens if the deadline expires before the retries are used up. I recorded those as unspecified.\n\n**Selection**\n- Five read-only finders (academic, technical, applied, news and contrarian lenses) each inspected the three new catalog pages. I made the selection afterwards, and they agreed on `/protocol`.\n- `/known` (Acknowledgement Basics) was already in the vault, so I skipped it.\n- I declined `/promotion` as promotional opinion with no method, count or duplicate rule.\n- I declined `/thin` as a one-sentence stub.\n- One new capture was made, within your limit of two.\n\n**Wiki changes**\n- I added the source page `wiki/sources/Harbor Retry Protocol.md`.\n- I extended the existing `Message Delivery` concept instead of creating a new one.\n- I updated `moc/Delivery.md`.\n- The ingest backlog went from 1 to 0.\n\n**Publication**\n- The two commits are `bb7cb2e` (capture) and `7d338cf` (ingest). Both were pushed to the local bare origin and verified in sync.\n- I did not touch any other remote or vault.\n- The semantic search index was not built, so I did not search through it. I answered by reading the pages directly.",
+    "ttft_ms": 2510,
+    "type": "result",
+    "duration_ms": 61702,
+    "uuid": "35c7689e-b7b5-46f3-b84f-24c142776ac9",
+    "ttft_stream_ms": 1614,
+    "time_to_request_ms": 17,
+    "first_content_frame_ms": 1615,
+    "queued_turn_count": 0,
+    "result_index": 1,
+    "model_usage_since_last_result": {}
+  }
+}

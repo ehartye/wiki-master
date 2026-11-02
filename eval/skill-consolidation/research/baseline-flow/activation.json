@@ -1,0 +1,175 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<BASELINE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    },
+    {
+      "skill": "wiki-master:wiki-discover"
+    }
+  ],
+  "loadedFiles": [
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\operations.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-ingest\\SKILL.md"
+    },
+    {
+      "file_path": "<BASELINE>\\skills\\wiki-maintainer\\references\\efficacy.md"
+    }
+  ],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 57407,
+    "stop_reason": "end_turn",
+    "session_id": "77bf8e29-3458-49f7-a0d1-4cc5c770b391",
+    "total_cost_usd": 0.2722425,
+    "usage": {
+      "input_tokens": 22,
+      "cache_creation_input_tokens": 44154,
+      "cache_read_input_tokens": 450325,
+      "output_tokens": 5055,
+      "output_tokens_details": {
+        "thinking_tokens": 441
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 44154,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 838,
+          "cache_read_input_tokens": 59173,
+          "cache_creation_input_tokens": 1541,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 1541
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 5055,
+        "cacheReadInputTokens": 450325,
+        "cacheCreationInputTokens": 44154,
+        "webSearchRequests": 0,
+        "costUSD": 0.2722425,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 441,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 44154,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 18,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "The capture and ingest are both finished and pushed to the local bare origin. The working tree is clean and the ingest backlog is 0. The `moc/Delivery.md` change the harness flagged is my own edit.\n\n**Answer**\n\n- **Retries allowed:** three, after the first transmission.\n- **Total attempts:** four (first transmission plus three retries), inside an overall twelve-second trial deadline.\n- **Same identifier and same digest again:** the receiver delivers the payload to the application only once and re-sends its cached acknowledgement. The acknowledgement cache is checked before the application is reached.\n- **Same identifier with a different digest:** rejected as a conflict.\n- **Attempts versus deliveries:** four permitted attempts do not mean four application deliveries.\n\n**Evidence**\n- The new capture is `raw/clippings/Harbor Retry Protocol.md` (source hash `254b2aa6…`), summarized in `wiki/sources/Harbor Retry Protocol.md` and in the \"Retry budget and duplicate handling\" section of `wiki/concepts/Message Delivery.md`.\n- The older `raw/clippings/Acknowledgement Basics.md` gives terminology only and no numbers.\n- **Specification versus empirical:** everything above is a fixture specification. The source says these values establish no empirical reliability rate, and it gives no throughput or packet-loss measurement. I make no empirical claim.\n\n**What I did**\n- **Deduplication:** `/known` (Acknowledgement Basics) was already in the vault, so I did not re-capture it.\n- **Selection:**\n  - I clipped `/protocol` as the only source that answers the question.\n  - I declined `/promotion` (promotional, no method or rule) and `/thin` (stub).\n  - That is one new capture, within the limit of two.\n- **Ingest:** I extended the existing `Message Delivery` concept instead of creating a new one, and added a line to `moc/Delivery.md`.\n- **Commits:** `cb1c042` is the discover capture and `e9aba16` is the ingest. Both are on the local origin's `main`, confirmed after a fresh fetch.\n\n**Limits**\n- I ran the perspective lenses sequentially myself rather than dispatching workers, because the corpus is only four pages. The skill permits this.\n- No semantic index exists, so I did not search through one. I read the pages directly.",
+    "ttft_ms": 1297,
+    "type": "result",
+    "duration_ms": 62742,
+    "uuid": "bfadfa6f-170a-4a06-935a-6ad377feec92",
+    "ttft_stream_ms": 931,
+    "time_to_request_ms": 108,
+    "first_content_frame_ms": 931,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 5055,
+        "cacheReadInputTokens": 450325,
+        "cacheCreationInputTokens": 44154,
+        "webSearchRequests": 0,
+        "costUSD": 0.2722425,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 441,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 44154,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-pptx.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-researcher`\n- **Mode:** capture a named format, PowerPoint (`clip-pptx`). This is capture only, so it creates evidence and no derived source or concept pages.\n- **Loaded references:** only the skill body and `references/clip-pptx.md`. I did not load `access.md`, `operations.md`, `evidence.md` or `ingest.md`. The route requires `access.md` and `operations.md` before the vault is touched, and `evidence.md` only before a quote or figure lands on a wiki page. I held back because this probe is limited to identifying the mode.\n\n**What the real run would do, not executed here**\n1. Read `access.md` and `operations.md`.\n2. Check that python-pptx is installed. That means trying `python3`, then `python`, then `py`, and using the first one that works. If none do, I'd tell you which `pip install python-pptx` to run and stop.\n3. Open an operation.\n4. Run `clip-pptx.mjs report.pptx`, passing `--since` so the written paths enter the operation's ledger. The only artifact written is `raw/clippings/<slug>.md`, never the binary deck.\n5. Check the clipping against the deck, then log, commit, push and verify the remote.\n\n**Boundaries and clarifications**\n- **Ingestion:** capturing the deck does not authorize ingestion. Summarizing it into `wiki/sources/` needs your explicit approval.\n- **Publication:** the commit and push are part of the standard completion unless you tell me to hold publication.\n- **Topic:** `--topic` is only for a research run, and it can't be added to a clip afterward. Tell me if this clip belongs to one. Otherwise I'll omit it.\n- **Source:** `--source` is optional. Without it, the local file path is recorded as the source.\n- **File type:** a legacy `.ppt` is unsupported and must be converted to `.pptx` first. A thin or failed extraction gets reported, never fabricated.\n- **File path:** `report.pptx` is a bare filename, so I'd need to confirm where it actually is before running.\n- **Fidelity:** extraction drops slide design, images and chart rendering. Table text and speaker notes are kept.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 7658,
+    "cache_read_input_tokens": 25183,
+    "output_tokens": 994,
+    "output_tokens_details": {
+      "thinking_tokens": 61
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7658,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 812,
+        "cache_read_input_tokens": 10429,
+        "cache_creation_input_tokens": 2699,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2699
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

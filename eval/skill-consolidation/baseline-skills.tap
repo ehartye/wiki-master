@@ -1,0 +1,55 @@
+
+> wiki-master@0.87.0 test:skills
+> node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs test/cli-transport.test.mjs
+
+✔ preflight counts UTF-8 JSON bytes and rejects multiline/NUL without echoing content (2.1761ms)
+✔ request size boundary includes escaped content and the current directory (0.2607ms)
+✔ preflight rejects unsafe requests before acquiring the gate or invoking an executor (0.3199ms)
+✔ agent proxy rejects oversized payloads and missing commands without touching Obsidian (140.3295ms)
+✔ separate worker processes serialize fake CLI calls across vault arguments (591.692ms)
+✔ a held gate times out without executing and can be reacquired after release (73.9612ms)
+✔ CLI failure and timeout release the gate without retrying or leaking note text (370.1294ms)
+✔ sync adapter honors the same gate held by an asynchronous caller (185.0207ms)
+✔ sync adapter preserves successful output and does not leak native failure arguments (290.415ms)
+✔ OS releases the gate when an owner with no CLI child terminates (64.1414ms)
+✔ a required action does not conceal a forbidden write (2.0341ms)
+✔ missing scenarios and truncated traces are incomplete, not successful (0.1631ms)
+✔ unobserved actions and self-grades cannot masquerade as independent evidence (0.3998ms)
+✔ rejects duplicate/unknown scenarios, mismatched suite, and unsupported modes (0.2494ms)
+✔ comparison preserves failures, omissions and matched conditions (0.2486ms)
+✔ execution mode requires independently captured tool/artifact evidence (0.2372ms)
+✔ CLI reports incomplete coverage with exit 2, writes a report and rejects malformed combinations (117.583ms)
+✔ all twenty-one portable skill descriptions identify triggers and resolve direct references (11.5089ms)
+✔ shared core is bounded and each operation can reach access policy directly (1.7835ms)
+✔ writing routes share completion policy while read-only entry points do not open operations (2.0859ms)
+✔ operation examples expose both shells without mixed token syntax or relative helper execution (5.1657ms)
+✔ every document-format clipper has a skill that can trigger it (0.8877ms)
+✔ offline authored workflow commits only its edit and publishes to its configured local remote from unrelated cwd (2054.5534ms)
+✔ computeStale buckets by factual review date despite mechanical updates (1.2822ms)
+✔ a recent updated date cannot hide a missing factual review (0.1792ms)
+✔ computeStale treats missing dates as rotten (0.1017ms)
+✔ freshness falls back to wiki metadata, preserving review dates and all files (22.93ms)
+✔ valid CLI rows remain the preferred backend (8.5088ms)
+✔ invalid or suspiciously empty CLI data cannot report an empty green vault (23.7799ms)
+✔ explicit configured root retains its registered Obsidian vault name (8.3317ms)
+✔ an alternate filesystem root never guesses another registered vault name (8.0096ms)
+✔ missing vault or wiki root fails explicitly instead of reporting healthy emptiness (6.4692ms)
+✔ a verified empty wiki is reported explicitly (4.4317ms)
+✔ resolveVault defaults to ~/.wiki-master-vault (0.656ms)
+✔ resolveVault honors WIKI_MASTER_VAULT override (0.0968ms)
+✔ resolveVault honors WIKI_MASTER_VAULT_NAME override (0.1127ms)
+✔ buildArgs prepends vault= and passes through args (0.5133ms)
+✔ shared wrapper rejects unsafe note payloads before invoking its executor (0.6846ms)
+✔ Obsidian calls are bounded, hidden and retain argument boundaries (0.1381ms)
+✔ timeout errors name the bound and never retry uncertain mutations (0.145ms)
+✔ invalid timeout overrides cannot disable the bound (0.1242ms)
+✔ invalid CLI JSON identifies the command without swallowing the failure (0.2133ms)
+✔ assertRunning preserves the timeout reason for app-only operations (0.4735ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 43
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2150.5809

@@ -1,0 +1,69 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\health.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\maintenance.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill invoked:** `wiki-master:wiki-maintainer`. It covers \"report wiki health, … orphan or ingest-backlog counts\". The request is a read-only count, so wiki-user, wiki-researcher, wiki-init and wiki-purge don't apply.\n- **Mode:** health and structural-defect reporting, including the orphan count. This is report-only, not relink or repair.\n- **References loaded:**\n  - `references/access.md`\n  - `references/health.md`\n  - `references/maintenance.md`\n  - I did not read relink, repair, triage, stale or lint, because the request doesn't need them.\n- **What the real run would be:** resolve the vault from `WIKI_MASTER_VAULT` and run `node \"<absolute-plugin-root>/scripts/health.mjs\"`. Add `--json` for issue detail, and `--legacy` if topology counts such as orphans are needed. I did not run any of these, in line with the probe's rules.\n- **Scope and approval boundaries:**\n  - The run is read-only: it opens no operation and writes no log. It does no commit and no index refresh.\n  - It reads no `.recycle/` and modifies no files.\n  - Orphans are navigation opportunities, not integrity defects, so they don't raise the open-defect count. The orphan figure comes from the legacy or topology output.\n  - A clean result doesn't prove factual accuracy, and an empty scan isn't a healthy-wiki verdict.\n  - Fixing or linking orphans would be a separate relink task needing its own authorization.\n- **Clarification needed:** none. The only open question is which vault to use. If `WIKI_MASTER_VAULT` is unset, the default `~/.wiki-master-vault` applies.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 13448,
+    "cache_read_input_tokens": 24993,
+    "output_tokens": 923,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 13448,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 586,
+        "cache_read_input_tokens": 10246,
+        "cache_creation_input_tokens": 8672,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8672
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

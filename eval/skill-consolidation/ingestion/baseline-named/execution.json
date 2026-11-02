@@ -1,0 +1,37 @@
+{
+  "variant": "baseline",
+  "scenario": "named",
+  "sourceRevision": "05ea7e104dfb1e1530bb709fafc3e2bd7c8190ca",
+  "host": "Claude Code 2.1.316",
+  "started": "2026-11-02T18:22:57.678Z",
+  "finished": "2026-11-02T18:23:46.818Z",
+  "command": [
+    "claude",
+    "-p",
+    "Use the wiki-master ingestion workflow to ingest the existing clipping raw/clippings/Relay Trial - Phase-7.md in the configured fixture vault. Incorporate its supported evidence into existing relevant concepts when appropriate. Complete the normal scoped operation lifecycle and publish to the configured local bare Git upstream. Do not rediscover sources or use external research. Preserve unrelated owner drafts and do not operate outside this fixture vault. Load and follow the applicable skill references and vault instructions before acting. Keep all temporary operation files under the configured case-specific TEMP directory; vault content changes belong only in this fixture vault.",
+    "--plugin-dir",
+    "<HOME>\\repos\\wiki-master",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Write,Edit,Glob,Grep,Bash,PowerShell"
+  ],
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>/ingestion-baseline-named-isolated/vault",
+    "TEMP": "<SCRATCH>/ingestion-baseline-named-isolated/temp",
+    "TMP": "<SCRATCH>/ingestion-baseline-named-isolated/temp",
+    "TMPDIR": "<SCRATCH>/ingestion-baseline-named-isolated/temp",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://127.0.0.1:1"
+  },
+  "exit": 0,
+  "signal": null,
+  "limitations": "Actual isolated plugin-loaded ingestion; synthetic controlled fixture sources, not live external research."
+}

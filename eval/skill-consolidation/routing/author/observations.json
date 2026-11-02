@@ -1,0 +1,72 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-user"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-user\\references\\authoring.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\evidence.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\operations.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (probe only, nothing executed)**\n\n- **Skill chosen:** `wiki-master:wiki-user`. The request is to write original wiki project documentation, which is that skill's authoring mode. It isn't a research, maintenance, init or purge task.\n- **Role and mode:** wiki-user, \"Write original wiki documentation\".\n- **References loaded:**\n  - `wiki-user/references/authoring.md`\n  - `wiki-maintainer/references/access.md`\n  - `wiki-maintainer/references/evidence.md`\n  - `wiki-maintainer/references/operations.md`\n- **Not loaded:** search, query and Obsidian CLI references. They aren't needed to identify the mode.\n\n**What the authoring mode would do**\n- **Placement:** the guide goes under `wiki/authored/beacon/`. The request doesn't say which kind of guide, so I'd need to know whether it is a user, developer or administrator guide:\n  - user: `guides/user.md`\n  - developer: `guides/developer.md`\n  - administrator: `guides/administrator.md`\n- **Overview first:** if Beacon is a new project, `beacon/overview.md` must be created before any other document.\n- **Metadata:** `type: authored`, `sources: []`, an honest `ai-generated` value, plus `project: beacon` and `kind: guide`.\n- **Fictional content:** Beacon is fictional, so there is no project behavior to verify. I'd leave `reviewed` unset and would not invent claims about real behavior.\n\n**Scope and approval boundaries**\n- **Skipped in this probe:** I did not run `op-begin`, any search, any vault write, validation, catalog refresh, commit or sync.\n- **Real run:** an authorized request includes the full completion sequence unless you hold publication:\n  1. Open an operation with `op-begin --op relink`.\n  2. Write the page.\n  3. Validate with `validate-authored`.\n  4. Refresh catalogs.\n  5. Write the log entry.\n  6. Commit with a scoped `op-commit`.\n  7. Push with `wiki-sync` and verify the push.\n- **Vault:** I'd also need to resolve `WIKI_MASTER_VAULT`, which is unresolved here.\n- **Hold:** if you want it local-only, say so and I'd report the commit as unpushed.\n\n**Clarification needed:** which guide type (user, developer or administrator), and whether a Beacon project already exists in the vault or needs a new `overview.md`.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 31392,
+    "cache_read_input_tokens": 23120,
+    "output_tokens": 1289,
+    "output_tokens_details": {
+      "thinking_tokens": 30
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 31392,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 835,
+        "cache_read_input_tokens": 9995,
+        "cache_creation_input_tokens": 25243,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 25243
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

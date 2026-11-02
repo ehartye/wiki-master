@@ -1,0 +1,31 @@
+{
+  "records": [
+    {
+      "path": "raw/clippings/Acknowledgement Basics.md",
+      "commitsTouchingRaw": [
+        "4f23258959fc950751d8c9d398b8787c995dee38"
+      ],
+      "firstCommittedSha256": "924f00fd6f13fd4723cf4a0bf8d6bd8d79a99330a777a44cbe0c0908f17a6dd6",
+      "finalSha256": "924f00fd6f13fd4723cf4a0bf8d6bd8d79a99330a777a44cbe0c0908f17a6dd6",
+      "unchangedSinceFirstCommit": true
+    },
+    {
+      "path": "raw/clippings/RFC 9110- HTTP Semantics.md",
+      "commitsTouchingRaw": [
+        "404dd79742e452eca4fb4abc4a78dacd85814c0f"
+      ],
+      "firstCommittedSha256": "542fdee2a90ab8c27660e3dbee285c24d92b5a1fe7c09bde0d41280018779027",
+      "finalSha256": "542fdee2a90ab8c27660e3dbee285c24d92b5a1fe7c09bde0d41280018779027",
+      "unchangedSinceFirstCommit": true
+    },
+    {
+      "path": "raw/clippings/RFC 9111- HTTP Caching.md",
+      "commitsTouchingRaw": [
+        "404dd79742e452eca4fb4abc4a78dacd85814c0f"
+      ],
+      "firstCommittedSha256": "aa3258d9b7ecaaba6f13174f01f39d3c4379baf0c7ccba27e2b8cf8fb84d9d2c",
+      "finalSha256": "aa3258d9b7ecaaba6f13174f01f39d3c4379baf0c7ccba27e2b8cf8fb84d9d2c",
+      "unchangedSinceFirstCommit": true
+    }
+  ]
+}

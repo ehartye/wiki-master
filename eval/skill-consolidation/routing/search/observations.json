@@ -1,0 +1,64 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-user",
+      "args": "Find the wiki passage containing \"copper heron\"."
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-user\\references\\search.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill chosen:** `wiki-master:wiki-user`, invoked through the Skill tool. The request is a lookup of a wiki passage, which this skill covers.\n- **Role:** wiki-user.\n- **Mode:** Find pages or passages. This is a read-only search and does not ask for a cited answer.\n- **References loaded:** `skills/wiki-user/references/search.md`. It is the only reference this mode needs. I did not load query, evidence, authoring, access, operations or the Obsidian references.\n\n**What the workflow would do, which I did not run**\n- Run `node \"<plugin-root>/scripts/search.mjs\" \"copper heron\" --json --limit=10`.\n- Search `wiki/` and `moc/` by default.\n- Open each hit at its matched line.\n- Return citation-ready paths and line numbers.\n\n**Scope and approval boundaries**\n- **Vault:** it would use `WIKI_MASTER_VAULT`, or `~/.wiki-master-vault` by default. `WIKI_MASTER_REQUIRE_VAULT=1` would require an explicit vault.\n- **Raw evidence:** `raw/clippings/` is excluded unless the user asks for an evidence lookup, which needs `--include-raw`.\n- **Read-only:** no writes, operations, logs, commits or index refreshes. A degraded search channel does not authorize running its repair commands.\n- **Missing results:** a miss or an incomplete search does not prove the wiki lacks the phrase. A miss also does not authorize source discovery or ingestion, which belong to wiki-researcher.\n- **Off limits:** `.recycle/` and dot folders.\n- **Not done in this probe:** per your instructions, I ran no commands and inspected no vault.\n\n**Clarification:** none needed. \"copper heron\" is an exact phrase and no scope filters were requested.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 7546,
+    "cache_read_input_tokens": 23164,
+    "output_tokens": 812,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7546,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 628,
+        "cache_read_input_tokens": 10043,
+        "cache_creation_input_tokens": 1349,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1349
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

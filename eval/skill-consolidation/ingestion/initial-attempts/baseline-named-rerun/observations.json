@@ -1,0 +1,92 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "plugin": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-ingest"
+    }
+  ],
+  "loadedReferences": [
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\SKILL.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\access.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\operations.md",
+    "<HOME>\\repos\\wiki-master\\skills\\wiki-maintainer\\references\\evidence.md"
+  ],
+  "tools": [
+    "Skill",
+    "Read",
+    "Read",
+    "Read",
+    "Read",
+    "Bash",
+    "Bash",
+    "Bash",
+    "Bash"
+  ],
+  "usage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 33469,
+    "cache_read_input_tokens": 210320,
+    "output_tokens": 1574,
+    "output_tokens_details": {
+      "thinking_tokens": 76
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 33469,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 543,
+        "cache_read_input_tokens": 49668,
+        "cache_creation_input_tokens": 363,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 363
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "permissionDenials": [],
+  "result": "Checking whether this clipping still needs ingesting. It looks like it was already ingested in the last commit.\n\nI found nothing left to ingest for `raw/clippings/Relay Trial - Phase-7.md`, so I opened no operation and made no changes.\n\n- **Already ingested:** Commit `1408f72` (\"ingest: Relay Trial Phase-7\") added `wiki/sources/Relay Trial - Phase-7.md`. That page cites the clipping and records its `source-hash`, which matches the clipping's. The same commit updated `wiki/concepts/Acknowledged Delivery.md` with a worked example and added an index line and a log entry.\n- **Content matches the clipping:** I compared the source page and the concept section with the clipping. The figures are right: 12 messages, 11 acknowledgements within 2 seconds, and 1 timeout at the 5-second deadline, with retries disabled. The limits are carried over too: no exactly-once, durability or security claim, and no production reliability claim.\n- **Backlog:** `health.mjs --backlog` lists only `raw/clippings/Restricted Relay Claim.md`. You didn't name it, so I left it alone.\n- **Published:** `HEAD` and `origin/main` are both `1408f72` after a fresh fetch, so the ingest is already on the local bare remote.\n- **Owner draft:** `personal.md` still shows your uncommitted edit, unchanged.\n\nRunning the lifecycle again would only duplicate the source page and log entry. I can ingest `Restricted Relay Claim.md` if you want. It likely carries a citation restriction, so I'd check that first.",
+  "terminalReason": "completed"
+}

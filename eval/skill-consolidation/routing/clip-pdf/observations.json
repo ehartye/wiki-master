@@ -1,0 +1,63 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-researcher"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-researcher\\references\\clip-pdf.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result (nothing was executed)**\n\n- **Skill chosen:** `wiki-master:wiki-researcher`. The request names a file to capture as evidence, which is the researcher's job. Maintainer, user, init and purge don't fit.\n- **Mode:** capture a named format, PDF. This is not topic discovery, URL capture or ingestion.\n- **References loaded:** only `skills/wiki-researcher/references/clip-pdf.md`. The skill file points to more references (access, operations, evidence), but I haven't read them. A real run would read access and operations before touching the vault, and evidence only before quoting from the clip.\n\n**Scope and approval boundaries**\n- **Capture only:** a real run would create one Markdown clipping, `raw/clippings/<slug>.md`, through `clip-pdf.mjs`. It would create no source or concept pages, and ingestion would need separate authorization.\n- **Stored artifact:** the extracted Markdown is kept, not the binary PDF.\n- **Preflight:** run `clip-pdf.mjs --doctor` first. A missing `pdftotext` is fatal, and I would not fabricate content.\n- **Operation completion:** open an operation before the write. Afterward, verify the result, log once, commit, push and check the remote, unless publication is held.\n- **Fidelity:** read the clipping's fidelity flags (`degraded`, `tabular`, `ocr`) before relying on any quote.\n\n**Clarification needed**\n- **The file:** \"the provided report.pdf\" has no path. I need the actual file location.\n- **Source URL:** I'd ask for a canonical source URL if there is one. Without it, the local path is recorded as the source.\n- **Topic:** `--topic` should be passed only if this clip belongs to a research run.\n- **Figures:** I'd ask whether to preserve figure pages with `--figures`.\n- **Publication:** I'd confirm that the commit and push are authorized.",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 12712,
+    "cache_read_input_tokens": 25173,
+    "output_tokens": 917,
+    "output_tokens_details": {
+      "thinking_tokens": 114
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 12712,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 645,
+        "cache_read_input_tokens": 10424,
+        "cache_creation_input_tokens": 7758,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7758
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

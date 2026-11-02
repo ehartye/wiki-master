@@ -1,0 +1,98 @@
+{
+  "name": "baseline-flow",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      ".wiki-master/triage.jsonl",
+      "index.md",
+      "log/2026-11-02-133213-discover-harbor-retry-policy-and-duplicate-handling.md",
+      "log/2026-11-02-133301-ingest-harbor-retry-protocol.md",
+      "moc/Delivery.md",
+      "raw/clippings/Harbor Retry Protocol.md",
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [
+      "wiki/concepts/Message Delivery.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md",
+      "wiki/sources/Harbor Retry Protocol.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:clip-confluence",
+      "wiki-master:clip-docx",
+      "wiki-master:clip-gh",
+      "wiki-master:clip-pdf",
+      "wiki-master:clip-pptx",
+      "wiki-master:clip-xlsx",
+      "wiki-master:obsidian-cli",
+      "wiki-master:wiki-author",
+      "wiki-master:wiki-discover",
+      "wiki-master:wiki-health",
+      "wiki-master:wiki-ingest",
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-lint",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-query",
+      "wiki-master:wiki-relink",
+      "wiki-master:wiki-repair",
+      "wiki-master:wiki-search",
+      "wiki-master:wiki-stale",
+      "wiki-master:wiki-triage"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-discover"
+      },
+      {
+        "skill": "wiki-master:wiki-maintainer"
+      },
+      {
+        "skill": "wiki-master:wiki-ingest"
+      }
+    ],
+    "taskCalls": [
+      {
+        "description": "Technical lens review",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Technical lens (specs/official docs). Topic: Harbor retry policy and duplicate handling. Fetch with curl (no public web, no file writes) these local pages: http://127.0.0.1:61854/known /protocol /promotion /thin. Already in the wiki: /known. Return a ranked candidate list with {title,url,quality_guess,key_findings,why_ingest,adds_evidence,changes_page}. Do not write anything."
+      },
+      {
+        "description": "Contrarian lens review",
+        "subagent_type": "Explore",
+        "prompt": "Read-only. Contrarian lens (critiques, unsupported claims, failure modes). Topic: Harbor retry policy and duplicate handling. Fetch with curl (no public web, no file writes) these local pages: http://127.0.0.1:61854/known /protocol /promotion /thin. Already in the wiki: /known. Return a ranked candidate list with {title,url,quality_guess,key_findings,why_ingest,adds_evidence,changes_page}, flagging any page that is promotional, thin, or unsupported. Do not write anything."
+      }
+    ],
+    "webSearches": [],
+    "searchHelperCalls": [],
+    "shellReferenceLoadCommands": [],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

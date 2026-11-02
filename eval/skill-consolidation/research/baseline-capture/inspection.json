@@ -1,0 +1,77 @@
+{
+  "name": "baseline-capture",
+  "artifactFacts": {
+    "changed": [
+      ".wiki-master/declined.json",
+      ".wiki-master/ledger-7b153ecb887bc706.json",
+      ".wiki-master/triage.jsonl",
+      "log/2026-11-02-132453-discover-harbor-delivery-1-clipped.md",
+      "raw/clippings/Harbor Retry Protocol.md"
+    ],
+    "deleted": [],
+    "raw": [
+      {
+        "path": "raw/clippings/Acknowledgement Basics.md",
+        "sourceHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "computedBodyHash": "aad4f1ec3904594f551d78c98e2549e6e12b1001420a06ce5266bef7552c9dd7",
+        "hashMatches": true,
+        "unchangedFromSeed": true
+      },
+      {
+        "path": "raw/clippings/Harbor Retry Protocol.md",
+        "sourceHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "computedBodyHash": "254b2aa6d8d3cec168143c61d1b5701df9d5d621faa75715ff0ea16f1d17aa4c",
+        "hashMatches": true,
+        "unchangedFromSeed": null
+      }
+    ],
+    "remoteMatches": true,
+    "gitClean": true,
+    "noOpenOperations": true,
+    "derivedChanges": [],
+    "sourceSummaryPaths": [
+      "wiki/sources/Acknowledgement Basics.md"
+    ],
+    "knownRawUnchanged": true
+  },
+  "executionFacts": {
+    "wikiSkills": [
+      "wiki-master:clip-confluence",
+      "wiki-master:clip-docx",
+      "wiki-master:clip-gh",
+      "wiki-master:clip-pdf",
+      "wiki-master:clip-pptx",
+      "wiki-master:clip-xlsx",
+      "wiki-master:obsidian-cli",
+      "wiki-master:wiki-author",
+      "wiki-master:wiki-discover",
+      "wiki-master:wiki-health",
+      "wiki-master:wiki-ingest",
+      "wiki-master:wiki-init",
+      "wiki-master:wiki-lint",
+      "wiki-master:wiki-maintainer",
+      "wiki-master:wiki-purge",
+      "wiki-master:wiki-query",
+      "wiki-master:wiki-relink",
+      "wiki-master:wiki-repair",
+      "wiki-master:wiki-search",
+      "wiki-master:wiki-stale",
+      "wiki-master:wiki-triage"
+    ],
+    "skillInvocations": [
+      {
+        "skill": "wiki-master:wiki-discover"
+      }
+    ],
+    "taskCalls": [],
+    "webSearches": [],
+    "searchHelperCalls": [],
+    "shellReferenceLoadCommands": [
+      "cd \"<BASELINE>/skills/wiki-maintainer\"; cat SKILL.md; cat references/access.md references/operations.md",
+      "cd \"<BASELINE>/skills/wiki-maintainer\"; cat references/operations.md; echo ----; cat references/access.md | head -120; echo; echo \"VAULT=$WIKI_MASTER_VAULT\"",
+      "cd \"<BASELINE>/skills/wiki-maintainer\"; sed -n 25,200p references/operations.md | cut -c1-400; echo; env | grep -i wiki"
+    ],
+    "literalSharedTmpCommands": []
+  },
+  "scoring": "Facts only. Independent reviewer determines gate outcome; process exit is not a pass."
+}

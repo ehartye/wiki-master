@@ -1,0 +1,53 @@
+{
+  "skillRevision": "8a899af34c1eef7e367400d3a30b3d39fe8d45b1",
+  "condition": "candidate with uncommitted WP3 contracts and documentation",
+  "results": [
+    {
+      "command": "npm run test:skills",
+      "exit": 1,
+      "signal": null,
+      "started": "2026-11-02T18:08:06.414Z",
+      "durationMs": 572,
+      "artifact": "eval/skill-consolidation/wp3-skills-host-preflight-failure.log",
+      "error": null,
+      "classification": "host command resolution failure before tests executed"
+    },
+    {
+      "command": "node --test test/drift-guard.test.mjs test/triage-skill-table.test.mjs test/validate-authored.test.mjs",
+      "exit": 0,
+      "signal": null,
+      "started": "2026-11-02T18:08:06.987Z",
+      "durationMs": 2982,
+      "artifact": "eval/skill-consolidation/wp3-contracts.log",
+      "error": null
+    },
+    {
+      "command": "node --test test/search.test.mjs test/search-retrieval.test.mjs test/search-health.test.mjs test/clip.test.mjs test/clip-from-file.test.mjs test/clip-recapture.test.mjs test/clip-topic-flag.test.mjs test/provenance.test.mjs test/repair-provenance-links.test.mjs",
+      "exit": 0,
+      "signal": null,
+      "started": "2026-11-02T18:08:09.970Z",
+      "durationMs": 1890,
+      "artifact": "eval/skill-consolidation/wp3-search-capture-provenance.log",
+      "error": null
+    },
+    {
+      "command": "node --test test/clip-pdf.test.mjs test/clip-docx.test.mjs test/clip-pptx.test.mjs test/clip-xlsx.test.mjs test/clip-gh.test.mjs test/clip-confluence.test.mjs",
+      "exit": 0,
+      "signal": null,
+      "started": "2026-11-02T18:08:11.860Z",
+      "durationMs": 505,
+      "artifact": "eval/skill-consolidation/wp3-formats.log",
+      "error": null
+    },
+    {
+      "command": "npm run test:skills",
+      "host": "cmd.exe /d /s /c (npm.cmd resolution)",
+      "exit": 0,
+      "signal": null,
+      "started": "2026-11-02T18:08:54.471Z",
+      "durationMs": 2538,
+      "artifact": "eval/skill-consolidation/wp3-skills.log",
+      "error": null
+    }
+  ]
+}

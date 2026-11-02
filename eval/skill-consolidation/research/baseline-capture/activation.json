@@ -1,0 +1,159 @@
+{
+  "wikiSkills": [
+    "wiki-master:clip-confluence",
+    "wiki-master:clip-docx",
+    "wiki-master:clip-gh",
+    "wiki-master:clip-pdf",
+    "wiki-master:clip-pptx",
+    "wiki-master:clip-xlsx",
+    "wiki-master:obsidian-cli",
+    "wiki-master:wiki-author",
+    "wiki-master:wiki-discover",
+    "wiki-master:wiki-health",
+    "wiki-master:wiki-ingest",
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-lint",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-query",
+    "wiki-master:wiki-relink",
+    "wiki-master:wiki-repair",
+    "wiki-master:wiki-search",
+    "wiki-master:wiki-stale",
+    "wiki-master:wiki-triage"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<BASELINE>",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "skillInvocations": [
+    {
+      "skill": "wiki-master:wiki-discover"
+    }
+  ],
+  "loadedFiles": [],
+  "webSearches": [],
+  "final": {
+    "duration_api_ms": 34557,
+    "stop_reason": "end_turn",
+    "session_id": "0eca6e15-a1d3-4e2c-af70-723ccdb7c603",
+    "total_cost_usd": 0.15710670000000002,
+    "usage": {
+      "input_tokens": 22,
+      "cache_creation_input_tokens": 25259,
+      "cache_read_input_tokens": 341467,
+      "output_tokens": 2188,
+      "output_tokens_details": {
+        "thinking_tokens": 69
+      },
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 25259,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": "global",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 587,
+          "cache_read_input_tokens": 41011,
+          "cache_creation_input_tokens": 808,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 808
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "modelUsage": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 2188,
+        "cacheReadInputTokens": 341467,
+        "cacheCreationInputTokens": 25259,
+        "webSearchRequests": 0,
+        "costUSD": 0.15710670000000002,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 69,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 25259,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "permission_denials": [],
+    "terminal_reason": "completed",
+    "fast_mode_state": "off",
+    "fast_mode_disabled_reason": "sdk_opt_in_required",
+    "subagent_stats": {
+      "spawned": 0,
+      "requested": {
+        "background": 0,
+        "foreground": 0,
+        "unset": 0
+      },
+      "started_in_background": 0,
+      "max_depth": 0,
+      "spawned_by_subagents": 0,
+      "completed": 0,
+      "failed": 0,
+      "killed": {
+        "parent": 0,
+        "user": 0,
+        "system": 0
+      },
+      "refused": {
+        "depth_limit": 0,
+        "concurrency_limit": 0,
+        "budget": 0
+      },
+      "by_type": {}
+    },
+    "safety_stops": 0,
+    "is_error": false,
+    "num_turns": 11,
+    "subtype": "success",
+    "api_error_status": null,
+    "result": "I captured one of the four sources, found one already held, and could not capture the other two. The commit is pushed to the local origin, and `d342d79` is confirmed on `origin/main`. I didn't ingest anything or create any derived pages.\n\n| URL | Outcome | Evidence path |\n|---|---|---|\n| `/protocol` | Clipped, quality medium, topic \"Harbor delivery\" | `raw/clippings/Harbor Retry Protocol.md` |\n| `/known` | Already held, so I left it alone and did not recapture | `raw/clippings/Acknowledgement Basics.md` |\n| `/thin` | Not clipped: the page was too thin (an SPA or paywall shell). The clipper auto-declined it, so it can't be re-clipped until the decline expires on 2027-05-01 or is superseded. | none |\n| `/failed` | Not clipped: HTTP 503. It was not declined, so a retry is still possible. | none |\n\n- **Triage:** both unclipped URLs are queued in `.wiki-master/triage.jsonl` for `/wiki-triage`.\n- **`/thin` follow-up:** to capture it, save the page from a browser and supply it with `clip.mjs <url> --from-file <path> --override-decline`.\n- **Commit contents:** the commit is `discover: Harbor delivery → 1 clipped`. It contains only `raw/clippings/Harbor Retry Protocol.md` and the log entry `log/2026-11-02-132453-discover-harbor-delivery-1-clipped.md`.\n- **Checks:** the ledger held one clipping, matching the one `clipped:` result. The working tree is clean, and the operation token is closed.\n- **Semantic index:** there isn't one yet. I did not build it.",
+    "ttft_ms": 2082,
+    "type": "result",
+    "duration_ms": 45301,
+    "uuid": "bd3d77c7-f1f9-49fc-94d9-b142ae978ed0",
+    "ttft_stream_ms": 1904,
+    "time_to_request_ms": 95,
+    "first_content_frame_ms": 1905,
+    "queued_turn_count": 0,
+    "result_index": 0,
+    "model_usage_since_last_result": {
+      "claude-sonnet-5-5": {
+        "inputTokens": 22,
+        "outputTokens": 2188,
+        "cacheReadInputTokens": 341467,
+        "cacheCreationInputTokens": 25259,
+        "webSearchRequests": 0,
+        "costUSD": 0.15710670000000002,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 69,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 25259,
+        "canonicalModel": "claude-sonnet-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "skillCalls": [],
+  "referenceReads": [],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result: no wiki skill applies, so I invoked none and read no reference files.**\n\n- **Chosen role and mode:** none. The request is to build a search box in an ordinary web application, and it says it doesn't use or update the wiki.\n- **Why no skill:** the `wiki-user` description says ordinary application work doesn't activate wiki operations. The `wiki-maintainer` and `wiki-researcher` descriptions say the same. The \"search\" wording could suggest `wiki-user`'s find-pages mode, but the request rules that out.\n- **Loaded references:** none.\n- **Scope and approval boundary:** I didn't touch any vault, run any commands, do any web research, or take any app actions. In a real session I'd handle this as normal coding work in the project.\n- **Clarification needed:** none to route it. To implement it, I'd need the web app's framework, where the search should query (client-side data, an API endpoint, or a database), and whether it should have features like autocomplete or debouncing.",
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 3816,
+    "cache_read_input_tokens": 5470,
+    "output_tokens": 361,
+    "output_tokens_details": {
+      "thinking_tokens": 35
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 3816,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 361,
+        "cache_read_input_tokens": 5470,
+        "cache_creation_input_tokens": 3816,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3816
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}

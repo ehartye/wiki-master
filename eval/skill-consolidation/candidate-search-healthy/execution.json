@@ -1,0 +1,31 @@
+{
+  "revision": "082de0b4ee151d51cc504de825d3b92b7590a5b1",
+  "host": "Claude Code 2.1.316",
+  "prompt": "Use the wiki-master search skill to perform these read-only lookups in the configured fixture vault: find the exact phrase \"The copper heron carries seven lanterns\", find the page known by alias \"Lantern Relay\", locate \"Harbor\" without assuming which one I mean, and explicitly find raw evidence for \"quartz otter 817\". Open each returned matching passage to verify it. Return exact paths and line numbers, explain ambiguity and actual coverage diagnostics. Do not change files, operations, logs, Git, or indexes. Do not search outside the configured vault. This is retrieval only, not a synthesized answer.",
+  "command": [
+    "claude",
+    "-p",
+    "Use the wiki-master search skill to perform these read-only lookups in the configured fixture vault: find the exact phrase \"The copper heron carries seven lanterns\", find the page known by alias \"Lantern Relay\", locate \"Harbor\" without assuming which one I mean, and explicitly find raw evidence for \"quartz otter 817\". Open each returned matching passage to verify it. Return exact paths and line numbers, explain ambiguity and actual coverage diagnostics. Do not change files, operations, logs, Git, or indexes. Do not search outside the configured vault. This is retrieval only, not a synthesized answer.",
+    "--plugin-dir",
+    "<HOME>/repos/wiki-master-worktrees/five-skills",
+    "--setting-sources",
+    "local",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "dontAsk",
+    "--allowedTools",
+    "Skill,Read,Glob,Grep,Bash,PowerShell"
+  ],
+  "exit": 0,
+  "signal": null,
+  "environment": {
+    "WIKI_MASTER_VAULT": "<SCRATCH>/candidate-search-healthy-vault",
+    "WIKI_MASTER_REQUIRE_VAULT": "1",
+    "OLLAMA_HOST": "http://localhost:11434"
+  },
+  "mode": "candidate-loaded execution; prepared local embedding index"
+}

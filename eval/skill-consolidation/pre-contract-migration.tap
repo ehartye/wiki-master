@@ -1,0 +1,112 @@
+
+> wiki-master@0.87.0 test:skills
+> node --test test/skill-behavior.test.mjs test/skill-contracts.test.mjs test/skill-workflow.test.mjs test/vault.test.mjs test/stale.test.mjs test/cli-transport.test.mjs
+
+✔ preflight counts UTF-8 JSON bytes and rejects multiline/NUL without echoing content (1.8535ms)
+✔ request size boundary includes escaped content and the current directory (0.1685ms)
+✔ preflight rejects unsafe requests before acquiring the gate or invoking an executor (0.2401ms)
+✔ agent proxy rejects oversized payloads and missing commands without touching Obsidian (139.0246ms)
+✔ separate worker processes serialize fake CLI calls across vault arguments (559.4624ms)
+✔ a held gate times out without executing and can be reacquired after release (71.8163ms)
+✔ CLI failure and timeout release the gate without retrying or leaking note text (309.3181ms)
+✔ sync adapter honors the same gate held by an asynchronous caller (171.4837ms)
+✔ sync adapter preserves successful output and does not leak native failure arguments (399.3805ms)
+✔ OS releases the gate when an owner with no CLI child terminates (170.49ms)
+✔ a required action does not conceal a forbidden write (2.113ms)
+✔ missing scenarios and truncated traces are incomplete, not successful (0.1694ms)
+✔ unobserved actions and self-grades cannot masquerade as independent evidence (0.3904ms)
+✔ rejects duplicate/unknown scenarios, mismatched suite, and unsupported modes (0.2277ms)
+✔ comparison preserves failures, omissions and matched conditions (0.2591ms)
+✔ execution mode requires independently captured tool/artifact evidence (0.1786ms)
+✔ CLI reports incomplete coverage with exit 2, writes a report and rejects malformed combinations (124.5062ms)
+✖ all twenty-one portable skill descriptions identify triggers and resolve direct references (1.6368ms)
+✔ shared core is bounded and each operation can reach access policy directly (1.5834ms)
+✖ writing routes share completion policy while read-only entry points do not open operations (0.5543ms)
+✔ operation examples expose both shells without mixed token syntax or relative helper execution (1.8757ms)
+✖ every document-format clipper has a skill that can trigger it (0.7045ms)
+✔ offline authored workflow commits only its edit and publishes to its configured local remote from unrelated cwd (2572.1547ms)
+✔ computeStale buckets by factual review date despite mechanical updates (1.0487ms)
+✔ a recent updated date cannot hide a missing factual review (0.1726ms)
+✔ computeStale treats missing dates as rotten (0.1201ms)
+✔ freshness falls back to wiki metadata, preserving review dates and all files (20.5782ms)
+✔ valid CLI rows remain the preferred backend (7.5121ms)
+✔ invalid or suspiciously empty CLI data cannot report an empty green vault (22.828ms)
+✔ explicit configured root retains its registered Obsidian vault name (6.5458ms)
+✔ an alternate filesystem root never guesses another registered vault name (8.9099ms)
+✔ missing vault or wiki root fails explicitly instead of reporting healthy emptiness (8.1771ms)
+✔ a verified empty wiki is reported explicitly (4.6631ms)
+✔ resolveVault defaults to ~/.wiki-master-vault (0.6615ms)
+✔ resolveVault honors WIKI_MASTER_VAULT override (0.1065ms)
+✔ resolveVault honors WIKI_MASTER_VAULT_NAME override (0.7317ms)
+✔ buildArgs prepends vault= and passes through args (0.5671ms)
+✔ shared wrapper rejects unsafe note payloads before invoking its executor (0.8298ms)
+✔ Obsidian calls are bounded, hidden and retain argument boundaries (0.2401ms)
+✔ timeout errors name the bound and never retry uncertain mutations (0.1772ms)
+✔ invalid timeout overrides cannot disable the bound (0.1332ms)
+✔ invalid CLI JSON identifies the command without swallowing the failure (0.2665ms)
+✔ assertRunning preserves the timeout reason for app-only operations (0.6079ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 40
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2677.0886
+
+✖ failing tests:
+
+test at test\skill-contracts.test.mjs:12:1
+✖ all twenty-one portable skill descriptions identify triggers and resolve direct references (1.6368ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  5 !== 21
+
+      at TestContext.<anonymous> (file:///<CANDIDATE>/test/skill-contracts.test.mjs:13:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 5,
+    expected: 21,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\skill-contracts.test.mjs:34:1
+✖ writing routes share completion policy while read-only entry points do not open operations (0.5543ms)
+  Error: ENOENT: no such file or directory, open '<CANDIDATE>\skills\wiki-health\SKILL.md'
+      at readFileSync (node:fs:441:20)
+      at read (file:///<CANDIDATE>/test/skill-contracts.test.mjs:9:22)
+      at TestContext.<anonymous> (file:///<CANDIDATE>/test/skill-contracts.test.mjs:40:25)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'C:\\Users\\<user>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-health\\SKILL.md'
+  }
+
+test at test\skill-contracts.test.mjs:70:1
+✖ every document-format clipper has a skill that can trigger it (0.7045ms)
+  AssertionError [ERR_ASSERTION]: clip-confluence.mjs ships with no skills/clip-confluence/SKILL.md, so nothing can trigger it
+      at TestContext.<anonymous> (file:///<CANDIDATE>/test/skill-contracts.test.mjs:77:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

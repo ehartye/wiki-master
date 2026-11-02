@@ -1,0 +1,5 @@
+{
+  "status": "interrupted-unscored",
+  "reason": "Stop affected discovery until source checkpoint reviewed. Sequential harness launched immediately after baseline completed; process tree terminated on next poll.",
+  "noFinalResult": true
+}

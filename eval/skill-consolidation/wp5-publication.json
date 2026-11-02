@@ -1,0 +1,211 @@
+{
+  "result": {
+    "token": "4a2b13643aa83f0d",
+    "head": "8694e970cd3f21cd44abe651b0df7a21810b2b92",
+    "upstream": "8694e970cd3f21cd44abe651b0df7a21810b2b92",
+    "committedPaths": [
+      "log/2026-11-02-135428-relink-document-reviewed-five-skill-consolidation-delivery.md",
+      "moc/wiki-master.md",
+      "wiki/authored/wiki-master/architecture.md",
+      "wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md",
+      "wiki/authored/wiki-master/backlog/search-startup-weight.md",
+      "wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md",
+      "wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md",
+      "wiki/authored/wiki-master/guides/maintenance.md",
+      "wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md",
+      "wiki/authored/wiki-master/overview.md",
+      "wiki/authored/wiki-master/roadmap.md"
+    ],
+    "ownedPaths": [
+      "wiki/authored/wiki-master/overview.md",
+      "wiki/authored/wiki-master/architecture.md",
+      "wiki/authored/wiki-master/guides/maintenance.md",
+      "wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md",
+      "wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md",
+      "wiki/authored/wiki-master/backlog/search-startup-weight.md",
+      "wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md",
+      "wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md",
+      "wiki/authored/wiki-master/roadmap.md",
+      "moc/wiki-master.md",
+      "log/2026-11-02-135428-relink-document-reviewed-five-skill-consolidation-delivery.md"
+    ],
+    "indexBefore": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "indexAfter": "1e7a56fe9e132bd7fd8690a815ce526c71d012e0ca629361b0072e7efe14e569",
+    "indexPreserved": true,
+    "tokenClosed": true
+  },
+  "commands": [
+    {
+      "script": "op-begin.mjs",
+      "args": [
+        "--op",
+        "relink"
+      ],
+      "status": 0,
+      "stdout": "4a2b13643aa83f0d\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-ledger.mjs",
+      "args": [
+        "add",
+        "--since",
+        "4a2b13643aa83f0d",
+        "--from",
+        "<PRIVATE_DELIVERY>/paths.json"
+      ],
+      "status": 0,
+      "stdout": "recorded 8 path(s) for operation 4a2b13643aa83f0d:\n  wiki/authored/wiki-master/overview.md\n  wiki/authored/wiki-master/architecture.md\n  wiki/authored/wiki-master/guides/maintenance.md\n  wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md\n  wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md\n  wiki/authored/wiki-master/backlog/search-startup-weight.md\n  wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md\n  wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md\n",
+      "stderr": ""
+    },
+    {
+      "script": "validate-authored.mjs",
+      "args": [
+        "--paths-file",
+        "<PRIVATE_DELIVERY>/paths.json"
+      ],
+      "status": 0,
+      "stdout": "validate-authored: 8 pages checked, 0 defects\n",
+      "stderr": ""
+    },
+    {
+      "script": "backlog-gen.mjs",
+      "args": [
+        "--project",
+        "wiki-master"
+      ],
+      "status": 0,
+      "stdout": "{\"type\":\"backlog-gen\",\"applied\":false,\"projects\":[\"wiki-master\"],\"changed\":[\"wiki/authored/wiki-master/roadmap.md\"]}\n",
+      "stderr": "dry run — 1 file(s) would change; re-run with --apply\n"
+    },
+    {
+      "script": "backlog-gen.mjs",
+      "args": [
+        "--project",
+        "wiki-master",
+        "--apply"
+      ],
+      "status": 0,
+      "stdout": "{\"type\":\"backlog-gen\",\"applied\":true,\"projects\":[\"wiki-master\"],\"changed\":[\"wiki/authored/wiki-master/roadmap.md\"]}\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-ledger.mjs",
+      "args": [
+        "add",
+        "--since",
+        "4a2b13643aa83f0d",
+        "wiki/authored/wiki-master/roadmap.md"
+      ],
+      "status": 0,
+      "stdout": "recorded 1 path(s) for operation 4a2b13643aa83f0d:\n  wiki/authored/wiki-master/roadmap.md\n",
+      "stderr": ""
+    },
+    {
+      "script": "moc-authored-gen.mjs",
+      "args": [
+        "--project",
+        "wiki-master"
+      ],
+      "status": 0,
+      "stdout": "{\"type\":\"moc-authored-gen\",\"applied\":false,\"projects\":[\"wiki-master\"],\"changed\":[\"moc/wiki-master.md\"]}\n",
+      "stderr": "dry run — 1 file(s) would change; re-run with --apply\n"
+    },
+    {
+      "script": "moc-authored-gen.mjs",
+      "args": [
+        "--project",
+        "wiki-master",
+        "--apply"
+      ],
+      "status": 0,
+      "stdout": "{\"type\":\"moc-authored-gen\",\"applied\":true,\"projects\":[\"wiki-master\"],\"changed\":[\"moc/wiki-master.md\"]}\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-ledger.mjs",
+      "args": [
+        "add",
+        "--since",
+        "4a2b13643aa83f0d",
+        "moc/wiki-master.md"
+      ],
+      "status": 0,
+      "stdout": "recorded 1 path(s) for operation 4a2b13643aa83f0d:\n  moc/wiki-master.md\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-ledger.mjs",
+      "args": [
+        "show",
+        "--since",
+        "4a2b13643aa83f0d",
+        "--out",
+        "<PRIVATE_DELIVERY>/ledger.json"
+      ],
+      "status": 0,
+      "stdout": "wrote 10 path(s) to <PRIVATE_DELIVERY>/ledger.json\n",
+      "stderr": ""
+    },
+    {
+      "script": "validate-authored.mjs",
+      "args": [
+        "--paths-file",
+        "<PRIVATE_DELIVERY>/ledger.json"
+      ],
+      "status": 0,
+      "stdout": "validate-authored: 10 pages checked, 0 defects\n",
+      "stderr": ""
+    },
+    {
+      "script": "log-entry.mjs",
+      "args": [
+        "--op",
+        "relink",
+        "--title",
+        "Document reviewed five-skill consolidation delivery",
+        "--since",
+        "4a2b13643aa83f0d"
+      ],
+      "status": 0,
+      "stdout": "log/2026-11-02-135428-relink-document-reviewed-five-skill-consolidation-delivery.md\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-ledger.mjs",
+      "args": [
+        "show",
+        "--since",
+        "4a2b13643aa83f0d",
+        "--out",
+        "<PRIVATE_DELIVERY>/ledger.json"
+      ],
+      "status": 0,
+      "stdout": "wrote 11 path(s) to <PRIVATE_DELIVERY>/ledger.json\n",
+      "stderr": ""
+    },
+    {
+      "script": "op-commit.mjs",
+      "args": [
+        "--op",
+        "relink",
+        "--title",
+        "Document reviewed five-skill consolidation delivery",
+        "--since",
+        "4a2b13643aa83f0d",
+        "--paths-file",
+        "<PRIVATE_DELIVERY>/ledger.json"
+      ],
+      "status": 0,
+      "stdout": "committed 8694e97: 11 file(s)\n  log/2026-11-02-135428-relink-document-reviewed-five-skill-consolidation-delivery.md\n  moc/wiki-master.md\n  wiki/authored/wiki-master/architecture.md\n  wiki/authored/wiki-master/backlog/consolidate-wiki-master-role-skills.md\n  wiki/authored/wiki-master/backlog/search-startup-weight.md\n  wiki/authored/wiki-master/backlog/skill-description-routing-fixes-2026-10-24.md\n  wiki/authored/wiki-master/backlog/skill-library-audit-script-and-catalog-drift.md\n  wiki/authored/wiki-master/guides/maintenance.md\n  wiki/authored/wiki-master/notes/five-skill-consolidation-delivery.md\n  wiki/authored/wiki-master/overview.md\n  wiki/authored/wiki-master/roadmap.md\nleft alone (already dirty before this operation, not part of it): 74 file(s)\n  [foreign path names omitted for privacy; index.md preserved]\n1 commit(s) unpushed. Run `node scripts/wiki-sync.mjs` to sync: it rebases onto other machines' work, pushes and verifies.\nsemantic index: 10 file(s) changed, 28 chunk(s) embedded, 66123 total (1.2s)\n",
+      "stderr": ""
+    },
+    {
+      "script": "wiki-sync.mjs",
+      "args": [],
+      "status": 0,
+      "stdout": "pulled 0 commit(s), pushed 1 commit(s)\nin sync with origin/main\n",
+      "stderr": ""
+    }
+  ]
+}

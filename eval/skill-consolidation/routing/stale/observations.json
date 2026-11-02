@@ -1,0 +1,66 @@
+{
+  "skillCalls": [
+    {
+      "skill": "wiki-master:wiki-maintainer"
+    }
+  ],
+  "referenceReads": [
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\access.md"
+    },
+    {
+      "file_path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills\\skills\\wiki-maintainer\\references\\stale.md"
+    }
+  ],
+  "wikiSkills": [
+    "wiki-master:wiki-init",
+    "wiki-master:wiki-maintainer",
+    "wiki-master:wiki-purge",
+    "wiki-master:wiki-researcher",
+    "wiki-master:wiki-user"
+  ],
+  "wikiPlugins": [
+    {
+      "name": "wiki-master",
+      "path": "<HOME>\\repos\\wiki-master-worktrees\\five-skills",
+      "source": "wiki-master@inline",
+      "version": "0.87.0"
+    }
+  ],
+  "permissionDenials": [],
+  "result": "**Routing result**\n\n- **Skill chosen:** `wiki-master:wiki-maintainer`, invoked through the Skill tool.\n- **Role:** maintainer, in a read-only reporting capacity.\n- **Mode:** freshness and factual-review reporting. This is the \"Freshness and what needs factual review\" branch, and the matching reference is `references/stale.md`.\n- **References loaded:**\n  - `references/access.md`\n  - `references/stale.md`\n- **Not loaded:** `efficacy.md` and `evidence.md`. `stale.md` lists them as direct reads for the real workflow, but they aren't needed to identify the mode.\n\n**What the workflow would do (not executed)**\n1. Run `stale.mjs`. If the CLI query fails or comes back empty, it falls back to scoped `wiki/` files. A missing vault root or `wiki/` is a hard failure, not an empty report.\n2. Run `drift.mjs --coverage`. This is read-only and doesn't evaluate embeddings, so unevaluated pages can't be called clean.\n3. Report stale pages and pages missing a `reviewed` date as separate lists. Add the drift coverage and any failures. The `reviewed` date measures factual verification. The `updated` date doesn't.\n\n**Scope and approval boundaries**\n- The workflow is read-only. It opens no operation, writes no log, makes no commit and doesn't refresh the index.\n- Embedding-based drift evaluation is out of scope. It can write a machine-local cache, so it doesn't belong in a strictly read-only report.\n- Re-stamping `reviewed` dates or repairing anything would need a separate request. Stamping would also require re-checking the claims against their evidence.\n- Metadata alone says which pages need review. It doesn't say whether their claims still hold. Answering that would need a claim-level check through wiki-user's query reference.\n- Per your instructions, I ran no commands and didn't touch a vault.\n\n**Clarification:** none needed. The request is unambiguous, but a real run would need the vault path (`WIKI_MASTER_VAULT`).",
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 8123,
+    "cache_read_input_tokens": 25011,
+    "output_tokens": 945,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 8123,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "global",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 700,
+        "cache_read_input_tokens": 10255,
+        "cache_creation_input_tokens": 3338,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3338
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  }
+}
