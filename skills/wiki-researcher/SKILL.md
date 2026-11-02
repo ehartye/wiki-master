@@ -13,7 +13,10 @@ Treat `$ARGUMENTS` as the request when the host has not substituted it.
   [access](../wiki-maintainer/references/access.md),
   [evidence](../wiki-maintainer/references/evidence.md), and
   [efficacy](../wiki-maintainer/references/efficacy.md). Research perspectives
-  return candidates without writing. Use the capture route only within the
+  return candidates without writing. When delegation is available, use separate
+  read-only finders and keep the selector independent of the sources it found.
+  Complete that selection before opening a capture operation; a self-selected
+  list does not fulfill independent research. Use the capture route only within the
   requested scope; a request for candidates alone remains read-only.
 - **Capture named URLs or saved web pages:** read [named capture](references/capture.md)
   and [access](../wiki-maintainer/references/access.md). Skip broad topic research;

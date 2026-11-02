@@ -9,6 +9,21 @@ request stays read-only: report the selection without declines or captures. When
 capture is within scope, use [capture and completion](capture.md#capture-the-selected-sources).
 Ingestion is a separate authorized mode.
 
+## Independence checkpoint before capture
+
+Topic discovery requires the five perspective passes below and independent
+selection. When the host provides delegation, actually dispatch read-only
+finders; do not replace their execution with a list you found and scored yourself.
+The orchestrator may select their returned candidates, or a separate reviewer
+may select them. A finder must not grade its own finds. A small or controlled
+source corpus does not remove this separation.
+
+Before opening an operation or calling a clipper, retain the returned candidate
+lists and the independent selection with its credibility reasons. If delegation
+is unavailable, use the documented sequential lenses and disclose that limit;
+do not claim an independent pass that did not run. Named-source capture skips
+topic discovery and uses [capture](capture.md) directly.
+
 ## Phase 0 — dedup before searching
 Gather what the wiki already has so the search hunts for *gaps*, not dupes:
 - Known source URLs: `node "<absolute-plugin-root>/scripts/known-urls.mjs"` prints
