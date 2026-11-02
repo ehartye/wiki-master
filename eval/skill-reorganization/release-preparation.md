@@ -22,3 +22,8 @@ The implementation handoff and prior receipts remain historical evidence.
 Release tags, merged pull requests and the coordinated marketplace pins establish
 publication; this preparation record alone does not establish a shipped release.
 Host installation is a separate action.
+
+Preparing the release wiki update exposed an incorrect standalone MOC helper
+name in the project catalog guide. It is corrected to `moc-authored-gen.mjs`,
+and the existing helper-reference regression covers both standalone catalog
+generators. This documentation correction does not change runtime behavior.

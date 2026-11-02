@@ -109,6 +109,11 @@ test('all capabilities have direct procedures with live helpers, including six c
     }
   }
   const clips = readdirSync(join(root, 'scripts')).filter(file => /^clip-.*\.mjs$/.test(file) && file !== 'clip-and-repoint.mjs');
+  const catalogs = read('skills/wiki-project/references/catalogs.md');
+  for (const helper of ['backlog-gen.mjs', 'moc-authored-gen.mjs']) {
+    assert.ok(catalogs.includes(helper), 'standalone project catalog helper: ' + helper);
+    assert.ok(existsSync(join(root, 'scripts', helper)), helper);
+  }
   assert.deepEqual(clips.sort(), Object.values(capabilities['wiki-researcher']).filter(file => /^clip-/.test(file)).sort());
   for (const format of ['PDF', 'Word', 'PowerPoint', 'spreadsheet', 'GitHub', 'Confluence'])
     assert.ok(description('wiki-researcher').includes(format), 'capture discovery metadata: ' + format);

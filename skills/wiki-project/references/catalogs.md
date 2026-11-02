@@ -13,7 +13,7 @@ before writes and [validation](../../wiki-setup/references/validation.md) before
 A global `index.md` already dirty from another writer remains theirs. Do not run
 the combined apply in that state: it also writes the global index. Use the
 standalone project generators `backlog-gen.mjs --project <slug> --apply` and
-`moc-gen.mjs --project <slug> --apply` only for clean, owned targets, record their
+`moc-authored-gen.mjs --project <slug> --apply` only for clean, owned targets, record their
 actual changed paths in the ledger, and report deferred global refresh. Do not
 adopt a foreign catalog to finish your operation. Check each helper's supported
 ledger/operation options before using them; do not invent a project-only flag
