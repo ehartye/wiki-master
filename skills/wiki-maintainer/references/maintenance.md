@@ -11,7 +11,7 @@ pages still require evidence. Unresolved navigation, age and fuzzy suggestions
 are never proof of an accidental break. The old capped score is available only
 through `--legacy`, for historical/topology reporting rather than repair targets.
 
-Use [wiki-repair](../../wiki-repair/SKILL.md) for authorized integrity repairs.
+Use [maintainer repair](repair.md) for authorized integrity repairs.
 Compare resolved, remaining and new issue IDs after each batch. `--backlog` keeps
 the ingest contract below. The checker is structural and reports its unchecked
 areas; zero defects is not factual verification. See `docs/wiki-integrity.md` in
@@ -67,7 +67,7 @@ wrapped target hide there, whether or not a suggestion resolves). **Prevention t
 actually holds**: write vault content as unwrapped logical lines — never hard-wrap a
 paragraph, and never let one contain a `[[wikilink]]` split across a line break — the
 same discipline `clip-docx`'s `--wrap=none` already enforces mechanically on the docx
-path. A written reminder alone is not the safeguard: `/wiki-relink`'s own `op-commit`
+path. A written reminder alone is not the safeguard: maintainer relink's own `op-commit`
 step reports any wrapped link introduced by the files it just committed, and
 `node "<absolute-plugin-root>/scripts/health.mjs"` always scores one as a defect, so either catches a recurrence
 even if the writing habit doesn't. Repair existing ones from the plugin root:
@@ -173,14 +173,14 @@ implements bounds itself in ways worth tracking:
   upgrade it into a bound the source never stated.
 - **Cheap maintenance is not correct maintenance.** The pattern's justification is
   that upkeep cost approaches zero, which addresses effort, not accuracy. It
-  specifies no verification tier — that is what `/wiki-lint`, quote-lint, and the
+  specifies no verification tier — that is what maintainer lint, quote-lint, and the
   clipping-wins guardrail exist to supply.
 - **Frictionless collection is not free.** Automated discovery plus automated
   ingest removes the cost that used to limit what got kept. Volume is not
   progress; prefer fewer, better-corroborated sources over a larger pile.
 
 ## Cost discipline
-Cheap structural checks (`/wiki-health`) run every session and prioritize the
-expensive semantic passes. A clean graph does not establish factual correctness:
+During substantive maintenance, cheap structural checks (maintainer health)
+prioritize the expensive semantic passes. A clean graph does not establish factual correctness:
 sample changed or high-use pages during requested maintenance even when structural
 health is clean. Skip an empty vault; avoid a full lint on an unchanged wiki.
