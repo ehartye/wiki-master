@@ -49,9 +49,9 @@ absolute helper resolution work across hosts.
 Known maintained companion migrations cover hartye-skills `spec-plan` and
 `q-master`, and agent-game-studio's plugin map. The bounded caller inventory and
 validation evidence are in `eval/skill-consolidation/`; source revisions and gate
-results belong in its delivery report. Coordinate companion versions in any
-later release. This change does not update marketplace pins or installed caches,
-and does not claim compatibility with unknown external callers.
+results belong in its delivery report. The coordinated release pairs wiki-master 0.88.0 with hartye-skills 0.9.2 and
+agent-game-studio 0.3.2. Update these companions together. Installed caches require
+a host update; compatibility with unknown external callers is not claimed.
 
 Historical transcripts, evaluation snapshots, dated plans/specifications under
 `docs/superpowers/`, and release history retain the names they actually used.
