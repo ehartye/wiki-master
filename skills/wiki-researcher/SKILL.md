@@ -51,3 +51,12 @@ scoped validation, log, commit, sync and remote verification unless publication
 is held. Reuse an enclosing operation when it owns the work; preserve other
 writers' edits. For concept reuse and relationship changes read
 [efficacy](../wiki-maintainer/references/efficacy.md).
+
+If the requested flow continues with search or an answer after ingestion, hand
+off to [wiki-user](../wiki-user/SKILL.md): load its
+[search](../wiki-user/references/search.md) and, for a cited answer,
+[query](../wiki-user/references/query.md) procedures. Actually run retrieval
+against the updated vault and open the returned passages; do not substitute
+memory of the pages just written. A missing semantic index still permits lexical
+search and must be reported, not used as a reason to skip retrieval. This final
+answer remains read-only unless filing it was separately authorized.

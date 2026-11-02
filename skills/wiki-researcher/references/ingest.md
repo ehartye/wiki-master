@@ -1,5 +1,14 @@
 # Ingest captured evidence
 
+For a requested research → ingest → search-and-answer flow, complete ingestion
+below and then follow [wiki-user](../../wiki-user/SKILL.md),
+[search](../../wiki-user/references/search.md), and
+[query](../../wiki-user/references/query.md). Run the search helper against the
+updated vault before answering and inspect returned passages and exact evidence.
+Lexical search works without a semantic index. Report unavailable channels;
+reading the pages you just wrote does not replace the requested retrieval step.
+Ordinary ingestion alone does not require this additional answer workflow.
+
 Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [evidence](../../wiki-maintainer/references/evidence.md).
 Load the rest only when this run reaches it — [efficacy](../../wiki-maintainer/references/efficacy.md) before creating or merging a concept, alias or relationship; [maintenance](../../wiki-maintainer/references/maintenance.md) when you compute the backlog with the content-hash join, or hit a structural repair.
 Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
