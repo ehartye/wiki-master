@@ -84,8 +84,11 @@ export function staleCatalogLinks(vaultPath, pages, { project, ownedPaths } = {}
 // A dry run plans the same outputs an apply would write and reports the same `changed` list; with `diff`
 // it also returns the lines each changed file would lose and gain. The ledger keeps another writer's
 // uncommitted pages out of the catalogs, but a line a catalog already holds for one stays (catalog-scope.mjs).
-export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths, buildGraphImpl = buildGraph, now, diff = false } = {}) {
+// `projectOnly` omits index generation entirely and requires an explicit project before the graph is built.
+export function refreshCatalogs(vaultPath, { project, projectOnly = false, apply = false, ownedPaths, buildGraphImpl = buildGraph, now, diff = false } = {}) {
   validateProject(project);
+  if (typeof projectOnly !== 'boolean') throw new Error('projectOnly must be a boolean');
+  if (projectOnly && project === undefined) throw new Error('projectOnly requires an explicit project');
   if (ownedPaths !== undefined) {
     try { checkLedgerPaths(ownedPaths); } catch { throw new Error('ownedPaths must be exact vault-relative paths'); }
   }
@@ -98,15 +101,15 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
   updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
   const moc = regenerateAuthoredMocs(vaultPath, { project, apply, graph, excluded });
   updateSnapshot(graph, moc.outputs.filter(o => moc.changed.includes(o.path)));
-  const index = regenerateIndex(vaultPath, { graph, apply, excluded });
+  const index = projectOnly ? null : regenerateIndex(vaultPath, { graph, apply, excluded });
   const stale = staleCatalogLinks(vaultPath, graph.pages, { project, ownedPaths });
   const changedOutputs = [
     ...backlog.outputs.filter(o => backlog.changed.includes(o.path)),
     ...moc.outputs.filter(o => moc.changed.includes(o.path)),
-    ...(index.changed ? [{ path: 'index.md', previous: index.previous, next: index.next }] : []),
+    ...(index?.changed ? [{ path: 'index.md', previous: index.previous, next: index.next }] : []),
   ];
   return {
-    applied: apply, project: project ?? null, pages: graph.pages.length, graphBuilds: 1,
+    applied: apply, project: project ?? null, projectOnly, pages: graph.pages.length, graphBuilds: 1,
     graphMs: Math.round(graphMs), elapsedMs: Math.round(performance.now() - started),
     changed: changedOutputs.map(o => o.path),
     projects: { backlog: backlog.written, moc: moc.written },
@@ -117,11 +120,12 @@ export function refreshCatalogs(vaultPath, { project, apply = false, ownedPaths,
 }
 
 export function main(argv = process.argv.slice(2)) {
-  const options = catalogArgs(argv, { since: true });
+  const options = catalogArgs(argv, { since: true, projectOnly: true });
   const ownedPaths = options.pathsFile ? readLedger(options.pathsFile) : undefined;
   const { path: vaultPath } = resolveVault();
   const { diffs, ...result } = refreshCatalogs(vaultPath, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
+  if (result.projectOnly) console.error('project-only: global index was not refreshed');
   // Only an apply writes, and only what it changed is a path this operation owns.
   if (result.applied && options.since !== undefined && result.changed.length) writtenRecorder(vaultPath, argv)(result.changed);
   // One block per changed file, after the one-line JSON, on stderr so the JSON on stdout keeps its shape.

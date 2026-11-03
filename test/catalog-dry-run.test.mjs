@@ -201,3 +201,59 @@ test('a file that changed only in order is named with a label, not left as an em
   assert.deepEqual(JSON.parse(r.stdout.trim()).changed, ['moc/alpha.md']);
   assert.match(r.stderr, /^diff moc\/alpha\.md\n\(same lines, different order or whitespace\)$/m);
 });
+
+test('project-only dry run predicts only selected outputs and preserves all bytes and times', t => {
+  const root = vault(t);
+  writeFileSync(join(root, 'index.md'), 'foreign pending index\n');
+  const indexTime = statSync(join(root, 'index.md')).mtimeMs;
+  const before = snapshot(root);
+  const dry = refreshCatalogs(root, { project: 'alpha', projectOnly: true, now: NOW, diff: true });
+  assert.deepEqual(snapshot(root), before);
+  assert.equal(dry.projectOnly, true);
+  assert.deepEqual(dry.changed, ['wiki/authored/alpha/roadmap.md', 'moc/alpha.md']);
+  assert.deepEqual(dry.diffs.map(d => d.path), dry.changed);
+  assert.ok(dry.diffs.find(d => d.path === 'moc/alpha.md').added.some(line => line.includes('[[roadmap]]')));
+  const applied = refreshCatalogs(root, { project: 'alpha', projectOnly: true, apply: true, now: NOW });
+  assert.deepEqual(applied.changed, dry.changed);
+  assert.equal(readFileSync(join(root, 'index.md'), 'utf8'), 'foreign pending index\n');
+  assert.equal(statSync(join(root, 'index.md')).mtimeMs, indexTime);
+});
+
+test('project-only CLI dry run supports ownership ledger, diff and operation without writing', t => {
+  const root = vault(t);
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  execFileSync('git', ['config', 'core.autocrlf', 'false'], { cwd: root });
+  execFileSync('git', ['add', '.'], { cwd: root });
+  const ledger = join(root, 'owned.json');
+  writeFileSync(ledger, JSON.stringify(['wiki/authored/alpha/overview.md']));
+  const before = snapshot(root);
+  const r = run('refresh-catalogs.mjs', ['--project', 'alpha', '--project-only', '--paths-file', ledger, '--diff', '--since', 'abcd'], root);
+  assert.equal(r.status, 0, r.stderr);
+  const json = JSON.parse(r.stdout.trim());
+  assert.equal(json.projectOnly, true);
+  assert.deepEqual(json.changed, ['wiki/authored/alpha/roadmap.md', 'moc/alpha.md']);
+  assert.match(r.stderr, /global index was not refreshed/i);
+  assert.match(r.stderr, /^diff moc\/alpha\.md$/m);
+  assert.doesNotMatch(r.stderr, /^diff index\.md$/m);
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('project-only CLI requires project before opening a vault and standalone commands reject it', t => {
+  const root = vault(t);
+  for (const args of [['--project-only'], ['--project-only', '--project=../escape'], ['--project-only', '--project=']]) {
+    const r = run('refresh-catalogs.mjs', args, join(root, 'missing-vault'));
+    assert.equal(r.status, 1, r.stderr);
+    assert.match(r.stderr, /project/i);
+    assert.doesNotMatch(r.stderr, /vault.*(?:missing|exist)/i);
+  }
+  for (const script of ['backlog-gen.mjs', 'moc-authored-gen.mjs', 'index-gen.mjs']) {
+    const r = run(script, ['--project-only'], root);
+    assert.equal(r.status, 2, `${script}: ${r.stderr}`);
+    assert.match(r.stderr, /(?:unknown|Unknown) option.*project-only/);
+  }
+  const help = run('refresh-catalogs.mjs', ['--help'], root);
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /--project-only/);
+  assert.match(help.stdout, /requires.*--project/i);
+  assert.ok(!existsSync(join(root, 'moc')));
+});
