@@ -54,7 +54,7 @@ export const CLIP_SPECS = {
       "  --figures render figure pages to raw/figures (poppler pdftoppm). auto = pages with embedded",
       "           rasters or vector drawings; all = every page; or a page list. Cap 40 (--figures-max).",
       "  --figures-only  add figures to an EXISTING clipping from the PDF you supply (frontmatter only).",
-      "  --doctor report which external tools are installed, then exit.",
+      "  --doctor report dependencies and bounded synthetic PDF rendering probes, then exit.",
     ],
     values: ["source", "quality", "mode", "ocr-lang", "topic", "decline", "figures", "figures-max", "clipping", "title", "slug"],
     flags: ["ocr", "doctor", "figures", "figures-only", "allow-pdf-mismatch"],
