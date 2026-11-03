@@ -184,3 +184,52 @@ test('a dry run does not report the selected project own catalogs, which the sam
   const dry = refreshCatalogs(root, { project: 'one' });
   assert.equal(dry.staleCatalogs, undefined);
 });
+
+test('project-only requires a valid explicit project and boolean option before scanning', () => {
+  const noScan = () => assert.fail('must reject before graph construction');
+  for (const project of [undefined, null, '', '../escape', '/absolute', 'a//b', 'a/../b', 'a\\b', 'C:/x']) {
+    assert.throws(() => refreshCatalogs('unused', { projectOnly: true, project, buildGraphImpl: noScan }), /project/i);
+  }
+  for (const projectOnly of ['true', 1, null]) {
+    assert.throws(() => refreshCatalogs('unused', { projectOnly, project: 'alpha', buildGraphImpl: noScan }), /projectOnly.*boolean/);
+  }
+});
+
+test('project-only skips index generation altogether and keeps one graph and roadmap snapshot', t => {
+  const root = fixture(t);
+  // If regenerateIndex runs, it tries to read this directory as a file and fails.
+  mkdirSync(join(root, 'index.md'));
+  let builds = 0;
+  const result = refreshCatalogs(root, { project: 'alpha', projectOnly: true, apply: true,
+    buildGraphImpl: p => { builds++; return buildGraph(p); }, now: NOW });
+  assert.equal(result.projectOnly, true);
+  assert.equal(builds, 1);
+  assert.deepEqual(result.changed, ['wiki/authored/alpha/roadmap.md', 'moc/alpha.md']);
+  assert.match(readFileSync(join(root, 'moc/alpha.md'), 'utf8'), /## Roadmap\n- \[\[roadmap\]\]/);
+  assert.match(readFileSync(join(root, 'moc/alpha.md'), 'utf8'), /wiki\/authored\/alpha\/shared\|shared/);
+  assert.ok(statSync(join(root, 'index.md')).isDirectory());
+  assert.ok(!existsSync(join(root, 'moc/beta.md')));
+});
+
+test('project-only false preserves default generation and reports its default', t => {
+  const a = fixture(t), b = fixture(t);
+  const normal = refreshCatalogs(a, { project: 'alpha', apply: true, now: NOW });
+  const explicit = refreshCatalogs(b, { project: 'alpha', projectOnly: false, apply: true, now: NOW });
+  assert.equal(normal.projectOnly, false);
+  assert.equal(explicit.projectOnly, false);
+  assert.deepEqual(normal.changed, explicit.changed);
+  assert.ok(normal.changed.includes('index.md'));
+  for (const path of normal.changed) assert.equal(readFileSync(join(a, path), 'utf8'), readFileSync(join(b, path), 'utf8'));
+});
+
+test('project-only accepts nested exact selectors and no eligible output is a no-op', t => {
+  const root = fixture(t);
+  mkdirSync(join(root, 'wiki/authored/alpha/nested'), { recursive: true });
+  writeFileSync(join(root, 'wiki/authored/alpha/nested/overview.md'), '---\ntype: authored\nproject: alpha/nested\nkind: overview\nsources: []\n---\n# Nested\n');
+  writeFileSync(join(root, 'wiki/authored/alpha/nested/details.md'), '---\ntype: authored\nproject: alpha/nested\nkind: note\nsources: []\n---\n# Details\n');
+  const nested = refreshCatalogs(root, { project: 'alpha/nested', projectOnly: true, apply: true });
+  assert.deepEqual(nested.changed, ['moc/alpha-nested.md']);
+  assert.ok(!existsSync(join(root, 'moc/alpha.md')));
+  assert.deepEqual(refreshCatalogs(root, { project: 'absent', projectOnly: true, apply: true }).changed, []);
+  assert.ok(!existsSync(join(root, 'index.md')));
+});
