@@ -8,19 +8,37 @@ initialize a guessed directory or create a Git repository/remote just to publish
 ## Preflight existing files
 
 Inspect the intended root's existing `AGENTS.md`, schema, index and `_templates/`.
-`init.mjs` preserves existing root index/schema/base files, but its recursive
-template copy can overwrite same-named files under `_templates/`. Its generic
-“existing files are kept” help is not a guarantee for customized templates.
+The corrected source initializer creates missing ordinary files exclusively,
+including nested `_templates/` files and root starter documents. Existing
+customized, identical and user-only files keep their bytes and modification
+times. A competing ordinary file created at the destination is also preserved.
+It reports sorted `created:`, `preserved:` and `differing:` paths without printing
+contents. A differing ordinary file is a successful skip, not an error.
 
-For a new root or one with no template collisions, continue. If templates already
-exist, compare them against the installed `templates/_templates/` before running
-init. Identical collisions are safe; differing/customized collisions require a
-non-overwriting plan. Do not run init over those templates or temporarily move
-them out of the way merely to restore them later. Report the exact collisions
-and preserve them; if the request authorizes completing the partial scaffold,
-create only missing folders/files from the bundled templates under the same
-operation, leaving every existing file unchanged. Record those exact new paths.
-Do not claim that the helper provided an overwrite-safe mode; it has none.
+Linked source/destination roots or descendants and file/directory conflicts are
+obstructions. The initializer does not follow or replace them. An I/O failure or
+obstruction exits nonzero and reports blocked paths and any partial creation.
+Successful new files remain. An `incomplete:` file may contain partial data;
+inspect it before any further authorized recovery. A retry adds missing files
+but preserves that existing partial file too. There is no reset, migration or
+overwrite mode.
+
+### Older installed releases
+
+This behavior is a source change after 0.89.0; it does not update an installed
+plugin cache or establish a released version. Verify the actual installed helper
+before relying on it. In 0.89.0 and earlier, the recursive template copy can
+overwrite same-named files even though help says existing files are kept.
+
+For those older helpers, compare existing templates with the installed
+`templates/_templates/` before running init. With no collisions, continue;
+identical collisions retain content but the old copy does not promise preserved
+modification times. For differing/customized collisions, do not run old init or
+temporarily move templates aside. Report the paths and preserve them. If the
+request authorizes completing the partial scaffold, create only missing
+folders/files with exclusive creation under the same operation, leaving every
+existing file unchanged, and record the exact new paths. This is a workaround,
+not an overwrite-safe option in the older helper.
 
 ## Initialize and verify
 
@@ -28,10 +46,12 @@ Do not claim that the helper provided an overwrite-safe mode; it has none.
    `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink`.
    The fresh-vault exception allows its state directory to exist before the other
    folders. Retain the token and owned-path ledger.
-2. With no differing template collisions, run
-   `node "<absolute-plugin-root>/scripts/init.mjs"`. If authorized to complete a
-   partial scaffold with customized collisions, use the missing-only copy path
-   described above **instead of running init**, and preserve every existing file.
+2. With the corrected helper, run
+   `node "<absolute-plugin-root>/scripts/init.mjs"`; existing customized templates
+   need no special mode. For an older installed helper, follow the preflight and
+   missing-only workaround above instead. Inspect the exit status and path report;
+   a failure is not a completed scaffold. Account for retained new and incomplete
+   files before retrying or closing the operation.
    **`init.mjs` does not record an operation ledger.** Compare the preflight file
    list with the resulting files, then explicitly record every newly written file:
 
@@ -67,4 +87,5 @@ Do not claim that the helper provided an overwrite-safe mode; it has none.
 
 **Done:** expected files exist, prior content is preserved, the initialization
 operation is accounted for and publication/local-only state is explicit. If
-customized template collisions prevent safe progress, report them without mutation.
+an obstruction or partial write prevents completion, report the affected paths
+and retained creations explicitly; preserve existing content.

@@ -1,5 +1,5 @@
-import { mkdirSync, existsSync, copyFileSync, writeFileSync, cpSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, lstatSync, readdirSync, readFileSync, openSync, closeSync, writeFileSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
 import { extractionAvailable } from './clip.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
@@ -10,30 +10,98 @@ cliGuard(import.meta.url);
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
               'wiki/syntheses', 'wiki/authored', 'moc', 'log', '_templates', '.wiki-master'];
 
-function writeIfAbsent(path, content) {
-  if (!existsSync(path)) writeFileSync(path, content);
+export function scaffold(vaultPath, templatesDir) {
+  vaultPath = resolve(vaultPath);
+  templatesDir = resolve(templatesDir);
+  const report = { created: [], preserved: [], differing: [], incomplete: [], errors: [] };
+  const stat = path => {
+    try { return lstatSync(path); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  };
+  // Reject links at and within the supplied root. Ancestors above it may be
+  // platform aliases (for example /var on macOS), outside the scaffold boundary.
+  function directory(path, root, create = false) {
+    if (path !== root) directory(dirname(path), root, create);
+    let entry = stat(path);
+    if (!entry && create) {
+      try { mkdirSync(path, { recursive: path === root }); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+      entry = stat(path);
+    }
+    if (!entry || entry.isSymbolicLink() || !entry.isDirectory()) {
+      throw Object.assign(new Error('directory missing, linked or obstructed'), { code: 'OBSTRUCTION' });
+    }
+  }
+  function attempt(path, action) {
+    try { action(); }
+    catch (error) { report.errors.push({ path, code: error.code || 'IO', reason: error.code === 'OBSTRUCTION' ? error.message : 'I/O failure' }); }
+  }
+  function writeMissing(path, content) {
+    const destination = join(vaultPath, path);
+    directory(dirname(destination), vaultPath);
+    let fd;
+    try { fd = openSync(destination, 'wx'); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const entry = lstatSync(destination);
+      if (entry.isSymbolicLink() || !entry.isFile()) {
+        throw Object.assign(new Error('existing destination is not an ordinary file'), { code: 'OBSTRUCTION' });
+      }
+      report.preserved.push(path);
+      if (!readFileSync(destination).equals(Buffer.from(content))) report.differing.push(path);
+      return;
+    }
+    try {
+      writeFileSync(fd, content);
+      closeSync(fd);
+      fd = undefined;
+      report.created.push(path);
+    } catch (error) {
+      report.incomplete.push(path);
+      throw error;
+    } finally { if (fd !== undefined) closeSync(fd); }
+  }
+  function copyMissing(path) {
+    const source = join(templatesDir, path);
+    directory(dirname(source), templatesDir);
+    const entry = lstatSync(source);
+    if (entry.isSymbolicLink()) throw Object.assign(new Error('source link is not followed'), { code: 'OBSTRUCTION' });
+    if (entry.isDirectory()) {
+      directory(join(vaultPath, path), vaultPath, true);
+      for (const name of readdirSync(source).sort()) attempt(`${path}/${name}`, () => copyMissing(`${path}/${name}`));
+    } else if (entry.isFile()) writeMissing(path, readFileSync(source));
+    else throw Object.assign(new Error('source is not an ordinary file or directory'), { code: 'OBSTRUCTION' });
+  }
+  for (const d of DIRS) attempt(d, () => directory(join(vaultPath, d), vaultPath, true));
+  attempt('index.md', () => writeMissing('index.md',
+    '---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n'));
+  attempt('log.md', () => writeMissing('log.md',
+    '# Log\n\nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.\n'));
+  attempt('.gitignore', () => writeMissing('.gitignore', '.wiki-master/\n'));
+  for (const path of ['vault-schema.md', 'stale.base', 'log.base', '_templates']) attempt(path, () => copyMissing(path));
+  for (const key of ['created', 'preserved', 'differing', 'incomplete']) report[key].sort();
+  report.errors.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  if (report.errors.length) throw Object.assign(new Error('Scaffold incomplete; existing content was preserved.'), { report });
+  return report;
 }
 
-export function scaffold(vaultPath, templatesDir) {
-  for (const d of DIRS) mkdirSync(join(vaultPath, d), { recursive: true });
-  writeIfAbsent(join(vaultPath, 'index.md'),
-    '---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n');
-  writeIfAbsent(join(vaultPath, 'log.md'),
-    '# Log\n\nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.\n');
-  writeIfAbsent(join(vaultPath, '.gitignore'), '.wiki-master/\n');
-  if (!existsSync(join(vaultPath, 'vault-schema.md')))
-    copyFileSync(join(templatesDir, 'vault-schema.md'), join(vaultPath, 'vault-schema.md'));
-  if (!existsSync(join(vaultPath, 'stale.base')))
-    copyFileSync(join(templatesDir, 'stale.base'), join(vaultPath, 'stale.base'));
-  if (!existsSync(join(vaultPath, 'log.base')))
-    copyFileSync(join(templatesDir, 'log.base'), join(vaultPath, 'log.base'));
-  cpSync(join(templatesDir, '_templates'), join(vaultPath, '_templates'), { recursive: true });
+function printReport(report) {
+  for (const key of ['created', 'preserved', 'differing', 'incomplete']) {
+    for (const path of report[key]) console.log(`${key}: ${path}`);
+  }
+  for (const error of report.errors) console.error(`blocked: ${error.path} (${error.code}: ${error.reason})`);
 }
 
 export function main() {
   const { path, name } = resolveVault();
   const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
-  scaffold(path, templatesDir);
+  try { printReport(scaffold(path, templatesDir)); }
+  catch (error) {
+    if (!error.report) throw error;
+    printReport(error.report);
+    console.error('Scaffold incomplete. Created files remain; incomplete files may contain partial data. Existing files were kept.');
+    process.exitCode = 1;
+    return;
+  }
   console.log(`Scaffolded vault at: ${path}`);
   console.log(`\nOne-time setup:`);
   console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
@@ -48,6 +116,8 @@ const USAGE = [
   'usage: node scripts/init.mjs',
   '',
   'Scaffolds a vault (folders, schema, templates, bases) at the vault path. Existing files are kept.',
+  'Reports created, preserved and differing paths without file contents. Links and type conflicts are errors.',
+  'On failure, exits nonzero and reports partial creation; retry adds remaining missing files.',
   'Takes no options.',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
 ].join('\n');
