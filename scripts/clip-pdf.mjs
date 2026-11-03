@@ -13,11 +13,12 @@ import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import {
-  parseFigureArgs, renderFigures, resolveFigureTools, setClippingFigures, figureSummary,
-  frontmatterOf, fmScalar, POPPLER_HINT, writtenFigurePaths,
+  parseFigureArgs, renderFigures, setClippingFigures, figureSummary,
+  frontmatterOf, fmScalar, writtenFigurePaths,
 } from './lib/pdf-figures.mjs';
 import { writtenRecorder } from './lib/op-ledger.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
+import { diagnosePdf, formatPdfDoctor } from './lib/pdf-doctor.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -463,14 +464,14 @@ export function main(argv) {
   // silently downgrades what a clipping can ever be, and the downgrade is
   // invisible in the output -- so it has to be loud at the top, not inferred
   // later from a clipping that merely looks thin.
-  const deps = toolchainReport();
   if (argv.includes('--doctor')) {
-    console.log(deps.ok ? 'clip-pdf toolchain: OK (pdftotext +table, pdftoppm, tesseract)' : deps.lines.join('\n'));
-    const ft = resolveFigureTools();
-    const missingFig = ['pdftoppm', 'pdfimages', 'pdftocairo', 'pdfinfo'].filter((n) => !ft[n]);
-    console.log(missingFig.length ? `figures (--figures): missing ${missingFig.join(', ')}. ${POPPLER_HINT}` : 'figures (--figures): OK (pdftoppm, pdfimages, pdftocairo, pdfinfo)');
-    return { status: 'doctor', ok: deps.ok, missing: deps.missing };
+    return diagnosePdf().then(report => {
+      console.log(formatPdfDoctor(report));
+      if (report.cleanup.outcome !== 'passed') process.exitCode = 1;
+      return report;
+    });
   }
+  const deps = toolchainReport();
   if (!deps.ok) {
     console.error('');
     console.error('=========================== clip-pdf toolchain ===========================');
@@ -615,5 +616,5 @@ export function main(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   guardClipArgs(process.argv.slice(2), CLIP_SPECS['clip-pdf']);
-  main(process.argv.slice(2));
+  await main(process.argv.slice(2));
 }

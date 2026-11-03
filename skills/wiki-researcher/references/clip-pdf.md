@@ -90,7 +90,7 @@ Extraction is tuned for academic PDFs:
 
 ## Steps
 
-1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#pdf) for this format. Missing tools or access never authorize invented evidence or automatic installation.
+1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#pdf) for this format. In corrected source, read `ocrRaster` and `figureRaster` separately from the legacy dependency summary and unchanged OCR version gate. A successful synthetic render does not verify recognition, table rows or automatic figure selection. Older installed releases only test presence. The diagnostic bounds launched native converters and traceable timeout descendants; it is not OS containment for deliberately daemonizing programs. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/`):
    `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely

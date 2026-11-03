@@ -56,15 +56,51 @@ Run the read-only toolchain probe before a PDF capture:
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs" --doctor
 ```
 
-It probes the external tools and reports what each missing tool costs; the
-clipper also reports degraded prerequisites on each capture. Missing `pdftotext`
+In the corrected source, doctor separates its legacy dependency-only summary
+from exercised rendering capabilities. It creates a small synthetic one-page
+PDF in an owned temporary directory and tests the actual OCR raster command
+(`pdftoppm -png -r 300`) and figure raster command
+(`pdftoppm -r 200 -png -f 1 -l 1 -singlefile`) in separate output directories.
+A `passed` raster result requires exit zero and a newly generated PNG with a
+valid signature/IHDR header and positive dimensions. This checks the
+representative contract, not arbitrary PDFs or a full PNG pixel decode.
+
+Read each outcome: `passed`, `missing`, `unusable`, `timeout`, `invalid-output`
+or `not-exercised`. The report includes invocation arguments, exit/signal and
+either an established executable identity or an explicit unresolved-identity
+limit. Version/help results are separate from rendering. In particular, a
+successful raster probe does not override the unchanged runtime OCR version
+gate: both `pdftoppm -v` and `tesseract --version` must succeed. Tesseract
+availability does not test recognition accuracy; advertised `-table` support
+does not verify table rows; figure rasterization does not test automatic figure
+selection or page counting.
+
+Doctor bounds each subprocess to five seconds and the combined subprocess time
+to thirty seconds, including version/help/resolver and termination helpers. It
+reserves half of each probe deadline for termination, so a converter may be
+stopped after about 2.5 seconds under the default five-second cap; the cap does
+not promise five seconds of converter execution or hard real-time scheduling. It
+bounds captured output, stops timed-out converter processes and traceable
+descendants, then removes its owned temporary files. This is native-converter
+supervision, not OS containment for programs that deliberately daemonize,
+detach/reparent children and exit. Unconfirmed termination retains the fixture
+and stops later probes; cleanup/termination failures are reported with a nonzero
+CLI exit. A completed diagnostic still exits zero when tools or capabilities are
+unavailable. It writes no vault content and installs nothing.
+
+The installed 0.89.0 release and earlier versions only probe tool presence;
+their “OK” listings do not establish either render contract. These corrected
+source instructions do not imply that an installed cache has been updated.
+
+The clipper also reports degraded prerequisites on each capture. Missing `pdftotext`
 is fatal. Xpdf is preferred because its `-table` mode preserves reconstructed
 row pairings; poppler lacks it. Missing `pdftoppm` or Tesseract prevents OCR of
 scanned pages. An `ocr-unavailable` result means the PDF was not read and creates
 no decline; a `thin` result means extraction and available OCR could not recover
 useful content and records a decline. Do not treat those outcomes alike.
 
-The clipper invokes tools through Node's `execFileSync`; use the bundled helper
+Normal clipping invokes tools through Node's `execFileSync`; doctor uses bounded
+asynchronous subprocesses. Use the bundled helper
 instead of a Bash invocation that may resolve Windows executables incorrectly.
 If an installation is authorized, the [Xpdf tools](https://www.xpdfreader.com/download.html)
 provide `-table`; OCR needs `pdftoppm` and Tesseract. Do not install them merely
@@ -82,8 +118,10 @@ Prepending an entire Xpdf tools directory to PATH can also shadow Poppler's
 `pdftoppm` and `pdfimages`. The figure helper requires `pdftoppm -png -singlefile`
 and `pdfimages -list`; OCR also requires `pdftoppm -png`. Select only the intended
 text converter, then verify the resolved render/probe tools support those flags.
-The doctor's executable-presence probes do not validate these capabilities: an
-“OK” tool listing alone does not establish successful OCR or figure extraction.
+Use the corrected doctor's separate raster outcomes to verify its two render
+contracts. With older installed releases, retain a bounded representative render
+check rather than relying on an “OK” tool listing. Neither route establishes OCR
+accuracy, table fidelity or automatic figure-selection coverage.
 
 ### Wrong reading mode or garbled text
 
