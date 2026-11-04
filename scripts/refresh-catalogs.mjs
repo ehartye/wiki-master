@@ -20,8 +20,11 @@ cliGuard(import.meta.url);
 function updateSnapshot(graph, outputs) {
   for (const { path, next } of outputs) {
     const { metadata } = parseNote(next);
-    const page = { ...metadata, path, name: basename(path, '.md').toLowerCase(), title: basename(path, '.md') };
+    const page = { ...metadata, path, name: basename(path, '.md').toLowerCase(), title: basename(path, '.md'), catalogMarkdown: next };
     const i = graph.pages.findIndex(p => p.path === path);
+    // A foreign tracked catalog keeps its committed metadata even when we
+    // update its fence: `next` preserves another writer's working frontmatter.
+    if (i >= 0 && graph.pages[i].catalogMarkdown !== undefined) continue;
     if (i < 0) graph.pages.push(page);
     else graph.pages[i] = { ...graph.pages[i], ...page };
   }
@@ -95,7 +98,8 @@ export function refreshCatalogs(vaultPath, { project, projectOnly = false, apply
   const started = performance.now();
   let graph = buildGraphImpl(vaultPath);
   let excluded = [];
-  if (ownedPaths !== undefined) ({ graph, excluded } = scopeGraph(vaultPath, graph, ownedPaths));
+  let snapshot = { policy: 'working-tree', head: null };
+  if (ownedPaths !== undefined) ({ graph, excluded, snapshot } = scopeGraph(vaultPath, graph, ownedPaths));
   const graphMs = performance.now() - started;
   const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now, excluded });
   updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
@@ -109,7 +113,7 @@ export function refreshCatalogs(vaultPath, { project, projectOnly = false, apply
     ...(index?.changed ? [{ path: 'index.md', previous: index.previous, next: index.next }] : []),
   ];
   return {
-    applied: apply, project: project ?? null, projectOnly, pages: graph.pages.length, graphBuilds: 1,
+    applied: apply, project: project ?? null, projectOnly, snapshot, pages: graph.pages.length, graphBuilds: 1,
     graphMs: Math.round(graphMs), elapsedMs: Math.round(performance.now() - started),
     changed: changedOutputs.map(o => o.path),
     projects: { backlog: backlog.written, moc: moc.written },

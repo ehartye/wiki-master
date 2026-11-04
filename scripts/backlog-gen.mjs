@@ -147,7 +147,7 @@ function commitFenced(path, next) {
 function headingsOf(vaultPath, items) {
   const titles = new Map();
   for (const p of items) {
-    try { const h = parseNote(readFileSync(join(vaultPath, ...p.path.split('/')), 'utf8')).body.match(/^#[ \t]+(.+?)[ \t]*$/m)?.[1]; if (h) titles.set(p.path, h); }
+    try { const h = parseNote(p.catalogMarkdown ?? readFileSync(join(vaultPath, ...p.path.split('/')), 'utf8')).body.match(/^#[ \t]+(.+?)[ \t]*$/m)?.[1]; if (h) titles.set(p.path, h); }
     catch { /* an unreadable item keeps its bare link */ }
   }
   return titles;
@@ -186,7 +186,8 @@ export function planBacklogRoadmaps(vaultPath, { project: selectedProject, graph
       if (kept.length) projectItems = [...groupItems, ...kept];
     }
     unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
-    const settings = existsSync(roadmapPath) ? parseNote(readFileSync(roadmapPath, 'utf8')).metadata : {};
+    const roadmapPage = pages.find(p => p.path === `wiki/authored/${project}/roadmap.md`);
+    const settings = existsSync(roadmapPath) ? parseNote(roadmapPage?.catalogMarkdown ?? readFileSync(roadmapPath, 'utf8')).metadata : {};
     const titles = settings['backlog-titles'] === 'true' ? headingsOf(vaultPath, projectItems) : undefined;
     const collapse = settings['backlog-shipped'] === 'collapse' && projectItems.some((p) => p.backlogStatus === 'shipped');
     const shippedPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap-shipped.md');
