@@ -5,8 +5,10 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
+import { CLIP_SPECS, guardClipArgs, checkClipArgs } from './lib/clip-args.mjs';
+import { selectionOptions, captureSelection } from './lib/github-selection.mjs';
+import { writtenRecorder, recordWritten } from './lib/op-ledger.mjs';
+import { optionValue } from './lib/cli-guard.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
@@ -618,7 +620,15 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
   };
 }
 
-export function main(argv) {
+export function main(argv, { readSelected } = {}) {
+  let selection;
+  try {
+    selection = selectionOptions(argv);
+    if (selection) {
+      const checked = checkClipArgs(argv, CLIP_SPECS['clip-gh']);
+      if (checked.error) throw new Error(checked.error);
+    }
+  } catch (e) { console.error(e.message); process.exitCode = 2; return { status: 'failed', error: e.message }; }
   const target = argv[0];
   if (!target || target === '--doctor') {
     if (target === '--doctor') {
@@ -673,6 +683,17 @@ export function main(argv) {
     if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
     console.log(gate.message);
     return { status: 'declined' };
+  }
+
+  if (selection) {
+    const token = optionValue(argv, 'since');
+    // Reserve the intended immutable path before wx creation. Ledger failure must stop this route.
+    const reserve = token === undefined ? () => {} : path => recordWritten(vaultPath, token, [path]);
+    const result = captureSelection({ owner, repo, selection, vaultPath, quality, topic, record: reserve, ...(readSelected ? { read: readSelected } : {}) });
+    console.log(JSON.stringify(result, null, 2));
+    if (result.status === 'clipped') gate.finish();
+    else process.exitCode = 1;
+    return result;
   }
 
   if (!ghReachable()) {

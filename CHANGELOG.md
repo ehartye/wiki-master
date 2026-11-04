@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.90.0 — 2026-11-04
+
+- Add opt-in clone-free GitHub capture with repeated exact `--path` selections and a shared `--readme-only` preset, preserving existing full/digest defaults.
+- Resolve one immutable commit, retain bounded root legal notices, verify Git blob and exact-byte hashes, and refuse unsafe, missing, binary, malformed or oversized selections before publishing.
+- Store immutable topic-aware captures and completion manifests in a separate namespace protected from legacy digest pruning; report per-file outcomes and partial-publication limits without overwriting user content.
+
 ## 0.89.3 — 2026-11-04
 
 - Read the optional Game Studio 0.4.1 orientation format without imposing required fields or approval gates; preserve deliberate legacy state/checkpoint compatibility.

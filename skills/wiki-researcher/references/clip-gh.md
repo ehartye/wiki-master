@@ -29,6 +29,71 @@ shapes depending on size:
 
 ## How it works
 
+### Explicit selected files (clone-free, opt-in)
+
+For a narrow source investigation, use repeated exact paths instead of changing the
+full/digest caps. The existing clone-based behavior remains the default.
+
+```sh
+node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=<branch-tag-or-full-commit-sha> --path=package.json --path=package-lock.json --path=vite.config.js --path=test/component.test.js --topic="Build contract review" --since=<operation-token>
+node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=main --readme-only --topic="Repository introduction" --since=<operation-token>
+```
+
+The authenticated `gh api` route fixes the host to github.com, resolves the requested
+ref (default HEAD) once, and reads nonrecursive Git trees and only the selected Git
+blobs at that immutable commit. It does not clone, install dependencies, execute source
+or fetch unrelated file bodies. A directory with too much metadata is refused rather
+than silently truncated. Private repositories use existing authorized GitHub CLI access.
+
+`--readme-only` is a preset of the same pipeline: choose a root README in deterministic
+order `.md`, `.markdown`, `.rst`, `.txt`, then extensionless (case-insensitive matching,
+lexical tie-break). No supported README means no clippings. Both selections also retain
+root LICENSE/LICENCE, NOTICE and COPYING files with dot/dash suffixes, up to eight.
+Overflow or an unsuitable notice refuses the selection; this bounded root coverage is
+not a complete license analysis. The preset writes the README, any root notices and a
+selection manifest, rather than exactly one output document.
+
+Limits: 32 explicitly requested paths, depth 16 and path length 512; 256 KiB per file
+and 8 MiB total; 4,096 entries per visited tree; 128 API requests and a 90-second request
+budget, with at most 30 seconds per process and 2 MiB stdout per response. No globs,
+directories, symlinks, submodules, backslashes, colons or dot/empty path segments.
+Missing, binary/control-byte or invalid UTF-8 content is refused. Explicit selections
+may include lockfiles or short configs normally excluded/thin in full capture.
+Unknown flags and conflicting full/digest controls are rejected before capture.
+
+All files are fetched and validated before publication. A preflight refusal/failure
+writes no clippings, with per-path diagnostics. Each body records a commit-pinned blob
+URL, Git blob SHA-1, exact source-byte SHA-256 (`supplied-sha256`), byte count, topic and
+the separate rendered `source-hash`. CRLF/outer whitespace can normalize in the rendered
+clipping; byte provenance remains explicit. Non-Markdown content uses a fence longer
+than any backtick run in the source.
+
+Immutable outputs live in `raw/clippings/gh-selected/<owner>/<repo>/`, separate from
+legacy digest pruning. Identity includes source commit/path, content/provenance, quality
+and topic. Repeats verify existing bodies and report `unchanged`; edits/collisions are
+refused, never overwritten. Existing raw captures and listings are not renamed or pruned.
+The JSON result distinguishes selected/prepared, refused, failed, clipped and unchanged
+files; `selected` includes requested files plus deduplicated root notices. The canonical
+selection manifest lists that exact scope, hashes and file destinations, without claiming
+a complete repository inventory. It is published last and is itself immutable/deduplicated.
+
+A disk error, interruption or concurrent conflicting writer can still leave a partially
+published selection of complete immutable files. Each body is written/flushed in an owned
+hidden staging directory, then published with an atomic no-clobber hard link on the same
+volume. Filesystems without hard-link support refuse; there is no overwrite/copy fallback.
+Incomplete staged bytes never become a destination. A process killed before cleanup may
+leave its hidden stage; cleanup errors are reported separately. Preserve completed files,
+inspect the result/ledger and retry the identical selection;
+do not infer completion without a matching manifest. Only successful completion finishes
+an authorized decline override. With `--since`, the selected route strictly reserves each
+new destination in the operation ledger before exclusive creation; a ledger failure stops
+before that file is written. Resume the same operation after interruption. Verified unchanged
+files are not adopted into a different operation. Reservation is not a cross-process lock;
+inspect a collision and the planned ledger scope before committing a failed run. Do not
+combine selection with `--decline`; record a decline separately.
+
+### Default repository capture
+
 `clip-gh.mjs` shells out to the **`gh` CLI** (`gh repo clone owner/repo <tmp>
 -- --depth 1`), so cloning transparently uses the user's existing `gh auth`
 session — private repos the user can already see on the command line work
