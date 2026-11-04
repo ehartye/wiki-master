@@ -110,6 +110,16 @@ test('manifest ledger failure precedes creation; same-operation retry retains ex
   assert.equal(r.status,'failed');assert.equal(r.clipped,6);assert.equal(r.manifestWritten,false);assert.equal(r.partial,true);assert.equal(readWritten(f.vaultPath,token).length,6);assert.equal(files(r.outDir).length,6);
   const again=captureSelection({...f.options,record:reserve});assert.equal(again.status,'clipped');assert.equal(again.unchanged,6);assert.equal(again.manifestWritten,true);assert.equal(readWritten(f.vaultPath,token).length,7);
 });
+
+test('a symlinked vault root preserves caller-relative ledger ownership',t=>{
+  const f=fixture(t),alias=f.vaultPath+'-alias',token='abcdef1234567890';
+  symlinkSync(f.vaultPath,alias,process.platform==='win32'?'junction':'dir');
+  t.after(()=>rmSync(alias,{recursive:true,force:true}));
+  const ops=join(alias,'.wiki-master','ops');mkdirSync(ops,{recursive:true});writeFileSync(join(ops,token+'.json'),'{}');
+  const r=captureSelection({...f.options,vaultPath:alias,record:path=>recordWritten(alias,token,[path])});
+  assert.equal(r.status,'clipped',r.error);assert.equal(r.clipped,6);assert.equal(readWritten(alias,token).length,7);
+  assert.equal(r.outDir,join(alias,'raw','clippings','gh-selected','owner','repo'));
+});
 test('strict ledger refusal creates no raw files and does not adopt unchanged evidence',t=>{
   const f=fixture(t),r=captureSelection({...f.options,record(){throw Error('closed operation');}});assert.equal(r.clipped,0);assert.equal(r.failed,1);assert.deepEqual(files(r.outDir),[]);
   const a=captureSelection(f.options);let records=0;const again=captureSelection({...f.options,record(){records++;}});assert.equal(again.unchanged,6);assert.equal(records,0);assert.equal(again.manifestWritten,false);

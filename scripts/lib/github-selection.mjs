@@ -134,7 +134,9 @@ function clipping(file, options) {
 }
 
 function safeDirectory(vault, segments) {
-  const root = realpathSync(vault); let current = root;
+  // Validate against the real root, but retain the caller's spelling for ledger paths
+  // (for example macOS /var -> /private/var). Child links remain forbidden.
+  const root = realpathSync(vault); let current = resolve(vault);
   for (const segment of segments) {
     current = join(current, segment);
     try { mkdirSync(current); } catch (e) { if (e.code !== 'EEXIST') throw e; }
