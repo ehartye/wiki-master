@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.89.3 — 2026-11-04
+
+- Read the optional Game Studio 0.4.1 orientation format without imposing required fields or approval gates; preserve deliberate legacy state/checkpoint compatibility.
+- Render readable wiki links and owner labels, distinguish unverified from stale artifacts, and expose malformed-page/table limits without inventing state.
+- Cover the current upstream template, historical pages, missing/partial/malformed inputs and read-only CLI behavior.
+
 ## 0.89.2 — 2026-11-04
 
 - Preserve recognized image-equation alternative text as literal inline code, including legacy uppercase LaTeX2HTML attributes. Retain punctuation, case and repeated occurrences in source order.
