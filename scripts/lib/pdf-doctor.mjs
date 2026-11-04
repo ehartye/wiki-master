@@ -5,19 +5,23 @@ import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
 import { pdftotextCapabilities, dependencyReport } from './pdf-extract.mjs';
 import { resolveFigureTools } from './pdf-figures.mjs';
+import { reapProbeDescendants } from './posix-probe-cleanup.mjs';
 
 const OUTPUT_LIMIT = 64 * 1024;
 // Reserve time inside each probe deadline for terminating its tree. On Windows,
 // taskkill must see the live parent to find even detached descendants. POSIX
 // probes own a process group; a bounded descendant snapshot also catches a
 // child that has detached into another group before termination.
-function runOwnedProcess(command, args, options) {
+export function runOwnedProcess(command, args, options, {
+  spawnProcess = spawn, stopDescendants = reapProbeDescendants,
+  platform = process.platform, killGroup = pid => process.kill(-pid, 'SIGKILL'),
+} = {}) {
   return new Promise(resolve => {
     const started = performance.now();
     // Tree enumeration can be slower than the converter under concurrent load.
     // Keep half the same deadline for termination rather than extending it.
     const reserve = Math.max(50, Math.floor(options.timeout / 2));
-    let child, timer, hardTimer, error, termination, finished = false;
+    let child, timer, hardTimer, error, termination, stopping, closed, rootExited = false, finished = false;
     const chunks = { stdout: [], stderr: [] }, sizes = { stdout: 0, stderr: 0 };
     const finish = (status, signal) => {
       if (finished) return; finished = true; clearTimeout(timer); clearTimeout(hardTimer);
@@ -25,11 +29,13 @@ function runOwnedProcess(command, args, options) {
         stdout: Buffer.concat(chunks.stdout).toString('utf8'), stderr: Buffer.concat(chunks.stderr).toString('utf8') });
     };
     const stop = code => {
-      if (error) return;
+      if (error || finished) return;
       error = { code };
+      stopping = Promise.resolve().then(async () => {
+      if (finished) return;
       const remaining = Math.max(1, Math.floor(options.timeout - (performance.now() - started)));
-      if (child?.pid) {
-        if (process.platform === 'win32') {
+      if (child?.pid && !rootExited) {
+        if (platform === 'win32') {
           const taskkill = join(process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows', 'System32', 'taskkill.exe');
           const killed = spawnSync(taskkill, ['/PID', String(child.pid), '/T', '/F'], {
             timeout: remaining, killSignal: 'SIGKILL', maxBuffer: OUTPUT_LIMIT,
@@ -37,30 +43,23 @@ function runOwnedProcess(command, args, options) {
           });
           termination = { method: 'taskkill /T /F', outcome: killed.status === 0 ? 'passed' : 'unusable', status: killed.status, code: killed.error?.code ?? null };
         } else {
-          const snapshot = spawnSync('/bin/ps', ['-eo', 'pid=,ppid='], {
-            timeout: remaining, killSignal: 'SIGKILL', maxBuffer: OUTPUT_LIMIT,
-            encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+          const reaped = await stopDescendants(child.pid, {
+            deadline: started + options.timeout - Math.min(100, reserve / 2),
+            isRootOpen: () => !rootExited && !finished,
           });
-          const descendants = [];
-          if (snapshot.status === 0) {
-            const rows = snapshot.stdout.trim().split('\n').map(line => line.trim().split(/\s+/).map(Number));
-            const visit = parent => {
-              for (const [pid, ppid] of rows) if (ppid === parent && pid !== parent) { visit(pid); descendants.push(pid); }
-            };
-            visit(child.pid);
-          }
-          termination = { method: 'descendant and process-group SIGKILL', outcome: snapshot.status === 0 ? 'passed' : 'unusable', code: snapshot.error?.code ?? null };
-          for (const pid of descendants) {
-            try { process.kill(pid, 'SIGKILL'); }
+          if (finished) return;
+          termination = { method: 'leaf reaping then process-group SIGKILL', ...reaped };
+          if (!rootExited) {
+            try { killGroup(child.pid); }
             catch (e) { if (e.code !== 'ESRCH') termination = { ...termination, outcome: 'unusable', code: e.code }; }
           }
-          try { process.kill(-child.pid, 'SIGKILL'); }
-          catch (e) { if (e.code !== 'ESRCH') termination = { ...termination, outcome: 'unusable', code: e.code }; }
         }
-        if (termination.outcome !== 'passed') child.kill('SIGKILL');
-      }
+        if (termination.outcome !== 'passed' && !rootExited) child.kill('SIGKILL');
+      } else termination = { outcome: 'unusable', reason: 'owned root exited before tree cleanup began' };
+      }).catch(e => { termination = { outcome: 'unusable', reason: e.message }; if (!rootExited && !finished) child?.kill('SIGKILL'); })
+        .finally(() => { stopping = null; if (closed && !finished) finish(...closed); });
     };
-    try { child = spawn(command, args, { windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] }); }
+    try { child = spawnProcess(command, args, { windowsHide: true, detached: platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] }); }
     catch (e) { error = e; finish(null, null); return; }
     for (const stream of ['stdout', 'stderr']) child[stream].on('data', chunk => {
       const available = Math.max(0, OUTPUT_LIMIT - sizes[stream]);
@@ -69,12 +68,14 @@ function runOwnedProcess(command, args, options) {
       if (sizes.stdout + sizes.stderr > OUTPUT_LIMIT) stop('ENOBUFS');
     });
     child.on('error', e => { error = e; });
-    child.on('close', (status, signal) => finish(status, signal));
+    child.on('exit', () => { rootExited = true; });
+    child.on('close', (status, signal) => { rootExited = true; closed = [status, signal]; if (!stopping) finish(status, signal); });
     timer = setTimeout(() => stop('ETIMEDOUT'), Math.max(1, options.timeout - reserve));
     hardTimer = setTimeout(() => {
       stop('ETIMEDOUT');
       // A failed tree termination is explicit, and forbids fixture deletion.
       termination = { ...(termination || {}), outcome: 'unusable', reason: 'process closure not confirmed within deadline' };
+      if (!rootExited) child.kill('SIGKILL');
       child.stdout.destroy(); child.stderr.destroy(); child.unref();
       finish(null, null);
     }, options.timeout);

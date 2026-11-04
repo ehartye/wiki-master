@@ -205,14 +205,14 @@ test('remaining budget shortens the next subprocess timeout', async t => {
 
 test('timeout terminates the owned process tree before returning', { timeout: 15000 }, async t => {
   const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
-  const root = mkdtempSync(join(tmpdir(), 'doctor-tree-')); t.after(() => rmSync(root, { recursive: true, force: true }));
-  const pidFile = join(root, 'child.pid'); let descendant;
-  try {
+  const root = mkdtempSync(join(tmpdir(), 'doctor-tree-')); let verified = false;
+  t.after(() => { if (verified) rmSync(root, { recursive: true, force: true }); else t.diagnostic(`unconfirmed cleanup evidence retained: ${root}`); });
+  const pidFile = join(root, 'child.pid');
     const script = `const {spawn}=require('node:child_process');const {writeFileSync}=require('node:fs');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});writeFileSync(process.argv[1],String(c.pid));setInterval(()=>{},1000);`;
     const started = performance.now();
     const result = await createProbeRunner()(process.execPath, ['-e', script, pidFile]);
     const elapsed = performance.now() - started;
-    descendant = Number(readFileSync(pidFile, 'utf8'));
+    const descendant = Number(readFileSync(pidFile, 'utf8'));
     assert.equal(result.outcome, 'timeout');
     assert.equal(result.termination?.outcome, 'passed', JSON.stringify({ termination: result.termination, elapsed }));
     assert.ok(elapsed < 6000, `five-second internal deadline plus scheduler overhead: ${elapsed}ms`);
@@ -221,7 +221,7 @@ test('timeout terminates the owned process tree before returning', { timeout: 15
       catch (error) { t.diagnostic(`descendant status unavailable: ${error.code}`); }
     }
     assert.throws(() => process.kill(descendant, 0), /ESRCH|EINVAL/, 'descendant must not survive');
-  } finally { if (descendant) { try { process.kill(descendant, 'SIGKILL'); } catch {} } }
+    verified = true;
 });
 
 test('unconfirmed termination stops subsequent processes and retains the owned fixture', async t => {
@@ -235,4 +235,55 @@ test('unconfirmed termination stops subsequent processes and retains the owned f
   assert.equal(result.capabilities.ocrRaster.outcome, 'not-exercised');
   assert.equal(result.cleanup.outcome, 'not-exercised');
   assert.equal(readdirSync(root).length, 1);
+});
+
+test('direct-child close waits for descendant verification after output overflow', async () => {
+  const { runOwnedProcess } = await import('../scripts/lib/pdf-doctor.mjs');
+  const child = new EventEmitter(); Object.assign(child,{pid:42,stdout:new PassThrough(),stderr:new PassThrough(),kill(){throw Error('closed child must not be signalled');},unref(){}});
+  let release, entered, finished=false, groups=0;
+  const ready=new Promise(resolve=>{entered=resolve;});
+  const result=runOwnedProcess('fixture',[],{timeout:1000},{platform:'linux',spawnProcess:()=>child,killGroup(){groups++;},stopDescendants:async()=>{
+    child.emit('close',null,'SIGKILL');entered();await new Promise(resolve=>{release=resolve;});
+    return {outcome:'unusable',reason:'owned root closed during verification'};
+  }}).then(value=>{finished=true;return value;});
+  child.stdout.write(Buffer.alloc(65537)); await ready;
+  await new Promise(resolve=>setTimeout(resolve,20));assert.equal(finished,false);
+  release();const value=await result;assert.equal(value.error.code,'ENOBUFS');assert.equal(value.termination.outcome,'unusable');assert.equal(groups,0);
+});
+
+test('hard deadline stops pending verification and prevents late group signals', async () => {
+  const { runOwnedProcess } = await import('../scripts/lib/pdf-doctor.mjs');
+  const child = new EventEmitter();let kills=0,groups=0,release;
+  Object.assign(child,{pid:42,stdout:new PassThrough(),stderr:new PassThrough(),kill(){kills++;},unref(){}});
+  const result=runOwnedProcess('fixture',[],{timeout:100},{platform:'linux',spawnProcess:()=>child,killGroup(){groups++;},stopDescendants:()=>new Promise(resolve=>{release=resolve;})});
+  child.stdout.write(Buffer.alloc(65537));const value=await result;
+  assert.equal(value.termination.outcome,'unusable');assert.equal(kills,1);
+  release({outcome:'passed'});await new Promise(resolve=>setTimeout(resolve,10));assert.equal(groups,0);assert.equal(kills,1);
+});
+
+test('root exit with held stdio invalidates ownership before close', async () => {
+  const { runOwnedProcess } = await import('../scripts/lib/pdf-doctor.mjs');
+  const child = new EventEmitter();let groups=0;
+  Object.assign(child,{pid:42,stdout:new PassThrough(),stderr:new PassThrough(),kill(){throw Error('exited root must not be signalled');},unref(){}});
+  const result=runOwnedProcess('fixture',[],{timeout:1000},{platform:'linux',spawnProcess:()=>child,killGroup(){groups++;},stopDescendants:async(_pid,{isRootOpen})=>{
+    child.emit('exit',0,null);assert.equal(isRootOpen(),false);
+    setTimeout(()=>child.emit('close',0,null),20);
+    return {outcome:'unusable',reason:'root exited with pipes still held'};
+  }});
+  child.stdout.write(Buffer.alloc(65537));assert.equal((await result).termination.outcome,'unusable');assert.equal(groups,0);
+});
+
+test('multilevel detached descendants are reaped while an unrelated sentinel stays alive', {timeout:15000}, async t=>{
+  const { createProbeRunner }=await import('../scripts/lib/pdf-doctor.mjs');
+  const root=mkdtempSync(join(tmpdir(),'doctor-levels-'));let verified=false;
+  t.after(()=>{if(verified)rmSync(root,{recursive:true,force:true});else t.diagnostic(`unconfirmed cleanup evidence retained: ${root}`);});
+  const sentinel=childProcess.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore',windowsHide:true});
+  t.after(async()=>{if(sentinel.exitCode===null&&sentinel.signalCode===null){const closed=new Promise(resolve=>sentinel.once('close',resolve));sentinel.kill('SIGKILL');await closed;}});
+  const pidFile=join(root,'pids.json');
+  const middle=`const {spawn}=require('node:child_process');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});require('node:fs').writeFileSync(process.argv[1],JSON.stringify([process.pid,c.pid]));setInterval(()=>{},1000);`;
+  const outer=`require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(middle)},process.argv[1]],{detached:true,stdio:'ignore'});setInterval(()=>{},1000);`;
+  const result=await createProbeRunner()(process.execPath,['-e',outer,pidFile]);
+  assert.equal(result.termination?.outcome,'passed',JSON.stringify(result.termination));
+  for(const pid of JSON.parse(readFileSync(pidFile,'utf8')))assert.throws(()=>process.kill(pid,0),/ESRCH|EINVAL/);
+  assert.equal(sentinel.exitCode,null);assert.equal(sentinel.signalCode,null);assert.doesNotThrow(()=>process.kill(sentinel.pid,0));verified=true;
 });

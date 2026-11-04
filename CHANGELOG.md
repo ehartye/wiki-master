@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.90.1 — 2026-11-04
+
+- Reap POSIX PDF doctor descendants leaf-first while their parents remain alive, and verify disappearance before reporting cleanup success. Keep the existing deadline and retain fixtures when cleanup is uncertain.
+- Track root exit separately from pipe closure, preserve reparented process identity, and prevent delayed signals after ownership ends. Normal clipping behavior is unchanged.
+- Add multilevel/sentinel, deadline, output-overflow and ownership regressions, plus a deterministic Linux subreaper CI check that catches orphaned zombies without weakening PID-absence assertions.
+
 ## 0.90.0 — 2026-11-04
 
 - Add opt-in clone-free GitHub capture with repeated exact `--path` selections and a shared `--readme-only` preset, preserving existing full/digest defaults.
