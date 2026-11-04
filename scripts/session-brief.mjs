@@ -16,9 +16,10 @@ import { openOperationsLine } from './lib/open-operations.mjs';
 const USAGE = [
   'usage: node scripts/session-brief.mjs [--project <slug>] [--repo <dir>] [--stale-days <n>] [--json]',
   '',
-  'Finds the wiki project this repository belongs to and prints its state page in three lines (phase and tier, next',
-  'step, blocked by), then the artifacts not verified for more than --stale-days days (default 30), the blocked',
-  'backlog items, and the open questions past their gate.',
+  'Finds the wiki project this repository belongs to and reads its optional reference/studio-state.md orientation:',
+  'current focus, relevant records, dependencies and recent decisions. Historical state pages remain supported;',
+  'legacy gate annotations are advisory, never approval requirements. Undated artifacts are unverified, not stale.',
+  'Dated artifacts older than --stale-days days (default 30) and blocked backlog items are listed separately.',
   'The project is found from the repository: its `origin` remote or its folder name must match a `repo:` line on the',
   'project\'s overview page (wiki/authored/<project>/overview.md). --project names it directly.',
   'It exits 1 when no project, or more than one, matches, and 2 for bad input. It writes nothing.',

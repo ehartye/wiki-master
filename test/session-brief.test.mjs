@@ -121,6 +121,102 @@ test('"No open questions." is no questions, and an empty required field is named
 });
 
 const TODAY = new Date('2026-10-26T12:00:00Z');
+// Verbatim public template at agent-game-studio 0.4.1, source 463d4e99410f431980b48837b58aa54ee13b8802.
+const ORIENTATION_TEMPLATE = readFileSync(new URL('./fixtures/studio-orientation-0.4.1.md', import.meta.url), 'utf8');
+const ORIENTATION_PAGE = ORIENTATION_TEMPLATE
+  .replace('<goal, current work and useful next action>', 'Finish [[wiki/authored/demo/decisions/stack.md|stack decision]] and [[backlog/slice.md]].')
+  .replace('| <record> | <link> | <person or role, if useful> | <uncertainty or date checked> |', '| Stack | [[decisions/stack.md|Stack decision]] | owner | Last discussed 2020-01-01; build unverified |')
+  .replace('<real obstacles or uncertainty; no compulsory readiness fields>', 'Audio format is unresolved.')
+  .replace('<links to actual decisions, not copied progress or invented approvals>', '[Renderer choice](decisions/renderer.md)');
+const fromPage = (page) => buildBrief({ state: parseStatePage(page), today: TODAY });
+const formatted = (b) => formatBrief({ project: 'demo', path: 'wiki/authored/demo', by: 'flag', brief: b });
+
+test('current optional orientation renders focus, records and uncertainty without legacy requirements', () => {
+  const b = fromPage(ORIENTATION_PAGE + '\n## Phase\nproduction\n## Open questions\n| Question | Owner | Must be answered by | Status |\n|---|---|---|---|\n| Historical | owner | G1 | open |');
+  assert.equal(b.schema, 'orientation');
+  assert.deepEqual(b.empty, []);
+  assert.deepEqual(b.report, ['Current focus: Finish stack decision and slice.', 'Dependencies and open questions: Audio format is unresolved.', 'Recent decisions: [Renderer choice](decisions/renderer.md)']);
+  assert.equal(b.records[0].path, '[[decisions/stack.md|Stack decision]]');
+  assert.deepEqual(b.stale, []);
+  assert.deepEqual(b.unverified, [], 'free-form notes never become verification dates');
+  assert.deepEqual(b.overdue, []);
+  assert.deepEqual(b.dueNext, []);
+  assert.match(formatted(b), /Stack decision/);
+  assert.doesNotMatch(formatted(b), /gate|incomplete|required|run studio-start/);
+});
+
+test('blank and partial orientation are optional, not incomplete', () => {
+  const blank = fromPage(ORIENTATION_TEMPLATE);
+  assert.deepEqual(blank.report, []);
+  assert.deepEqual(blank.records, []);
+  assert.match(formatted(blank), /No orientation details recorded/);
+  const partial = fromPage('## Current focus\nRead the existing source.');
+  assert.deepEqual(partial.report, ['Current focus: Read the existing source.']);
+  assert.doesNotMatch(formatted(partial), /incomplete|required|Unfilled|studio-start/);
+});
+
+test('legacy checkpoint alias and scalar value lines avoid template explanations', () => {
+  const state = parseStatePage(STATE({ phase: 'concept\n\nExplanation of phases.', tier: 'minimal\n\nExplanation of tiers.', next: 'Read [[decisions/stack.md|stack decision]] and [[backlog/slice.md]]' }).replace('Last gate result', 'Last checkpoint review'));
+  assert.equal(state.fields.gate, 'none');
+  assert.deepEqual(state.empty, []);
+  const b = buildBrief({ state });
+  assert.equal(b.report[0], 'Phase: concept, tier: minimal');
+  assert.equal(b.report[1], 'Next step: Read stack decision and slice');
+});
+
+test('invalid and future verification dates are unverified, not stale', () => {
+  const b = fromPage(STATE({ registry: '| Invalid | a.md | owner | ready | 2026-02-30 |\n| Future | b.md | owner | draft | 2026-12-01 |' }));
+  assert.deepEqual(b.stale, []);
+  assert.deepEqual(b.unverified.map((r) => r.artifact), ['Invalid', 'Future']);
+});
+
+test('legacy narrative fields retain multiline actions and blockers', () => {
+  const b = fromPage(STATE({ next: 'Inspect the renderer.\nThen compare the traces.', blocked: 'Missing asset license.\nAudio decision unresolved.' }));
+  assert.equal(b.report[1], 'Next step: Inspect the renderer. Then compare the traces.');
+  assert.equal(b.report[2], 'Blocked by: Missing asset license. Audio decision unresolved.');
+});
+
+test('malformed pages and tables report limits without inventing records', () => {
+  const bad = fromPage('---\nstatus: draft\n## Current focus\nShould not be interpreted');
+  assert.equal(bad.schema, 'unknown');
+  assert.deepEqual(bad.report, []);
+  assert.match(formatted(bad), /frontmatter fence that is not closed/);
+  const row = fromPage(ORIENTATION_PAGE.replace('build unverified |', 'build | unverified |'));
+  assert.deepEqual(row.records, []);
+  assert.match(formatted(row), /Malformed row/);
+  const header = fromPage(ORIENTATION_PAGE.replace('Actual wiki path or existing source link', 'Unrecognized column'));
+  assert.deepEqual(header.records, []);
+  assert.match(formatted(header), /Unrecognized Relevant records table header/);
+  assert.equal(fromPage('```md\n## Current focus\nExample\n```').schema, 'unknown');
+  assert.match(formatted(fromPage('## Current focus\nFirst\n## Current focus\nSecond')), /Duplicate section/);
+  assert.match(formatted(fromPage('## Current focus\nFirst\n```\n## Phase\nproduction')), /Unclosed code fence/);
+});
+
+test('legacy table aliases and escaped pipes preserve columns and owner punctuation', () => {
+  const b = fromPage(STATE({ questions: '| Question | Owner | Must be answered by | Status |\n|---|---|---|---|\n| [[questions/a.md|Which engine?]] | owner | G1 | open |', registry: '| A \\| B | [[a.md|A]] | owner | ready | 2026-01-01 |' }));
+  assert.equal(b.stale[0].artifact, 'A | B');
+  assert.equal(b.stale[0].path, '[[a.md|A]]');
+  assert.match(formatted(b), /Which engine\? \(gate G1, owner: owner\)/);
+  assert.match(formatted(b), /Legacy gate annotations only; no approval or work prerequisite/);
+});
+
+test('current, malformed and absent pages remain read-only in CLI text and JSON', (t) => {
+  for (const state of [ORIENTATION_PAGE, '---\nnot closed', undefined]) {
+    const v = vault(t, { demo: { state } });
+    const dir = repo(t);
+    const before = [snapshot(v), snapshot(dir)];
+    for (const json of [false, true]) {
+      const result = run(['--project', 'demo', ...(json ? ['--json'] : [])], { cwd: dir, vaultPath: v });
+      assert.equal(result.status, 0, result.stderr);
+      if (json) {
+        const data = JSON.parse(result.stdout);
+        assert.equal(data.statePage === null, state === undefined);
+        if (state !== undefined) assert.equal(data.schema, state === ORIENTATION_PAGE ? 'orientation' : 'unknown');
+      } else assert.doesNotMatch(result.stdout, /run studio-start|Empty required/);
+    }
+    assert.deepEqual([snapshot(v), snapshot(dir)], before);
+  }
+});
 const brief = (o, items = [], extra = {}) => buildBrief({ state: parseStatePage(STATE(o)), items, today: TODAY, staleDays: 30, ...extra });
 
 test('the report is exactly three lines, in the studio format', () => {
@@ -136,7 +232,8 @@ test('an artifact verified more than the threshold ago is stale; absent, never-s
     '| Missing | d.md | game-pm | absent | - |',
     '| Never | e.md | game-pm | draft | - |',
   ].join('\n') });
-  assert.deepEqual(b.stale.map((s) => [s.artifact, s.reason]), [['Old', '55 days'], ['Never', 'no date']]);
+  assert.deepEqual(b.stale.map((s) => [s.artifact, s.reason]), [['Old', '55 days']]);
+  assert.deepEqual(b.unverified.map((s) => s.artifact), ['Never']);
   assert.equal(brief({ registry: '| Edge | b.md | game-pm | ready | 2026-09-26 |' }, [], { staleDays: 30 }).stale.length, 0, 'exactly the threshold is not stale');
   assert.equal(brief({ registry: '| Edge | b.md | game-pm | ready | 2026-09-26 |' }, [], { staleDays: 29 }).stale.length, 1);
 });
@@ -170,9 +267,9 @@ test('formatBrief names the project and path, the three lines, then the lists', 
 test('a missing state page and an empty required field are said plainly', () => {
   const none = formatBrief({ project: 'demo', path: 'wiki/authored/demo', by: 'flag', brief: null, staleDays: 30 });
   assert.match(none, /no state page at wiki\/authored\/demo\/reference\/studio-state\.md/);
-  assert.match(none, /studio-start/);
+  assert.match(none, /orientation is optional and work can continue/);
   const b = brief({ next: '' });
-  assert.match(formatBrief({ project: 'demo', path: 'wiki/authored/demo', by: 'flag', brief: b, staleDays: 30 }), /Empty required field\(s\): Next step/);
+  assert.match(formatBrief({ project: 'demo', path: 'wiki/authored/demo', by: 'flag', brief: b, staleDays: 30 }), /Unfilled legacy fields: Next step; these are not prerequisites/);
 });
 
 function run(args, { cwd, vaultPath }) {
@@ -285,6 +382,7 @@ test('the unfilled studio template reads as all fields empty, not as a state', (
   assert.deepEqual(state.empty, ['Phase', 'Rigor tier', 'Next step', 'Blocked by', 'Current sprint', 'Last gate result']);
   const b = buildBrief({ state, today: TODAY, staleDays: 30 });
   assert.deepEqual(b.report, ['Phase: (empty), tier: (empty)', 'Next step: (empty)', 'Blocked by: (empty)']);
-  assert.deepEqual(b.stale.map((s) => s.artifact), ['State page'], 'a placeholder date is no date');
+  assert.deepEqual(b.stale, []);
+  assert.deepEqual(b.unverified.map((s) => s.artifact), ['State page'], 'a placeholder date is unverified');
   assert.deepEqual(b.overdue, [], 'a placeholder gate names no gate');
 });
