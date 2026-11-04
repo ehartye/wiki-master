@@ -4,6 +4,63 @@ import {readFileSync} from 'node:fs';
 import {extractHtml, assessFidelity} from '../scripts/lib/html-extract.mjs';
 const fixture=n=>readFileSync(new URL(`./fixtures/documentation/${n}.html`,import.meta.url),'utf8');
 
+test('image equation alternatives survive real extraction in their original prose order',async()=>{
+ const data=await extractHtml(fixture('image-equations'),'https://example.org/path');
+ const md=data.contentMarkdown;
+ assert.ok(md.includes(String.raw`$ {\cal C}_{free}$`),md);
+ assert.equal(md.split(String.raw`$ {\cal C}_{free}$`).length-1,2);
+ assert.ok(md.indexOf(String.raw`$ \tau: [0,1] \rightarrow {\cal C}$`)<md.indexOf(String.raw`$ \Delta q > 0$`),md);
+ assert.deepEqual(data.fidelityWarnings,[]);
+});
+
+test('image equation loss is detected without punctuation or case folding',()=>{
+ const html=fixture('image-equations');
+ const dropped='# Path segment equations\n\nA configuration lies in, and a path maps into. Check the path before choosing.';
+ const warnings=assessFidelity(html,dropped);
+ assert.equal(warnings.filter(w=>w.kind==='image-equation').length,4);
+ assert.ok(warnings.some(w=>w.label.includes(String.raw`\cal C`)));
+ const changed=String.raw`$ {\cal c}_{free}$ $ {\cal c}_{free}$ $ \tau: [0,1] \rightarrow {\cal C}$ $ \Delta q < 0$`;
+ assert.equal(assessFidelity(html,changed).filter(w=>w.kind==='image-equation').length,3);
+});
+
+test('unusable or source-truncated image math warns even if extraction retains its label',async()=>{
+ for(const alt of ['', 'equation', String.raw`$x + ... ... + y$`]){
+  const html=`<html><body><main><h1>Equation detail</h1><p>Read this expression: <span class="MATH"><img src="formula.gif" alt="${alt}"></span>. Its details matter.</p></main></body></html>`;
+  const data=await extractHtml(html,'https://example.org/');
+  assert.ok(data.fidelityWarnings.some(w=>w.kind==='image-equation'&&/alternative/i.test(w.label)),JSON.stringify(data));
+ }
+});
+
+test('ordinary images, prices and decorative math controls do not add equation warnings',()=>{
+ const html='<main><img alt="next" src="next.gif"><img alt="Map showing a route"><img alt="$5 each"><img alt="Price $5 and $10"><button><img class="math" alt="$+$"></button><span aria-hidden="true"><img class="MATH" alt="$x$"></span><img role="presentation" class="math" alt="$q$"></main>';
+ assert.deepEqual(assessFidelity(html,''),[]);
+ assert.deepEqual(assessFidelity('<main><span ARIA-HIDDEN="true"><IMG CLASS="MATH" ALT="$X$"></span><IMG ROLE="presentation" CLASS="MATH" ALT="$Y$"></main>',''),[]);
+});
+
+test('bare marked variables and delimited unmarked math preserve literal alternatives without HTML execution',async()=>{
+ const html=String.raw`<html><body><main><h1>Expressions</h1><p>Use <img class="math" alt="q"> with <img alt="\(x &lt; y\)"> and <img class="math" alt="&lt;script&gt;literal&lt;/script&gt;"> in this expression.</p></main></body></html>`;
+ const data=await extractHtml(html,'https://example.org/');
+ assert.ok(data.contentMarkdown.includes('`q`'));
+ assert.ok(data.contentMarkdown.includes(String.raw`\(x < y\)`));
+ assert.ok(data.contentMarkdown.includes('<script>literal</script>'));
+ assert.deepEqual(data.fidelityWarnings,[]);
+ assert.equal(assessFidelity('<main><img class="math" alt="q"></main>','A q appears elsewhere in prose.').length,1);
+ const duplicate=String.raw`<main><img alt="$q$"><img alt="$q$"></main>`;
+ assert.equal(assessFidelity(duplicate,'`$q$`').length,1);
+ assert.equal(assessFidelity('<main><img alt="$x$"><img alt="$$x$$"></main>','$$x$$').length,1);
+ for(const alt of ['`x','x`','`x`']){
+  const data=await extractHtml(`<main><p>Use <img class="math" alt="${alt}"> here.</p></main>`,'https://example.org/');
+  assert.deepEqual(data.fidelityWarnings,[],data.contentMarkdown);
+ }
+});
+
+test('obviously incomplete mathematical alternatives warn without guessing the missing expression',async()=>{
+ for(const alt of [String.raw`$x + y`,String.raw`\(x + y`,String.raw`\[x`,'$$x$','$ $']){
+  const data=await extractHtml(`<main><p>Use <img class="math" alt="${alt}"> here.</p></main>`,'https://example.org/');
+  assert.ok(data.fidelityWarnings.some(w=>/incomplete alternative/.test(w.label)),JSON.stringify(data));
+ }
+});
+
 test('linked API heading names survive and icon-only permalink anchors do not',async()=>{
  const data=await extractHtml(fixture('three-buffer'),'https://threejs.org/docs/pages/BufferAttribute.html');
  assert.match(data.contentMarkdown,/### .*needsUpdate.*number/);

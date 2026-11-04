@@ -6,6 +6,27 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { main } from '../scripts/clip.mjs';
 import { recordIssue, openIssues, loadIssueLog } from '../scripts/lib/triage.mjs';
+import { extractHtml } from '../scripts/lib/html-extract.mjs';
+
+test('image equation warning reaches partial metadata and triage without changing an existing capture', async t => {
+  const vault = mkdtempSync(join(tmpdir(), 'wiki-equation-clip-'));
+  const prior = process.env.WIKI_MASTER_VAULT;
+  process.env.WIKI_MASTER_VAULT = vault;
+  t.after(() => { if (prior === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prior; rmSync(vault, {recursive:true,force:true}); });
+  mkdirSync(join(vault, 'raw', 'clippings'), { recursive: true });
+  const url='https://example.org/equation', prose='The path segment discussion gives useful context for evaluating these mathematical conditions. '.repeat(30);
+  const extracted=await extractHtml(`<html><head><title>Equation fidelity</title></head><body><main><h1>Equation fidelity</h1><p>${prose}<span class="MATH"><img src="equation.gif" alt="equation"></span></p></main></body></html>`,url);
+  const result=main([url],{extract:()=>extracted});
+  assert.equal(result.status,'clipped');
+  const original=readFileSync(result.file,'utf8');
+  assert.match(original,/^fidelity: partial$/m);
+  assert.ok(original.includes(createHash('sha256').update(extracted.contentMarkdown).digest('hex')));
+  const issues=openIssues(loadIssueLog(vault));
+  assert.ok(issues.some(issue=>issue.kind==='fidelity'&&/image-equation.*alternative text/.test(issue.reason)));
+  const second=main([url],{extract:()=>{throw Error('Existing capture must not be silently re-extracted');}});
+  assert.equal(second.status,'duplicate');
+  assert.equal(readFileSync(result.file,'utf8'),original);
+});
 
 test('headings ignored as page chrome are disclosed in the clip, open no triage, and leave the clip unmarked', () => {
   const vault = mkdtempSync(join(tmpdir(), 'wiki-fidelity-ignored-'));

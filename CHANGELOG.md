@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.89.2 — 2026-11-04
+
+- Preserve recognized image-equation alternative text as literal inline code, including legacy uppercase LaTeX2HTML attributes. Retain punctuation, case and repeated occurrences in source order.
+- Report specific partial-fidelity warnings for lost, absent, obviously incomplete or source-truncated alternatives. Exclude explicitly decorative/control images; preserve capture hashes, triage and immutable existing captures. This is not OCR or general mathematical completeness verification.
+
 ## 0.89.1 — 2026-11-04
 
 - Ownership-scoped catalog refreshes read foreign committed metadata, headings, dependencies and catalog settings from a pinned HEAD snapshot, while owned pages retain working-tree edits. Staged-only additions stay excluded and deleted paths are not resurrected.
