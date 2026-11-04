@@ -17,6 +17,10 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+      # Hold orphan reaping in a disposable supervisor to expose parent/child
+      # kill-order races even when the runner's PID 1 normally reaps promptly.
+      - run: python3 scripts/test-pdf-cleanup-linux.py
+        timeout-minutes: 2
 
   # The plugin ships to macOS, which the suite had never run on. This is a separate job, not a matrix entry on
   # `test`: a matrix would rename the required check `test` to `test (ubuntu-latest)` and break branch protection.
