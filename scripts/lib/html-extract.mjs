@@ -45,6 +45,56 @@ const REST_EXAMPLE = '[class*="RestCodeSamples_codeBlock"] > code';
 const REST_ENDPOINT = '[class*="RestCodeSamples_method"]';
 const BLOCK = /^(P|DIV|SECTION|ARTICLE|ASIDE|BLOCKQUOTE|LI|UL|OL|H[1-6]|HEADER|MAIN)$/;
 const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+// Image math is recognized by explicit semantics or TeX delimiters, never by an
+// image filename, size, or an arbitrary decorative symbol. Keep case/operators.
+const mathText = text => String(text).replace(/\s+/g, ' ').trim();
+const mathDelimited = text => /^(?:\$\$[\s\S]+\$\$|\$(?:\\.|[^$])+\$|\\\([\s\S]+\\\)|\\\[[\s\S]+\\\])$/.test(text);
+function incompleteMath(text) {
+  for (const [start, end] of [['$$','$$'],['$','$'],['\\(','\\)'],['\\[','\\]']]) {
+    if (!text.startsWith(start)) continue;
+    if (!text.endsWith(end) || text.length <= start.length + end.length) return true;
+    const inside = text.slice(start.length, -end.length);
+    return !inside.trim() || (start.includes('$') && /(?<!\\)\$/.test(inside));
+  }
+  return false;
+}
+function mathEvidence(markdown) {
+  // Decode code-span whitespace rather than assuming a single backtick fence.
+  // Each span is one occurrence, so nested dollar delimiters cannot count twice.
+  const spans = [...markdown.matchAll(/(?<!`)(`+)(?!`)([\s\S]*?)(?<!`)\1(?!`)/g)].map(match => ({
+    text: mathText(match[2]), start: match.index, end: match.index + match[0].length,
+  }));
+  const math = /\$\$[\s\S]+?\$\$|\$(?:\\.|[^$\n])+?\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
+  for (const match of markdown.matchAll(math)) {
+    const start = match.index, end = start + match[0].length;
+    if (!spans.some(span => start < span.end && end > span.start)) spans.push({text:mathText(match[0]),start,end});
+  }
+  return spans;
+}
+// linkedom retains uppercase attribute names in legacy LaTeX2HTML markup.
+const imageAttribute = (node, name) => [...node.attributes].find(attr => attr.name.toLowerCase() === name)?.value ?? null;
+function imageEquations(root) {
+  const equations = [];
+  for (const node of root.querySelectorAll('img')) {
+    if (node.closest('nav, footer, button, [role="button"], [role="navigation"], [role="presentation"], [hidden], [aria-hidden="true"]')) continue;
+    const text = mathText(imageAttribute(node, 'alt') ?? '');
+    let marked = false, decorative = false;
+    for (let parent = node; parent; parent = parent.parentElement) {
+      const role = (imageAttribute(parent, 'role') ?? '').toLowerCase();
+      if (/^(NAV|FOOTER|BUTTON)$/.test(parent.tagName) || ['button','navigation','presentation'].includes(role) || imageAttribute(parent,'hidden') !== null || imageAttribute(parent,'aria-hidden')?.toLowerCase() === 'true') decorative = true;
+      if (role === 'math' || /(?:^|\s)(?:math|inline-math|display-math|equation|latex)(?:\s|$)/i.test(imageAttribute(parent, 'class') ?? '')) marked = true;
+      if (parent === root) break;
+    }
+    if (decorative) continue;
+    if (!marked && !mathDelimited(text)) continue;
+    const usable = !!text && text.length <= 16384 && !/^(?:math|equation|formula|image|(?:img\d*|formula|equation)\.(?:gif|png|svg))$/i.test(text);
+    const truncated = /\.\.\.\s+\.\.\./.test(text); // LaTeX2HTML's explicit omitted middle, not \ldots.
+    const incomplete = incompleteMath(text);
+    equations.push({ node, kind: 'image-equation', text, usable, truncated, incomplete,
+      label: !usable ? 'image equation: no usable alternative text' : incomplete ? `image equation: incomplete alternative text (${text.slice(0, 60)})` : truncated ? `image equation: truncated alternative text (${text.slice(0, 60)})` : text.slice(0, 100) });
+  }
+  return equations;
+}
 function textOf(node) {
   if (node.nodeType === 3) return node.textContent;
   if (node.nodeType !== 1 || node.matches('script, style, svg, nav, button, [hidden], [aria-hidden="true"]')) return '';
@@ -154,6 +204,7 @@ function headingSections(root, headings) {
 function signals(document) {
   const root = contentRoot(document);
   const candidates = [];
+  for (const { node, ...signal } of imageEquations(root)) candidates.push(signal);
   const add = (kind, nodes) => {
     for (const node of nodes) {
       if (node.closest('nav, footer, [role="navigation"], [hidden], [aria-hidden="true"]')) continue;
@@ -215,7 +266,15 @@ function assessSignalsDetailed(expected, markdown, title, url = '') {
   // Strip Markdown link destinations so an inline link does not interrupt its source sentence.
   const plain = normalize(`${title}\n${markdown.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')}`);
   const literal = markdown.replace(/\r\n?/g, '\n');
+  const equations = mathEvidence(literal);
   const warnings = expected.filter(signal => {
+    if (signal.kind === 'image-equation') {
+      if (!signal.usable || signal.truncated || signal.incomplete) return true;
+      const at = equations.findIndex(span => span.text === signal.text);
+      if (at < 0) return true;
+      equations.splice(at, 1);
+      return false;
+    }
     // Code punctuation, case and line boundaries are semantic; do not use prose normalization.
     if (signal.kind === 'code-block') return !literal.includes(signal.text.replace(/\r\n?/g, '\n').trim());
     if (['parameter-row', 'endpoint'].includes(signal.kind)) return !plain.includes(normalize(signal.text));
@@ -235,6 +294,14 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   const { document } = parseHTML(html);
   const expected = signals(document);
   const root = contentRoot(document);
+  // Preserve supplied mathematical alternatives as literal inline code. This
+  // prevents Markdown from reinterpreting TeX escapes/operators; it is not OCR
+  // or a claim that the supplied alternative is a complete/correct equation.
+  for (const { node, text, usable } of imageEquations(root)) {
+    if (!usable) continue;
+    const code = document.createElement('code'); code.textContent = text;
+    node.replaceWith(code);
+  }
   // A callout box becomes a blockquote with its own contents. Process children first: replacing a parent clones its
   // already-converted descendants.
   const toBlockquote = (node) => {
@@ -315,5 +382,5 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   });
   const markdown = data.contentMarkdown ?? '';
   const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
-  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists and recognized REST endpoints, parameters and examples' } };
+  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
 }
