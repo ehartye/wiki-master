@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.89.1 — 2026-11-04
+
+- Ownership-scoped catalog refreshes read foreign committed metadata, headings, dependencies and catalog settings from a pinned HEAD snapshot, while owned pages retain working-tree edits. Staged-only additions stay excluded and deleted paths are not resurrected.
+- Preserve committed metadata through generated catalog updates, report the snapshot policy, and batch Git blob reads for large vaults. Add regressions for staged edits, renames, ambiguity, literal filenames and invalid HEAD refusal.
+
 ## 0.89.0 — 2026-11-02
 
 - Separate retrieval, original project documentation and setup into wiki-search, wiki-project and wiki-setup; retain wiki-maintainer, wiki-researcher and wiki-purge for exactly six skills. Remove wiki-user and wiki-init without forwarding aliases.

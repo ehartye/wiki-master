@@ -35,6 +35,110 @@ const OURS = 'wiki/authored/alpha/ours.md';
 const has = (text, name) => new RegExp(`\\[\\[(?:[^\\]|]*/)?${name}(?:\\.md)?(?:\\|[^\\]]*)?\\]\\]`).test(text);
 const read = (root, rel) => readFileSync(join(root, rel), 'utf8');
 
+test('scoped catalogs use HEAD metadata and headings, but publish owned edits and new pages', t => {
+  const root = world(t);
+  const roadmap = 'wiki/authored/alpha/roadmap.md';
+  const foreign = 'wiki/authored/alpha/backlog/item-base.md';
+  const dependency = 'wiki/authored/alpha/backlog/prerequisite.md';
+  const owned = 'wiki/authored/alpha/backlog/owned.md';
+  page(root, dependency, { kind: 'backlog-item', status: 'planned' });
+  page(root, owned, { kind: 'backlog-item', status: 'planned' });
+  writeFileSync(join(root, foreign), read(root, foreign).replace('sources: []', 'depends-on: ["[[prerequisite]]"]\nsources: []').replace(`# ${foreign}`, '# Committed heading'));
+  writeFileSync(join(root, roadmap), read(root, roadmap).replace('type: authored', 'type: authored\nbacklog-titles: true'));
+  refreshCatalogs(root, { apply: true });
+  git(root, 'add', '.'); git(root, 'commit', '-qm', 'snapshot baseline');
+  const head = git(root, 'rev-parse', 'HEAD').trim();
+  const baseline = read(root, roadmap);
+  writeFileSync(join(root, foreign), read(root, foreign).replace('planned', 'shipped').replace('Committed heading', 'Foreign heading').replace('[[prerequisite]]', '[[missing]]'));
+  page(root, dependency, { kind: 'backlog-item', status: 'shipped' });
+  // Index bytes are also foreign; neither staged nor later working edits may leak.
+  git(root, 'add', foreign, dependency);
+  page(root, 'wiki/authored/alpha/base.md', { kind: 'backlog-item', project: 'beta', status: 'shipped' });
+  page(root, owned, { kind: 'backlog-item', status: 'shipped' });
+  page(root, OURS);
+  const protectedPaths = [foreign, dependency, 'wiki/authored/alpha/base.md'];
+  const before = protectedPaths.map(p => read(root, p));
+  const options = { project: 'alpha', ownedPaths: [owned, OURS], diff: true };
+  const dry = refreshCatalogs(root, options);
+  assert.equal(read(root, roadmap), baseline);
+  assert.deepEqual(dry.snapshot, { policy: 'owned-working-tree-foreign-head', head });
+  const applied = refreshCatalogs(root, { ...options, apply: true });
+  assert.deepEqual(applied.diffs, dry.diffs);
+  const after = read(root, roadmap);
+  assert.match(after, /Committed heading/);
+  assert.doesNotMatch(after, /Foreign heading|missing/);
+  assert.match(after, /waiting on \[\[prerequisite\]\]/);
+  assert.ok(after.indexOf('[[owned') > after.indexOf('## Shipped'));
+  assert.ok(has(read(root, 'moc/alpha.md'), 'base'));
+  assert.ok(has(read(root, 'moc/alpha.md'), 'ours'));
+  assert.deepEqual(protectedPaths.map(p => read(root, p)), before);
+  assert.deepEqual(refreshCatalogs(root, { ...options, apply: true }).changed, []);
+  const unscoped = refreshCatalogs(root, { apply: true });
+  assert.equal(unscoped.snapshot.policy, 'working-tree');
+  assert.match(read(root, roadmap), /Foreign heading/);
+  assert.ok(!has(read(root, 'moc/alpha.md'), 'base'));
+});
+
+test('a foreign project/kind change cannot remove a committed backlog item', t => {
+  const root = world(t);
+  page(root, 'wiki/authored/alpha/backlog/item-base.md', { project: 'beta', kind: 'note' });
+  refreshCatalogs(root, { ownedPaths: [OURS], apply: true });
+  assert.ok(has(read(root, 'wiki/authored/alpha/roadmap.md'), 'item-base'));
+  assert.ok(!existsSync(join(root, 'moc/beta.md')));
+});
+
+test('regenerating a foreign roadmap fence does not publish its working metadata downstream', t => {
+  const root = world(t);
+  const roadmap = 'wiki/authored/alpha/roadmap.md';
+  const dirty = read(root, roadmap).replace('project: alpha', 'project: beta')
+    .replace('kind: roadmap', 'kind: note\nbacklog-shipped: collapse');
+  writeFileSync(join(root, roadmap), dirty);
+  const owned = 'wiki/authored/alpha/backlog/ours.md';
+  page(root, owned, { kind: 'backlog-item', status: 'shipped' });
+  const options = { project: 'alpha', ownedPaths: [owned] };
+  refreshCatalogs(root, { ...options, apply: true });
+  assert.ok(has(read(root, 'moc/alpha.md'), 'roadmap'));
+  assert.match(read(root, 'moc/alpha.md'), /## Roadmap/);
+  assert.ok(!existsSync(join(root, 'wiki/authored/alpha/roadmap-shipped.md')));
+  assert.match(read(root, roadmap), /project: beta\nkind: note/);
+  assert.ok(has(read(root, roadmap), 'ours'));
+  assert.deepEqual(refreshCatalogs(root, { ...options, apply: true }).changed, []);
+});
+
+test('scoped snapshots keep deletions real and recompute ambiguity after a staged rename', t => {
+  const root = world(t);
+  const duplicate = 'wiki/authored/beta/base.md';
+  page(root, duplicate, { project: 'beta' });
+  git(root, 'add', '.'); git(root, 'commit', '-qm', 'duplicate');
+  refreshCatalogs(root, { ownedPaths: [OURS], apply: true });
+  assert.match(read(root, 'moc/alpha.md'), /\[\[wiki\/authored\/alpha\/base\|base\]\]/);
+  git(root, 'mv', duplicate, 'wiki/authored/beta/renamed.md');
+  refreshCatalogs(root, { ownedPaths: [OURS], apply: true });
+  assert.match(read(root, 'moc/alpha.md'), /\[\[base\]\]/);
+  assert.ok(!has(read(root, 'index.md'), 'renamed'));
+  assert.ok(!has(read(root, 'index.md'), 'wiki/authored/beta/base'));
+});
+
+test('committed snapshot reads literal Unicode and pathspec-like filenames', t => {
+  const root = world(t);
+  const special = 'wiki/authored/alpha/backlog/café [one].md';
+  page(root, special, { kind: 'backlog-item', status: 'planned' });
+  git(root, 'add', '.'); git(root, 'commit', '-qm', 'literal filename');
+  page(root, special, { kind: 'note', project: 'beta' });
+  refreshCatalogs(root, { ownedPaths: [OURS], apply: true });
+  assert.match(read(root, 'wiki/authored/alpha/roadmap.md'), /café \[one\]/);
+});
+
+test('a broken HEAD refuses scoped generation before changing any catalog', t => {
+  const root = world(t);
+  const catalogs = ['index.md', 'moc/alpha.md', 'wiki/authored/alpha/roadmap.md'];
+  const before = catalogs.map(p => read(root, p));
+  page(root, 'wiki/authored/alpha/backlog/item-base.md', { kind: 'backlog-item', status: 'shipped' });
+  writeFileSync(join(root, '.git/HEAD'), 'invalid HEAD\n');
+  assert.throws(() => refreshCatalogs(root, { ownedPaths: [OURS], apply: true }));
+  assert.deepEqual(catalogs.map(p => read(root, p)), before);
+});
+
 test('an index line the other writer already put in the working copy survives a scoped refresh', (t) => {
   const root = world(t);
   page(root, 'wiki/authored/alpha/foreign-note.md');

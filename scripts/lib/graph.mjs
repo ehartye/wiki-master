@@ -151,6 +151,66 @@ function hashList(fm) {
   return out.length ? out : undefined;
 }
 
+// Shared by filesystem graphs and committed catalog snapshots.
+export function markdownPage(path, markdown) {
+  const { fm } = splitFrontmatter(markdown);
+  const { body, metadata, sources, aliases } = parseNote(markdown);
+  const { status, type, created, updated } = metadata;
+  // Project-documentation metadata for wiki/authored/ pages — see
+  // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
+  // `project:` may carry one `/` for a sub-project tier (`acme/migrator`);
+  // `kind:` and `decision-status:` are single-word controlled vocabularies.
+  // All three are optional and left undefined (never defaulted) when absent.
+  const { project, kind } = metadata;
+  const decisionStatus = metadata['decision-status'];
+  // A backlog item (kind: backlog-item) carries its own status, edited in place instead
+  // of appended as a dated update — see docs/superpowers/specs/
+  // 2026-08-11-authored-project-structure-v2-design.md §3.
+  const backlogStatus = metadata['backlog-status'];
+  // Monolith-detection signal (spec §5.4): counts bold callouts that read as a
+  // dated status update ("**Update (2026-08-11):**", "**Milestone (...):**",
+  // "**... status updated (...):**") — the shape a living, continuously-appended
+  // document accumulates instead of pruning. See computeGraphMetrics's
+  // monolithCandidates for the calibrated combined threshold.
+  const updateCalloutCount =
+    (body.match(/\*\*[^*\n]{0,80}(?:Update|Milestone|status updated)[^*\n]{0,80}\(\d{4}-\d{2}-\d{2}/gi) || []).length;
+  // Ingest-state key: the clipping carries `source-hash`; a summary page
+  // carries `source-hashes` listing the clippings it covers. See
+  // docs/superpowers/specs/2026-07-21-hash-ingest-state-design.md.
+  const sourceHash = fm.match(/^source-hash:\s*"?([0-9a-fA-F]{6,64})"?/m)?.[1]?.toLowerCase();
+  const sourceHashes = hashList(fm);
+  return {
+    path,
+    name: basename(path, '.md').toLowerCase(),
+    title: basename(path, '.md'),
+    status,
+    type,
+    created,
+    updated,
+    project,
+    kind,
+    decisionStatus,
+    backlogStatus,
+    metadata,
+    sources,
+    aliases,
+    reviewed: metadata.reviewed,
+    scope: metadata.scope,
+    updateCalloutCount,
+    sourceHash,
+    sourceHashes,
+    words: (body.match(/\S+/g) || []).length,
+    outTargets: wikilinks(body),
+    evidenceTargets: wikilinks(citationBody(body)),
+    fmTargets: sources.flatMap(source => wikilinks(source)),
+    // `sources: []` is a DISCLOSURE — an internally-derived page (an
+    // experiment readout, an analysis) stating it has no external
+    // artifact. Omitting the key entirely discloses nothing. Those are
+    // different states and must not collapse into one verdict.
+    declaresNoSources: /^sources:\s*\[\s*\]\s*$/m.test(fm),
+  };
+}
+
 export function buildGraph(vaultPath) {
   const pages = [];
   (function walk(dir, rel) {
@@ -161,62 +221,7 @@ export function buildGraph(vaultPath) {
       if (statSync(abs).isDirectory()) walk(abs, r);
       else if (e.endsWith('.md')) {
         const markdown = readFileSync(abs, 'utf8');
-        const { fm } = splitFrontmatter(markdown);
-        const { body, metadata, sources, aliases } = parseNote(markdown);
-        const { status, type, created, updated } = metadata;
-        // Project-documentation metadata for wiki/authored/ pages — see
-        // docs/superpowers/specs/2026-08-11-authored-project-docs-design.md.
-        // `project:` may carry one `/` for a sub-project tier (`acme/migrator`);
-        // `kind:` and `decision-status:` are single-word controlled vocabularies.
-        // All three are optional and left undefined (never defaulted) when absent.
-        const { project, kind } = metadata;
-        const decisionStatus = metadata['decision-status'];
-        // A backlog item (kind: backlog-item) carries its own status, edited in place instead
-        // of appended as a dated update — see docs/superpowers/specs/
-        // 2026-08-11-authored-project-structure-v2-design.md §3.
-        const backlogStatus = metadata['backlog-status'];
-        // Monolith-detection signal (spec §5.4): counts bold callouts that read as a
-        // dated status update ("**Update (2026-08-11):**", "**Milestone (...):**",
-        // "**... status updated (...):**") — the shape a living, continuously-appended
-        // document accumulates instead of pruning. See computeGraphMetrics's
-        // monolithCandidates for the calibrated combined threshold.
-        const updateCalloutCount =
-          (body.match(/\*\*[^*\n]{0,80}(?:Update|Milestone|status updated)[^*\n]{0,80}\(\d{4}-\d{2}-\d{2}/gi) || []).length;
-        // Ingest-state key: the clipping carries `source-hash`; a summary page
-        // carries `source-hashes` listing the clippings it covers. See
-        // docs/superpowers/specs/2026-07-21-hash-ingest-state-design.md.
-        const sourceHash = fm.match(/^source-hash:\s*"?([0-9a-fA-F]{6,64})"?/m)?.[1]?.toLowerCase();
-        const sourceHashes = hashList(fm);
-        pages.push({
-          path: r,
-          name: e.slice(0, -3).toLowerCase(),
-          title: e.slice(0, -3),
-          status,
-          type,
-          created,
-          updated,
-          project,
-          kind,
-          decisionStatus,
-          backlogStatus,
-          metadata,
-          sources,
-          aliases,
-          reviewed: metadata.reviewed,
-          scope: metadata.scope,
-          updateCalloutCount,
-          sourceHash,
-          sourceHashes,
-          words: (body.match(/\S+/g) || []).length,
-          outTargets: wikilinks(body),
-          evidenceTargets: wikilinks(citationBody(body)),
-          fmTargets: sources.flatMap(source => wikilinks(source)),
-          // `sources: []` is a DISCLOSURE — an internally-derived page (an
-          // experiment readout, an analysis) stating it has no external
-          // artifact. Omitting the key entirely discloses nothing. Those are
-          // different states and must not collapse into one verdict.
-          declaresNoSources: /^sources:\s*\[\s*\]\s*$/m.test(fm),
-        });
+        pages.push(markdownPage(r, markdown));
       } else {
         // Non-markdown files are Obsidian attachments (PDFs, docx, images, …).
         // They emit no links and are never scored as content, but they ARE
