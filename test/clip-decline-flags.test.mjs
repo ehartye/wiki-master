@@ -121,10 +121,11 @@ test('every clipper asks the gate before it works and finishes it only where it 
   for (const name of ['clip', 'clip-pdf', 'clip-docx', 'clip-pptx', 'clip-xlsx', 'clip-gh', 'clip-confluence']) {
     const src = readFileSync(join(SCRIPTS, `${name}.mjs`), 'utf8');
     assert.equal(src.split('declineGate(').length - 1, 1, `${name} asks the gate once`);
-    assert.equal(src.split('gate.finish()').length - 1, 1, `${name} finishes the gate once`);
+    assert.equal(src.split('gate.finish()').length - 1, name === 'clip-gh' ? 2 : 1, `${name} finishes the gate on each successful route`);
     assert.ok(src.indexOf('declineGate(') < src.indexOf('gate.finish()'), name);
     assert.ok(!src.includes('const declines = loadDeclines') || name === 'clip-docx', `${name} still checks the log by hand`);
-    const tail = src.slice(src.indexOf('gate.finish()'));
+    if (name === 'clip-gh') assert.match(src, /if \(result\.status === 'clipped'\) gate\.finish\(\);/);
+    const tail = src.slice(src.lastIndexOf('gate.finish()'));
     assert.match(tail.slice(0, 400), /status: 'clipped'/, `${name}: the gate is finished away from the clipped return`);
   }
 });
