@@ -216,6 +216,10 @@ test('timeout terminates the owned process tree before returning', { timeout: 15
     assert.equal(result.outcome, 'timeout');
     assert.equal(result.termination?.outcome, 'passed', JSON.stringify({ termination: result.termination, elapsed }));
     assert.ok(elapsed < 6000, `five-second internal deadline plus scheduler overhead: ${elapsed}ms`);
+    if (process.platform === 'linux') {
+      try { t.diagnostic(`descendant state before absence assertion: ${readFileSync(`/proc/${descendant}/status`, 'utf8').split('\n').filter(line => /^(Name|State|PPid):/.test(line)).join('; ')}`); }
+      catch (error) { t.diagnostic(`descendant status unavailable: ${error.code}`); }
+    }
     assert.throws(() => process.kill(descendant, 0), /ESRCH|EINVAL/, 'descendant must not survive');
   } finally { if (descendant) { try { process.kill(descendant, 'SIGKILL'); } catch {} } }
 });
