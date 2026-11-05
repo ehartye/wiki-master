@@ -6,7 +6,6 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -99,7 +98,6 @@ export function main(argv, { toText = pptxToText } = {}) {
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
-  const record = writtenRecorder(vaultPath, argv);
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -180,7 +178,6 @@ export function main(argv, { toText = pptxToText } = {}) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
-  record(file);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, pptx)`);
   gate.finish();
   return { status: 'clipped', slug, file };
