@@ -190,6 +190,18 @@ test('index.md and other catalog text: every fence is masked, and a link in the 
   assert.equal(hasGeneratedFence(`${END_MARK}\n${BEGIN_MARK}\n`), false, 'an end before the begin is not a fence');
 });
 
+test('a quoted marker masks nothing: links beside it are still repointed, and it is not a generated fence', () => {
+  const wanted = new Map([['architecture', 'wiki/authored/proj/architecture.md']]);
+  const text = `---\ntype: note\n---\nThe line \`${BEGIN_MARK}\` opens a fence and See [[architecture]] explains \`${END_MARK}\`.\n`;
+  assert.equal(hasGeneratedFence(text), false);
+  const r = repointBareLinks(text, wanted);
+  assert.equal(r.count, 1);
+  assert.match(r.text, /See \[\[wiki\/authored\/proj\/architecture\.md\|architecture\]\]/);
+  const example = `---\ntype: note\n---\n\`\`\`\n${BEGIN_MARK}\n${END_MARK}\n\`\`\`\nSee [[architecture]].\n`;
+  assert.equal(hasGeneratedFence(example), false);
+  assert.equal(repointBareLinks(example, wanted).count, 1);
+});
+
 test('--exclude leaves pages an application reads alone and says so', t => {
   const root = vault(t, {
     ...TWO_ARCH,

@@ -93,6 +93,70 @@ test('CRLF framing is kept byte for byte', () => {
   assert.equal(out, `above\r\n\r\n${FRESH}\r\n\r\nmiddle\r\n\r\nbelow\r\n`);
 });
 
+// ---- a marker counts only as a whole line outside code ----
+
+const block = (...lines) => ['```', ...lines, '```'].join('\n');
+
+test('a marker quoted in a code block above the real fence keeps everything between them', () => {
+  const head = `# Hand\n\nThe fence looks like this:\n\n${block(OLD[0])}\n\nProse that must survive.\n\n`;
+  const out = writeFence(`${head}${fence(OLD[1])}\n\nBelow.\n`, FRESH);
+  assert.equal(out, `${head}${FRESH}\n\nBelow.\n`);
+  assert.equal(writeFence(out, FRESH), out);
+});
+
+test('a marker quoted inline, above or below the real fence, is plain text', () => {
+  const inline = (m) => `The line \`${m}\` opens a fence.`;
+  const above = `${inline(OLD[0])}\n\nProse.\n\n${fence(NEW)}\n`;
+  assert.equal(writeFence(above, FRESH), `${inline(OLD[0])}\n\nProse.\n\n${FRESH}\n`);
+  const below = `${fence(NEW)}\n\nProse.\n\n${inline(OLD[2])} And ${END} closes it.\n`;
+  assert.equal(writeFence(below, FRESH), `${FRESH}\n\nProse.\n\n${inline(OLD[2])} And ${END} closes it.\n`);
+  const unquoted = `${fence(NEW)}\n\nProse naming ${OLD[1]} mid-sentence.\n`;
+  assert.equal(writeFence(unquoted, FRESH), `${FRESH}\n\nProse naming ${OLD[1]} mid-sentence.\n`);
+});
+
+test('a complete fence shown as a code-block example is left whole, beside the real one', () => {
+  const example = `${block(OLD[0], '- [[example]]', END)}\n\n`;
+  const out = writeFence(`${example}${fence(NEW)}\n`, FRESH);
+  assert.equal(out, `${example}${FRESH}\n`);
+  assert.equal(fenceSpans(example).length, 0);
+});
+
+test('a quoted pair with no real fence gets the catalog appended outside the code block, and stays stable', () => {
+  const text = `# Hand\n\n${block(OLD[0], '- [[example]]', END)}\n\nAfter.\n`;
+  const out = writeFence(text, FRESH);
+  assert.equal(out, `${text.trimEnd()}\n\n${FRESH}\n`);
+  assert.equal(writeFence(out, FRESH), out);
+});
+
+test('tilde blocks, longer closers, info strings and indentation all count as code', () => {
+  for (const code of [
+    `~~~\n${fence(OLD[0])}\n~~~`,
+    `\`\`\`\`markdown\n${fence(OLD[0])}\n\`\`\`\n\`\`\`\``,
+    `   \`\`\`\n${fence(OLD[0])}\n   \`\`\``,
+    `    ${OLD[0]}\n    - [[x]]\n    ${END}`,
+    `> ${OLD[0]}\n> ${END}`,
+  ]) {
+    assert.deepEqual(fenceSpans(code), [], code);
+  }
+});
+
+test('an opener that nothing closes is not code, so a fence appended after it is found on the next run', () => {
+  const once = writeFence('# Hand\n\n```\nnever closed\n', FRESH);
+  assert.equal(once, `# Hand\n\n\`\`\`\nnever closed\n\n${FRESH}\n`);
+  assert.equal(writeFence(once, FRESH), once);
+});
+
+test('a marker line with trailing spaces or a carriage return is still a whole line, and those bytes stay', () => {
+  assert.equal(writeFence(`a\n\n${OLD[0]}  \n- x\n${END}  \nb\n`, FRESH), `a\n\n${FRESH}  \nb\n`);
+  assert.equal(writeFence(`a\r\n${OLD[0]}\r\n- x\r\n${END}\r\nb\r\n`, FRESH), `a\r\n${FRESH}\r\nb\r\n`);
+});
+
+test('duplicates from a line-union merge are whole lines, so they still collapse beside quoted markers', () => {
+  const quote = block(OLD[0]);
+  const out = writeFence(`${quote}\n\n${NEW}\n- [[a]]\n${OLD[0]}\n- [[b]]\n${END}\n\n${NEW}\n- [[c]]\n${END}\n`, FRESH);
+  assert.equal(out, `${quote}\n\n${FRESH}\n`);
+});
+
 // ---- the three writers ----
 
 function vault(t, files) {
