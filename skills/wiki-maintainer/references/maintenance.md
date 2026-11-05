@@ -2,7 +2,7 @@
 
 Use [checks](../../wiki-setup/references/checks.md) for read-only health, metrics,
 freshness and lint reporting. Apply repairs only within authorized content scope,
-with [operations](operations.md), [evidence](evidence.md) and direct
+with [completion](operations.md), [evidence](evidence.md) and direct
 [scoped validation](../../wiki-setup/references/validation.md).
 
 ## "Has this been ingested?" — a content-hash join, not a guess
@@ -19,8 +19,8 @@ source pages without `source-hashes`; a transitional fallback keeps them credite
 link resolution so nothing regresses, but `backfillPending > 0` means the migration
 has not run here. Repair it from the plugin root: `node "<absolute-plugin-root>/scripts/backfill-source-hashes.mjs"`
 (dry-run) then `--apply`. It is idempotent and guesses nothing — ambiguous/unresolved
-citations are logged for review. If the vault is git-synced, running it once and
-committing repairs every machine.
+citations are logged for review. Run it on one machine: other machines get the repair
+once Obsidian Git publishes it.
 
 **Repairing title-shaped citations (`provenanceGaps > 0`).** A separate, older drift:
 ingest wrote `sources: ["[[<the source's title>]]"]`, but the clipper had already
@@ -41,8 +41,8 @@ wrapped target hide there, whether or not a suggestion resolves). **Prevention t
 actually holds**: write vault content as unwrapped logical lines — never hard-wrap a
 paragraph, and never let one contain a `[[wikilink]]` split across a line break — the
 same discipline `clip-docx`'s `--wrap=none` already enforces mechanically on the docx
-path. A written reminder alone is not the safeguard: maintainer relink's own `op-commit`
-step reports any wrapped link introduced by the files it just committed, and
+path. A written reminder alone is not the safeguard: `validate-authored.mjs` reports a
+wrapped link in the pages it checks as `malformed-link`, and
 `node "<absolute-plugin-root>/scripts/health.mjs"` always scores one as a defect, so either catches a recurrence
 even if the writing habit doesn't. Repair existing ones from the plugin root:
 `node "<absolute-plugin-root>/scripts/repair-wrapped-links.mjs"` (dry-run) then `--apply`. The fix is a lossless
@@ -74,7 +74,7 @@ alias). Links in code, comments and a generated catalog fence stay. Every other 
 reason, not guessed: a page outside every project folder (`shared-page`), several candidates or none in the
 page's project (`needs-reading`), a title shared by two clippings (`title-citation`, repaired by retitling the
 clippings, not from the citing page), an occurrence only inside a generated catalog (`catalog-line`, repaired by
-regenerating it). A reviewed `--mapping=<file>` of `{ "target", "path", "page"? }` settles the ones that need a
+`refresh-index.mjs`). A reviewed `--mapping=<file>` of `{ "target", "path", "page"? }` settles the ones that need a
 reading, and only with a path that is a candidate. A page an application reads by title, where a path in a
 citation would break it, is left alone with `--exclude=<path-prefix>` (repeatable). It sets `updated` to the run
 date, leaves `reviewed`, and checks line by line that only wikilinks changed.
@@ -89,9 +89,9 @@ backticks (`scripts/lib/clip-names.mjs`); a re-clip of `clip-gh` adopts a file w
 under its old name instead of copying it or, in digest mode, pruning it. Rename the
 existing ones from the plugin root:
 `node "<absolute-plugin-root>/scripts/rename-unsafe-clippings.mjs"` (dry-run), then
-`--apply --paths-out <ledger.json>` inside an operation and close with
-`op-commit --paths-file <ledger.json>`; the ledger lists the old names, the new names and
-the pages rewritten. It renames only `.md` files under `raw/` (a state file such as
+`--apply --list-out <review.tsv>`; the listing names the old names, the new names and
+the pages rewritten, and those pages go in the [validation](../../wiki-setup/references/validation.md)
+ledger. It renames only `.md` files under `raw/` (a state file such as
 `raw/book-nom/.booknom-state.json` is hidden on purpose), leaves clipping content and
 therefore `source-hash` alone, repoints full-path wikilinks in every page except `raw/`,
 `log/` and `_templates/` (a link in a code block is an example and stays), reports other
@@ -103,16 +103,15 @@ it again.
 `README.md` was filed `README.md.md`, and a title-less raw document `SKILL.md.md`; new clippings
 no longer end `.md.md`. Rename the existing ones from the plugin root with
 `node "<absolute-plugin-root>/scripts/rename-doubled-extension-clippings.mjs" --list-out <review.tsv>`
-(dry run, writes nothing to the vault), review the listing, then `--apply --paths-out <ledger.json>`
-inside an operation and close with `op-commit --paths-file <ledger.json>`. A `clip-gh` file
+(dry run, writes nothing to the vault), review the listing, then `--apply`. A `clip-gh` file
 under `raw/clippings/gh/<owner>/<repo>/` loses its second `.md`; a top-level clipping with an empty
 title is renamed from its source URL, nearest folder first, as new clips are. The contract is
 the one above (bytes and `source-hash` untouched, full-path wikilinks only, `raw/` and `log/`
 never rewritten, a rename onto an existing name refused), plus three more. A link to the
 extension-stripped path is repointed only when no existing file has exactly that path (a vault
 may hold both `Build.md` and `build.md.md`; a link to `Build.md` means the real file). The apply
-refuses to start when any file it would change has uncommitted changes in the vault's git, because
-another writer may be editing it, and changes nothing. `--flag=<prefix>` lists the pages under a prefix
+refuses to start when any file it would change has edits still waiting for Obsidian Git's next run,
+because another writer may be editing it, and changes nothing: rerun after that run. `--flag=<prefix>` lists the pages under a prefix
 for review and `--exclude=<prefix>` reports them without rewriting (both repeatable): use them for pages
 whose citations an app reads by title. A bare-name link such as `[[README.md]]` is not rewritten.
 

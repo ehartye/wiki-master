@@ -7,7 +7,7 @@ description: Use when asked to repair wiki citations or links, correct factual c
 
 Repair the requested knowledge or navigation while preserving its evidence and
 other writers' work. A report alone does not authorize edits; a search answer does
-not authorize filing. Pure filesystem maintenance needs no running app.
+not authorize filing. Pure filesystem edits need no running app; the final refresh does.
 
 ## Workflow
 
@@ -19,15 +19,17 @@ not authorize filing. Pure filesystem maintenance needs no running app.
    [identity and relationships](references/efficacy.md) before concept/navigation
    changes. Use the relevant direct setup check to establish the baseline.
 3. Before a content or pipeline-state write, read
-   [operation completion](references/operations.md), open or reuse the owned
-   operation and retain the exact-path ledger. Native actions use the guarded
-   adapter; a UI-only action does not require a content operation.
-4. Make only justified changes. Preserve raw bodies, restrictions and factual
-   review dates on mechanical edits. If support is missing or the intended change
-   is uncertain, report the concrete remaining decision instead of inventing it.
-5. Recheck the requested effect and [validate the changed paths](../wiki-setup/references/validation.md).
-   Refresh affected owned catalogs, log once, close the scoped operation, sync and
-   verify publication unless the user holds it. Report actual results and blockers.
+   [completion](references/operations.md). Native actions use the guarded adapter;
+   a UI-only action writes no log and needs no refresh.
+4. Make only justified changes, and keep your edits to what your task needs.
+   Preserve raw bodies, restrictions and factual review dates on mechanical edits.
+   If support is missing or the intended change is uncertain, report the concrete
+   remaining decision instead of inventing it.
+5. Recheck the requested effect. If the task wrote vault content,
+   [validate the changed paths](../wiki-setup/references/validation.md) and log once.
+6. For that same content, run `refresh-index.mjs` once, as
+   [completion](references/operations.md) describes. Report actual results and
+   blockers: the work is on disk and Obsidian Git publishes it on its next run.
 
 ## Modes and examples
 
@@ -35,7 +37,7 @@ not authorize filing. Pure filesystem maintenance needs no running app.
   Request: “Fix this broken citation.” Action: read the citing claim and exact
   source, repair its path within scope, compare issue IDs with the
   [health check](../wiki-setup/references/checks.md#health-and-ingest-backlog).
-  Result: a verified citation repair and scoped publication, with unresolved IDs named.
+  Result: a verified citation repair on disk, with unresolved IDs named.
 - **Factual correction:** read [factual maintenance](references/lint.md).
   Request: “Correct the unsupported quotation on this page.” Action: inspect the
   [lint finding](../wiki-setup/references/checks.md#content-lint-report) and raw passage,
@@ -49,12 +51,12 @@ not authorize filing. Pure filesystem maintenance needs no running app.
   Request: “Show the capture issues from this research run.” Action: present the
   queue's token-bearing link and topic summary. Result: the user can disposition
   the issues; opening the queue does not apply re-clips or quarantine. When asked
-  to apply selected dispositions, act on those selections, validate affected
-  content and complete the owned operation.
+  to apply selected dispositions, act on those selections and finish through
+  [completion](references/operations.md).
 - **Authorized synthesis filing:** read [synthesis filing](references/synthesis-filing.md).
   Request: “File this cited answer as a synthesis.” Action: verify its provenance,
-  reuse or create the proper synthesis and complete a **query** operation.
-  Result: a sourced, validated, published page. Original project prose routes to
+  reuse or create the proper synthesis and log it with `--op query`.
+  Result: a sourced, validated page on disk. Original project prose routes to
   [wiki-project](../wiki-project/SKILL.md).
 - **Native action:** read [Obsidian actions](references/obsidian-cli.md).
   Request: “Open the Beacon architecture note in Obsidian.” Action: invoke the
@@ -75,12 +77,11 @@ Load [repair recipes and the hash-join contract](references/maintenance.md) only
 for the indicated repair; [workflow overview](references/workflows.md) only to
 compare roles. Required check procedures are directly available in
 [checks](../wiki-setup/references/checks.md), [validation](../wiki-setup/references/validation.md)
-and [operation recovery](../wiki-setup/references/operation-recovery.md).
+and [recovery](../wiki-setup/references/operation-recovery.md).
 Removal retains separate approval boundaries in [wiki-purge](../wiki-purge/SKILL.md).
 
 ## Done
 
 The requested effects are verified, remaining issues and coverage limits are
-stated, and every owned content mutation is validated and accounted for through
-publication or an explicit hold/local-only/blocker. Preview-only work has no
-content operation, log, commit or refresh.
+stated, and every content change is validated, logged and refreshed, or reported
+as written but not refreshed. Preview-only work writes no log and refreshes nothing.

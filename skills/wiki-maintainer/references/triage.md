@@ -1,6 +1,5 @@
-Read [access and host commands](access.md) before touching the vault. Also read for this operation: [maintenance](maintenance.md).
-Load the rest only when this run reaches it — [operations](operations.md) only when you apply reclips or otherwise write; presenting the queue creates only local session state, not tracked content.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Read [access and host commands](access.md) before touching the vault. Also read for this task: [maintenance](maintenance.md).
+Load the rest only when this run reaches it — [completion](operations.md) only when you apply reclips or otherwise write; presenting the queue creates only machine-local session state, not vault content.
 
 ## What this is for
 Some links cannot be resolved by the pipeline: a 403, a paywalled SPA, an extraction that
@@ -55,10 +54,9 @@ const { loadIssueLog, openIssues } = await import(pathToFileURL('<absolute-plugi
 const stillOpen = openIssues(loadIssueLog(vaultPath));
 ```
 
-Then act on what the user chose. Starting the UI alone needs no content operation.
-Before applying a disposition that changes tracked content or pipeline state, open
-or reuse an operation; [validate changed paths](../../wiki-setup/references/validation.md), log, commit, push and verify remote publication
-through the completion contract. Handoffs such as ingest own their transaction.
+Then act on what the user chose. Starting the UI alone needs no log or refresh.
+Applying a disposition that changes vault content or pipeline state finishes through
+[completion](operations.md). Handoffs such as ingest finish through their own procedure.
 
 The dispositions a row offers depend on its kind. Clip failures (`failed`, `gone`,
 `thin`, `wrong-node`, `blocked`) and `attention` rows offer `downloaded`,

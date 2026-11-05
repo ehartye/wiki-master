@@ -9,17 +9,18 @@ skill or reference can be read directly when the host has no skill loader; share
 policy does not require loading the maintenance-role entry point.
 Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`; with `WIKI_MASTER_REQUIRE_VAULT=1` set and no vault named, a script stops with exit 2 instead of using the default) and inspect only the expected
 vault paths needed by the task. Read local `AGENTS.md` and schema before edits. A known root and
-filesystem access are sufficient for the supported operations below; do not ask
-the user to restart Obsidian as a prerequisite for all work.
+filesystem access are sufficient for the reads and edits below; do not ask the user
+to restart Obsidian as a prerequisite for all work. The `refresh-index.mjs` that ends
+an authoring task does need Obsidian and Ollama, and [completion](operations.md) says
+what to do when it stops.
 
 ## Layout and read scope
 
 `raw/clippings/` holds captured evidence; `wiki/{sources,entities,concepts,syntheses,authored}/`
 holds maintained pages; `moc/` holds navigational maps; `log/` holds one file per
-operation. Never read, cite or count `.recycle/`; only purge owns it. Reads do not
-open operations, write logs, commit or refresh indexes. Before any authorized
-mutation, read [operation completion](operations.md); before quoting or
-synthesizing, read [evidence](evidence.md).
+logged task. Never read, cite or count `.recycle/`; only purge owns it. Reads write no
+log and refresh nothing. Before any authorized write, read [completion](operations.md);
+before quoting or synthesizing, read [evidence](evidence.md).
 
 Prefer bounded search and relevant MOCs to the generated catalog. Search
 diagnostics describe coverage, not relevance: a stale index can omit useful pages.
@@ -28,13 +29,13 @@ distinct from factual review dates.
 
 ## Choose the supported channel
 
-| Operation | Channel and fallback |
+| Task | Channel and fallback |
 |---|---|
 | Read a Markdown page or source | CLI `read path=...`, or read its exact path under the known vault root. |
 | Search | Prefer `search.mjs` and inspect its diagnostics. If a channel fails, use available results plus bounded filesystem `rg` over `wiki/` and `moc/`; include `raw/clippings/` only for evidence lookup. State missing channels. |
 | Health, evidence routes, identity, relationships, drift coverage | Bundled filesystem helpers work without Obsidian. Do not gate them on `assertRunning`. Drift embeddings still require their backend. |
 | Factual freshness report | `stale.mjs` may use CLI discovery or scoped filesystem fallback. Preserve missing-review and coverage diagnostics. |
-| Ordinary Markdown creation/editing | Use exact-path filesystem edits even when the CLI is healthy, with the same operation, evidence, schema and validation contract. Read current content before editing; preserve unrelated changes. Never pass a whole note body through `content=`. |
+| Ordinary Markdown creation/editing | Use exact-path filesystem edits even when the CLI is healthy, with the same completion, evidence, schema and validation contract. Read current content before editing, and keep your edits to what your task needs. Never pass a whole note body through `content=`. |
 | Small typed property or app actions | Use the guarded CLI entry point below; filesystem property edits remain available with schema validation. |
 | Opening a note in the UI, executing an Obsidian/plugin command, app state, live Bases queries | Requires working Obsidian CLI. Report the specific unavailable action; continue independent file work. Do not pretend a filesystem approximation executed an app action. |
 
@@ -64,7 +65,7 @@ since it was read, reconcile it before writing; do not overwrite concurrent work
 
 Examples elsewhere use `node "<absolute-plugin-root>/scripts/health.mjs"` as command
 notation. Replace the placeholder with the actual installed absolute path before
-execution, and set the vault for the operation's scope. Do not execute literal
+execution, and set the vault for the task's scope. Do not execute literal
 angle-bracket placeholders or assume a relative `scripts/` path means the plugin.
 
 PowerShell (restore any prior environment value):
@@ -88,5 +89,5 @@ WIKI_MASTER_VAULT='/absolute/path/to/vault' node '/absolute/installed/plugin/scr
 
 For Windows redirector and empty-output diagnosis, read
 [app access](../../wiki-setup/references/app-access.md#windows-invocation) only
-when needed. These reporting examples are read-only: no operation or rebuild is
-needed to answer a question.
+when needed. These reporting examples are read-only: no log or refresh is needed to
+answer a question.

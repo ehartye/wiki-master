@@ -2,7 +2,7 @@
 
 Read [access](access.md),
 [evidence](evidence.md) and
-[operation completion](operations.md).
+[completion](operations.md).
 Read [repair helpers](maintenance.md) only when a
 finding calls for one. Helpers resolve from this installed skill's plugin root.
 
@@ -18,9 +18,9 @@ of a source is a citation contract even on a stub.
 
 1. **Bound the work.** Honor requested issue IDs or page scope; otherwise process
    the worklist in manageable batches. For preview/report-only requests, return
-   the findings without writes, logs or commits. Use one writer for a repair run.
-   If a parent delegates a batch, agree who owns the enclosing operation and final
-   verification; do not open competing operations or commit another worker's files.
+   the findings without writes or logs. Use one writer for a repair run. If a parent
+   delegates a batch, the worker keeps its edits to the assigned pages and reports the
+   paths it wrote; the enclosing task does the final verification and completion.
 2. **Investigate each issue.** Read its current source and surrounding prose; line
    numbers can move. For `unresolved-citation`, locate the intended evidence and
    verify the supported claim. A unique matching source hash can establish the
@@ -37,25 +37,20 @@ of a source is a citation contract even on a stub.
    that supports the claim or drop the claim, and never clear the issue by removing the
    marker. Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
-3. **Apply justified repairs.** Before the first authorized write, open
-   `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink` and retain its
-   token, unless an enclosing operation already owns completion. Edit only the
+3. **Apply justified repairs.** Keep your edits to what your task needs: only the
    assigned pages. Preserve `reviewed` for mechanical edits. If a helper's apply
    mode edits the whole vault, use it only when that full scope is authorized;
    otherwise make the verified edit to the selected page.
 4. **Verify progress, then stop or continue.** Rerun the direct [health check](../../wiki-setup/references/checks.md#health-and-ingest-backlog) after each batch.
    Compare issue IDs, not just totals: record resolved, remaining and new IDs.
-   Inspect the diff and supporting evidence to ensure resolved IDs represent real
+   Inspect the changed text and supporting evidence to ensure resolved IDs represent real
    repairs, not removed claims or weakened declarations. Fix any new defects your
    edits introduced. Stop when assigned defects are verified resolved, or when
    remaining issues need unavailable evidence, user judgment or additional scope.
    Explain the concrete blocker per ID; do not loop on a batch with no verified
    progress. Unresolved navigation stays outside the remaining-defect count.
-5. **Complete the operation.** For applied changes, [validate changed pages and catalogs](../../wiki-setup/references/validation.md),
-   write one `log-entry.mjs --op relink` narrative and close with
-   `op-commit.mjs --op relink --title "<summary>" --since <saved-token> --paths-file <ledger>`, using the
-   absolute helper paths and shell-safe examples in the completion reference. An `op-commit` with no `--paths-file` is refused while any other operation is open; scope it with `op-ledger.mjs show --since <saved-token> --out <ledger>` and `--paths-file <ledger>`.
-   Inspect the actual committed paths and index-refresh notices; push and verify remote
-   publication through the shared completion contract. Report before/after defect counts, verified resolved IDs, remaining
-   IDs with reasons, new IDs, and commit/sync status. If nothing changed, no operation
-   is needed. Never claim zero defects merely because the assigned batch is done.
+5. **Finish.** For applied changes, follow [completion](operations.md) with
+   `--op relink`, ending at `refresh-index.mjs`. Report before/after defect counts,
+   verified resolved IDs, remaining IDs with reasons, new IDs, and whether the refresh
+   ran. If nothing changed, no log or refresh is needed. Never claim zero defects
+   merely because the assigned batch is done.

@@ -239,6 +239,32 @@ for (const [name, file, heading] of authoringWorkflows) {
   });
 }
 
+// wiki-maintainer's writing procedures finish through the shared contract instead of carrying their own copy of it.
+const maintainerFiles = readdirSync(join(root, 'skills/wiki-maintainer/references')).map(ref => 'skills/wiki-maintainer/references/' + ref);
+for (const ref of ['repair.md', 'lint.md', 'relink.md', 'synthesis-filing.md', 'triage.md', 'maintenance.md', 'obsidian-cli.md']) {
+  test('wiki-maintainer ' + ref + ' finishes through the completion contract', () => {
+    assert.ok(localLinks(read('skills/wiki-maintainer/references/' + ref)).includes('operations.md'));
+  });
+}
+
+test('wiki-maintainer keeps no concept of an operation beyond the log entry', () => {
+  const retired = /\b(?:owned|scoped|enclosing|competing|content|lint|relink|query) (?:operations?|commits?|ledger|paths?)\b|operation (?:ledger|lifecycle|semantics|completion)|complete the operation|staleCatalogs/gi;
+  for (const file of [entry('wiki-maintainer'), ...maintainerFiles]) {
+    assert.deepEqual(read(file).replace(/\s+/g, ' ').match(retired), null, file);
+  }
+});
+
+test('obsidian-cli.md says the refresh asks about the active vault, so another vault in focus stops it', () => {
+  const flat = read('skills/wiki-maintainer/references/obsidian-cli.md').replace(/\s+/g, ' ');
+  assert.match(flat, /refresh-index\.mjs[^.]*active vault/);
+  assert.match(flat, /another vault[^.]*(?:stops|refuses)/);
+});
+
+test('wiki-maintainer says a filesystem edit needs no app but the refresh does', () => {
+  assert.match(read(entry('wiki-maintainer')).replace(/\s+/g, ' '), /need no running app[^.]*refresh/i);
+  assert.match(read('skills/wiki-maintainer/references/access.md').replace(/\s+/g, ' '), /refresh-index\.mjs[^.]*needs? (?:Obsidian|the app)/);
+});
+
 test('wiki-search is read-only and does not gain the refresh step', () => {
   const references = readdirSync(join(root, 'skills/wiki-search/references')).map(ref => 'skills/wiki-search/references/' + ref);
   for (const file of [entry('wiki-search'), ...references]) assert.doesNotMatch(read(file), /refresh-index\.mjs/, file);
