@@ -1,18 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { BEGIN_MARK, END_MARK, LEGACY_BEGIN_MARKS, fenceSpans, writeFence } from '../scripts/lib/index-fence.mjs';
-import { regenerateIndex } from '../scripts/index-gen.mjs';
-import { regenerateBacklogRoadmaps } from '../scripts/backlog-gen.mjs';
-import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
+import { regenerateIndex, regenerateBacklogRoadmaps, regenerateAuthoredMocs } from '../scripts/lib/catalogs.mjs';
 
-// The exact bytes a vault holds today, em dash included. They are spelled out here so a change to the constants
-// fails instead of quietly appending a second fence to every generated file.
-const named = (script) => `%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/${script}.mjs %%`;
-const NEW = named('refresh-index');
-const OLD = ['index-gen', 'backlog-gen', 'moc-authored-gen'].map(named);
+// The exact bytes of the new marker, em dash included, spelled out so a change to the constant fails instead of quietly
+// appending a second fence to every generated file. The old markers name commands that are gone, and lib/index-fence.mjs
+// is the only place allowed to spell them, so they are pinned below by a hash of their bytes.
+const NEW = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/refresh-index.mjs %%';
+const OLD = [...LEGACY_BEGIN_MARKS];
+const OLD_MARKS_SHA256 = '6a8c34ce10b19bf891dd67ec50b33e3a06960a08c9a5937bf04be7f66f4161c2';
 const END = '%% END GENERATED CATALOG %%';
 const fence = (begin, body = '- [[stale]]') => `${begin}\n${body}\n${END}`;
 const FRESH = fence(NEW, '- [[fresh]]');
@@ -22,7 +22,9 @@ const countEnds = (text) => text.split(END).length - 1;
 test('the markers are byte-exact, and the three old ones are all accepted', () => {
   assert.equal(BEGIN_MARK, NEW);
   assert.equal(END_MARK, END);
-  assert.deepEqual([...LEGACY_BEGIN_MARKS].sort(), [...OLD].sort());
+  assert.equal(OLD.length, 3);
+  assert.equal(createHash('sha256').update(OLD.join('\n')).digest('hex'), OLD_MARKS_SHA256, 'a vault still holds these exact bytes');
+  for (const old of OLD) assert.match(old, /^%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts\/[a-z-]+\.mjs %%$/);
 });
 
 test('fenceSpans finds old and new fences in order, and nothing in a file without one', () => {
@@ -186,14 +188,14 @@ const assertMigrated = (text) => {
 };
 
 const WRITERS = [
-  ['index.md', 'index.md', 'index-gen', (root) => regenerateIndex(root, { apply: true })],
-  ['roadmap', 'wiki/authored/alpha/roadmap.md', 'backlog-gen', (root) => regenerateBacklogRoadmaps(root, { apply: true })],
-  ['project map', 'moc/alpha.md', 'moc-authored-gen', (root) => regenerateAuthoredMocs(root, { apply: true })],
+  ['index.md', 'index.md', OLD[0], (root) => regenerateIndex(root, { apply: true })],
+  ['roadmap', 'wiki/authored/alpha/roadmap.md', OLD[1], (root) => regenerateBacklogRoadmaps(root, { apply: true })],
+  ['project map', 'moc/alpha.md', OLD[2], (root) => regenerateAuthoredMocs(root, { apply: true })],
 ];
 
-for (const [label, path, script, write] of WRITERS) {
+for (const [label, path, old, write] of WRITERS) {
   test(`${label}: its old fence becomes one new fence with the framing kept, and a second run changes nothing`, (t) => {
-    const root = vault(t, { ...PAGES, [path]: framed(named(script)) });
+    const root = vault(t, { ...PAGES, [path]: framed(old) });
     write(root);
     const text = readFileSync(join(root, path), 'utf8');
     assertMigrated(text);
@@ -202,7 +204,7 @@ for (const [label, path, script, write] of WRITERS) {
   });
 
   test(`${label}: an old fence appended beside a new one collapses`, (t) => {
-    const root = vault(t, { ...PAGES, [path]: `${framed(NEW)}\n${fence(named(script), '- [[appended]]')}\n` });
+    const root = vault(t, { ...PAGES, [path]: `${framed(NEW)}\n${fence(old, '- [[appended]]')}\n` });
     write(root);
     const text = readFileSync(join(root, path), 'utf8');
     assert.equal(countBegins(text), 1, text);

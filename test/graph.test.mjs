@@ -631,7 +631,7 @@ test('buildGraph leaves backlogStatus undefined when absent — no invented defa
 // authored-project-structure v2 design deliberately reuses bare canonical names
 // (overview.md/architecture.md/roadmap.md, one per project) across 12+
 // acme-suite/gadget/adc sub-projects, but the three catalog GENERATORS
-// (index-gen.mjs, moc-authored-gen.mjs, backlog-gen.mjs) all wrote plain bare
+// (index.md, project maps, roadmaps) all wrote plain bare
 // `[[title]]` links regardless. Since a bare link resolves to exactly one
 // global winner (see resolveLinkTarget/buildNameIndex above), only 1-of-12
 // same-named pages ever actually received its intended inbound link — the rest

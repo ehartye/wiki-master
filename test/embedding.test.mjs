@@ -6,7 +6,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decodeVectors } from '../scripts/lib/vector-index.mjs';
-import { refreshIndex, statusReport, walkVault } from '../scripts/index-embed.mjs';
+import { refreshIndex, statusReport, walkVault } from '../scripts/lib/embedding.mjs';
 import * as embedding from '../scripts/lib/embedding.mjs';
 
 const { DIMENSION_PROBE } = embedding;
@@ -15,7 +15,7 @@ const { DIMENSION_PROBE } = embedding;
 // wiki/, plus whatever else the caller writes directly. Returns the vault
 // root. Never touches the real vault -- refreshIndex only ever sees this.
 function tempVault(files) {
-  const v = mkdtempSync(join(tmpdir(), 'wm-index-embed-'));
+  const v = mkdtempSync(join(tmpdir(), 'wm-embedding-'));
   for (const [rel, content] of Object.entries(files)) {
     const abs = join(v, rel);
     mkdirSync(join(abs, '..'), { recursive: true });

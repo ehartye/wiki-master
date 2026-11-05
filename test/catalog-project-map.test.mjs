@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   renderProjectCatalog, projectSlug, regenerateAuthoredMocs, BEGIN_MARK, END_MARK, MIN_PAGES,
-} from '../scripts/moc-authored-gen.mjs';
+} from '../scripts/lib/catalogs.mjs';
 
 // Per-project MOC generation (spec docs/superpowers/specs/2026-08-11-authored-project-docs-design.md
-// §5.3). Mirrors index-gen.mjs's own fence contract exactly: hand-prose is never touched, only the
+// §5.3). Mirrors index.md's own fence contract exactly: hand-prose is never touched, only the
 // fenced region is a pure function of the pages. The fence itself is deliberately bare -- one
-// bullet per page, no invented description text -- for the same reason index-gen.mjs's own
+// bullet per page, no invented description text -- for the same reason index.md's own
 // generated catalog is bare: a generator should never approximate hand-written narrative with a
 // more fragile heuristic when the honest answer is "that stays hand-written."
 
@@ -55,7 +55,7 @@ test('renderProjectCatalog puts pages with no/unrecognized kind in a trailing Ot
 });
 
 test('renderProjectCatalog excludes kind: backlog-item pages entirely — the project\'s own '
-  + 'roadmap.md is already the generated index over them (backlog-gen.mjs); listing every item '
+  + 'roadmap.md is already the generated index over them; listing every item '
   + 'a second time in the MOC recreates the exact per-item sprawl v2 exists to remove', () => {
   const catalog = renderProjectCatalog({
     pages: [

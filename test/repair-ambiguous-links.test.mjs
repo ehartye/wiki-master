@@ -147,7 +147,7 @@ test('a title-shaped citation shared by two clippings is reported and never edit
 });
 
 test('an occurrence inside a generated catalog fence is left for regeneration and reported', t => {
-  const fence = ['%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%', '- [[architecture]]', '%% END GENERATED CATALOG %%'].join('\n');
+  const fence = [LEGACY_BEGIN_MARKS[1], '- [[architecture]]', '%% END GENERATED CATALOG %%'].join('\n');
   const root = vault(t, { ...TWO_ARCH, 'wiki/authored/proj/roadmap.md': page('proj', `# Roadmap\n${SUBSTANTIVE}\n${fence}`) });
   const before = read(root, 'wiki/authored/proj/roadmap.md');
   const r = repairAmbiguousLinks(root, { apply: true });

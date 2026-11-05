@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { renderBacklogCatalog, renderShippedCatalog, regenerateBacklogRoadmaps, roadmapStub, BEGIN_MARK, END_MARK } from '../scripts/backlog-gen.mjs';
-import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
+import { renderBacklogCatalog, renderShippedCatalog, regenerateBacklogRoadmaps, regenerateAuthoredMocs, roadmapStub, BEGIN_MARK, END_MARK } from '../scripts/lib/catalogs.mjs';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
 import { REQUIRED_KEYS, PROJECT_KEYS } from '../scripts/lib/authored-contract.mjs';
 import { parseNote } from '../scripts/lib/note.mjs';
@@ -13,7 +12,7 @@ import { parseNote } from '../scripts/lib/note.mjs';
 // docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md §3) — the actual
 // completion of the monolith-detection signal: a roadmap.md that regenerates from small,
 // individually-edited item files can never again become the place status changes accumulate.
-// Mirrors moc-authored-gen.mjs's fence contract exactly (append-if-missing, replace-if-present,
+// Mirrors the project map's fence contract exactly (append-if-missing, replace-if-present,
 // hand-prose outside the fence untouched).
 
 const item = (path, project, backlogStatus) => ({ path, project, kind: 'backlog-item', backlogStatus });
@@ -40,7 +39,7 @@ test('renderBacklogCatalog renders bare bullets with no invented description tex
   assert.match(catalog.trim(), /^## Planned\n- \[\[only-item\]\]$/);
 });
 
-// Same collision risk as moc-authored-gen.mjs/index-gen.mjs: a backlog-item
+// Same collision risk as the project map and index.md: a backlog-item
 // slug can be reused across two projects' backlog/ folders just as easily as
 // overview.md/architecture.md/roadmap.md, and a bare link would silently
 // resolve to only one of them, vault-wide.
@@ -96,7 +95,7 @@ test('re-running replaces only the fenced region — hand-written prose survives
   assert.ok(out.includes('[[item-a]]'));
 });
 
-test('an existing roadmap.md with no fence gets one appended, mirroring index-gen.mjs/moc-authored-gen.mjs', () => {
+test('an existing roadmap.md with no fence gets one appended, mirroring index.md and the project map', () => {
   const v = tempVault();
   writeItem(v, 'item-a', 'demo', 'planned');
   writeFileSync(join(v, 'wiki', 'authored', 'demo', 'roadmap.md'), '---\ntype: authored\n---\n# demo — roadmap\nLegacy hand-written text.\n');
@@ -146,7 +145,7 @@ test('regenerateBacklogRoadmaps: two projects with a same-named backlog item eac
     `other's roadmap should pipe its OWN auth-fix.md, got: ${otherRoadmap}`);
 });
 
-// The roadmap that backlog-gen CREATES must satisfy the contract validate-authored.mjs checks and
+// The roadmap that a refresh CREATES must satisfy the contract validate-authored.mjs checks and
 // carry the project key the project map groups by. An existing roadmap is never given any of it.
 const NOW = new Date('2026-03-05T23:59:59Z');
 

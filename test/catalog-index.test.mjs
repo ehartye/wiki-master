@@ -4,7 +4,7 @@ import { mkdtempSync, cpSync, readFileSync, writeFileSync, readdirSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderCatalog, regenerateIndex, BEGIN_MARK, END_MARK } from '../scripts/index-gen.mjs';
+import { renderCatalog, regenerateIndex, BEGIN_MARK, END_MARK } from '../scripts/lib/catalogs.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
@@ -38,7 +38,7 @@ test('renderCatalog groups an authored page under its own section', () => {
   assert.ok(catalog.includes('[[policy]]'), 'lists the authored page');
 });
 
-// Same root cause as moc-authored-gen.mjs's identical bug: overview.md/
+// Same root cause as the project map's identical bug: overview.md/
 // architecture.md/roadmap.md are deliberately reused bare names across projects
 // (docs/superpowers/specs/2026-08-11-authored-project-structure-v2-design.md
 // §2), so the whole-vault index.md must ALSO switch to the documented piped
@@ -64,10 +64,10 @@ test('renderCatalog keeps a unique basename bare, even alongside an unrelated co
 });
 
 // kind: backlog-item pages are already indexed by their own project's generated
-// roadmap.md (backlog-gen.mjs). Listing every item a second time in the
+// roadmap.md. Listing every item a second time in the
 // whole-vault index would recreate, at the top level, the exact per-item sprawl
 // the folder/backlog split exists to remove -- growing unbounded as any
-// project's backlog grows. Mirrors moc-authored-gen.mjs's identical exclusion.
+// project's backlog grows. Mirrors the project map's identical exclusion.
 test('renderCatalog excludes kind: backlog-item pages from the Authored section', () => {
   const catalog = renderCatalog({ pages: [
     { path: 'wiki/authored/demo/roadmap.md', type: 'authored', kind: 'roadmap', status: 'maintained' },

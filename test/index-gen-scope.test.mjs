@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { refreshCatalogs } from '../scripts/refresh-catalogs.mjs';
-import { regenerateIndex } from '../scripts/index-gen.mjs';
+import { refreshCatalogs } from '../scripts/lib/catalogs.mjs';
+import { regenerateIndex } from '../scripts/lib/catalogs.mjs';
 import { scopeGraph } from '../scripts/lib/catalog-scope.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 

@@ -3,10 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, statSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { refreshCatalogs } from '../scripts/refresh-catalogs.mjs';
-import { regenerateBacklogRoadmaps } from '../scripts/backlog-gen.mjs';
-import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
-import { regenerateIndex } from '../scripts/index-gen.mjs';
+import { refreshCatalogs, regenerateBacklogRoadmaps, regenerateAuthoredMocs, regenerateIndex } from '../scripts/lib/catalogs.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
 function fixture(t) {

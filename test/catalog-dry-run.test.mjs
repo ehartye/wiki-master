@@ -5,10 +5,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync, execFileSync } from 'node:child_process';
-import { refreshCatalogs, lineDiff } from '../scripts/refresh-catalogs.mjs';
-import { regenerateIndex } from '../scripts/index-gen.mjs';
-import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
-import { regenerateBacklogRoadmaps } from '../scripts/backlog-gen.mjs';
+import { refreshCatalogs, lineDiff } from '../scripts/lib/catalogs.mjs';
+import { regenerateIndex } from '../scripts/lib/catalogs.mjs';
+import { regenerateAuthoredMocs } from '../scripts/lib/catalogs.mjs';
+import { regenerateBacklogRoadmaps } from '../scripts/lib/catalogs.mjs';
 
 // A dry run must predict an apply: the list of files it says would change is the list an apply changes.
 

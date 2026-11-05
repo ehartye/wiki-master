@@ -1035,7 +1035,7 @@ test('end to end: health score does not drop after purge + reference repair', ()
     // collateral pages the plan named. index.md is not touched here — it is
     // a SYSTEM_FILES entry excluded from computeGraphMetrics as a link
     // source, so its own stale catalog entries do not affect the score, and
-    // full regeneration is index-gen.mjs's job, not this test's.
+    // full regeneration is refresh-index.mjs's job, not this test's.
     const purgedTitles = new Set(
       plan.purge.filter((p) => p.startsWith('wiki/')).map((p) => p.split('/').pop().replace(/\.md$/i, ''))
     );
@@ -1136,7 +1136,7 @@ test('--apply closes by saying the removal is on disk and naming refresh-index.m
     const output = r.logs.join('\n');
     assert.match(output, /The removal is on disk\. Obsidian Git publishes it on its next run\./);
     assert.equal(r.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
-    assert.doesNotMatch(output, /git push|index-gen/);
+    assert.doesNotMatch(output, /git push/);
     assert.equal(existsSync(join(v, '.wiki-master', 'chunks.json')), false, 'purge does not run the refresh');
   } finally {
     rmSync(v, { recursive: true, force: true });

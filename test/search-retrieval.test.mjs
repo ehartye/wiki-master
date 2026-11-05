@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import * as retrieval from '../scripts/search.mjs';
 import { resolveLinkTarget } from '../scripts/lib/graph.mjs';
-import { refreshIndex, walkVault, statusReport } from '../scripts/index-embed.mjs';
+import { refreshIndex, walkVault, statusReport } from '../scripts/lib/embedding.mjs';
 
 const embedFn = async () => [1, 0];
 async function fixture(t, files) {

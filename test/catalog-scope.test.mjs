@@ -4,10 +4,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { refreshCatalogs } from '../scripts/refresh-catalogs.mjs';
-import { regenerateIndex } from '../scripts/index-gen.mjs';
-import { regenerateAuthoredMocs } from '../scripts/moc-authored-gen.mjs';
-import { regenerateBacklogRoadmaps } from '../scripts/backlog-gen.mjs';
+import { refreshCatalogs } from '../scripts/lib/catalogs.mjs';
+import { regenerateIndex } from '../scripts/lib/catalogs.mjs';
+import { regenerateAuthoredMocs } from '../scripts/lib/catalogs.mjs';
+import { regenerateBacklogRoadmaps } from '../scripts/lib/catalogs.mjs';
 import { committedPaths, mentionedTargets, keptByMention } from '../scripts/lib/catalog-scope.mjs';
 
 // Two writers share one vault: the operation under test owns one page, and a second writer has pages the
