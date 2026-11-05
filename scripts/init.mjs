@@ -7,6 +7,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
+const GITATTRIBUTES = `# Shared files that most tasks change, so two machines often change them at once.
+# merge=union keeps both sides' lines, with no conflict to resolve by hand.
+# refresh-index.mjs regenerates the catalogs, which clears any duplicate lines a union merge leaves in them.
+index.md    merge=union
+log.md      merge=union
+moc/**      merge=union
+`;
+
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',
               'wiki/syntheses', 'wiki/authored', 'moc', 'log', '_templates', '.wiki-master'];
 
@@ -77,6 +85,7 @@ export function scaffold(vaultPath, templatesDir) {
   attempt('log.md', () => writeMissing('log.md',
     '# Log\n\nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.\n'));
   attempt('.gitignore', () => writeMissing('.gitignore', '.wiki-master/\n'));
+  attempt('.gitattributes', () => writeMissing('.gitattributes', GITATTRIBUTES));
   for (const path of ['vault-schema.md', 'stale.base', 'log.base', '_templates']) attempt(path, () => copyMissing(path));
   for (const key of ['created', 'preserved', 'differing', 'incomplete']) report[key].sort();
   report.errors.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
@@ -104,9 +113,13 @@ export function main() {
   }
   console.log(`Scaffolded vault at: ${path}`);
   console.log(`\nOne-time setup:`);
-  console.log(`  1. In Obsidian: Open folder as vault → ${path}`);
-  console.log(`  2. Verify: node "${fileURLToPath(new URL('./obsidian.mjs', import.meta.url))}" vaults   (should list "${name}")`);
-  console.log(`  3. Import templates/webclipper-template.json into the Web Clipper.`);
+  const script = (file) => fileURLToPath(new URL(`./${file}`, import.meta.url));
+  console.log(`  1. The owner sets up the git repository and upstream for this folder. Init creates neither.`);
+  console.log(`  2. In Obsidian: Open folder as vault → ${path}`);
+  console.log(`  3. Verify: node "${script('obsidian.mjs')}" vaults   (should list "${name}")`);
+  console.log(`  4. Obsidian Git handles all git operations. With the owner's yes: node "${script('setup-obsidian-git.mjs')}" --apply`);
+  console.log(`  5. Import templates/webclipper-template.json into the Web Clipper.`);
+  console.log(`  6. Last: node "${script('refresh-index.mjs')}"`);
   if (!extractionAvailable()) {
     console.log(`\n  Note: wiki-researcher discovery needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }
@@ -115,7 +128,7 @@ export function main() {
 const USAGE = [
   'usage: node scripts/init.mjs',
   '',
-  'Scaffolds a vault (folders, schema, templates, bases) at the vault path. Existing files are kept.',
+  'Scaffolds a vault (folders, schema, templates, bases, .gitattributes) at the vault path. Existing files are kept.',
   'Reports created, preserved and differing paths without file contents. Links and type conflicts are errors.',
   'On failure, exits nonzero and reports partial creation; retry adds remaining missing files.',
   'Takes no options.',

@@ -71,7 +71,14 @@ curated task maps. See `_templates/concept-note.md` and `_templates/task-map.md`
 
 ## Git ownership
 
-The plugin's scripts make the scoped commits and the sync: `op-commit` commits what one
-operation wrote, and `wiki-sync.mjs` pulls, rebases and pushes. Obsidian Git stays installed for its
-source-control view and for pulling, with auto-commit, commit on file change and auto-push
-all off. An instruction anywhere else that says otherwise is stale.
+Obsidian Git handles all git operations. An agent runs no git command that changes the
+repository, and neither do the plugin's scripts.
+
+An agent's task ends the same way every time: write the pages, validate them, log once, then
+run `refresh-index.mjs` once. Report that the work is on disk and that Obsidian Git publishes
+it on its next run.
+
+Obsidian Git's required settings are `autoSaveInterval: 10`, `syncMethod: rebase`,
+`mergeStrategy: theirs`, `autoPullOnBoot: true`, `autoPushInterval: 0` and
+`autoPullInterval: 0`. `setup-obsidian-git.mjs` reports them, and sets them only in a vault
+that has no settings yet.
