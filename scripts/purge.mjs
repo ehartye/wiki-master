@@ -115,6 +115,17 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
   return { moved, touched, failed };
 }
 
+// Whether the file at an entry's path is the content the manifest recorded. An
+// entry with no hash cannot show that, and neither can a path that cannot be read.
+function alreadyRestored(vaultPath, entry) {
+  if (!entry.sha256) return false;
+  try {
+    return sha256(readFileSync(join(vaultPath, entry.from), 'utf8')) === entry.sha256;
+  } catch {
+    return false;
+  }
+}
+
 // The inverse. A file that exists at the original path is NEVER overwritten —
 // it is newer work someone did after the purge, and silently clobbering it would
 // make restore the destructive operation purge was designed not to be.
@@ -138,8 +149,9 @@ export function applyRestore(vaultPath, manifest) {
         n += 1;
       }
       if (!latest) {
-        // A file already back at its path is a rerun finishing the job, not a gap.
-        if (!existsSync(join(vaultPath, e.from))) missing.push(e.from);
+        // The purged content already back at its path is a rerun finishing the
+        // job, not a gap. A different page there means that content is lost.
+        if (!alreadyRestored(vaultPath, e)) missing.push(e.from);
         continue;
       }
       from = latest;

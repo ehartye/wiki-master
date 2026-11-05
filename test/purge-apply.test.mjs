@@ -954,6 +954,41 @@ test('a --restore that moved something logs what is missing from the bin too', a
   }
 });
 
+// With the bin copy gone, a file at the path counts as already restored only when
+// its content is the content that was purged. Anything else is a different page,
+// and the purged content is lost, which has to be reported.
+test('a --restore with the bin copy lost and a different page at the path reports it missing and exits 1', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    rmSync(join(v, '.recycle', id, 'wiki', 'concepts', 'Foo.md'));
+    writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'a different page\n');
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('MISSING from the bin, not restored: wiki/concepts/Foo.md')), r.errs.join('\n'));
+    assert.equal(readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8'), 'a different page\n', 'the page is left alone');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('applyRestore counts a file as already back only when its hash matches the manifest', () => {
+  const v = tempVault();
+  try {
+    const text = readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8');
+    const entry = (hash) => ({ id: 'id', entries: [{ from: 'wiki/concepts/Foo.md', ...(hash ? { sha256: hash } : {}) }] });
+
+    assert.deepEqual(applyRestore(v, entry(sha256(text))).missing, [], 'same content: already restored');
+    assert.deepEqual(applyRestore(v, entry(sha256('other'))).missing, ['wiki/concepts/Foo.md'], 'different content');
+    assert.deepEqual(applyRestore(v, entry(null)).missing, ['wiki/concepts/Foo.md'], 'no hash to compare: reported as missing');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
 test('--restore with an unknown id writes no log', async () => {
   const v = tempVault();
   try {
