@@ -517,36 +517,45 @@ export async function main(argv, {
   });
 
   writeManifest(vaultPath, manifest);          // intent first — survives a crash mid-move
-  const { moved, failed } = applyPurgeFn(vaultPath, manifest);
+  const { moved, touched, failed } = applyPurgeFn(vaultPath, manifest);
 
   console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
+  // Whatever moved is a change Obsidian Git will publish, so it is logged even
+  // when the purge stopped short. Failure reasons stay out of the entry: a system
+  // error can quote a local path, and logs sync between machines. A run that moved
+  // nothing changed nothing, and leaves no entry.
+  if (moved) {
+    writeLogEntry({
+      vaultPath, op: 'purge', title: arg,
+      body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n` +
+            pathList('Moved:', movePairs(touched).map((m) => m.from)) +
+            pathList('Could not be moved:', failed.map((x) => x.from)) +
+            (manifest.collateral.length ? `\nCollateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
+    });
+  }
   // Windows locks a file against rename whenever any process holds a
   // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
-  // client. Measured, not theoretical. Report and stop here, before either
-  // declines or the log entry below are written: both describe a move that,
-  // for a failed entry, never actually happened.
+  // client. Measured, not theoretical. Report and stop here, before the declines
+  // below are recorded: they describe a removal that, for a failed entry, never
+  // actually happened. --reconcile replays them from the manifest once it has.
   if (failed.length) {
     console.error(`\n${failed.length} file(s) could not be moved:`);
-    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
+    for (const x of failed) console.error(`  ${x.from} — ${x.reason}`);
     console.error('Close whatever holds them open, then run --reconcile to finish this purge');
     console.error(`in place — it re-bins the stragglers into .recycle/${id}/.`);
     console.error('Do NOT re-run --apply: it starts a SECOND purge under a new id and');
     console.error('fragments this one across two manifests, so neither restores correctly.');
+    if (moved) console.log(`\nThe ${moved} moved file(s) are on disk. Obsidian Git publishes them on its next run.`);
     process.exitCode = 1;
     return;
   }
 
-  // Declines and the log entry are consequences of files having actually
-  // moved, so they are recorded only once applyPurge reports zero failures.
-  // The manifest (written above, before any of this) already carries the
-  // declines for --reconcile to replay if a later crash strands things
-  // anyway — nothing below is load-bearing for recovery.
+  // Declines are a consequence of files having actually moved, so they are
+  // recorded only once applyPurge reports zero failures. The manifest (written
+  // above, before any of this) already carries them for --reconcile to replay if
+  // a later crash strands things anyway — nothing below is load-bearing for
+  // recovery.
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
-  writeLogEntry({
-    vaultPath, op: 'purge', title: arg,
-    body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n\n` +
-          (manifest.collateral.length ? `Collateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
-  });
 
   // Purge does not run the refresh itself: the skill does, once the references
   // are repaired.

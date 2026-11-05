@@ -563,7 +563,7 @@ test('main --apply refuses to move anything when a survivor would lose all prove
 // applyPurge to report a failure. That underlying condition is covered by
 // the "a locked or otherwise unmoveable entry..." test in this file and its
 // G3 re-run in the mutation table.
-test('main --apply stops before logging when applyPurge reports a failed move', async () => {
+test('main --apply writes no log when applyPurge moved nothing and reports a failed move', async () => {
   const v = tempVault();
   try {
     gitInit(v);
@@ -577,7 +577,7 @@ test('main --apply stops before logging when applyPurge reports a failed move', 
 
     assert.equal(r.exitCode, 1);
     assert.deepEqual(gitState(v), before);
-    assert.deepEqual(logEntries(v), [], 'a purge with a failed move must not be logged');
+    assert.deepEqual(logEntries(v), [], 'a purge that moved nothing has nothing to log');
     const errs = r.errs.join('\n');
     assert.ok(errs.includes('could not be moved'));
     assert.ok(errs.includes('simulated failure'));
@@ -713,11 +713,11 @@ test('re-running --apply after the topic is already purged writes no second mani
   }
 });
 
-// I1: an aborted apply (a move failed) must not still
-// record a decline or write a log entry -- both describe a move that, for a
-// failed entry, never actually happened. A decline recorded anyway silently
-// makes /wiki-discover skip a source the user still has, for up to 180 days.
-test('an aborted apply leaves declined.json and log/ untouched', async () => {
+// I1: an apply whose every move failed changed nothing, so it writes no log
+// entry. It records no decline either: a decline recorded anyway silently makes
+// /wiki-discover skip a source the user still has, for up to 180 days. An apply
+// that moved anything is logged: see the partial case below.
+test('an apply that moved nothing leaves declined.json and log/ untouched', async () => {
   const v = tempVault();
   try {
     gitInit(v);
@@ -731,6 +731,65 @@ test('an aborted apply leaves declined.json and log/ untouched', async () => {
     assert.equal(r.exitCode, 1);
     assert.equal(existsSync(join(v, '.wiki-master', 'declined.json')), false);
     assert.equal(existsSync(join(v, 'log')), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Files that did move show as deleted for Obsidian Git to publish, so the log has
+// to name them, and the failed ones, even though the purge is not finished. The
+// reasons stay out of the entry: a system error can quote a local path, and logs
+// sync between machines. Declines still wait for --reconcile, which replays them
+// from the manifest once the stragglers have moved.
+test('a partly failed apply logs what moved and what did not, keeps exit 1, and reconcile finishes it', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const before = gitState(v);
+    const partialApplyPurge = (vault, manifest) => {
+      const stuck = manifest.entries.filter((e) => e.from === 'wiki/concepts/Foo.md');
+      const free = manifest.entries.filter((e) => e.from !== 'wiki/concepts/Foo.md');
+      const moved = applyPurge(vault, { ...manifest, entries: free });
+      return { ...moved, failed: stuck.map((e) => ({ from: e.from, reason: 'locked at C:\\private\\path' })) };
+    };
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: partialApplyPurge });
+
+    assert.equal(r.exitCode, 1);
+    assert.deepEqual(gitState(v), before);
+    const entries = logEntries(v);
+    assert.equal(entries.length, 1);
+    const entry = readFileSync(join(v, 'log', entries[0]), 'utf8');
+    assert.match(entry, /Purged 1 file\(s\) to `\.recycle\//);
+    assert.match(entry, /Moved:\n- `raw\/clippings\/Src-abc1234\.md`/);
+    assert.match(entry, /Could not be moved:\n- `wiki\/concepts\/Foo\.md`/);
+    assert.doesNotMatch(entry, /private/);
+    assert.equal(existsSync(join(v, '.wiki-master', 'declined.json')), false, 'declines wait for reconcile');
+    assert.ok(r.errs.join('\n').includes('run --reconcile to finish this purge'));
+    const output = r.logs.join('\n');
+    assert.match(output, /The 1 moved file\(s\) are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.doesNotMatch(output, /refresh-index/, 'reconcile comes first');
+
+    const finished = await runMain(v, ['--reconcile']);
+
+    assert.equal(finished.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false);
+    assert.equal(logEntries(v).length, 2);
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A complete purge names what it moved too, so one code path writes every entry.
+test('a complete apply names what it moved in the log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const entry = readFileSync(join(v, 'log', logEntries(v)[0]), 'utf8');
+    assert.match(entry, /Moved:\n- `raw\/clippings\/Src-abc1234\.md`\n- `wiki\/concepts\/Foo\.md`/);
+    assert.doesNotMatch(entry, /Could not be moved/);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
