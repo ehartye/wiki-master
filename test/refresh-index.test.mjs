@@ -110,6 +110,17 @@ test('with healthy probes it exits 0 and updates a roadmap, a project map, index
   assert.deepEqual(r.cliCalls, [['vault', 'info=path']]);
 });
 
+test('a successful refresh says what it did: the file and chunk counts, and no failure', async (t) => {
+  const root = vault(t);
+  const r = await run(root);
+  assert.equal(r.code, 0, r.output);
+  const files = Object.keys(JSON.parse(read(root, '.wiki-master/chunks.json'))).length;
+  const chunks = r.embedCalls.length;
+  assert.ok(files > 0 && chunks > 0);
+  assert.ok(r.output.includes(`search index: saved -- ${files} file(s) changed, ${chunks} chunk(s) embedded, 0 pruned, ${chunks} total`), r.output);
+  assert.doesNotMatch(r.output, /fail/i, 'a complete run mentions no failure');
+});
+
 test('it always covers the whole vault', async (t) => {
   const root = vault(t);
   await run(root);
