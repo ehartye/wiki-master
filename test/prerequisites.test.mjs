@@ -252,13 +252,13 @@ function world(t, overrides = {}) {
 }
 const ids = (r) => r.failures.map((f) => f.id);
 
-test('everything healthy passes with no failure, no note, and one CLI call for the vault path', async (t) => {
+test('everything healthy passes with no failure, no note, and two read-only CLI calls', async (t) => {
   const { check, cliCalls } = world(t);
   const r = await check();
   assert.equal(r.ok, true);
   assert.deepEqual(r.failures, []);
   assert.deepEqual(r.notes, []);
-  assert.deepEqual(cliCalls, [['vault', 'info=path']]);
+  assert.deepEqual(cliCalls, [['vault', 'info=path'], ['plugins:restrict']]);
 });
 
 test('Ollama down names the host and offers to start it, without asking about the model', async (t) => {
@@ -400,10 +400,23 @@ test('the real CLI call names no vault and runs from a neutral folder', async (t
   const calls = [];
   const r = await checkPrerequisites({ vault: { path: root, name: 'fixture' }, probes: {
     ollamaUp: async () => true, modelPulled: async () => true, session: () => 'this-session', git: () => ({ repo: true, upstream: true }),
-    execFileSyncImpl: (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return `${root}\n`; },
+    execFileSyncImpl: (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return argv[0] === 'vault' ? `${root}\n` : 'off\n'; },
   } });
   assert.deepEqual(r.failures, []);
-  assert.deepEqual(calls, [{ command: 'obsidian', argv: ['vault', 'info=path'], cwd: tmpdir() }]);
+  assert.deepEqual(calls, [
+    { command: 'obsidian', argv: ['vault', 'info=path'], cwd: tmpdir() },
+    { command: 'obsidian', argv: ['plugins:restrict'], cwd: tmpdir() },
+  ]);
+});
+
+test('restricted mode on fails with its own id, and exactly "on" counts', async (t) => {
+  const answering = (answer, root) => (args) => (args[0] === 'plugins:restrict' ? answer : root);
+  const root = setGit(vault(t));
+  const check = (answer) => checkPrerequisites({ vault: { path: root, name: 'fixture' }, probes: {
+    ollamaUp: async () => true, modelPulled: async () => true, session: () => 'this-session', git: () => ({ repo: true, upstream: true }), cli: answering(answer, root),
+  } });
+  assert.deepEqual(ids(await check('on')), ['obsidian-restricted']);
+  for (const answer of ['off', 'ON', 'on but later', '', 'Error: Command not found']) assert.deepEqual(ids(await check(answer)), [], answer);
 });
 
 test('another vault being active is the wrong vault, and the fix names both ways out', async (t) => {

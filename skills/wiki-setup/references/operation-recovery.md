@@ -27,6 +27,7 @@ is, checks nothing and always exits 0.
 | The Obsidian CLI did not answer | Start Obsidian with this vault open and its command line interface on. |
 | Obsidian's active vault is another one | Open this vault in Obsidian or bring its window to the front, then rerun. |
 | The process list could not be read | Rerun; if it repeats, check by hand that Obsidian is running. |
+| Restricted mode is on | The owner turns it off in Obsidian's settings (Community plugins) and trusts the vault. |
 | Obsidian Git is not installed or not enabled | Install it through [initialization](initialization.md#install-obsidian-git). |
 | Obsidian Git's timer is off (`autoSaveInterval` is 0 or unset) | Change it in Obsidian Git's settings. Setup never overwrites existing settings. |
 | Not a git repository, or no upstream | The owner sets these up; ask them to. |
@@ -61,6 +62,19 @@ never rewrites an existing settings file.
 
 An interrupted `init.mjs` keeps what it created and retries safely; see
 [initialization](initialization.md#preflight-existing-files).
+
+## Nothing is publishing
+
+The reasons, most likely first: Obsidian is closed on this machine, restricted mode is on, Obsidian
+Git's timer is off, it has reported an error, or the conflict file below exists.
+
+Restricted mode is the quiet one. Its flag lives in the app's local storage on each machine, not in
+`.obsidian/`, so a fresh clone can look healthy on disk, with the plugin installed, enabled and
+configured, while the plugin never runs. `refresh-index.mjs` and `setup-obsidian-git.mjs --apply` ask
+the app and stop on it. Nothing can ask when Obsidian runs only in another session, as over SSH, so
+a refresh passes there without knowing. `setup-obsidian-git.mjs --check` and `doctor.mjs` read files,
+so they cannot see it either. When pages stay unpublished and no check explains it, ask the owner to
+look at Settings > Community plugins on that machine.
 
 ## Obsidian Git reports an error
 

@@ -111,10 +111,11 @@ async function apply(vault, deps, { out }) {
   const configure = before.settings === 'absent';
   // A plugin listed as enabled cannot be enabled again; once its files or settings change, it needs a reload to read them.
   const load = before.enabled ? (install || configure ? 'plugin:reload' : null) : 'plugin:enable';
-  if (!install && !configure && !load) return null;
 
+  // Ahead of the early return: a vault that looks finished on disk can still be restricted, with the plugin never running.
   const blocked = blocker(vault, deps);
   if (blocked) return blocked;
+  if (!install && !configure && !load) return null;
 
   if (install) {
     const failed = runStep(deps.cli, ['plugin:install', ID], { timeout: INSTALL_TIMEOUT_MS });

@@ -99,6 +99,13 @@ export async function checkOllama({ ollamaUp, modelPulled, model, host }) {
   return [];
 }
 
+function cliFailure(error) {
+  if (['CLI_BUSY', 'CLI_LOCK'].includes(error.code)) {
+    return failure('obsidian-cli-gate', `The Obsidian CLI gate is busy or failing (${error.code}).`, 'Rerun refresh-index.mjs. Treat a repeat as the CLI being down, and offer to restart Obsidian.');
+  }
+  return failure('obsidian-cli', `The Obsidian CLI did not answer: ${error.message}`, 'Offer to start Obsidian with this vault open and its command line interface enabled.');
+}
+
 function checkObsidian(vault, { session, cli }, notes) {
   let where;
   try {
@@ -115,13 +122,20 @@ function checkObsidian(vault, { session, cli }, notes) {
   try {
     reported = cli(['vault', 'info=path']);
   } catch (error) {
-    if (['CLI_BUSY', 'CLI_LOCK'].includes(error.code)) {
-      return [failure('obsidian-cli-gate', `The Obsidian CLI gate is busy or failing (${error.code}).`, 'Rerun refresh-index.mjs. Treat a repeat as the CLI being down, and offer to restart Obsidian.')];
-    }
-    return [failure('obsidian-cli', `The Obsidian CLI did not answer: ${error.message}`, 'Offer to start Obsidian with this vault open and its command line interface enabled.')];
+    return [cliFailure(error)];
   }
   if (!reported || canonical(reported) !== canonical(vault.path)) {
     return [failure('obsidian-vault', `Obsidian's active vault is ${reported || '(none reported)'}, not ${vault.path}.`, 'Offer to open this vault in Obsidian, or bring its window to the front, then rerun.')];
+  }
+  // This extends decision 10's "installed and enabled" check. Restricted mode lives in the app's local storage, not in
+  // .obsidian/, so a clone can pass every check on disk while the plugin never runs. Only an answer of exactly "on"
+  // fails, so an app too old to have the command does not block authoring.
+  try {
+    if (cli(['plugins:restrict']) === 'on') {
+      return [failure('obsidian-restricted', 'Restricted mode is on in this vault, so Obsidian Git does not run.', 'Offer this fix: the owner turns off restricted mode in Obsidian\'s settings (Community plugins) and trusts the vault, then rerun.')];
+    }
+  } catch (error) {
+    return [cliFailure(error)];
   }
   return [];
 }

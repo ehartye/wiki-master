@@ -107,7 +107,7 @@ test('with healthy probes it exits 0 and updates a roadmap, a project map, index
   assert.match(read(root, 'index.md'), /idea/);
   for (const path of INDEX_FILES) assert.ok(existsSync(join(root, path)), path);
   assert.ok(r.embedCalls.length > 0);
-  assert.deepEqual(r.cliCalls, [['vault', 'info=path']]);
+  assert.deepEqual(r.cliCalls, [['vault', 'info=path'], ['plugins:restrict']]);
 });
 
 test('a successful refresh says what it did: the file and chunk counts, and no failure', async (t) => {
@@ -393,6 +393,71 @@ for (const code of ['CLI_BUSY', 'CLI_LOCK']) {
     assert.deepEqual(snapshot(root), before);
   });
 }
+
+// A clone can look healthy on disk and publish nothing: restricted mode lives in the app's local storage, not .obsidian/.
+const restricted = (answer, calls = []) => (args) => { calls.push(args); return args[0] === 'plugins:restrict' ? answer : undefined; };
+
+test('restricted mode on: exits 1, names it, gives the owner\'s fix, and writes nothing', async (t) => {
+  const root = vault(t);
+  const before = snapshot(root);
+  const answer = restricted('on');
+  const r = await run(root, [], { probes: { cli: (args) => answer(args) ?? root } });
+  assert.equal(r.code, 1, r.output);
+  assert.match(r.output, /[Rr]estricted mode is on/);
+  assert.match(r.output, /owner/);
+  assert.match(r.output, /Obsidian's settings/);
+  assert.match(r.output, /trust/i);
+  assert.match(r.output, /written but not refreshed/);
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('restricted mode on is listed with every other failure', async (t) => {
+  const root = vault(t, { ...TIMER_OFF, ...NOT_ENABLED });
+  const before = snapshot(root);
+  const answer = restricted('on');
+  const r = await run(root, [], { probes: {
+    ollamaUp: async () => false, git: () => ({ repo: false, upstream: false }), cli: (args) => answer(args) ?? root,
+  } });
+  assert.equal(r.code, 1);
+  for (const problem of [/Ollama is not reachable/, /[Rr]estricted mode is on/, /Obsidian Git is not enabled/, /autoSaveInterval is 0/, /not a git repository/]) {
+    assert.match(r.output, problem);
+  }
+  assert.deepEqual(snapshot(root), before);
+});
+
+for (const answer of ['off', 'Error: Command not found', '']) {
+  test(`restricted mode answering "${answer}" passes, so an older app does not block authoring`, async (t) => {
+    const root = vault(t);
+    const ask = restricted(answer);
+    const r = await run(root, [], { probes: { cli: (args) => ask(args) ?? root } });
+    assert.equal(r.code, 0, r.output);
+  });
+}
+
+for (const code of ['CLI_BUSY', 'CLI_LOCK']) {
+  test(`${code} on the restricted-mode question reads as the gate, like the vault question`, async (t) => {
+    const root = vault(t);
+    const before = snapshot(root);
+    const r = await run(root, [], { probes: { cli: (args) => {
+      if (args[0] === 'plugins:restrict') throw Object.assign(new Error('gate'), { code });
+      return root;
+    } } });
+    assert.equal(r.code, 1);
+    assert.match(r.output, /gate is busy or failing/i);
+    assert.match(r.output, /repeat.*CLI.*down/i);
+    assert.deepEqual(snapshot(root), before);
+  });
+}
+
+test('it asks about restricted mode only once the vault is confirmed, and never switches it', async (t) => {
+  const root = vault(t);
+  const r = await run(root);
+  assert.equal(r.code, 0, r.output);
+  assert.deepEqual(r.cliCalls, [['vault', 'info=path'], ['plugins:restrict']]);
+  const wrong = [];
+  await run(root, [], { probes: { cli: (args) => { wrong.push(args); return join(tmpdir(), 'another-vault'); } } });
+  assert.deepEqual(wrong, [['vault', 'info=path']]);
+});
 
 test('Obsidian only in another session: passes with a note, and the CLI stub records no call', async (t) => {
   const root = vault(t);

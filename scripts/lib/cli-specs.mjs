@@ -71,7 +71,7 @@ export const CLI_SPECS = {
       'usage: node scripts/refresh-index.mjs [--rebuild] [--status]',
       '',
       'The last step of an authoring task. Regenerates the catalogs (index.md, every roadmap and project map) and refreshes the semantic search index, for the whole vault.',
-      'It first checks that Ollama is reachable with the embedding model pulled, Obsidian is up, Obsidian Git is installed and enabled with autoSaveInterval above 0, and the vault is a git repository with an upstream. If any check fails it names every failure with the fix to offer, writes nothing and exits 1.',
+      'It first checks that Ollama is reachable with the embedding model pulled, Obsidian is up and not in restricted mode, Obsidian Git is installed and enabled with autoSaveInterval above 0, and the vault is a git repository with an upstream. If any check fails it names every failure with the fix to offer, writes nothing and exits 1.',
       'A run with nothing to do rewrites no file. Failed chunks exit 1 with the count; the catalogs written stay, and a rerun retries them.',
       '--rebuild re-chunks every page instead of trusting modification times, and repairs a damaged index. It first asks the embedder for its dimension with one short probe. Stored vectors that pass inspection at that dimension are reused and the rest are embedded again. If the dimension changes, one failed chunk means nothing is saved and the old index stands.',
       '--status reports how fresh the index is. It checks nothing, writes nothing and always exits 0.',

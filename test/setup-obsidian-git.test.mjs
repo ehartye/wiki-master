@@ -212,7 +212,7 @@ test('--apply: a file that cannot be read is kept too', async (t) => {
   const h = hooks(vault);
   assert.equal(await main(['--apply'], h), 1);
   assert.equal(readFileSync(dataOf(vault), 'utf8'), '{ not json');
-  assert.deepEqual(h.calls, [], 'nothing left to do through the CLI');
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), [], 'nothing left to do to the plugin');
 });
 
 test('--apply: a settings file that appears during the install is kept, not replaced', async (t) => {
@@ -231,11 +231,23 @@ test('--apply: a settings file that appears during the install is kept, not repl
 
 // ---- --apply when part of the work is already done ----
 
-test('--apply: with everything in place it asks the app nothing and reports it', async (t) => {
+test('--apply: with everything in place it changes nothing, and only asks the app two questions', async (t) => {
   const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
   const h = hooks(vault);
   assert.equal(await main(['--apply'], h), 0, h.text());
-  assert.deepEqual(h.calls, []);
+  assert.deepEqual(h.sent(), ['vault', 'plugins:restrict']);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+test('--apply: a vault that looks finished on disk but is restricted is not reported as done', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
+  const h = hooks(vault, { 'plugins:restrict': () => 'on' });
+  assert.equal(await main(['--apply'], h), 1, h.text());
+  assert.match(h.text(), /[Rr]estricted mode is on/);
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), []);
+  assert.deepEqual(snapshot(vault.path), before);
 });
 
 test('--apply: an installed plugin is not installed again', async (t) => {
@@ -479,6 +491,16 @@ test('a refresh stopped by another active vault is explained where an agent look
     assert.match(text, /active vault/);
     assert.match(text, /no `vault=`/);
   }
+});
+
+test('recovery names restricted mode among the reasons nothing publishes, and what cannot see it', () => {
+  const text = reference('operation-recovery.md');
+  assert.match(text, /^\| Restricted mode is on \|.*owner.*\|$/m);
+  const section = text.slice(atOrFail(text, /^## Nothing is publishing/m), atOrFail(text, /^## Obsidian Git reports an error/m));
+  assert.match(section, /[Rr]estricted mode/);
+  assert.match(section, /local storage/);
+  assert.match(section, /another session/, 'a refresh over SSH passes without being able to ask');
+  assert.match(section, /--check/, 'it reads files, so it cannot see this either');
 });
 
 test('search diagnostics name the refresh, not the commands it replaced', () => {
