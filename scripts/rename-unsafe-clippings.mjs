@@ -18,10 +18,7 @@
 // is finished by running it again.
 //
 //   node scripts/rename-unsafe-clippings.mjs                              # dry run
-//   node scripts/rename-unsafe-clippings.mjs --apply --paths-out ledger.json
-//
-// `--paths-out` writes the vault-relative paths the run changed (old names, new
-// names, rewritten pages), for `op-commit --paths-file`.
+//   node scripts/rename-unsafe-clippings.mjs --apply
 import { readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -53,7 +50,7 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // The engine, shared with rename-doubled-extension-clippings.mjs. `plan(rawFiles)` decides what is renamed
 // and returns { renames: [{ from, to }], refused }; the rest (repointing full-path wikilinks, pages before
-// files, never raw/ or log/, a ledger) is the same for every rename. `mentionStems` also reports pages
+// files, never raw/ or log/, the list of changed paths) is the same for every rename. `mentionStems` also reports pages
 // that name a renamed file by its extension-stripped path: right for a hidden or backtick name, noise for a
 // generic one such as README.md. `exclude` lists page prefixes that are reported but not rewritten, and
 // `flag` lists page prefixes to mark for a person to look at before applying.
@@ -119,7 +116,6 @@ function dirtyPaths(vaultPath) {
 
 // The command line of both rename scripts. `run(vaultPath, { apply, exclude })` does the work.
 //   --apply              rename the files and repoint the links (a dry run without it)
-//   --paths-out <file>   with --apply: the vault-relative paths the run changed, for op-commit --paths-file
 //   --list-out <file>    every rename and repointed page as tab-separated lines, for review before applying
 //   --exclude=<prefix>   a page prefix to report but not rewrite (repeatable)
 //   --flag=<prefix>      a page prefix to list for review before applying (repeatable)
@@ -132,7 +128,6 @@ export function runRenameCli(argv, { type, run }) {
     if (!argv[at + 1] || argv[at + 1].startsWith('--')) throw new Error(`${type}: ${flag} needs a file`);
     return argv[at + 1];
   };
-  const pathsOut = fileOption('--paths-out');
   const listOut = fileOption('--list-out');
   const exclude = argv.filter((a) => a.startsWith('--exclude=')).map((a) => a.slice('--exclude='.length)).filter(Boolean);
   const flag = argv.filter((a) => a.startsWith('--flag=')).map((a) => a.slice('--flag='.length)).filter(Boolean);
@@ -172,7 +167,6 @@ export function runRenameCli(argv, { type, run }) {
       ...r.pages.map(({ page, links }) => `repoint\t${page}\t${links}`), ...r.loose.map(({ page, path, count }) => `mention\t${page}\t${path}\t${count}`)];
     writeFileSync(listOut, `${lines.join('\n')}\n`);
   }
-  if (apply && pathsOut) writeFileSync(pathsOut, `${JSON.stringify(r.paths, null, 2)}\n`);
   if (!apply) console.error('dry run — re-run with --apply to rename the files and repoint the links');
   return r;
 }

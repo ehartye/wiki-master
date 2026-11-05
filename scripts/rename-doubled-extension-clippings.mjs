@@ -9,7 +9,7 @@
 //     folder first, as new clips are (lib/clip-slug.mjs).
 //
 //   node scripts/rename-doubled-extension-clippings.mjs --list-out review.tsv     # dry run, full listing
-//   node scripts/rename-doubled-extension-clippings.mjs --apply --paths-out ledger.json
+//   node scripts/rename-doubled-extension-clippings.mjs --apply
 //   add --flag=<prefix> to list, and --exclude=<prefix> to leave unrewritten, pages whose citations an app
 //   reads by title (both repeatable)
 //

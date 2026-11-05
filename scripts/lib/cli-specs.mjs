@@ -99,12 +99,12 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/refresh-fidelity.mjs [--ocr-floor | --inventory] [--apply]', '', 'Re-assesses each clipping\'s cached fidelity verdict from its stored markdown and clears flags that no longer hold. A clipping whose flag rests on its extraction (a table mode, or OCR) is preserved.', '--ocr-floor instead lists the OCR clippings that carry no fidelity grade and, with --apply, sets fidelity: ocr on them. An existing grade is never replaced.', '--inventory instead lists the PDF clippings, not yet marked degraded, whose letter inventory now looks broken (a letter that every Latin-script text has is nearly absent). It only lists, and refuses --apply.', DRY, VAULT],
   },
   'rename-doubled-extension-clippings': {
-    options: ['apply', 'exclude', 'flag', 'list-out', 'paths-out'],
-    usage: ['usage: node scripts/rename-doubled-extension-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>] [--paths-out <file>]', '', 'Renames raw clippings whose names double the extension (README.md.md) and repoints the citations to them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits. --paths-out writes the changed paths for op-commit --paths-file.', VAULT],
+    options: ['apply', 'exclude', 'flag', 'list-out'],
+    usage: ['usage: node scripts/rename-doubled-extension-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Renames raw clippings whose names double the extension (README.md.md) and repoints the citations to them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'rename-unsafe-clippings': {
-    options: ['apply', 'exclude', 'flag', 'list-out', 'paths-out'],
-    usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>] [--paths-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits. --paths-out writes the changed paths for op-commit --paths-file.', VAULT],
+    options: ['apply', 'exclude', 'flag', 'list-out'],
+    usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'render-page': {
     options: [],

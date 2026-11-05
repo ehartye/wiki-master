@@ -1,11 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renameUnsafeClippings } from '../scripts/rename-unsafe-clippings.mjs';
 import { scanIntegrity } from '../scripts/health.mjs';
 
+const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 const GH = 'raw/clippings/gh/o/r';
 const clipping = (title) => `---\ntitle: "${title}"\nsource: "https://example.com"\nsource-hash: "${'a'.repeat(64)}"\n---\n\nEvidence for ${title}.\n`;
 const BODY = 'A substantive summary of the repository: its build, its ignore rules and the checks it runs on every push.';
@@ -67,9 +70,9 @@ test('--apply renames the files, repoints the citations and the graph resolves t
   assert.ok(advisory.includes('[[raw/clippings/stringify advisory.md|the advisory]]'));
   assert.deepEqual(rules(root), [], 'no integrity defect once the names are safe');
   assert.equal(read(root, `${GH}/dot-gitignore.md`), clipping('.gitignore'), 'clipping content is untouched');
-  assert.deepEqual(r.paths, [...new Set(r.paths)].sort(), 'ledger is unique and sorted');
+  assert.deepEqual(r.paths, [...new Set(r.paths)].sort(), 'the changed paths are unique and sorted');
   for (const p of [`${GH}/.gitignore.md`, `${GH}/dot-gitignore.md`, 'wiki/sources/Repo Summary.md', 'wiki/sources/Advisory.md', 'raw/clippings/`stringify` advisory.md', 'raw/clippings/stringify advisory.md']) {
-    assert.ok(r.paths.includes(p), `ledger lists ${p}`);
+    assert.ok(r.paths.includes(p), `the changed paths list ${p}`);
   }
 });
 
@@ -119,3 +122,17 @@ test('a link example inside a code block keeps its old path and is reported', (t
   renameUnsafeClippings(root, { apply: true });
   assert.ok(read(root, 'wiki/concepts/How To.md').includes(`[[${GH}/.gitignore.md]]`));
 });
+
+for (const script of ['rename-unsafe-clippings.mjs', 'rename-doubled-extension-clippings.mjs']) {
+  test(`${script} rejects --paths-out as an unknown option and changes nothing`, (t) => {
+    const root = vault(t, base());
+    const out = join(root, 'paths.json');
+    const run = (...args) => spawnSync(process.execPath, [join(SCRIPTS, script), ...args], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: root } });
+    const bad = run('--apply', '--paths-out', out);
+    assert.equal(bad.status, 2, bad.stderr);
+    assert.match(bad.stderr, /unknown option --paths-out/);
+    assert.equal(existsSync(out), false);
+    assert.ok(existsSync(join(root, GH, '.gitignore.md')), 'nothing was renamed');
+    assert.doesNotMatch(run('--help').stdout, /paths-out|op-commit/);
+  });
+}
