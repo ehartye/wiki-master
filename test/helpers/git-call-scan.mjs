@@ -176,7 +176,16 @@ class FileScan {
 
   resolveArray(name, before) {
     const at = this.declared(name, before);
-    return at !== null && this.bare[at] === '[' ? this.tokensOfArray(at, at) : null;
+    if (at === null || this.bare[at] !== '[') return null;
+    let tokens = this.tokensOfArray(at, at);
+    // A list can gain arguments between its declaration and the call, conditionally or not. Every one counts.
+    const growth = new RegExp(`\\b${name.replace(/\$/g, '\\$')}\\s*\\.\\s*(push|unshift)\\s*\\(`, 'g');
+    for (const m of this.bare.matchAll(growth)) {
+      if (m.index <= at || m.index >= before) continue;
+      const added = this.tokensOfArray(m.index + m[0].length - 1, before);
+      tokens = m[1] === 'push' ? [...tokens, ...added] : [...added, ...tokens];
+    }
+    return tokens;
   }
 
   resolveString(name, before) {

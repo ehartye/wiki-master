@@ -82,6 +82,15 @@ const WRITES = [
   'run(\'gh\', [\'api\', route, \'--method\', method])',
   'run(\'gh\', [\'api\', route, ...more])',
   'execSync(\'gh api repos/a/b/issues -f title=x\')',
+  // A list can gain its write form after it is declared.
+  'const args = [\'api\', route]; args.push(\'-f\', \'title=x\'); run(\'gh\', args)',
+  'const args = [\'api\', route]; if (body) args.push(\'--input\', file); run(\'gh\', args)',
+  'const args = [\'api\', route, \'--method\', \'GET\']; args.push(\'--method\', \'POST\'); run(\'gh\', args)',
+  'const args = [\'api\', route]; args.push(...more); run(\'gh\', args)',
+  'const args = [route]; args.unshift(\'api\', \'-X\', \'DELETE\'); run(\'gh\', args)',
+  'const args = []; args.push(\'commit\', \'-m\', \'x\'); execFileSync(\'git\', args)',
+  'const args = [\'-C\', dir]; args.push(\'push\'); execFileSync(\'git\', args)',
+  'const args = [\'remote\']; args.push(\'add\', \'origin\', url); execFileSync(\'git\', args)',
 ];
 
 for (const line of WRITES) {
@@ -109,6 +118,8 @@ const READS = [
   'run(\'gh\', [\'api\', route, \'-X\', \'GET\'])',
   'run(\'gh\', [\'api\', route, \'-XGET\'])',
   'run(\'gh\', [\'api\', route, \'--method=GET\'])',
+  'const args = [\'api\', \'--method\', \'GET\', route]; if (jq) args.push(\'--jq\', jq); run(\'gh\', args)',
+  'const args = [\'-C\', dir]; args.push(\'rev-parse\', \'HEAD\'); execFileSync(\'git\', args)',
   '// execFileSync(\'git\', [\'commit\'])',
   '/* run(\'git\', [\'push\']) */ const x = 1;',
   'console.log(\'Run `git push` from the vault\');',
