@@ -517,8 +517,32 @@ test('the step that ends a content change does not contradict the declined path'
   assert.match(stepFour, /declined/);
 });
 
-test('initialization says how to name the vault to act on', () => {
-  assert.match(reference('initialization.md'), /WIKI_MASTER_VAULT/);
+// Scoping the vault to init alone sent every later command to the default vault, where a refresh writes catalogs.
+const NAMED = "WIKI_MASTER_VAULT='<root>' ";
+function assertEveryCommandNamesTheVault(text, where) {
+  const commands = [...text.matchAll(/^.*node "<absolute-plugin-root>\/scripts\/.*$/gm)].map((m) => m[0]);
+  assert.ok(commands.length > 0, `${where}: no commands found`);
+  for (const line of commands) assert.ok(line.includes(`${NAMED}node "<absolute-plugin-root>`), `${where}: ${line}`);
+}
+
+test('every command in initialization names the vault, and no step scopes it to one command', () => {
+  const text = reference('initialization.md');
+  assertEveryCommandNamesTheVault(text, 'initialization.md');
+  assert.doesNotMatch(text, /for that command only/);
+  assert.match(text, /every command/i);
+  assert.match(text, /\$env:WIKI_MASTER_VAULT/, 'the PowerShell form');
+  assert.match(text, /WIKI_MASTER_VAULT_NAME/);
+});
+
+test('every command in the skill names the vault, and the flow says it carries through', () => {
+  assertEveryCommandNamesTheVault(body(), 'SKILL.md');
+  const firstRun = body().slice(atOrFail(body(), /^## First run/m), atOrFail(body(), /^## Procedures/m));
+  for (const script of ['init.mjs', 'setup-obsidian-git.mjs', 'refresh-index.mjs']) {
+    assert.match(firstRun, new RegExp(`WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/${script.replace('.', '\\.')}"`), script);
+  }
+  assert.match(firstRun, /every command/i);
+  const stepOne = body().slice(atOrFail(body(), /^1\. Resolve the vault/m), atOrFail(body(), /^2\. Select/m));
+  assert.match(stepOne, /every command/i, 'short names in the procedures rely on this');
 });
 
 test('an owner told about a conflict file is told how it gets finished, and an agent still does not pick a side', () => {

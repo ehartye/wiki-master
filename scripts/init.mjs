@@ -93,6 +93,16 @@ export function scaffold(vaultPath, templatesDir) {
   return report;
 }
 
+// What a printed command needs in front of it to act on the vault this run acted on, in the shell of this platform.
+// Nothing when the vault is the default one, which needs no naming. Without this a later command reads the default
+// vault, and a refresh writes catalogs there.
+export function vaultPrefix(env = process.env, platform = process.platform) {
+  const set = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
+  if (!env.WIKI_MASTER_VAULT) return '';
+  if (platform === 'win32') return set.map((key) => `$env:${key}='${env[key].replaceAll("'", "''")}'; `).join('');
+  return `${set.map((key) => `${key}='${env[key].replaceAll("'", "'\\''")}'`).join(' ')} `;
+}
+
 function printReport(report) {
   for (const key of ['created', 'preserved', 'differing', 'incomplete']) {
     for (const path of report[key]) console.log(`${key}: ${path}`);
@@ -113,13 +123,14 @@ export function main() {
   }
   console.log(`Scaffolded vault at: ${path}`);
   console.log(`\nOne-time setup:`);
-  const script = (file) => fileURLToPath(new URL(`./${file}`, import.meta.url));
+  const command = (file) => `${vaultPrefix()}node "${fileURLToPath(new URL(`./${file}`, import.meta.url))}"`;
+  if (vaultPrefix()) console.log(`  Every command below names this vault. Name it the same way on any other command for it.`);
   console.log(`  1. The owner sets up the git repository and upstream for this folder. Init creates neither.`);
   console.log(`  2. In Obsidian: Open folder as vault → ${path}`);
-  console.log(`  3. Verify: node "${script('obsidian.mjs')}" vaults   (should list "${name}")`);
-  console.log(`  4. Obsidian Git handles all git operations. With the owner's yes: node "${script('setup-obsidian-git.mjs')}" --apply`);
+  console.log(`  3. Verify: ${command('obsidian.mjs')} vaults   (should list "${name}")`);
+  console.log(`  4. Obsidian Git handles all git operations. With the owner's yes: ${command('setup-obsidian-git.mjs')} --apply`);
   console.log(`  5. Import templates/webclipper-template.json into the Web Clipper.`);
-  console.log(`  6. Last: node "${script('refresh-index.mjs')}"`);
+  console.log(`  6. Last: ${command('refresh-index.mjs')}`);
   if (!extractionAvailable()) {
     console.log(`\n  Note: wiki-researcher discovery needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }

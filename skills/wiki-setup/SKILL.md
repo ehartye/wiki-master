@@ -7,7 +7,8 @@ description: Use when asked to initialize a wiki vault, install or configure Obs
 
 Obsidian Git handles all git operations. It is a prerequisite: without it a vault can
 be read and searched, but `refresh-index.mjs`, the last step of every authoring task,
-refuses to run. `node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --check`
+refuses to run.
+`WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --check`
 reports where the vault stands. When setup, a check or a refresh finds it falling short,
 offer to install, enable and configure it. The owner's yes is the permission, and
 `setup-obsidian-git.mjs --apply` then does it. Existing settings are reported, never
@@ -26,6 +27,8 @@ a diagnostic result does not authorize installing tools, rebuilding indexes, edi
    helper's output or skip it for validation-only work.
    Confirm the intended target and whether the request is report-only or authorizes
    a particular setup/recovery action. No app is needed for filesystem checks.
+   For a vault other than the default, every command of the task names it, including
+   the ones written here by short name, or it acts on the default vault instead.
 2. Select the matching procedure below. Run bounded checks and retain their actual
    exit codes, coverage and output. Distinguish no findings from failed coverage.
 3. Explain the diagnosed state and its limits. If repair was not requested, stop
@@ -42,14 +45,17 @@ a diagnostic result does not authorize installing tools, rebuilding indexes, edi
 ## First run
 
 The order for a new vault; [initialization](references/initialization.md) has the detail.
+Every command in it names the vault, as written here. Leave `WIKI_MASTER_VAULT` off only
+for the default vault.
 
 1. State the prerequisites: Obsidian with its command line interface on, Obsidian Git,
    Ollama with the embedding model, and a git repository with an upstream.
-2. Run `init.mjs`.
+2. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/init.mjs"`.
 3. The owner sets up the git repository and upstream. This skill does not create either.
 4. Have the owner open the vault in Obsidian.
-5. Offer the install: on a yes, run `setup-obsidian-git.mjs --apply`.
-6. Run `refresh-index.mjs` last.
+5. Offer the install. On a yes, run
+   `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --apply`.
+6. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/refresh-index.mjs"` last.
 
 If the owner declines the install, stop there. A decline given up front counts: run
 `init.mjs` and stop. Report that the vault can be read and searched (keyword search,
@@ -68,7 +74,7 @@ rerun setup later. `refresh-index.mjs` is not run.
   reported, or the block and its manual steps.
 - **Validate changed pages:** read [scoped validation](references/validation.md).
   Request: “Validate these authored paths only.” Action:
-  `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file "<ledger>" --json`.
+  `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file "<ledger>" --json`.
   Result: checked/skipped counts and exact defects; no repairs or writes.
 - **Health and backlog:** read [checks and metrics](references/checks.md#health-and-ingest-backlog).
   Request: “How healthy is the wiki, and how many captures need ingestion?” Action:
