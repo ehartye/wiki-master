@@ -14,10 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Files a later package rewrites. Each package deletes its lines here as it finishes, widening the scans to the full
 // acceptance criteria.
-const LATER_PACKAGE = {
-  'test/skill-contracts.test.mjs': 'WP4 removes this: rewritten with the skills',
-  'test/skill-workflow.test.mjs': 'WP4 removes this: rewritten with the skills',
-};
+const LATER_PACKAGE = {};
 
 // Files that have to name what they check. These never go.
 const ALWAYS_EXCLUDED = {
