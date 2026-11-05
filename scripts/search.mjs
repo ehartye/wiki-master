@@ -8,7 +8,7 @@ import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HO
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
-import { statusReport } from './index-embed.mjs';
+import { freshness, manifestProblem, statusReport } from './lib/embedding.mjs';
 import { hash } from './lib/embed-cache.mjs';
 import { buildNameIndex } from './lib/graph.mjs';
 import { noteIdentity, exactIdentity, lexicalScore, terms, inScope,
@@ -20,7 +20,7 @@ const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';
 const VECTORS_IDX = 'vectors.idx.json';
 
-// Loads the chunk-level semantic index built by index-embed.mjs, touching
+// Loads the chunk-level semantic index built by refresh-index.mjs, touching
 // only the three fixed files under .wiki-master/ -- never the vault's wiki/
 // content itself. The query path ranks compact manifest metadata first, then
 // validates only bounded candidates against live content; it never walks or
@@ -157,7 +157,7 @@ export async function main(query, options = {}) {
   const diagnostics = [];
   const catalog = Object.entries(index.manifest).filter(([path]) => inScope(path));
   const metadataComplete = catalog.length > 0 && catalog.every(([, e]) => e.metadataVersion === METADATA_VERSION);
-  if (!metadataComplete) diagnostics.push({ code: 'metadata-incomplete', message: 'Refresh index-embed to enable complete title and alias lookup.' });
+  if (!metadataComplete) diagnostics.push({ code: 'metadata-incomplete', message: 'Run refresh-index.mjs to enable complete title and alias lookup.' });
   const named = catalog.map(([path, entry]) => ({ path, score: lexicalScore(query, path, entry),
     scopeMatch: matchesFilters(entry.metadata ?? {}, options) }))
     .filter(x => x.score > 0).sort((a, b) => Number(b.scopeMatch) - Number(a.scopeMatch) || b.score - a.score || a.path.localeCompare(b.path));
@@ -253,7 +253,7 @@ export async function main(query, options = {}) {
     Number(b.match === 'exact') - Number(a.match === 'exact') || (scores.get(b.path) ?? 0) - (scores.get(a.path) ?? 0) || a.path.localeCompare(b.path));
   const exact = ranked.filter(h => h.match === 'exact');
   if (exact.length > 1) diagnostics.push({ code: 'ambiguous-identity', paths: exact.map(h => h.path), message: 'Multiple pages match this identity; use a full path to disambiguate.' });
-  if (indexStatus.modified || indexStatus.removed) diagnostics.push({ code: 'stale-candidates', message: `${indexStatus.modified} modified and ${indexStatus.removed} removed candidates; refresh index-embed.` });
+  if (indexStatus.modified || indexStatus.removed) diagnostics.push({ code: 'stale-candidates', message: `${indexStatus.modified} modified and ${indexStatus.removed} removed candidates; run refresh-index.mjs.` });
   const rawRanked = ranked.filter(h => h.zone === 'raw');
   const selected = [...ranked.filter(h => !h.zone).slice(0, limit), ...rawRanked.slice(0, limit)];
   const results = selected.map(({ lexical, semantic, holdsPhrase, holdsParagraph, ...hit }) => ({ ...hit, score: scores.get(hit.path) ?? 0 }));
@@ -333,10 +333,11 @@ async function runQuery(query, options = {}) {
   // Only the (rare) first-in-window full block pays the cost of walking the
   // vault for staleness -- every other query skips it, per the design spec's
   // section 3 finding that this walk-and-hash was 211ms of avoidable work.
+  // The manifest is already loaded, and nothing here reads the vector store again.
   let filesChanged = 0;
   if (announceFull) {
     try {
-      filesChanged = statusReport({ vaultPath, dir: indexDir }).filesChanged;
+      ({ filesChanged } = freshness({ vaultPath, manifest: index.manifest }));
     } catch { /* a missing/unreadable vault must not block results */ }
   }
 
@@ -350,9 +351,17 @@ async function runQuery(query, options = {}) {
   if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
 }
 
-// --health and --setup exist to report a broken index, so one they cannot load must not stop them.
+// --health and --setup exist to report a broken index, so one they cannot load must not stop them. It is reported as
+// damage: refresh-index.mjs stops at the same files, and only --rebuild replaces them.
 function loadIndexForDiagnosis(indexDir) {
-  try { return loadChunkIndex(indexDir); } catch { return { manifest: {}, vectors: {}, available: false }; }
+  const broken = (damaged) => ({ manifest: {}, vectors: {}, available: false, damaged });
+  try {
+    const index = loadChunkIndex(indexDir);
+    const problem = manifestProblem(index.manifest);
+    return problem ? broken(problem) : index;
+  } catch (error) {
+    return broken(`the index files cannot be read: ${error.message}`);
+  }
 }
 
 async function runHealthCommand() {
@@ -365,10 +374,10 @@ async function runHealthCommand() {
   let files = Object.keys(index.manifest).length;
   let filesChanged = 0;
   let filesRemoved = 0;
-  let damaged = null;
+  let damaged = index.damaged ?? null;
   try {
     const r = statusReport({ vaultPath, dir: indexDir });
-    files = r.files; filesChanged = r.filesChanged; filesRemoved = r.filesRemoved; damaged = r.damaged;
+    files = r.files; filesChanged = r.filesChanged; filesRemoved = r.filesRemoved; damaged ??= r.damaged;
   } catch { /* vault unreadable -- report what the index itself knows */ }
 
   const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged, damaged });
@@ -380,9 +389,11 @@ async function runHealthCommand() {
   console.log('wiki-master search health');
   console.log(`  tier: ${assessed.tier}`);
   console.log(`  ollama: host=${OLLAMA_HOST} model=${EMBED_MODEL} reachable=${ollamaUp} model-pulled=${modelOk}`);
-  console.log(
+  const onDisk = `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB on disk`;
+  // A damaged store still decodes, so its counts would read as vectors that are fine.
+  console.log(damaged ? `  index: damaged, ${onDisk}` :
     `  index: ${files} file(s), ${cov.chunks} chunk(s) (${cov.embedded} embedded, ${cov.missing} missing), ` +
-    `${filesChanged} changed / ${filesRemoved} removed since last refresh, ${(sizeBytes / (1024 * 1024)).toFixed(1)} MB on disk`
+    `${filesChanged} changed / ${filesRemoved} removed since last refresh, ${onDisk}`
   );
   if (assessed.gaps.length) {
     console.log('  gaps:');
@@ -404,8 +415,11 @@ async function runSetupCommand() {
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
   let filesChanged = 0;
-  let damaged = null;
-  try { ({ filesChanged, damaged } = statusReport({ vaultPath, dir: indexDir })); } catch { /* best effort */ }
+  let damaged = index.damaged ?? null;
+  try {
+    const r = statusReport({ vaultPath, dir: indexDir });
+    filesChanged = r.filesChanged; damaged ??= r.damaged;
+  } catch { /* best effort */ }
 
   const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged, damaged });
   console.log(setupPlan(assessed));

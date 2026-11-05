@@ -94,7 +94,7 @@ test('mergeRRF is deterministic given the same input', () => {
 // ── loadChunkIndex ──────────────────────────────────────────────────────
 // Builds a throwaway .wiki-master-shaped directory (never the real vault) with
 // a valid chunks.json/vectors.bin/vectors.idx.json trio, mirroring what
-// index-embed.mjs writes.
+// refresh-index.mjs writes.
 function tempIndexDir(manifest, vectorMap) {
   const dir = mkdtempSync(join(tmpdir(), 'wm-search-index-'));
   writeFileSync(join(dir, 'chunks.json'), JSON.stringify(manifest));
@@ -203,7 +203,7 @@ test('renderResult: a degraded search is never silent -- the one-liner always na
 });
 
 test('renderResult: diagnostics never leak into stdout, even with a note and a full block', () => {
-  const result = { tier: 'lexical', results: [{ path: 'k.md' }], note: 'semantic index missing -- run node scripts/index-embed.mjs' };
+  const result = { tier: 'lexical', results: [{ path: 'k.md' }], note: 'semantic index missing -- run node scripts/refresh-index.mjs' };
   const assessed = assessTiers({
     ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
     index: { available: false, coverage: { chunks: 0, embedded: 0, missing: 0 }, filesChanged: 0 },
@@ -211,7 +211,7 @@ test('renderResult: diagnostics never leak into stdout, even with a note and a f
   const { stdout, stderr } = renderResult(result, assessed, { chunks: 0, announceFull: true });
   assert.deepEqual(stdout, ['k.md'], 'stdout must contain nothing but result paths');
   assert.ok(stderr.length > 1, 'the full block is multiple lines');
-  assert.ok(stderr.some((l) => /index-embed\.mjs/.test(l)));
+  assert.ok(stderr.some((l) => /refresh-index\.mjs/.test(l)));
 });
 
 test('renderResult: the first-in-window call prints the full block instead of the one-liner', () => {

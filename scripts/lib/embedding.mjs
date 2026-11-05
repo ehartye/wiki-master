@@ -118,7 +118,7 @@ function answerProblem(vector) {
   return Array.prototype.every.call(vector, Number.isFinite) ? null : 'the embedder returned a non-finite number';
 }
 
-function manifestProblem(manifest) {
+export function manifestProblem(manifest) {
   if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) return `${CHUNKS_FILE} is not a manifest`;
   const bad = Object.keys(manifest).find((path) => !Array.isArray(manifest[path]?.chunks));
   return bad === undefined ? null : `${CHUNKS_FILE} has no chunk list for ${bad}`;
@@ -208,20 +208,26 @@ async function runPool(items, size, worker) {
   await Promise.all(Array.from({ length: n }, lane));
 }
 
-// statusReport: coverage only, embeds nothing, writes nothing.
 function metadataRefreshManifest(manifest) {
   return Object.fromEntries(Object.entries(manifest).map(([path, entry]) => [path,
     entry.metadataVersion === METADATA_VERSION ? entry : { ...entry, mtimeMs: NaN }]));
 }
 
-// `damaged` says why the vector store cannot be trusted, or is null; a plain refresh stops for the same reason.
+// How far the vault has moved from a manifest the caller already holds. It walks the vault and reads no vector.
+export function freshness({ vaultPath, manifest }) {
+  const plan = planRefresh(metadataRefreshManifest(manifest), walkVault(vaultPath));
+  return { filesChanged: plan.changed.length, filesRemoved: plan.removed.length };
+}
+
+// Coverage only: embeds nothing, writes nothing. `damaged` says why the index cannot be trusted, or is null; a plain
+// refresh stops for the same reason. A manifest that is not one counts for nothing here, so the rest can still be told.
+
 export function statusReport({ vaultPath, dir }) {
-  const manifest = readManifestFile(dir);
+  const read = readManifestFile(dir);
+  const problem = manifestProblem(read);
+  const manifest = problem ? {} : read;
   const { vectors, damaged } = inspectVectorStore(dir);
-  const files = walkVault(vaultPath);
-  const plan = planRefresh(metadataRefreshManifest(manifest), files);
-  const cov = coverage(manifest, Object.keys(vectors));
-  return { ...cov, filesChanged: plan.changed.length, filesRemoved: plan.removed.length, damaged };
+  return { ...coverage(manifest, Object.keys(vectors)), ...freshness({ vaultPath, manifest }), damaged: problem ?? damaged };
 }
 
 // refreshIndex: the core orchestration. Pre-flight (Ollama reachable AND the
