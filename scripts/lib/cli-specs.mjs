@@ -58,8 +58,8 @@ export const CLI_SPECS = {
     ],
   },
   'log-entry': {
-    options: ['op', 'title', 'since'],
-    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>" [--since <token>]   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md. Write it after op-begin and list it in the operation\'s ledger: --since records its path there (op-ledger.mjs show prints the ledger).', VAULT],
+    options: ['op', 'title'],
+    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', VAULT],
   },
   'op-abort': {
     options: ['since'],
