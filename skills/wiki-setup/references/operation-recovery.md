@@ -97,8 +97,9 @@ Obsidian Git writes this file at the vault root when a rebase stops. With
 on one machine and deleted on another stops the rebase, and the plugin then publishes
 nothing until the conflict is resolved.
 
-Tell the owner that the file exists and what it lists. Do not edit or delete it, resolve the conflict, or guess at which side
-wins, even when asked to fix it: that choice is the owner's. They finish it in Obsidian Git's
+Tell the owner that the file exists and what it lists. Do not edit or delete it, resolve the
+conflict, or guess at which side wins, even when asked to fix it: that choice is the owner's.
+They finish it in Obsidian Git's
 source control view or their own git client. Until they do, `refresh-index.mjs` can stop on a
 rebase in progress, so a task with pages waiting is reported as written but not refreshed.
 

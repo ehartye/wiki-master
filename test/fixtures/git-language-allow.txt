@@ -38,3 +38,27 @@ templates/webclipper-template.json | {{published}} | A source's publication date
 templates/_templates/authored-decision.md | above in sync | The status field agrees with the prose; nothing to do with git.
 skills/wiki-setup/references/app-access.md | Never publish the token | The triage session token, never to be put into logs.
 skills/wiki-setup/references/capture-prerequisites.md | override to push through | Forcing unreadable content past a floor; nothing to do with git.
+
+# Bare pull and rebase. Each is a statement about Obsidian Git's own rebase, a setting's value, or not git at all.
+skills/wiki-setup/references/operation-recovery.md | when a rebase stops | Says when Obsidian Git writes its conflict file.
+skills/wiki-setup/references/operation-recovery.md | stops the rebase | Describes Obsidian Git stopping on a conflict.
+skills/wiki-setup/references/operation-recovery.md | stop on a rebase in progress | Says the refresh stops while Obsidian Git's rebase is stopped.
+skills/wiki-setup/references/operation-recovery.md | A rebase or merge is in progress | What the refresh reports about Obsidian Git's rebase; the fix is to rerun or tell the owner.
+skills/wiki-setup/references/initialization.md | syncMethod: rebase | An Obsidian Git setting's value.
+templates/vault-schema.md | syncMethod: rebase | An Obsidian Git setting's value.
+README.md | syncMethod: rebase | An Obsidian Git setting's value.
+scripts/lib/obsidian-git.mjs | 'rebase' | An Obsidian Git setting's value.
+scripts/lib/prerequisites.mjs | 'rebase' 'rebase-merge' | Read-only check for the state Obsidian Git's stopped rebase leaves.
+scripts/lib/prerequisites.mjs | 'rebase' 'rebase-apply' | Read-only check for the state Obsidian Git's stopped rebase leaves.
+README.md | ollama pull | Pulls an embedding model, not git.
+skills/wiki-setup/references/operation-recovery.md | Pull it: `ollama pull | Pulls an embedding model, not git.
+skills/wiki-setup/references/search-diagnostics.md | pull models | Embedding models, not git, and it says not to.
+scripts/lib/doctor-table.mjs | pull the embedding model | Pulls an embedding model, not git.
+scripts/lib/embedding.mjs | ollama pull | Pulls an embedding model, not git.
+scripts/lib/prerequisites.mjs | Offer to pull it: ollama pull | Pulls an embedding model, not git.
+scripts/lib/search-health.mjs | ollama pull | Pulls an embedding model, not git.
+docs/clipping-fidelity.md | pull request | GitHub pages used as a clipping sample.
+
+# The plugin's own repository, not a vault: a contributor's line endings.
+README.md | `git add` warnings | Why the plugin repository's line-ending policy exists.
+README.md | `git rm --cached -r -q . && git reset --hard` | Rewrites line endings once in a contributor's clone of the plugin; never a vault.

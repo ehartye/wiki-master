@@ -257,7 +257,7 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
    sensible (digest mode).
 4. **Only when ingestion is authorized, follow [ingestion](ingest.md)** for this exact clipping batch —
    summarize into `wiki/sources/`, cross-reference, index, log. Start from
-   `_repo-overview.md` for the repo-level summary, then pull in individual
+   `_repo-overview.md` for the repo-level summary, then read individual
    files (per-file mode) or a curated set of key-module write-ups informed
    by the listings (digest mode) as evidence for specific claims. Ingest only when authorized for this scope; reuse explicit authorization
    already supplied in the session.

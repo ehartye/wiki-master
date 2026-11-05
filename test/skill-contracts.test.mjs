@@ -446,7 +446,9 @@ test('the git command check catches a command in any of its forms and ignores pr
 // Criterion 4: no advice to commit. Only prose and the strings a script holds are scanned. Each allow-list entry is
 // `path | substring | reason`. A path ending in / covers its folder, and a space in a substring matches any whitespace,
 // so a hard wrap does not break an entry. An entry clears only the words inside its substring, never the rest of a line.
-const GIT_WORD = /\b(?:commit(?:s|ted|ting)?|push(?:es|ed|ing)?|publish(?:es|ed|ing)?|sync(?:s|ed|ing)?)\b/gi;
+// Beyond the criterion's four words: a git verb in command form, and the bare `pull` and `rebase` that advise doing it.
+// Their other tenses only state what happened ("the model is not pulled"), so they are not scanned.
+const GIT_WORD = /\bgit(?:\s+-[cC]\s+\S+)*\s+(?:add|commit|push|pull|fetch|rebase|merge|stash|reset|checkout|switch|clean|restore|rm|mv|tag|branch|worktree)\b|\b(?:commit(?:s|ted|ting)?|push(?:es|ed|ing)?|publish(?:es|ed|ing)?|sync(?:s|ed|ing)?|pull|rebase)\b/gi;
 const JAVASCRIPT = /\.(?:mjs|cjs|js)$/;
 const SCANNED_TEXT = /\.(?:md|base|json|html|py|mjs|cjs|js)$/;
 const WORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'of', 'in', 'void', 'delete', 'throw', 'yield', 'await', 'else', 'do']);
@@ -546,6 +548,14 @@ for (const area of languageAreas) {
       hits.map(hit => hit.file + ':' + hit.line + ': ' + hit.word + ': ' + hit.text).join('\n'));
   });
 }
+
+test('the language scan catches other git verbs and the bare words that advise them', () => {
+  const words = text => languageHits('docs/x.md', text, []).map(hit => hit.word);
+  assert.deepEqual(words('Run git add and git pull --rebase.'), ['git add', 'git pull', 'rebase']);
+  assert.deepEqual(words('Use git -C "<vault>" stash, then git\nfetch.'), ['git -C "<vault>" stash', 'git\nfetch']);
+  assert.deepEqual(words('Then pull and rebase.'), ['pull', 'rebase']);
+  assert.deepEqual(words('The model was pulled. A git repository holds it, and rebased pages stay.'), []);
+});
 
 test('every allow-list entry names a real path and still clears a hit', () => {
   const entries = parseAllowList(read('test/fixtures/git-language-allow.txt'));
