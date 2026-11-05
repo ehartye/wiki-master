@@ -38,7 +38,11 @@ overwrite mode.
    interface on, Obsidian Git, Ollama with the embedding model, and a git repository
    with an upstream.
    `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/doctor.mjs" refresh-index`
-   reports them. Reading and searching need none of them; authoring needs them all.
+   reports the programs, Ollama with its model, and Obsidian Git's plugin and timer. It does
+   not check the repository, the upstream, a running Obsidian or restricted mode.
+   `setup-obsidian-git.mjs --check` adds each required setting, and `refresh-index.mjs --status`
+   reports only how fresh the index is. Only `refresh-index.mjs` itself checks the rest, before it
+   writes anything. Reading and searching need none of them; authoring needs them all.
 2. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/init.mjs"` and inspect
    the exit status and path report: a failure is not a completed scaffold. Account for retained new and
    incomplete files before retrying. Inspect the expected `raw/clippings`, wiki content

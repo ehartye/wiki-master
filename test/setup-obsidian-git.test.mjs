@@ -494,6 +494,16 @@ test('--check says it cannot see restricted mode, so a clean result is not read 
   assert.match(section, /cannot\s+see\s+restricted\s+mode/);
 });
 
+test('initialization claims of each check only what it covers', () => {
+  const text = reference('initialization.md');
+  const stepOne = text.slice(atOrFail(text, /^1\. State the prerequisites/m), atOrFail(text, /^2\. Run/m));
+  assert.doesNotMatch(stepOne, /refresh-index`\s+reports them/, 'doctor printed "ready" on a folder that is not a repository');
+  assert.match(stepOne, /does\s+not\s+check\s+the\s+repository/);
+  assert.match(stepOne, /setup-obsidian-git\.mjs --check/);
+  assert.match(stepOne, /--status`\s+reports\s+only/, 'it checks no prerequisite');
+  assert.match(stepOne, /only\s+`refresh-index\.mjs`\s+itself\s+checks/i);
+});
+
 test('initialization still creates no repository, and ends with the refresh', () => {
   const text = reference('initialization.md');
   assert.match(text, /[Nn]ever\s+initialize a guessed directory or create a Git repository/);
