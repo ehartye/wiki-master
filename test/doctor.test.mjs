@@ -211,7 +211,8 @@ test('the real command with no vault chosen reports that on the row and still fi
     assert.match(json.requirements['obsidian-git'].detail, /no vault chosen/);
     assert.equal(json.requirements.ollama.ok, false);
     assert.match(json.requirements.ollama.detail, /127\.0\.0\.1:9/);
-    assert.deepEqual(readdirSync(home), []);
+    // doctor runs `npm --version`, and outside `npm test` npm keeps its own logs in this HOME's .npm.
+    assert.deepEqual(readdirSync(home).filter((name) => name !== '.npm'), []);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
