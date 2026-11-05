@@ -94,11 +94,13 @@ async function waitForEnabled(vaultPath, delay) {
   return false;
 }
 
-// One CLI step. Returns the reason it failed, or null.
-function runStep(cli, args, options) {
+// One CLI step. Returns the reason it failed, or null. `success` is the text a step must answer with when, like a
+// reload, it leaves nothing on disk to check afterwards.
+function runStep(cli, args, options, success) {
   try {
     const output = cli(args, options);
-    return output.startsWith('Error') ? output : null;
+    const failed = success ? !output.startsWith(success) : output.startsWith('Error');
+    return failed ? output || 'no answer' : null;
   } catch (error) {
     return error.message;
   }
@@ -133,7 +135,7 @@ async function apply(vault, deps, { out }) {
     out(`${NAME}: wrote the required settings`);
   }
   if (load) {
-    const failed = runStep(deps.cli, [load, ID]);
+    const failed = runStep(deps.cli, [load, ID], undefined, load === 'plugin:reload' ? 'Reloaded' : undefined);
     if (failed) return `${load} did not finish: ${failed}. The plugin's files and settings stay in place.`;
     if (!(await waitForEnabled(vault.path, deps.delay))) return `${load} reported success, but community-plugins.json does not list ${OBSIDIAN_GIT_ID}.`;
   }

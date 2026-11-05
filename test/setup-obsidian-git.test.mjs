@@ -266,6 +266,17 @@ test('--apply: a plugin already running without settings is reloaded, since it r
   assert.deepEqual(JSON.parse(h.calls.find((c) => c.args[0] === 'plugin:reload').dataWas), REQUIRED_SETTINGS);
 });
 
+// A reload leaves nothing on disk to check, and the CLI exits 0 whatever it prints, so only its text can tell.
+for (const answer of ['Vault not found.', 'TypeError: Cannot read properties of undefined', 'Error: Failed to reload: obsidian-git', '']) {
+  test(`--apply: a reload answering "${answer.slice(0, 20)}" is not reported as done`, async (t) => {
+    const vault = world(t, ENABLED);
+    const h = hooks(vault, { 'plugin:reload': () => answer });
+    assert.equal(await main(['--apply'], h), 1, h.text());
+    assert.match(h.text(), /plugin:reload did not finish/);
+    assert.match(h.text(), /Manual steps/);
+  });
+}
+
 test('--apply: listed as enabled but missing from disk is installed and reloaded, because enabling would refuse', async (t) => {
   const vault = world(t, { '.obsidian/community-plugins.json': JSON.stringify(['obsidian-git']) });
   const h = hooks(vault);
