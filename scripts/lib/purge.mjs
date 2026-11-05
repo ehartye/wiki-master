@@ -172,8 +172,8 @@ export function buildManifest({ id, topic, date, purge, collateral, pages, hashe
     const entry = {
       layer: from.startsWith('raw/') ? 'raw' : 'wiki',
       from,
-      // Integrity record for a human or a future verifier — nothing downstream
-      // reads it today. planReconcile joins on `from` and `source-hash`;
+      // Restore compares this to tell a page already back from a different page
+      // at the same path. planReconcile joins on `from` and `source-hash`;
       // applyPurge uses only `from` and manifest.id.
       sha256: hashes[from],
     };
