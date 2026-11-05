@@ -1,6 +1,7 @@
-import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readStdin } from './lib/read-stdin.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -45,7 +46,7 @@ export function writeLogEntry({ vaultPath, op, title, body = '', now = new Date(
   return `log/${file}`;
 }
 
-export function main() {
+export async function main() {
   const args = process.argv.slice(2);
   const get = (flag) => {
     const idx = args.indexOf(flag);
@@ -57,9 +58,9 @@ export function main() {
     console.error('usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)');
     process.exit(1);
   }
-  const body = process.stdin.isTTY ? '' : readFileSync(0, 'utf8');
+  const body = process.stdin.isTTY ? '' : await readStdin();
   const { path: vaultPath } = resolveVault();
   console.log(writeLogEntry({ vaultPath, op, title, body }));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

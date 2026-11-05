@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { slugify, stamp, writeLogEntry } from '../scripts/log-entry.mjs';
 
@@ -49,6 +49,48 @@ function runCli(t, args, input) {
   const r = spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', input, env: { ...process.env, WIKI_MASTER_VAULT: vault } });
   return { ...r, vault };
 }
+
+// A synchronous read of fd 0 throws EAGAIN on a non-blocking pipe, which is what PowerShell hands a spawned process.
+test('no script reads stdin synchronously', () => {
+  const scripts = dirname(SCRIPT);
+  const sync = /readFileSync\(\s*(0|process\.stdin\.fd|['"]\/dev\/stdin['"])|readSync\(\s*(0|process\.stdin\.fd)\b/;
+  const found = [];
+  (function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { if (entry.name !== 'node_modules') walk(full); continue; }
+      if (!entry.name.endsWith('.mjs')) continue;
+      readFileSync(full, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (!line.trim().startsWith('//') && sync.test(line)) found.push(`${relative(scripts, full)}:${i + 1}`);
+      });
+    }
+  })(scripts);
+  assert.deepEqual(found, []);
+});
+
+test('a body that arrives late and in pieces is read whole, even split inside a character', async (t) => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-log-cli-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  const body = Buffer.from('Repointed — one citation.\n');
+  const cut = body.indexOf(Buffer.from('—')) + 1;
+  const child = spawn(process.execPath, [SCRIPT, '--op', 'relink', '--title', 'Late body'], { env: { ...process.env, WIKI_MASTER_VAULT: vault }, stdio: ['pipe', 'pipe', 'inherit'] });
+  let printed = '';
+  child.stdout.on('data', (chunk) => { printed += chunk; });
+  const closed = new Promise((resolve) => child.on('close', resolve));
+  child.stdin.write(body.subarray(0, cut));
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  child.stdin.end(body.subarray(cut));
+  assert.equal(await closed, 0);
+  assert.match(readFileSync(join(vault, printed.trim()), 'utf8'), /\n\nRepointed — one citation\.\n$/);
+});
+
+test('no stdin at all writes an entry with an empty body', (t) => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-log-cli-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  const r = spawnSync(process.execPath, [SCRIPT, '--op', 'relink', '--title', 'No body'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, WIKI_MASTER_VAULT: vault } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(readFileSync(join(vault, r.stdout.trim()), 'utf8'), /\| No body\n\n\n$/);
+});
 
 test('the command exits 0, prints the path it wrote, and takes its body on stdin', (t) => {
   const r = runCli(t, ['--op', 'relink', '--title', 'Fixed a link'], 'Repointed one citation.\n');
