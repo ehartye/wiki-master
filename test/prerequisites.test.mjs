@@ -131,7 +131,7 @@ test('obsidianGitPrerequisite: each way of falling short', (t) => {
 
 const run = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 
-test('gitState reads a real repository: none, a subfolder of one, no upstream, and an upstream', (t) => {
+test('gitState reads a real repository: none, no upstream, an upstream, and a vault in a subfolder of one', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'wm-prereq-git-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const plain = join(root, 'plain');
@@ -148,9 +148,27 @@ test('gitState reads a real repository: none, a subfolder of one, no upstream, a
   run(work, 'push', '-u', 'origin', 'HEAD');
   assert.deepEqual({ repo: gitState(work).repo, upstream: gitState(work).upstream }, { repo: true, upstream: true });
 
-  const inner = join(work, 'sub');
-  mkdirSync(inner);
-  assert.equal(gitState(inner).repo, false, 'a folder inside someone else\'s repository is not a vault repository');
+  const inner = join(work, 'notes', 'vault');
+  mkdirSync(inner, { recursive: true });
+  assert.deepEqual({ repo: gitState(inner).repo, upstream: gitState(inner).upstream }, { repo: true, upstream: true }, 'Obsidian Git supports a vault in a repository subfolder');
+  assert.equal(gitState(join(work, '.git')).repo, false, 'inside the repository\'s own metadata there is no work tree');
+});
+
+test('a vault in a repository subfolder passes every git check, with the real probe', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'wm-prereq-sub-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  run(root, 'init', '--bare', 'origin.git');
+  run(root, 'clone', 'origin.git', 'work');
+  const work = join(root, 'work');
+  run(work, '-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '--allow-empty', '-m', 'first');
+  run(work, 'push', '-u', 'origin', 'HEAD');
+  const inner = join(work, 'notes', 'vault');
+  mkdirSync(join(inner, '.obsidian', 'plugins', 'obsidian-git'), { recursive: true });
+  setGit(inner);
+  const r = await checkPrerequisites({ vault: { path: inner, name: 'fixture' }, probes: {
+    ollamaUp: async () => true, modelPulled: async () => true, session: () => 'other-session',
+  } });
+  assert.deepEqual(r.failures, []);
 });
 
 // ---- all of them ----

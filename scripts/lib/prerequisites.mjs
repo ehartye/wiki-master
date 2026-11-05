@@ -49,13 +49,12 @@ export function obsidianSession({ platform = process.platform, username = userIn
   return platform === 'win32' ? windowsSession({ username, pid, exec }) : posixSession({ uid, exec });
 }
 
-// Read-only. The vault must be the top of its repository: a folder inside some other repository would pass every
-// other check and never be tracked as a vault.
+// Read-only. A vault may sit in a subfolder of its repository: Obsidian Git supports that.
 export function gitState(vaultPath, { exec = run } = {}) {
   const revParse = (...args) => exec('git', ['-C', vaultPath, 'rev-parse', ...args]);
   const reason = (error) => String(error.stderr || error.message).trim().split(/\r?\n/)[0];
   try {
-    if (revParse('--show-cdup').trim() !== '') return { repo: false, upstream: false, detail: 'the vault is a folder inside another repository, not the top of its own' };
+    if (revParse('--is-inside-work-tree').trim() !== 'true') return { repo: false, upstream: false, detail: 'the folder is not in a work tree' };
   } catch (error) {
     return { repo: false, upstream: false, detail: reason(error) };
   }
