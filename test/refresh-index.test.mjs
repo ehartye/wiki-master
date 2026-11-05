@@ -305,6 +305,34 @@ test('Ollama failing between the check and the embedding exits 1 and keeps the c
   assert.ok(existsSync(join(root, 'index.md')));
 });
 
+for (const name of ['chunks.json', 'vectors.idx.json']) {
+  test(`a corrupt ${name} says to run --rebuild, not to rerun, and --rebuild recovers it`, async (t) => {
+    const root = vault(t);
+    assert.equal((await run(root)).code, 0);
+    writeFileSync(join(root, '.wiki-master', name), '{ nope');
+    const plain = await run(root);
+    assert.equal(plain.code, 1, plain.output);
+    assert.match(plain.output, /refresh-index\.mjs --rebuild/);
+    assert.doesNotMatch(plain.output, /\bRerun refresh-index\.mjs\./);
+    assert.ok(read(root, 'index.md').includes(BEGIN_MARK), 'the catalogs written stay');
+    assert.equal((await run(root)).code, 1, 'a plain rerun cannot help');
+
+    const rebuilt = await run(root, ['--rebuild']);
+    assert.equal(rebuilt.code, 0, rebuilt.output);
+    assert.equal((await run(root)).code, 0);
+  });
+}
+
+test('--status on a corrupt index exits 0 and names --rebuild', async (t) => {
+  const root = vault(t);
+  await run(root);
+  writeFileSync(join(root, '.wiki-master', 'chunks.json'), '{ nope');
+  const r = await run(root, ['--status']);
+  assert.equal(r.code, 0);
+  assert.match(r.output, /unavailable/);
+  assert.match(r.output, /refresh-index\.mjs --rebuild/);
+});
+
 // ---- --status and the command line ----
 
 const throwing = () => { throw new Error('a probe ran during --status'); };

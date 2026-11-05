@@ -61,6 +61,66 @@ export function readVectorStore(dir) {
   return decodeVectors(readFileSync(binF), idx);
 }
 
+// The vector store with whatever it can still read, and why any of it could not be: `damaged` is null for a sound
+// store, or a missing one, which only means there is nothing to reuse yet. A vector is readable when its slot lies
+// wholly inside the file, so a truncated file still yields the vectors before the cut.
+function inspectVectorStore(dir) {
+  const binF = join(dir, VECTORS_BIN);
+  const idxF = join(dir, VECTORS_IDX);
+  if (!existsSync(binF) || !existsSync(idxF)) return { vectors: {}, damaged: null };
+  let idx, bin;
+  try {
+    idx = JSON.parse(readFileSync(idxF, 'utf8'));
+    bin = readFileSync(binF);
+  } catch (error) {
+    return { vectors: {}, damaged: `${VECTORS_IDX}: ${error.message}` };
+  }
+  const { dim, slots } = idx ?? {};
+  if (!Number.isInteger(dim) || dim < 0 || slots === null || typeof slots !== 'object' || Array.isArray(slots)) {
+    return { vectors: {}, damaged: `${VECTORS_IDX} is not a vector index` };
+  }
+  const floats = Math.floor(bin.byteLength / 4);
+  const bytes = new Uint8Array(floats * 4);
+  bytes.set(bin.subarray(0, floats * 4));
+  const data = new Float32Array(bytes.buffer);
+  const vectors = {};
+  let lost = 0;
+  for (const [hash, slot] of Object.entries(slots)) {
+    if (dim > 0 && Number.isInteger(slot) && slot >= 0 && (slot + 1) * dim <= floats) vectors[hash] = data.subarray(slot * dim, (slot + 1) * dim);
+    else lost++;
+  }
+  const damaged = lost ? `${VECTORS_BIN} is missing ${lost} vector(s)` : bin.byteLength % 4 ? `${VECTORS_BIN} is cut short` : null;
+  return { vectors, damaged };
+}
+
+function manifestProblem(manifest) {
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) return `${CHUNKS_FILE} is not a manifest`;
+  const bad = Object.keys(manifest).find((path) => !Array.isArray(manifest[path]?.chunks));
+  return bad === undefined ? null : `${CHUNKS_FILE} has no chunk list for ${bad}`;
+}
+
+const damagedIndex = (why) => Object.assign(
+  new Error(`the search index is damaged (${why}). Run refresh-index.mjs --rebuild, which replaces it and reuses the vectors it can still read`),
+  { code: 'INDEX_CORRUPT' },
+);
+
+// What a refresh starts from. A rebuild trusts no manifest, so it never parses one, and takes whichever vectors are
+// readable: their hashes prove their content. Any other run stops at damage, because repairing it means re-chunking
+// every page, which the caller should ask for.
+function loadIndex(dir, rebuild) {
+  const store = inspectVectorStore(dir);
+  if (rebuild) return { manifest: {}, vectors: store.vectors };
+  let manifest;
+  try {
+    manifest = readManifestFile(dir);
+  } catch (error) {
+    throw damagedIndex(`${CHUNKS_FILE}: ${error.message}`);
+  }
+  const problem = manifestProblem(manifest) ?? store.damaged;
+  if (problem) throw damagedIndex(problem);
+  return { manifest, vectors: store.vectors };
+}
+
 // Atomic persist: every artifact is written to a temp file FIRST, and only
 // renamed into place once all three temp writes succeed. If any write
 // throws partway (disk full, injected failure), zero renames have happened,
@@ -147,8 +207,7 @@ export async function refreshIndex({
   }
 
   const startedAt = Date.now();
-  const loadedManifest = readManifestFile(dir);
-  const vectors = readVectorStore(dir);
+  const { manifest: loadedManifest, vectors } = loadIndex(dir, rebuild);
   // --rebuild discards the MANIFEST (forcing every file through the
   // "changed" path below, so every file is genuinely re-chunked) but never
   // discards the vector STORE: an unchanged chunk's content hashes

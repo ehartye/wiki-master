@@ -24,7 +24,7 @@ function reportStatus(hooks, { out }) {
     out(`${NAME} --status: ${state} -- ${r.files} file(s), ${r.chunks} chunk(s) (${r.embedded} embedded, ${r.missing} missing), ` +
       `${r.filesChanged} file(s) changed and ${r.filesRemoved} removed since the last refresh`);
   } catch (error) {
-    out(`${NAME} --status: unavailable -- ${error.message}`);
+    out(`${NAME} --status: unavailable -- ${error.message}. If the index files are damaged, refresh-index.mjs --rebuild replaces them.`);
   }
   return 0;
 }
@@ -84,7 +84,8 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
   try {
     return await runEmbedding(vault.path, argv.includes('--rebuild'), hooks, io);
   } catch (error) {
-    err(`${NAME}: the catalogs are written, but the search index is not: ${error.message}. Rerun refresh-index.mjs.`);
+    const next = error.code === 'INDEX_CORRUPT' ? '' : ' Rerun refresh-index.mjs.';
+    err(`${NAME}: the catalogs are written, but the search index is not: ${error.message}.${next}`);
     return 1;
   }
 }

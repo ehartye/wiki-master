@@ -169,3 +169,81 @@ test('the pull advice names the configured model, not a fixed one', async (t) =>
   await assert.rejects(refresh(root, { checkModel: async () => false, model: 'custom-embedder' }), /ollama pull custom-embedder/);
   await assert.rejects(refresh(root, { checkModel: async () => false }), new RegExp(`ollama pull ${EMBED_MODEL}`));
 });
+
+// ---- a damaged index ----
+
+const damage = {
+  'chunks.json is not JSON': (root) => writeFileSync(join(dirOf(root), 'chunks.json'), '{ nope'),
+  'chunks.json has the wrong shape': (root) => writeFileSync(join(dirOf(root), 'chunks.json'), '[1,2]'),
+  'a manifest entry has no chunks': (root) => writeFileSync(join(dirOf(root), 'chunks.json'), '{"wiki/concepts/a.md":{"mtimeMs":1}}'),
+  'a manifest entry is null': (root) => writeFileSync(join(dirOf(root), 'chunks.json'), '{"wiki/concepts/a.md":null}'),
+  'vectors.idx.json is not JSON': (root) => writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{ nope'),
+  'vectors.idx.json has the wrong shape': (root) => writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{"dim":"four"}'),
+  'vectors.bin is cut mid-number': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, 18)); },
+  'vectors.bin is missing whole vectors': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, 16)); },
+};
+
+for (const [label, harm] of Object.entries(damage)) {
+  test(`${label}: a plain refresh writes nothing and says to rebuild`, async (t) => {
+    const root = vault(t);
+    await refresh(root);
+    harm(root);
+    const content = bytes(root);
+    await assert.rejects(refresh(root), (error) => {
+      assert.equal(error.code, 'INDEX_CORRUPT');
+      assert.match(error.message, /refresh-index\.mjs --rebuild/);
+      return true;
+    });
+    assert.deepEqual(bytes(root), content);
+  });
+
+  test(`${label}: a rebuild recovers, and the run after it rewrites nothing`, async (t) => {
+    const root = vault(t);
+    await refresh(root);
+    harm(root);
+    const rebuilt = await refresh(root, { rebuild: true });
+    assert.equal(rebuilt.result.persisted, true);
+    assert.equal(rebuilt.result.chunksFailed, 0);
+    const clean = await refresh(root);
+    assert.equal(clean.result.chunksEmbedded, 0, 'nothing is left to embed');
+    backdate(root);
+    const before = times(root);
+    assertUntouched(await refresh(root), root, before);
+  });
+}
+
+test('a rebuild over a corrupt manifest reuses every readable vector', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  writeFileSync(join(dirOf(root), 'chunks.json'), '{ nope');
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 0);
+});
+
+test('a rebuild over a short vector file reuses the vectors it can read and embeds only the rest', async (t) => {
+  const root = vault(t);
+  const first = await refresh(root);
+  const dim = 4;
+  const bin = join(dirOf(root), 'vectors.bin');
+  writeFileSync(bin, readFileSync(bin).subarray(0, dim * 4));
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, first.result.chunksEmbedded - 1);
+  const idx = JSON.parse(readFileSync(join(dirOf(root), 'vectors.idx.json'), 'utf8'));
+  assert.equal(readFileSync(bin).byteLength, Object.keys(idx.slots).length * dim * 4);
+});
+
+test('a rebuild over an unreadable vector index embeds everything again', async (t) => {
+  const root = vault(t);
+  const first = await refresh(root);
+  writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{ nope');
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, first.result.chunksEmbedded);
+});
+
+test('a missing store is not damage: a plain refresh rebuilds it', async (t) => {
+  const root = vault(t);
+  const first = await refresh(root);
+  rmSync(join(dirOf(root), 'vectors.bin'));
+  const run = await refresh(root);
+  assert.equal(run.result.chunksEmbedded, first.result.chunksEmbedded);
+});
