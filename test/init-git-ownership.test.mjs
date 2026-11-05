@@ -91,6 +91,16 @@ test('a vault that already has .gitattributes keeps it byte for byte', () => {
   assert.equal(readFileSync(join(vault, '.gitattributes'), 'utf8'), custom);
 });
 
+test('the printed open step asks for restricted mode off, since the install stops until it is', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
+  const r = runInit(vault, home);
+  assert.equal(r.status, 0, r.stderr);
+  const step = r.stdout.slice(r.stdout.search(/Open folder as vault/), r.stdout.search(/3\. Verify/));
+  assert.match(step, /[Rr]estricted mode/);
+  assert.match(step, /trust/i);
+});
+
 test('the one-time steps name the owner\'s repository, the plugin and the refresh, in order', () => {
   const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
   const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));

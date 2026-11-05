@@ -155,6 +155,7 @@ export function main() {
   if (process.env.WIKI_MASTER_VAULT) console.log(`  Every command below names this vault, in a form for each shell. Use the one for yours, and name the vault the same way on any other command for it.`);
   console.log(`  1. The owner sets up the git repository and upstream for this folder. Init creates neither.`);
   console.log(`  2. In Obsidian: Open folder as vault → ${path}`);
+  console.log(`     Trust the vault and turn off restricted mode under Settings > Community plugins. Every new vault starts with it on.`);
   console.log(`  3. Verify (should list "${name}"):`);
   printCommand('obsidian.mjs', ' vaults');
   console.log(`  4. Obsidian Git handles all git operations. With the owner's yes:`);
