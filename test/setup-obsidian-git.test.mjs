@@ -325,7 +325,18 @@ test('--apply: restricted mode is reported and left on', async (t) => {
 });
 
 test('--apply: the app not knowing the vault stops it, although the CLI exits 0 for that', async (t) => {
-  await blockedBeforeInstall(t, { vault: () => 'Vault not found.' }, /has not opened this vault|not.*this vault/);
+  const h = await blockedBeforeInstall(t, { vault: () => 'Vault not found.' }, /answered unexpectedly: "Vault not found\."/);
+  assert.doesNotMatch(h.text(), /reaches the vault at/);
+});
+
+test('--apply: no answer at all reads as the vault not being open', async (t) => {
+  await blockedBeforeInstall(t, { vault: () => '' }, /has not opened this vault/);
+});
+
+test('--apply: the manual steps cover turning the command line on, since a CLI that is off stops it too', async (t) => {
+  const h = await blockedBeforeInstall(t, { vault: () => 'Command line interface is not enabled. Please turn it on in Settings > General > Advanced.' }, /answered unexpectedly: "Command line interface is not enabled/);
+  assert.doesNotMatch(h.text(), /has not opened this vault/);
+  assert.match(h.text().slice(h.text().indexOf('Manual steps')), /command line interface on \(Settings > General > Advanced\)/);
 });
 
 test('--apply: a same-named vault elsewhere is not touched', async (t) => {

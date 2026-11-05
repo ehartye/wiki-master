@@ -5,12 +5,11 @@
 // The app's CLI exits 0 when it fails, printing "Error: ..." or "Vault not found.", so a step counts as done only when
 // its effect is on disk.
 import { writeFileSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveVault, obsidian } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { OBSIDIAN_GIT_ID, REQUIRED_SETTINGS, compareSettings, obsidianGitDataFile, obsidianGitPrerequisite } from './lib/obsidian-git.mjs';
-import { canonical, obsidianSession } from './lib/prerequisites.mjs';
+import { canonical, looksLikePath, obsidianSession } from './lib/prerequisites.mjs';
 cliGuard(import.meta.url);
 
 const NAME = 'setup-obsidian-git';
@@ -51,7 +50,7 @@ function report(vaultPath, { out }) {
 
 function manualSteps(vaultPath, { out }) {
   out('Manual steps:');
-  out(`  1. Open ${vaultPath} as a vault in Obsidian.`);
+  out(`  1. Open ${vaultPath} as a vault in Obsidian, with its command line interface on (Settings > General > Advanced).`);
   out('  2. Settings > Community plugins: turn off Restricted mode, which every new vault starts with. Any prompt about trusting the vault is the owner\'s to answer.');
   out(`  3. Run ${NAME}.mjs --apply again for this vault: it installs the plugin, writes the settings and enables it.`);
   out(`  If that still fails, by hand: browse community plugins, find "Git" by Vinzent (${OBSIDIAN_GIT_ID}) and install it without enabling it, then run --apply once more.`);
@@ -71,10 +70,10 @@ function fromAnotherSession(vaultPath, { out, err }) {
 function blocker(vault, { cli }) {
   try {
     const reported = cli(['vault', 'info=path']);
+    if (!reported) return 'Obsidian has not opened this vault (it answered nothing).';
+    if (!looksLikePath(reported)) return `the Obsidian CLI answered unexpectedly: "${reported}".`;
     // A name reaches the first registered vault with that folder name, which need not be this one.
-    if (!reported || canonical(reported) !== canonical(vault.path)) {
-      return isAbsolute(reported) ? `the name ${vault.name} reaches the vault at ${reported}, not this one.` : `Obsidian has not opened this vault (it answered: ${reported || 'nothing'}).`;
-    }
+    if (canonical(reported) !== canonical(vault.path)) return `the name ${vault.name} reaches the vault at ${reported}, not this one.`;
     const restricted = cli(['plugins:restrict']);
     if (restricted === 'on') return 'restricted mode is on in this vault, so it allows no community plugins.';
     if (restricted !== 'off') return `could not read restricted mode (it answered: ${restricted}).`;

@@ -55,8 +55,10 @@ never rewrites an existing settings file.
 - **Restricted mode is on.** Every new vault starts this way. The owner turns it off under
   Settings > Community plugins, and `--apply` then does the install on a rerun. Do not switch
   it from the command line.
-- **Obsidian has not opened this vault.** The owner opens the folder as a vault in Obsidian.
-  The CLI cannot do this, and it exits 0 while answering `Vault not found.`
+- **The CLI answered unexpectedly, or Obsidian has not opened this vault.** The CLI exits 0 while
+  answering `Vault not found.` or that its command line interface is off, so the message quotes
+  it. The owner opens the folder as a vault, which the CLI cannot do, with the command line
+  interface on under Settings > General > Advanced.
 - **The vault name reaches a different folder.** The CLI matches a vault by folder name,
   so two vaults can share one. Set `WIKI_MASTER_VAULT_NAME`, or have the owner rename a folder.
 - **Obsidian is in another session.** Over SSH, say, `--apply` cannot reach the app, so
