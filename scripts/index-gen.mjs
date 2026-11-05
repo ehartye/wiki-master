@@ -6,7 +6,6 @@ import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { scopeGraph } from './lib/catalog-scope.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
 import { regenerateIndex } from './lib/catalogs.mjs';
 
 export { BEGIN_MARK, END_MARK, renderCatalog, regenerateIndex } from './lib/catalogs.mjs';
@@ -19,8 +18,6 @@ export function main(argv = process.argv.slice(2)) {
   const r = regenerateIndex(vaultPath, scoped);
   console.log(`index.md regenerated: ${r.pages} pages cataloged`);
   if (scoped.snapshot) console.error(`catalog snapshot: ${scoped.snapshot.policy}${scoped.snapshot.head ? ` (${scoped.snapshot.head})` : ''}`);
-  // Recorded only when the file changed: an unchanged index is not a path this operation wrote.
-  if (values.since !== undefined && r.changed) writtenRecorder(vaultPath, argv)('index.md');
   return r;
 }
 

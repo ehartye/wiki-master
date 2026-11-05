@@ -73,7 +73,7 @@ const EXEMPT = new Set(['clip', 'clip-confluence', 'clip-docx', 'clip-gh', 'clip
 const NO_SPAWN = new Set(['triage']);
 // Scripts that refuse an unknown option with their own parser. They are run with the made-up option below, so a
 // regression shows, but they are not yet moved to the shared guard (their `--help` is not uniform either).
-const OWN_CHECK = new Set(['apply-reclips', 'backlog-gen', 'backlog-list', 'bump-version', 'doctor', 'drift', 'evaluate-retrieval', 'evaluate-skill-behavior', 'extract-page', 'identity-audit', 'index-gen', 'moc-authored-gen', 'op-cleanup', 'refresh-catalogs', 'relationships', 'search', 'session-brief', 'validate-authored', 'wiki-sync']);
+const OWN_CHECK = new Set(['apply-reclips', 'backlog-gen', 'backlog-list', 'bump-version', 'doctor', 'drift', 'evaluate-retrieval', 'evaluate-skill-behavior', 'extract-page', 'identity-audit', 'index-gen', 'moc-authored-gen', 'refresh-catalogs', 'relationships', 'search', 'session-brief', 'validate-authored']);
 const source = (name) => readFileSync(join(SCRIPTS, `${name}.mjs`), 'utf8');
 const adopted = allScripts.filter((n) => source(n).includes('cliGuard(import.meta.url)'));
 
@@ -94,8 +94,6 @@ test('the table and the scripts agree: every entry is a script that calls the gu
 
 // Arguments that would let a script start work if the guard did not stop it.
 const BASE = {
-  'op-begin': ['--op', 'relink'],
-  'op-commit': ['--op', 'relink', '--title', 't', '--since', 'tok'],
   'log-entry': ['--op', 'relink', '--title', 't'],
   purge: ['--plan', 'topic'],
   'render-page': ['not-a-url', 'out.html'],

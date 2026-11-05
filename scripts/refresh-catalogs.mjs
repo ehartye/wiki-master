@@ -3,7 +3,6 @@ import { pathToFileURL } from 'node:url';
 import { catalogArgs } from './lib/catalog-options.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { readLedger } from './lib/ledger.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
 import { refreshCatalogs } from './lib/catalogs.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -17,8 +16,6 @@ export function main(argv = process.argv.slice(2)) {
   const { diffs, ...result } = refreshCatalogs(vaultPath, { ...options, ownedPaths });
   console.log(JSON.stringify(result));
   if (result.projectOnly) console.error('project-only: global index was not refreshed');
-  // Only an apply writes, and only what it changed is a path this operation owns.
-  if (result.applied && options.since !== undefined && result.changed.length) writtenRecorder(vaultPath, argv)(result.changed);
   // One block per changed file, after the one-line JSON, on stderr so the JSON on stdout keeps its shape.
   for (const d of diffs ?? []) {
     const body = [...d.removed.map(l => `- ${l}`), ...d.added.map(l => `+ ${l}`)];

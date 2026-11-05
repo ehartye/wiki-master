@@ -61,22 +61,6 @@ export const CLI_SPECS = {
     options: ['op', 'title'],
     usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', VAULT],
   },
-  'op-abort': {
-    options: ['since'],
-    usage: ['usage: node scripts/op-abort.mjs --since <token>', '', 'Drops one operation token without committing: for the session that holds it and stopped early. It removes only the token named; the files the operation wrote stay in the working tree, uncommitted.', VAULT],
-  },
-  'op-begin': {
-    options: ['op'],
-    usage: ['usage: node scripts/op-begin.mjs --op <op>', '', 'Opens a vault operation: records what is already uncommitted and prints the token that op-commit takes as --since.', VAULT],
-  },
-  'op-commit': {
-    options: ['op', 'title', 'since', 'paths-file', 'include', 'include-from', 'evidence-map'],
-    usage: ['usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--include <path>]... [--include-from <JSON-file>] [--evidence-map <JSON-file>]', '', 'Commits one operation\'s changes and closes its token. With --paths-file only the ledger\'s paths are committed; a ledger path that was already uncommitted when the operation opened is refused unless --include (or --include-from) adopts it. Never pushes.', VAULT],
-  },
-  'op-ledger': {
-    options: ['since', 'from', 'out'],
-    usage: ['usage: node scripts/op-ledger.mjs add --since <token> (<path>... | --from <JSON-file>)', '       node scripts/op-ledger.mjs show --since <token> [--out <file>]', '', 'add records paths you wrote yourself in the operation\'s ledger (the clippers, log-entry, refresh-catalogs and index-gen record theirs when given --since). show prints the JSON array op-commit takes as --paths-file (to --out, or stdout) and, on stderr, lists what the close would get wrong: recorded paths that were already dirty before op-begin, recorded paths that are not dirty now, and changed paths nobody recorded. It never claims the last group.', 'show is read-only. Exit 1: no such operation, nothing recorded, or a bad path.', VAULT],
-  },
   purge: {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
     usage: ['usage: node scripts/purge.mjs [--plan | --apply | --reconcile | --restore] "<topic>" [--seeds a.md,b.md]', '', 'Plans (default), applies, reconciles or restores the removal of a topic from the wiki and its evidence. Applying needs a reviewed plan.', VAULT],
@@ -172,9 +156,6 @@ export const CLI_SPECS = {
   'moc-authored-gen': {
     usage: ['usage: node scripts/moc-authored-gen.mjs [--apply] [--project <slug>]', '', 'Regenerates the fenced project map moc/<project>.md from the project\'s pages.', DRY, 'It takes neither --diff nor --paths-file; refresh-catalogs.mjs does.', VAULT],
   },
-  'op-cleanup': {
-    usage: ['usage: node scripts/op-cleanup.mjs [--hours <n>] [--apply]', '', 'Removes operation tokens left behind by operations that never closed. A token older than --hours (default 24, at least 1) is stale; a recent token is never removed.', DRY, VAULT],
-  },
   'refresh-catalogs': {
     usage: ['usage: node scripts/refresh-catalogs.mjs [--project <slug>] [--project-only] [--apply] [--paths-file <ledger>] [--diff] [--since <token>]', '', 'Regenerates a project\'s roadmap catalog, project map and the global index from one vault graph.', '--project-only requires --project <slug> and omits the global index in both dry runs and applies; only the selected project catalogs are generated.', 'The default is a dry run whose "changed" list is what an apply would change; --diff adds the lines each file would lose and gain on stderr. --paths-file is the operation\'s ownership ledger: foreign committed pages use pinned HEAD content, owned pages use working files, and foreign new pages stay out. The JSON snapshot field reports the policy and commit. With --apply, --since records the changed paths in the operation\'s written-paths ledger (op-ledger.mjs show prints it).', VAULT],
   },
@@ -186,9 +167,6 @@ export const CLI_SPECS = {
   },
   'validate-authored': {
     usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'Read-only.', VAULT],
-  },
-  'wiki-sync': {
-    usage: ['usage: node scripts/wiki-sync.mjs [--commit-local | --op <token> [--paths-file <ledger.json>] [--title "<title>"]]', '', 'Brings the vault and its shared remote to the same state: rebases onto the upstream, pushes, and checks the remote has the commits, or says exactly why it could not. --commit-local first commits the vault\'s uncommitted changes itself; it refuses while an operation is open.', '--op <token> first closes that one operation (the close op-commit makes: scoped by --paths-file, else by the paths its writers recorded, else unscoped, which is refused while another operation is open), then syncs and verifies. A refused close prints "not committed:" and pushes nothing; a close that landed but could not be published prints "committed, not published:". --op cannot be combined with --commit-local.', VAULT],
   },
   triage: { options: ['remote'] },
   init: { options: [] },
