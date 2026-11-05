@@ -281,10 +281,3 @@ test('apply-reclips takes --kind and refuses a value it does not know', () => {
   assert.match(run('--help').stdout, /--kind/);
 });
 
-test('apply-reclips refuses --owned-paths-file as an option it does not know', () => {
-  const run = (...args) => spawnSync(process.execPath, [join(root, 'scripts', 'apply-reclips.mjs'), ...args], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: mkdtempSync(join(tmpdir(), 'wm-empty-')) } });
-  const bad = run('--owned-paths-file', 'ledger.json');
-  assert.equal(bad.status, 1);
-  assert.match(bad.stderr, /Unknown option '--owned-paths-file'/);
-  assert.doesNotMatch(run('--help').stdout, /owned-paths/);
-});

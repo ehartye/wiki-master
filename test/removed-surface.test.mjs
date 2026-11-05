@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,3 +100,34 @@ test('criterion 3: the Obsidian CLI gate stays: it is not a git lock', () => {
 test('criterion 8: nothing names the replaced commands', () => {
   assert.deepEqual(grep(/index-embed|index-gen|refresh-catalogs|backlog-gen|moc-authored-gen/, { exclude: OLD_MARKERS }), []);
 });
+
+// Decision 7: the two flags that existed for ledgers are unknown options now, refused before anything is changed.
+function clippingVault(t) {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-removed-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  mkdirSync(join(vault, 'raw', 'clippings', 'gh', 'o', 'r'), { recursive: true });
+  for (const name of ['.gitignore.md', 'README.md.md']) writeFileSync(join(vault, 'raw', 'clippings', 'gh', 'o', 'r', name), '---\ntitle: "x"\n---\nEvidence.\n');
+  return vault;
+}
+const runScript = (vault, script, ...args) => spawnSync(process.execPath, [join(ROOT, 'scripts', script), ...args], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault } });
+
+test('decision 7: apply-reclips refuses --owned-paths-file as an option it does not know', (t) => {
+  const vault = clippingVault(t);
+  const refused = runScript(vault, 'apply-reclips.mjs', '--owned-paths-file', 'ledger.json');
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Unknown option '--owned-paths-file'/);
+  assert.doesNotMatch(runScript(vault, 'apply-reclips.mjs', '--help').stdout, /owned-paths/);
+});
+
+for (const script of ['rename-unsafe-clippings.mjs', 'rename-doubled-extension-clippings.mjs']) {
+  test(`decision 7: ${script} rejects --paths-out as an unknown option and changes nothing`, (t) => {
+    const vault = clippingVault(t);
+    const out = join(vault, 'paths.json');
+    const refused = runScript(vault, script, '--apply', '--paths-out', out);
+    assert.equal(refused.status, 2, refused.stderr);
+    assert.match(refused.stderr, /unknown option --paths-out/);
+    assert.equal(existsSync(out), false);
+    assert.deepEqual(readdirSync(join(vault, 'raw', 'clippings', 'gh', 'o', 'r')).sort(), ['.gitignore.md', 'README.md.md']);
+    assert.doesNotMatch(runScript(vault, script, '--help').stdout, /paths-out/);
+  });
+}

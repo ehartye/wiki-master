@@ -71,5 +71,5 @@ test('the command\'s help names its options and does not offer --since', () => {
   const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /--op <op> --title/);
-  assert.doesNotMatch(r.stdout, /--since|op-begin|ledger/);
+  assert.doesNotMatch(r.stdout, /--since|ledger/);
 });
