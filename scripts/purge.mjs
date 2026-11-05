@@ -381,27 +381,20 @@ export async function main(argv, {
       }
     }
     if (clearedDeclines) console.log(`cleared ${clearedDeclines} decline(s) this purge recorded`);
-    // A restore that found its manifest is logged even when it brought nothing
-    // back, as the record of what it skipped and why. The exception matches
-    // --apply: when every move failed, nothing changed and the rerun will log it.
-    const logged = r.restored > 0 || !r.failed.length;
-    if (logged) {
-      writeLogEntry({
-        vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
-        body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
-              pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
-              pathList('Skipped, newer work sits at the path:', r.skipped) +
-              pathList('Missing from the bin, not restored:', r.missing) +
-              pathList('Could not be restored:', r.failed.map((x) => x.from)) +
-              (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
-      });
-    }
-    if (r.restored) {
-      console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
-      if (!r.failed.length) console.log('NEXT: run node scripts/refresh-index.mjs');
-    } else if (logged) {
-      console.log('\nNothing was restored. Obsidian Git publishes the log entry on its next run.');
-    }
+    // Nothing moved means no log, the same rule as --apply. A restore that moved
+    // nothing has already said on the console what it skipped or could not find.
+    if (!r.restored) return;
+    writeLogEntry({
+      vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
+      body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
+            pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
+            pathList('Skipped, newer work sits at the path:', r.skipped) +
+            pathList('Missing from the bin, not restored:', r.missing) +
+            pathList('Could not be restored:', r.failed.map((x) => x.from)) +
+            (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
+    });
+    console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
+    if (!r.failed.length) console.log('NEXT: run node scripts/refresh-index.mjs');
     return;
   }
 

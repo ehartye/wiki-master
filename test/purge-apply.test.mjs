@@ -876,9 +876,10 @@ test('--restore leaves one log entry and no new commit, and says what is on disk
   }
 });
 
-// A restore that brought nothing back still ran, and the log is the record of
-// why. Its closing lines must not claim restored files or ask for a refresh.
-test('a --restore that skips everything still logs what it skipped and claims no restored files', async () => {
+// Nothing moved means no log, the same rule as --apply. What a restore could not
+// bring back is reported on the console instead, and its closing lines must not
+// claim restored files or ask for a refresh.
+test('a --restore that skips everything writes no log, reports the skips and claims no restored files', async () => {
   const v = tempVault();
   try {
     await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
@@ -890,27 +891,64 @@ test('a --restore that skips everything still logs what it skipped and claims no
     const r = await runMain(v, ['--restore', manifest.id]);
 
     assert.equal(r.exitCode, undefined);
-    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
-    assert.equal(added.length, 1);
-    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
-    assert.match(entry, /Restored 0 file\(s\)/);
-    assert.match(entry, /Skipped, newer work sits at the path:\n- `raw\/clippings\/Src-abc1234\.md`\n- `wiki\/concepts\/Foo\.md`/);
-    assert.equal(r.logs.at(-1).trim(), 'Nothing was restored. Obsidian Git publishes the log entry on its next run.');
-    assert.doesNotMatch(r.logs.join('\n'), /refresh-index/);
+    assert.deepEqual(logEntries(v), logsBefore);
+    const output = r.logs.join('\n');
+    assert.match(output, /restored 0 file\(s\)/);
+    assert.match(output, /skipped \(your newer work sits at that path\): raw\/clippings\/Src-abc1234\.md/);
+    assert.match(output, /skipped \(your newer work sits at that path\): wiki\/concepts\/Foo\.md/);
+    assert.doesNotMatch(output, /Obsidian Git publishes|refresh-index/);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
 });
 
-test('a --restore with entries missing from the bin logs them and still exits 1', async () => {
+test('a --restore rerun with everything already back writes no second log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    await runMain(v, ['--restore', id]);
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, undefined);
+    assert.deepEqual(r.errs, []);
+    assert.deepEqual(logEntries(v), logsBefore);
+    assert.deepEqual(r.logs, ['restored 0 file(s)']);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore with entries missing from the bin reports them, exits 1 and writes no log', async () => {
   const v = tempVault();
   try {
     writeManifest(v, { id: 'gap', topic: 'gap', declines: [], entries: [{ from: 'wiki/concepts/Gone.md' }] });
     const r = await runMain(v, ['--restore', 'gap']);
     assert.equal(r.exitCode, 1);
     assert.ok(r.errs.some((l) => l.includes('MISSING from the bin')));
-    const [entry] = logEntries(v);
-    assert.match(readFileSync(join(v, 'log', entry), 'utf8'), /Missing from the bin, not restored:\n- `wiki\/concepts\/Gone\.md`/);
+    assert.deepEqual(logEntries(v), []);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A restore that moved something still names what it could not bring back.
+test('a --restore that moved something logs what is missing from the bin too', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    rmSync(join(v, '.recycle', manifest.id, 'wiki', 'concepts', 'Foo.md'));
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, 1);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    assert.match(readFileSync(join(v, 'log', added[0]), 'utf8'), /Missing from the bin, not restored:\n- `wiki\/concepts\/Foo\.md`/);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
