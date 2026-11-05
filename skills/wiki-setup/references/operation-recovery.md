@@ -26,6 +26,7 @@ is, checks nothing and always exits 0.
 | The CLI gate is busy or failing (`CLI_BUSY`, `CLI_LOCK`) | Rerun. Treat a repeat as the CLI being down, and offer to restart Obsidian. |
 | The Obsidian CLI did not answer | Start Obsidian with this vault open and its command line interface on. |
 | Obsidian's active vault is another one | Open this vault in Obsidian or bring its window to the front, then rerun. |
+| The Obsidian CLI answered unexpectedly, quoting it | Open this vault in Obsidian with its command line interface on, then rerun. |
 | The process list could not be read | Rerun; if it repeats, check by hand that Obsidian is running. |
 | Restricted mode is on | The owner turns it off in Obsidian's settings (Community plugins) and trusts the vault. |
 | Obsidian Git is not installed or not enabled | Install it through [initialization](initialization.md#install-obsidian-git). |

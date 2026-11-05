@@ -486,6 +486,35 @@ test('a CLI failure or the wrong vault fails', async (t) => {
   assert.ok(!existsSync(join(root, 'index.md')));
 });
 
+// The CLI exits 0 for these, so they arrive as the vault's path. They used to read as "active vault is Vault not found."
+for (const [answer, fix] of [
+  ['Vault not found.', /open this vault/i],
+  ['Command line interface is not enabled. Please turn it on in Settings > General > Advanced.', /command line interface on/i],
+]) {
+  test(`the CLI answering "${answer.slice(0, 24)}..." is quoted as unexpected, not called the active vault`, async (t) => {
+    const root = vault(t);
+    const before = snapshot(root);
+    const r = await run(root, [], { probes: { cli: () => answer } });
+    assert.equal(r.code, 1, r.output);
+    assert.match(r.output, /answered unexpectedly/);
+    assert.ok(r.output.includes(answer), r.output);
+    assert.match(r.output, fix);
+    assert.doesNotMatch(r.output, /active vault is/);
+    assert.deepEqual(r.cliCalls, []);
+    assert.deepEqual(snapshot(root), before);
+  });
+}
+
+test('a real path that is not this vault still reads as the wrong active vault, on any platform', async (t) => {
+  const root = vault(t);
+  for (const other of [join(tmpdir(), 'another-vault'), 'C:\\vaults\\other', 'C:/vaults/other', '/vaults/other']) {
+    const r = await run(root, [], { probes: { cli: () => other } });
+    assert.equal(r.code, 1);
+    assert.match(r.output, /active vault is/, other);
+    assert.doesNotMatch(r.output, /answered unexpectedly/, other);
+  }
+});
+
 // ---- embedding failures come after the catalogs ----
 
 test('a failed chunk exits 1 with the count and advice to rerun, and the catalogs written stay', async (t) => {

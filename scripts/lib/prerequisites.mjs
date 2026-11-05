@@ -124,6 +124,10 @@ function checkObsidian(vault, { session, cli }, notes) {
   } catch (error) {
     return [cliFailure(error)];
   }
+  // The CLI exits 0 when it refuses, so its refusal arrives here in place of a path.
+  if (reported && !/^(?:[A-Za-z]:[\\/]|[\\/])/.test(reported)) {
+    return [failure('obsidian-cli-answer', `The Obsidian CLI answered unexpectedly: "${reported}".`, 'Offer to open this vault in Obsidian with its command line interface on (Settings > General > Advanced), then rerun.')];
+  }
   if (!reported || canonical(reported) !== canonical(vault.path)) {
     return [failure('obsidian-vault', `Obsidian's active vault is ${reported || '(none reported)'}, not ${vault.path}.`, 'Offer to open this vault in Obsidian, or bring its window to the front, then rerun.')];
   }
