@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,8 @@ function vault(t, extra = {}) {
   return root;
 }
 
-// Every file in the vault with its modification time and content: "writes nothing" means this does not change.
+// Every folder and file in the vault, with modification times and file content: "writes nothing" means this does not
+// change. A folder's own time also shows a temp file that was created and removed again.
 function snapshot(root) {
   const out = {};
   (function walk(dir, rel) {
@@ -49,12 +50,21 @@ function snapshot(root) {
       if (name === '.git') continue;
       const abs = join(dir, name);
       const path = rel ? `${rel}/${name}` : name;
-      if (statSync(abs).isDirectory()) walk(abs, path);
-      else out[path] = `${statSync(abs).mtimeMs} ${createHash('sha1').update(readFileSync(abs)).digest('hex')}`;
+      if (statSync(abs).isDirectory()) {
+        out[`${path}/`] = String(statSync(abs).mtimeMs);
+        walk(abs, path);
+      } else out[path] = `${statSync(abs).mtimeMs} ${createHash('sha1').update(readFileSync(abs)).digest('hex')}`;
     }
   })(root, '');
   return out;
 }
+
+test('the snapshot sees an empty folder', (t) => {
+  const root = vault(t);
+  const before = snapshot(root);
+  mkdirSync(join(root, '.wiki-master'));
+  assert.notDeepEqual(snapshot(root), before);
+});
 
 // Runs main in-process with healthy probes and no real app, server or model. Each test overrides what it fails.
 async function run(root, argv = [], overrides = {}) {
@@ -149,6 +159,30 @@ test('--rebuild re-chunks every page, reuses vectors by chunk hash, and has noth
   assert.equal(r.code, 0);
   assert.deepEqual(r.embedCalls, []);
   assert.deepEqual(snapshot(root), before);
+});
+
+test('--rebuild distrusts modification times: only it notices an edit that kept the size and the time', async (t) => {
+  const root = vault(t);
+  const path = join(root, 'wiki/concepts/idea.md');
+  const when = new Date('2021-03-04T05:06:07Z');
+  utimesSync(path, when, when);
+  await run(root);
+  const hashOf = () => JSON.parse(read(root, '.wiki-master/chunks.json'))['wiki/concepts/idea.md'].contentHash;
+  const original = hashOf();
+  writeFileSync(path, read(root, 'wiki/concepts/idea.md').replace('A concept page.', 'A concept PAGE.'));
+  utimesSync(path, when, when);
+
+  const plain = await run(root);
+  assert.equal(plain.code, 0);
+  assert.deepEqual(plain.embedCalls, [], 'a plain run trusts the unchanged time and size');
+  assert.equal(hashOf(), original);
+
+  const rebuilt = await run(root, ['--rebuild']);
+  assert.equal(rebuilt.code, 0, rebuilt.output);
+  assert.equal(rebuilt.embedCalls.length, 1, 'only the changed chunk is embedded; the rest reuse their vectors');
+  assert.match(rebuilt.embedCalls[0], /A concept PAGE\./);
+  assert.notEqual(hashOf(), original);
+  assert.match(rebuilt.output, /search index: saved/);
 });
 
 // A catalog created in a run can share its file name with a page, which makes that name ambiguous and changes the
