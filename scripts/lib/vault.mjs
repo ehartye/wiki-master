@@ -47,11 +47,12 @@ export function buildArgs(name, args) {
 
 // Reads normally finish in milliseconds. A hung app must not block an agent
 // indefinitely; callers with a known longer operation may supply a finite bound.
-export function obsidian(args, { name = resolveVault().name, timeout = 10_000, waitTimeout = 10_000, execFileSyncImpl = serializedExecFileSync } = {}) {
+// `name: null` names no vault, and `cwd` sets the folder the CLI runs from; see obsidianActive.
+export function obsidian(args, { name = resolveVault().name, cwd, timeout = 10_000, waitTimeout = 10_000, execFileSyncImpl = serializedExecFileSync } = {}) {
   if (!Number.isFinite(timeout) || timeout <= 0) throw new Error('Obsidian timeout must be a positive finite number of milliseconds');
   if (!Array.isArray(args) || !args.length) throw new Error('A CLI command is required; request not sent');
-  const argv = buildArgs(name, args);
-  validateCliRequest(argv);
+  const argv = name === null ? args : buildArgs(name, args);
+  validateCliRequest(argv, cwd === undefined ? undefined : { cwd });
   try {
     return execFileSyncImpl('obsidian', argv, {
       encoding: 'utf8',
@@ -59,12 +60,20 @@ export function obsidian(args, { name = resolveVault().name, timeout = 10_000, w
       timeout,
       waitTimeout,
       windowsHide: true,
+      ...(cwd === undefined ? {} : { cwd }),
     }).trim();
   } catch (err) {
     if (err.code === 'ETIMEDOUT' && !err.message.startsWith('CLI guard worker')) throw Object.assign(new Error(`obsidian ${args[0]} timed out after ${timeout}ms; command outcome may be unknown`, { cause: err }), { code: err.code });
     const msg = (err.stderr || err.message || '').toString();
     throw Object.assign(new Error(`obsidian ${args[0]} failed: ${msg}`, { cause: err }), { code: err.code });
   }
+}
+
+// Asks the running app about the vault it already has active. With no `vault=` the CLI uses the vault of its working
+// directory, else the active one, so this runs from the temp folder and names nothing: the question cannot be about,
+// or cause the app to open, any other vault. Whether `vault=<name>` opens a vault that is not open is undocumented.
+export function obsidianActive(args, opts = {}) {
+  return obsidian(args, { ...opts, name: null, cwd: tmpdir() });
 }
 
 export function obsidianJson(args, opts) {

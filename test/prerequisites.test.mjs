@@ -393,6 +393,27 @@ test('a detached HEAD names itself and does not mention an upstream', async (t) 
   assert.doesNotMatch(`${r.failures[0].problem} ${r.failures[0].fix}`, /upstream/);
 });
 
+// Naming a vault could make the app open it, and this check must never start or open anything. It asks about the
+// vault already active, from a folder that is no vault, so the question names nothing.
+test('the real CLI call names no vault and runs from a neutral folder', async (t) => {
+  const root = setGit(vault(t));
+  const calls = [];
+  const r = await checkPrerequisites({ vault: { path: root, name: 'fixture' }, probes: {
+    ollamaUp: async () => true, modelPulled: async () => true, session: () => 'this-session', git: () => ({ repo: true, upstream: true }),
+    execFileSyncImpl: (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return `${root}\n`; },
+  } });
+  assert.deepEqual(r.failures, []);
+  assert.deepEqual(calls, [{ command: 'obsidian', argv: ['vault', 'info=path'], cwd: tmpdir() }]);
+});
+
+test('another vault being active is the wrong vault, and the fix names both ways out', async (t) => {
+  const r = await world(t, { cli: () => join(tmpdir(), 'another-vault') }).check();
+  assert.deepEqual(ids(r), ['obsidian-vault']);
+  assert.match(r.failures[0].problem, /active vault/);
+  assert.match(r.failures[0].fix, /open this vault/i);
+  assert.match(r.failures[0].fix, /front/);
+});
+
 test('with everything failing every failure is named at once, each with a fix to offer', async (t) => {
   const { root, check, cliCalls } = world(t, {
     ollamaUp: async () => false, session: () => 'none',
