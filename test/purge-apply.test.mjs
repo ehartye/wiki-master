@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,12 +22,9 @@ function tempVault() {
     '---\ntype: concept\nsources: ["[[raw/clippings/Src-abc1234.md]]"]\n---\n# Foo\n\nbody\n');
   writeFileSync(join(dir, 'raw', 'clippings', 'Src-abc1234.md'),
     '---\ntitle: "Src"\nsource: https://example.com/a\nsource-hash: abc1234deadbeef\n---\ntext\n');
-  // Every real vault has an index.md (the vault-schema.md contract) -- main's
-  // --apply commit always stages it, and git fails a whole
-  // --pathspec-from-file add/commit outright (exit 128) if any listed path
-  // matches nothing at all. Present here so the `main` CLI tests below reach
-  // a realistic vault, not one only the lower-level applyPurge/applyRestore
-  // tests above were shaped for.
+  // Every real vault has an index.md (the vault-schema.md contract). Present
+  // here so the `main` CLI tests below reach a realistic vault, not one only
+  // the lower-level applyPurge/applyRestore tests above were shaped for.
   writeFileSync(join(dir, 'index.md'), '# Index\n');
   return dir;
 }
@@ -68,8 +65,7 @@ test('applyPurge parks a resurrection in resurrected-N rather than overwriting',
     // slot — a mutant that pushes only e.from (dropping the destination)
     // leaves every other test in this file passing, because none of them
     // assert touched on a diverted move. Without the real destination here,
-    // the caller cannot stage where the resurrection actually landed, and a
-    // re-binned resurrection would be moved on disk but never committed.
+    // the reconcile log could not say where the resurrection actually landed.
     assert.deepEqual(r.touched,
       ['wiki/concepts/Foo.md', '.recycle/id/resurrected-1/wiki/concepts/Foo.md']);
   } finally {
@@ -189,9 +185,8 @@ test('applyRestore puts every entry back where it came from', () => {
     assert.equal(readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8'), before);
     assert.equal(r.restored, 1);
     assert.deepEqual(r.missing, []);
-    // A restore is otherwise a purely local working-tree change: the caller
-    // needs exactly what moved to stage a commit, the same reasoning as
-    // applyPurge.touched.
+    // The caller reports exactly what moved in the log entry, the same
+    // reasoning as applyPurge.touched.
     assert.deepEqual(r.touched, ['.recycle/id/wiki/concepts/Foo.md', 'wiki/concepts/Foo.md']);
   } finally {
     rmSync(v, { recursive: true, force: true });
@@ -457,6 +452,20 @@ function commitAll(dir, message) {
   execFileSync('git', ['commit', '-q', '-m', message], { cwd: dir });
 }
 
+// What a git write would move: the commit, the staged entries and the staged diff.
+function gitState(dir) {
+  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  return {
+    head: git('rev-parse', 'HEAD').trim(),
+    index: git('ls-files', '--stage'),
+    staged: git('diff', '--cached', '--name-status'),
+  };
+}
+
+function logEntries(dir) {
+  return existsSync(join(dir, 'log')) ? readdirSync(join(dir, 'log')).sort() : [];
+}
+
 // Runs main() against a real vault, pointing WIKI_MASTER_VAULT at it (saved and
 // restored), capturing console output and process.exitCode instead of letting
 // either leak into the rest of the suite.
@@ -529,7 +538,7 @@ test('main --apply refuses to move anything when a survivor would lose all prove
   }
 });
 
-// M3: the `if (failed.length)` stop-before-commit guard.
+// M3: the `if (failed.length)` stop-before-logging guard.
 //
 // A real move failure could not be driven through `main --apply` from
 // outside. Two mechanisms were tried and both dead-end structurally, not for
@@ -547,19 +556,19 @@ test('main --apply refuses to move anything when a survivor would lose all prove
 //      silently succeeding, never reaching the new guard at all. Confirmed
 //      empirically: calling applyPurge directly on this exact fixture (no
 //      prior writeManifest) reports `failed: [...]`; going through `main`
-//      reports a clean, fully committed purge instead.
+//      reports a clean purge instead.
 // So this tests the WIRING of the guard via the one injection seam `main`
 // already has a precedent for (`searchImpl`): an injected `applyPurge` that
 // fails on demand, independent of what real-world condition would cause
 // applyPurge to report a failure. That underlying condition is covered by
 // the "a locked or otherwise unmoveable entry..." test in this file and its
 // G3 re-run in the mutation table.
-test('main --apply stops before committing when applyPurge reports a failed move', async () => {
+test('main --apply stops before logging when applyPurge reports a failed move', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    const before = gitState(v);
     const failingApplyPurge = () => ({
       moved: 0, touched: [], failed: [{ from: 'wiki/concepts/Foo.md', reason: 'simulated failure' }],
     });
@@ -567,10 +576,15 @@ test('main --apply stops before committing when applyPurge reports a failed move
     const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: failingApplyPurge });
 
     assert.equal(r.exitCode, 1);
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.equal(after, before, 'a purge with a failed move must not be committed');
-    assert.ok(r.errs.some((l) => l.includes('could not be moved')));
-    assert.ok(r.errs.some((l) => l.includes('simulated failure')));
+    assert.deepEqual(gitState(v), before);
+    assert.deepEqual(logEntries(v), [], 'a purge with a failed move must not be logged');
+    const errs = r.errs.join('\n');
+    assert.ok(errs.includes('could not be moved'));
+    assert.ok(errs.includes('simulated failure'));
+    assert.match(errs, /run --reconcile to finish this purge/);
+    assert.match(errs, /re-bins the stragglers into \.recycle\//);
+    assert.doesNotMatch(errs, /\bcommit/i);
+    assert.doesNotMatch(r.logs.join('\n'), /Obsidian Git publishes/, 'a failed purge has not finished, so it must not say it has');
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -640,31 +654,29 @@ test('reconcile puts a path-matched crash-recovery file in its proper slot, not 
   }
 });
 
-// M6: the commit staging set. `main` must stage and commit exactly what the
-// purge touched -- an unrelated, already-dirty file in the vault (someone's
-// own in-progress edit) must not ride along in the purge's commit.
-test('an unrelated pre-staged file is not swept into the purge commit', async () => {
+// AC11: --apply leaves one log entry and no new commit. Obsidian Git publishes
+// the removal; purge runs no git at all, so an unrelated, already-staged file
+// (someone's own in-progress edit) stays exactly as it was.
+test('--apply leaves one log entry and no new commit, with an unrelated staged file left alone', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
     writeFileSync(join(v, 'wiki', 'concepts', 'Draft.md'), 'work in progress\n');
     execFileSync('git', ['add', 'wiki/concepts/Draft.md'], { cwd: v });
+    const before = gitState(v);
 
     const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
 
-    // A genuinely new commit, not a stale match against the initial commit
-    // (which also added Foo.md) -- the real hazard this test exists to catch.
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.notEqual(after, before, 'the purge must have produced a new commit');
-    assert.ok(r.logs.some((l) => l.startsWith('committed ')), 'main must report the commit');
-    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: v, encoding: 'utf8' });
-    assert.equal(/Draft\.md/.test(files), false, 'the unrelated draft must not ride along in the purge commit');
-    assert.match(files, /\.recycle\/.*Foo\.md/, 'the purge move itself must be in this commit');
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
-    assert.match(status, /Draft\.md/, 'and it must remain exactly as dirty as it was, neither committed nor lost');
     assert.equal(r.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false, 'the purge ran');
+    assert.deepEqual(gitState(v), before);
+    const entries = logEntries(v);
+    assert.equal(entries.length, 1);
+    assert.match(entries[0], /-purge-foo\.md$/);
+    assert.match(readFileSync(join(v, 'log', entries[0]), 'utf8'), /Purged 2 file\(s\) to `\.recycle\//);
+    assert.equal(r.logs.some((l) => /\bcommit/i.test(l)), false, 'the output must not mention a commit');
+    assert.equal(r.logs.some((l) => l.includes('other file(s)')), false, 'the uncommitted-work advisory is gone');
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -676,18 +688,17 @@ test('an unrelated pre-staged file is not swept into the purge commit', async ()
 // case (a stale search hit for a page that's gone). planPurge's own
 // known.has(p) filter makes plan.purge empty even though seedPaths is not --
 // main must recognize that and write NOTHING, rather than a second manifest
-// with zero entries, a "purged 0 file(s)" log entry, and a commit containing
-// no purge at all.
-test('re-running --apply after the topic is already purged writes no second manifest and commits nothing', async () => {
+// with zero entries and a "purged 0 file(s)" log entry.
+test('re-running --apply after the topic is already purged writes no second manifest and no second log', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const first = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
-    assert.ok(first.logs.some((l) => l.startsWith('committed ')));
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
     const { manifests: before } = readManifests(v);
     assert.equal(before.length, 1);
-    const headAfterFirst = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    const logsAfterFirst = logEntries(v);
+    assert.equal(logsAfterFirst.length, 1);
 
     // The same stale search hit again -- Foo.md no longer exists in the vault.
     const second = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
@@ -695,8 +706,7 @@ test('re-running --apply after the topic is already purged writes no second mani
     assert.ok(second.logs.some((l) => l.includes('the closure is empty')));
     const { manifests: after } = readManifests(v);
     assert.equal(after.length, 1, 'no second manifest must be written');
-    const headAfterSecond = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.equal(headAfterSecond, headAfterFirst, 'no new commit for an empty closure');
+    assert.deepEqual(logEntries(v), logsAfterFirst, 'no log entry for an empty closure');
     assert.equal(second.exitCode, undefined);
   } finally {
     rmSync(v, { recursive: true, force: true });
@@ -731,7 +741,7 @@ test('reconcile commits what it re-bins, leaving a clean working tree', async ()
   }
 });
 
-// I1: an aborted apply (a move failed, nothing committed) must not still
+// I1: an aborted apply (a move failed) must not still
 // record a decline or write a log entry -- both describe a move that, for a
 // failed entry, never actually happened. A decline recorded anyway silently
 // makes /wiki-discover skip a source the user still has, for up to 180 days.
@@ -1055,6 +1065,37 @@ test('end to end: restore puts the full closure back and leaves the survivors un
     }
     assert.equal(existsSync(join(v, 'raw', 'clippings', 'Shared-bbb2222.md')), true);
     assert.equal(existsSync(join(v, 'wiki', 'syntheses', 'Offtopic.md')), true);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The closing lines are what the skill reads back to the owner, so they say what
+// is true: the removal is on disk, Obsidian Git publishes it, and the refresh is
+// the next step. Purge never runs the refresh itself.
+test('--apply closes by saying the removal is on disk and naming refresh-index.mjs as the next step', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const output = r.logs.join('\n');
+    assert.match(output, /The removal is on disk\. Obsidian Git publishes it on its next run\./);
+    assert.equal(r.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+    assert.doesNotMatch(output, /git push|index-gen/);
+    assert.equal(existsSync(join(v, '.wiki-master', 'chunks.json')), false, 'purge does not run the refresh');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('--apply puts reference repair on the collateral pages before the refresh', async () => {
+  const v = fixtureCopy();
+  try {
+    const r = await runMain(v, ['--apply', 'topic', '--seeds', TOPIC_SEEDS.join(',')]);
+    assert.equal(r.exitCode, undefined);
+    assert.ok(r.logs.join('\n').includes('wiki/concepts/Outside Page.md'), 'sanity: this purge has collateral');
+    assert.equal(r.logs.at(-1), 'NEXT: repair references on the collateral pages, then run node scripts/refresh-index.mjs');
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
