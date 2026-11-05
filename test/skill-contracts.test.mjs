@@ -211,6 +211,27 @@ for (const file of ['skills/wiki-maintainer/references/operations.md', 'README.m
   });
 }
 
+// Decision 10: Ollama and a running Obsidian are needed to finish authoring, so the README can't call them optional.
+test('the README requirements state Obsidian Git and what finishing authoring needs', () => {
+  const requirements = read('README.md').split(/^## Requirements$/m)[1].split(/^## /m)[0];
+  assert.match(requirements, /Obsidian Git handles all git operations\./);
+  assert.match(requirements, /setup-obsidian-git\.mjs/);
+  assert.match(requirements, /refresh-index\.mjs/);
+  assert.match(requirements, /\*\*Obsidian\*\*[^\n]*\n?[^\n]*[Rr]equired to finish authoring/);
+  assert.match(requirements, /\*\*Ollama\*\*[^\n]*\n?[^\n]*[Rr]equired to finish authoring/);
+  assert.doesNotMatch(requirements, /Optional:[^\n]*Ollama|do not require a running app/);
+  assert.match(requirements, /Reading and searching work without/);
+});
+
+test('every script the README and docs name exists, and the README names the two new commands', () => {
+  const files = ['README.md', ...scanFiles('docs').filter(file => file.endsWith('.md'))];
+  const named = files.flatMap(file => [...read(file).matchAll(/(?<![\w/.-])(?:scripts\/)?([\w-]+\.mjs)\b/g)].map(m => [file, m[1]]));
+  const known = new Set([...readdirSync(join(root, 'scripts')), ...readdirSync(join(root, 'scripts', 'lib'))]);
+  assert.deepEqual(named.filter(([, script]) => !known.has(script)), []);
+  const inReadme = new Set(named.filter(([file]) => file === 'README.md').map(([, script]) => script));
+  for (const script of ['refresh-index.mjs', 'setup-obsidian-git.mjs']) assert.ok(inReadme.has(script), script);
+});
+
 // Criterion 9: refresh-index.mjs is the last numbered step of every authoring workflow. A paragraph after the list is
 // not a step, so a read-only handoff can follow it.
 function finalStep(text, heading) {

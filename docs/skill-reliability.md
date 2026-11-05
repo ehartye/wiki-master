@@ -5,13 +5,12 @@ The source now exposes six roles with task-specific references. See the
 Ordinary search executes from the search main file, plus applicable vault
 instructions; advanced references load only when needed. Evidence and mutation policies load when needed.
 All six capture routes remain researcher modes; ingestion and capture retain
-separate authorization. Helper interfaces and vault formats are unchanged.
+separate authorization.
 
 Reorganization evidence is retained under `eval/skill-reorganization/`; prior
 consolidation evidence remains unchanged under `eval/skill-consolidation/`. Package
 reviews and structural tests establish only their stated scope; candidate-loaded
-behavior and publication must be judged from their separate execution artifacts.
-This source change is not a release or global installation instruction.
+behavior must be judged from its separate execution artifacts.
 
 Earlier version-specific measurements below are historical evidence. They do not
 describe the current skill count, entry-point names or reference-loading path.
@@ -22,7 +21,7 @@ specifications, and release history are retained unchanged.
 
 [Setup checks](../skills/wiki-setup/references/checks.md),
 [app diagnosis](../skills/wiki-setup/references/app-access.md) and
-[operation recovery](../skills/wiki-setup/references/operation-recovery.md)
+[recovery](../skills/wiki-setup/references/operation-recovery.md)
 own the agent procedures. The contracts and historical measurements below
 remain reference material.
 
@@ -31,30 +30,9 @@ The shared Obsidian wrapper defaults to a 10-second timeout. Callers can choose 
 
 Freshness prefers valid Obsidian Bases results. If unavailable, invalid or empty, it checks Markdown metadata under the known vault's `wiki/` directory and discloses the filesystem backend and reason. It excludes raw evidence, maps, logs, hidden directories, templates and symlinks. A missing vault is an error, not an empty successful report. `reviewed` remains factual verification; `updated` remains editing.
 
-The skills' shared access policy permits ordinary Markdown reads and scoped edits at known paths with normal filesystem tools when the CLI fails. Live workspace/graph UI, Obsidian plugins and other app-only state still require an available app interface. Authoring and ingestion preserve the operation lifecycle and raw evidence contract in either mode.
+The skills' shared access policy permits ordinary Markdown reads and scoped edits at known paths with normal filesystem tools when the CLI fails. Live workspace/graph UI, Obsidian plugins and other app-only state still require an available app interface. Authoring and ingestion keep the completion and raw evidence contracts in either mode, and finishing an authoring task needs the running app and Ollama.
 
-Writing workflows share scope/authorization, operation-open, edit, validation, affected catalog refresh, log, operation-commit and authorized sync. Existing session instructions and the vault's own sync rules count as authorization. Read-only requests never open write operations. The operation helpers still do not push automatically.
-
-As of 0.53.1, the maintainer core and shared completion reference explicitly make
-agents responsible for automatically resolving their own tokens unless the user
-asks to keep an operation open. Recovery inspects saved ownership, exact files,
-validation and actual commits before retrying the same operation. A verified
-already-committed or no-op operation can close with an empty delta; an uncertain
-timeout must not duplicate work or silently replace its token. A sync rebase
-requires reconciling commit identity through the operation's unique log.
-
-This default does not claim another writer's work, override delegated ownership,
-grant new publication permission or guess at content conflicts. Genuine blockers
-retain an actionable handoff. Official abandoned-token cleanup needs verified
-ownership, no pending work or user hold, an exact ID and age eligibility; no routine
-approval is needed for that already-authorized cleanup. Age is a review signal,
-not an automatic expiry. The command implementations are unchanged.
-
-The [six operation-token probes](../eval/skill-behavior/operation-tokens/README.md)
-passed 6/6 in both matched conditions, with 22/22 required actions and no forbidden
-actions proposed. This is a zero measured difference, not evidence of superiority.
-The independently labeled simulations retain all transcripts and limits; existing
-real-Git fixtures check helper behavior separately.
+Writing workflows share one [completion contract](../skills/wiki-maintainer/references/operations.md): scope and authorization, edit, validation, one log entry and `refresh-index.mjs`, once per task. Obsidian Git handles all git operations. Nothing isolates two writers on the same file, so agents keep their edits to what their task needs. Read-only requests write nothing.
 
 Historically, version 0.36.0 reduced the maintainer core from 444 to 76 lines and
 gave the then-19 descriptions natural triggers. The 0.88.0 five-role layout replaced
@@ -69,7 +47,7 @@ npm run test:skills
 node scripts/evaluate-skill-behavior.mjs --scenarios eval/skill-behavior/scenarios.json --with with.json --without without.json --output comparison.json
 ```
 
-The frozen eight scenarios cover offline authored publishing, pure retrieval, incomplete freshness, an application-naming near miss, explicitly authorized discovery/ingest, discovery awaiting review, uncertain writes and app-only actions.
+The frozen eight scenarios cover offline authoring, pure retrieval, incomplete freshness, an application-naming near miss, explicitly authorized discovery/ingest, discovery awaiting review, uncertain writes and app-only actions.
 
 Launch the with-skill and without-skill runs together with identical scenario facts and tool access. For the former, supply the actual skill bodies and directly relevant references; for the latter, do not supply those bodies. Record the host/model, loaded files, duration/context measurements if available, exact outputs and tool/artifact evidence. An independent observer then labels action evidence using exact transcript spans. The actor must not grade itself. Preserve all failures and near misses, not only the examples that improve.
 
@@ -77,7 +55,7 @@ Trace contract: version1, condition `with` or `without`, mode `simulation` or `e
 
 The grader measures required action coverage and forbidden actions, reports missing scenarios as incomplete (exit2), and fails a with-skill regression (exit1). It checks that labels quote the supplied transcript; it cannot authenticate an observer or infer all unlabeled actions. Artifact references need independent inspection. Simulations measure proposed behavior, never successful execution. Reports cannot substitute for fresh runs after material skill changes.
 
-`test/skill-workflow.test.mjs` separately executes the documented lifecycle against temporary local Git repositories from an unrelated working directory. It verifies that the authored edit preserves the factual review date, the log and edit are committed, a pre-existing user draft and raw source remain untouched, a local remote receives the commit, and filesystem freshness makes no content changes. This tests executable commands and resulting artifacts; it does not claim an LLM independently chose them.
+`test/skill-workflow.test.mjs` separately executes the documented workflow against a temporary local Git repository from an unrelated working directory: write, validate, log once and refresh, with the refresh's app and embedder stubbed. It verifies that the authored edit preserves the factual review date, one log entry is written, the catalog and search index update, a pre-existing user draft and raw source remain untouched, the repository's history and index do not change, and filesystem freshness makes no content changes. This tests executable commands and resulting artifacts; it does not claim an LLM independently chose them.
 
 `test/skill-contracts.test.mjs` checks metadata, direct reference integrity, access/completion routing and portable examples. The code suite validates timeout and fallback failures. These deterministic checks run in normal CI; paid/model behavior probes remain explicit, reproducible evaluation runs rather than an implied unattended service.
 

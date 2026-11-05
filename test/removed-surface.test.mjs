@@ -1,20 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The commands and language this change removes stay removed. These are the acceptance greps as a test, walking the
-// tree with node:fs so they work from a plain checkout. They cover scripts/, test/, templates/ and skills/ for now; docs
-// and the README join when the package that rewrites them lands.
+// tree with node:fs so they work from a plain checkout.
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-// Files a later package rewrites. Each package deletes its lines here as it finishes, widening the scans to the full
-// acceptance criteria.
-const LATER_PACKAGE = {};
 
 // Files that have to name what they check. These never go.
 const ALWAYS_EXCLUDED = {
@@ -24,19 +19,24 @@ const OLD_MARKERS = {
   'scripts/lib/index-fence.mjs': 'holds the old fence markers, so a first run can replace them (decision 14)',
 };
 
-const WALKED = ['scripts', 'test', 'templates', 'skills/wiki-setup', 'skills/wiki-maintainer', 'skills/wiki-researcher', 'skills/wiki-project', 'skills/wiki-purge', 'skills/wiki-search'];
+const WALKED = ['scripts', 'test', 'templates', 'skills', 'docs', 'README.md', 'eval/skill-catalog.md'];
+// Local state git never tracks, which git grep would not see either.
 const SKIPPED_FOLDERS = new Set(['node_modules', '.wiki-master', '.playwright-mcp']);
+// Dated plans and specifications are history and keep the names they used. The criteria leave them out too.
+const HISTORY = new Set(['docs/superpowers']);
 
 function trackedText(top) {
   const files = [];
+  const add = (full, path) => {
+    const text = readFileSync(full, 'utf8');
+    if (!text.includes('\0')) files.push({ path, text }); // like git grep, skip binaries
+  };
+  if (!statSync(join(ROOT, top)).isDirectory()) { add(join(ROOT, top), top); return files; }
   (function walk(dir, rel) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (!SKIPPED_FOLDERS.has(entry.name)) walk(join(dir, entry.name), `${rel}/${entry.name}`);
-        continue;
-      }
-      const text = readFileSync(join(dir, entry.name), 'utf8');
-      if (!text.includes('\0')) files.push({ path: `${rel}/${entry.name}`, text }); // like git grep, skip binaries
+      const path = `${rel}/${entry.name}`;
+      if (!entry.isDirectory()) add(join(dir, entry.name), path);
+      else if (!SKIPPED_FOLDERS.has(entry.name) && !HISTORY.has(path)) walk(join(dir, entry.name), path);
     }
   })(join(ROOT, top), top);
   return files;
@@ -45,7 +45,7 @@ function trackedText(top) {
 // Each match as "path:line: text", leaving out the excluded files.
 function grep(pattern, { tops = WALKED, exclude = {} } = {}) {
   const found = [];
-  const excluded = { ...ALWAYS_EXCLUDED, ...LATER_PACKAGE, ...exclude };
+  const excluded = { ...ALWAYS_EXCLUDED, ...exclude };
   for (const top of tops) {
     for (const { path, text } of trackedText(top)) {
       if (excluded[path]) continue;
@@ -81,7 +81,9 @@ test('criterion 1: nothing names the token system', () => {
 
 test('criterion 1: only the relationships command takes --since', () => {
   const lines = grep(/--since/, { tops: WALKED.filter((top) => top !== 'test' && top !== 'templates') });
-  const isRelationships = (line) => (line.startsWith('scripts/lib/cli-specs.mjs:') && line.includes('relationships')) || line.startsWith('skills/wiki-maintainer/references/relink.md:');
+  const isRelationships = (line) => (line.startsWith('scripts/lib/cli-specs.mjs:') && line.includes('relationships'))
+    || line.startsWith('skills/wiki-maintainer/references/relink.md:')
+    || (line.startsWith('docs/wiki-efficacy.md:') && line.includes('Relationship candidates'));
   assert.deepEqual(lines.filter((line) => !isRelationships(line)), []);
 });
 

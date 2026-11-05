@@ -18,28 +18,34 @@ index built from your own Ollama instance and ranks chunks by cosine similarity.
 
 - A host agent: **Claude Code**, **GitHub Copilot CLI**, or **Codex** with plugin support.
   Each host loads the same skills and runs the bundled helpers independently.
-- For native app actions: Obsidian 1.12+ with the official command-line interface enabled
-  (Settings → General → Command line interface).
-- The vault open in Obsidian for those app actions. Filesystem search, health,
-  capture and ordinary Markdown work do not require a running app.
-- Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI lock).
+- **Obsidian Git.** Obsidian Git handles all git operations. The vault is a git repository with
+  an upstream, which you set up, and the plugin is enabled with `autoSaveInterval: 10`,
+  `syncMethod: rebase`, `mergeStrategy: theirs`, `autoPullOnBoot: true`, `autoPushInterval: 0` and
+  `autoPullInterval: 0`. `/wiki-setup` offers to install and configure it with
+  `setup-obsidian-git.mjs`, and reports existing settings rather than overwriting them.
+- **Obsidian** 1.12+, running with the vault open and restricted mode off, and its official command-line interface enabled
+  (Settings → General → Command line interface). Required to finish authoring and for native app actions.
+- **Ollama** ([ollama.com](https://ollama.com)), running with an embedding model (`ollama pull nomic-embed-text`).
+  Required to finish authoring; it also powers semantic search and semantic-drift detection.
+- Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI gate).
 - npm/npx for the pinned HTML clipping runtime; dependencies are acquired automatically on first use. See [capture fidelity and limits](docs/clipping-fidelity.md).
-- Optional: [Ollama](https://ollama.com) with an embedding model
-  (`ollama pull nomic-embed-text`), for semantic-drift detection — degrades
-  gracefully if absent.
 - Optional: `npm i -g playwright-core`, plus Chrome or Edge, for the
   browser-render clip rung — clipping JavaScript-rendered pages that serve no
   article text to a plain fetch. Degrades gracefully if absent; without it those
   pages are queued for triage exactly as before. Set `WIKI_MASTER_BROWSER` to
   point at a specific browser executable.
 
-To print a project's orientation from inside its repository, run `node scripts/session-brief.mjs` there. It finds the wiki project from a `repo:` line on the project's overview page (the repository's `origin` remote, in any spelling, or its folder name must match; `--project <slug>` names it directly). It reads the optional `reference/studio-state.md` page's current focus, relevant records, dependencies and recent decisions. Missing or unfilled orientation never prevents work; custom sections remain available in the source page. Historical phase/tier state pages, including `Last checkpoint review`, remain readable. Their gate annotations describe legacy records and impose no approval requirement. Artifacts with missing, invalid or future verification dates are unverified; only valid old dates count as stale after `--stale-days` days (default 30). Free-form orientation notes do not establish verification. Blocked backlog items are also listed when a state page exists. `--json` includes the detected schema, original record links and parsing warnings. No match, or more than one, exits 1 with how to bind; the command never writes and opens no operation.
+Every authoring task ends with `refresh-index.mjs`, which checks Obsidian Git, Obsidian, Ollama and the
+repository first: if any falls short it names each failure with its fix, writes nothing and exits 1.
+Reading and searching work without any of them; without Ollama, search falls back to keyword and identity matching.
+
+To print a project's orientation from inside its repository, run `node scripts/session-brief.mjs` there. It finds the wiki project from a `repo:` line on the project's overview page (the repository's `origin` remote, in any spelling, or its folder name must match; `--project <slug>` names it directly). It reads the optional `reference/studio-state.md` page's current focus, relevant records, dependencies and recent decisions. Missing or unfilled orientation never prevents work; custom sections remain available in the source page. Historical phase/tier state pages, including `Last checkpoint review`, remain readable. Their gate annotations describe legacy records and impose no approval requirement. Artifacts with missing, invalid or future verification dates are unverified; only valid old dates count as stale after `--stale-days` days (default 30). Free-form orientation notes do not establish verification. Blocked backlog items are also listed when a state page exists. `--json` includes the detected schema, original record links and parsing warnings. No match, or more than one, exits 1 with how to bind; the command never writes.
 
 For the agent procedure, use [capture prerequisites](skills/wiki-setup/references/capture-prerequisites.md). To see what the environment has and lacks, run `node scripts/doctor.mjs` (all commands) or `node scripts/doctor.mjs clip-docx clip-xlsx` (named commands; exit status 1 when a required program of one is missing). It lists, for each command, the programs and packages it needs, the path and version found, and how to fix what is missing; `--json` prints the same as one object. It starts each program once with its version flag, never the Obsidian CLI, and writes nothing. It also says when the copy it runs from is not the installed version.
 
 ## Install
 
-The plugin ships its operations as **skills** and shares the same `scripts/`
+The plugin ships its workflows as **skills** and shares the same `scripts/`
 (Node) across all three hosts. Claude Code and Copilot CLI expose `/wiki-*`;
 in Codex, select a skill or ask for it by name (for example, “use wiki-setup to report vault health”).
 
@@ -68,17 +74,21 @@ plugin folder together: the skills use the sibling `scripts/` and `templates/`.
 
 ## Quick start
 
-1. `/wiki-setup` — preflights existing content, scaffolds a new vault and prints one-time setup.
-2. In Obsidian: **Open folder as vault** → the scaffolded path.
-3. Verify: `node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults` lists the vault.
-4. Import `templates/webclipper-template.json` into the Obsidian Web Clipper.
-5. Ask `/wiki-researcher` to capture web pages (they land in `raw/clippings/`),
+1. `/wiki-setup` — states the prerequisites, preflights existing content, scaffolds a new vault and prints one-time setup.
+2. Make the vault a git repository with an upstream. Setup does not create either.
+3. In Obsidian: **Open folder as vault** → the scaffolded path, then trust the vault and turn off
+   restricted mode (Settings → Community plugins).
+4. Verify: `node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults` lists the vault.
+5. Let `/wiki-setup` install and configure Obsidian Git, then run `refresh-index.mjs`, which builds the search index.
+6. Import `templates/webclipper-template.json` into the Obsidian Web Clipper.
+7. Ask `/wiki-researcher` to capture web pages (they land in `raw/clippings/`),
    then explicitly request ingestion to compile them into the wiki. Use
    `/wiki-search` to find pages or answer questions with citations.
 
 Use the [guarded CLI caller](docs/cli-transport-guards.md) for app commands. It
 serializes cooperating sessions and rejects oversized requests before launch.
-Edit ordinary Markdown through the filesystem, preserving the wiki operation lifecycle.
+Edit ordinary Markdown through the filesystem, and finish by the
+[completion contract](skills/wiki-maintainer/references/operations.md): validate, log once, run `refresh-index.mjs`.
 
 ## Skills
 
@@ -92,15 +102,14 @@ the `wiki-master:` prefix, for example `/wiki-master:wiki-search`.
 | [`wiki-project`](skills/wiki-project/SKILL.md) | Write original project documentation, architecture, decisions, guides, notes and backlog; list project work by lifecycle. |
 | [`wiki-researcher`](skills/wiki-researcher/SKILL.md) | Discover external sources, capture named URLs or files, and ingest captured evidence. Includes PDF, Word, PowerPoint, spreadsheets, GitHub and authenticated Confluence capture. |
 | [`wiki-maintainer`](skills/wiki-maintainer/SKILL.md) | Repair content and citations, connect concepts, apply triage decisions, file authorized derived syntheses and perform requested native app actions. |
-| [`wiki-setup`](skills/wiki-setup/SKILL.md) | Initialize safely; check prerequisites, health, freshness and lint; validate paths; diagnose failures and recover authorized operations. |
-| [`wiki-purge`](skills/wiki-purge/SKILL.md) | Plan, approve and apply recoverable removal, reconcile an interrupted purge, or restore it. Publication needs separate explicit approval. |
+| [`wiki-setup`](skills/wiki-setup/SKILL.md) | Initialize safely; install and configure Obsidian Git; check prerequisites, health, freshness and lint; validate paths; diagnose failures and recover from an unfinished setup or refresh. |
+| [`wiki-purge`](skills/wiki-purge/SKILL.md) | Plan, approve and apply recoverable removal, reconcile an interrupted purge, or restore it. |
 
 Search and unfiled answers are read-only. Capture-only does not authorize source
 summaries or concepts. Ask explicitly to ingest named clippings or process new
 clippings; an empty eligible backlog performs no writes. A backlog count belongs
 to setup reporting. An ambiguous researcher invocation does not ingest all.
-Helper command names and flags are unchanged. See the
-[old-to-new workflow mapping](docs/skill-migration.md) for retired entry points;
+See the [old-to-new workflow mapping](docs/skill-migration.md) for retired entry points;
 there are no forwarding aliases.
 
 ## Long-term wiki efficacy
@@ -134,7 +143,7 @@ stale.base      native Bases freshness dashboard   .wiki-master/  search index +
 walk, every other reader filters on an anchored `wiki/` prefix, and Obsidian's own
 indexer ignores dot-folders — so purged content is invisible to every search, metric
 and graph without a single reader needing to know it exists. It is git-tracked, so a
-purge reaches your other machines instead of evaporating on the next sync.
+purge reaches your other machines with the rest of the vault.
 
 Every wiki page carries `sources: [[...]]` provenance back to `raw/` and
 `ai-generated: true` — the guardrails against hallucination contamination.
@@ -162,7 +171,7 @@ against a fixture vault — no running Obsidian required. See
 
 With `WIKI_MASTER_VAULT` unset, a script acts on the default vault, which is the real one. Two guards keep that from happening by accident. `WIKI_MASTER_REQUIRE_VAULT=1` makes a script stop before it reads or writes anything when no vault is named (exit 2, one line). Under `node --test` (the runner sets `NODE_TEST_CONTEXT`, and a child process inherits it) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails instead of acting on the real one. A test that needs a vault uses `tempVault()` from `test/helpers/temp-vault.mjs`, or puts its own temp path in the `env` it gives a child process, and a test that only checks how a path is resolved passes an environment object: `resolveVault({ WIKI_MASTER_VAULT: '/some/path' })`.
 
-`--help` on a script prints its usage and does nothing else. Measured on the 51 scripts: four of them (`index-gen`, `index-embed`, `triage`, `init`) used to act on `--help` and two (`lint`, `stale`) ran in full; those six now answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read. An option a script does not know is refused, not ignored. The seven clippers keep their options in `scripts/lib/clip-args.mjs`; 42 other scripts (the repair, backfill, rename and operation scripts, `health`, `lint`, `stale`, `init`, `triage` and the rest) keep theirs in `scripts/lib/cli-specs.mjs`, checked by `scripts/lib/cli-guard.mjs` at the command-line entry: an unknown option prints one line and exits 2, and `--help` or `-h` prints the usage and exits 0 (a script with its own help, such as `lint`, keeps it). Five scripts have their own help and parser (`apply-reclips`, `bump-version`, `doctor`, `index-gen`, `session-brief`). `obsidian.mjs` is the exception: it passes its arguments to the Obsidian CLI. `test/cli-guard.test.mjs` runs every script with a made-up option in a throwaway home, vault and working directory and checks that it refuses and writes nothing (`triage` is checked without being run, because a failed guard would start its server); a new script that is neither guarded nor listed there fails the test.
+`--help` on a script prints its usage and does nothing else. `triage`, `init`, `lint` and `stale` answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read. An option a script does not know is refused, not ignored. The seven clippers keep their options in `scripts/lib/clip-args.mjs`; 39 other scripts (the repair, backfill and rename scripts, `health`, `lint`, `refresh-index`, `stale`, `init`, `triage` and the rest) keep theirs in `scripts/lib/cli-specs.mjs`, checked by `scripts/lib/cli-guard.mjs` at the command-line entry: an unknown option prints one line and exits 2, and `--help` or `-h` prints the usage and exits 0 (a script with its own help, such as `lint`, keeps it). Four scripts have their own help and parser (`apply-reclips`, `bump-version`, `doctor`, `session-brief`). `obsidian.mjs` is the exception: it passes its arguments to the Obsidian CLI. `test/cli-guard.test.mjs` runs every script with a made-up option in a throwaway home, vault and working directory and checks that it refuses and writes nothing (`triage` is checked without being run, because a failed guard would start its server); a new script that is neither guarded nor listed there fails the test.
 
 ### Public-repository hygiene
 
@@ -172,7 +181,7 @@ The public repository must not name the owner's other projects or machines: that
 
 `.gitattributes` sets `* text=auto eol=lf`: text files are LF in the repository and in every working tree, whatever `core.autocrlf` says, so a Windows checkout no longer holds CRLF copies of LF files (scripted multi-line edits, byte comparisons and `git add` warnings all depended on that). Binary files are left alone. `test/line-endings.test.mjs` pins the policy on throwaway repositories with `core.autocrlf=true`.
 
-A checkout made before the policy still has CRLF in its working tree. With nothing uncommitted, rewrite it once: `git rm --cached -r -q . && git reset --hard`. The index already holds LF, so this changes only the files on disk. Do not run it with uncommitted work; commit or stash first.
+A checkout made before the policy still has CRLF in its working tree. With nothing uncommitted, rewrite it once: `git rm --cached -r -q . && git reset --hard`. The index already holds LF, so this changes only the files on disk. Do not run it with uncommitted work.
 
 ### Releasing
 
@@ -180,9 +189,17 @@ A release changes the version in ten places: the nine JSON fields listed in `VER
 
 ### Catalog refresh
 
-Use `node scripts/refresh-catalogs.mjs --project wiki-master --apply` for a project documentation update. The default is a dry run: it writes nothing, and its `changed` list names the files an apply would change (an apply on the same, unchanged vault changes exactly those). `--diff` adds, on stderr after the one-line JSON, one block per changed file with the lines it would lose (`-`) and gain (`+`). It shares one vault graph across the backlog, MOC and global index generators and preserves unchanged files' modification times. `--paths-file <JSON array>` keeps another writer's uncommitted pages out of the catalogs: a page counts when it is in the last commit or the ledger names it, so a page another writer has only staged is left out. A line a catalog already lists for a left-out page that still exists is kept, not deleted; a line for a page that is gone is removed. `backlog-gen.mjs` and `moc-authored-gen.mjs` also accept `--project` when run separately, and their dry run lists the files that would change too; they refuse `--diff` and `--paths-file` with one line and exit 2. `index-gen.mjs` (the ingest path) lists every page on disk unless given the same `--paths-file`, which scopes it as above. Cross-project ambiguity detection still requires one vault scan. With an ownership ledger, existing foreign committed Markdown is read from one pinned HEAD snapshot (including headings, dependencies and catalog settings); owned pages use working bytes. The refresh report names this policy and commit in `snapshot`. An unborn repository retains tracked working-file behavior and reports `tracked-working-tree-no-head`. Deleted paths are not resurrected, staged additions remain excluded, and unscoped refreshes still use current files. Catalog fences preserve surrounding working prose and metadata without publishing that foreign metadata into later catalogs.
+`node scripts/refresh-index.mjs [--rebuild] [--status]` is the last step of every authoring task, once per task. A delegated worker doesn't run it; the enclosing task does. It always covers the whole vault: it regenerates `index.md`, every roadmap and every project map from one vault graph, then refreshes the semantic search index. A run with nothing to do rewrites no file. Catalogs read the working tree, so another writer's pending page can appear in one. Catalog fences preserve the manual prose and metadata around them.
 
-Use `node scripts/validate-authored.mjs --paths-file <JSON array>` (add `--terms-file <path>` and, to limit it to the plugin projects, `--terms-projects a,b` to run the private list over those pages as `private-term` defects, by line and rule number only) to check only the pages one authoring task wrote, with the same ledger `op-commit.mjs` takes: it is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. `node scripts/op-ledger.mjs show --since <token> --out <file>` builds that ledger from the paths the writers recorded (the clippers, `log-entry`, `index-gen` and `refresh-catalogs --apply` take `--since <token>`; `op-ledger.mjs add` records a page you wrote yourself) and lists on stderr what the close would get wrong: a recorded path that was already dirty before `op-begin`, one that is not dirty now, and every changed path nobody recorded. The ledger, rules and `--json` shape are in [scoped validation](skills/wiki-setup/references/validation.md). `op-commit` without `--paths-file` is refused (exit 1, nothing committed, token kept) while any other operation is open, with the two commands that scope it; every refused close, and every `wiki-sync` refused because uncommitted edits overlap incoming changes (exit 3, nothing changed, a hint of which open operation recorded each file; never reset, check out, stash or delete a file you did not write, wait and sync again), appends a counts-only line to `.wiki-master/op-refusals.jsonl`, and `health` prints `Recorded refusals: N (pre-dirty a, evidence b, unscoped c, sync-overlap d).` when N is above zero (`opRefusals` in `--json`, with `syncOverlap`). The plugin's scripts make the vault's scoped commits and sync; Obsidian Git is for viewing and pulling, with auto-commit off. `node scripts/wiki-sync.mjs --op <token> [--paths-file <ledger>] [--title "<title>"]` closes that one operation (scoped by `--paths-file`, else by the paths its writers recorded) and publishes it in one verified command; the rules are in the operations reference (`skills/wiki-maintainer/references/operations.md`).
+Before it writes anything it checks that Ollama is reachable with the embedding model pulled, Obsidian is up and not in restricted mode, Obsidian Git is installed and enabled with `autoSaveInterval` above 0, and the vault is a git repository with an upstream. A failure names every problem with the fix to offer, writes nothing and exits 1: the agent offers the fix, doesn't apply it unasked, and reports the task as written but not refreshed. Failed chunks exit 1 with the count; the catalogs written stay, and a rerun retries them. `--rebuild` re-chunks every page and repairs a damaged index. `--status` reports how fresh the index is, checks nothing, writes nothing and always exits 0.
+
+### Authoring checks and Obsidian Git
+
+Use `node scripts/validate-authored.mjs --paths-file <JSON array>` (add `--terms-file <path>` and, to limit it to the plugin projects, `--terms-projects a,b` to run the private list over those pages as `private-term` defects, by line and rule number only) to check only the pages one authoring task wrote. You write the array by hand. It is read-only, prints `path:line rule message` for each defect, exits 0 when clean, 1 when there are defects and 2 for unusable input, and leaves the whole-vault check to `health.mjs`. The rules and `--json` shape are in [scoped validation](skills/wiki-setup/references/validation.md).
+
+`node scripts/setup-obsidian-git.mjs` (`--check`, the default) reads the plugin's state and required settings from files and needs no app. `--apply` needs the vault open in Obsidian: it installs the plugin without enabling it, writes its settings only if it has none, then enables it, and an existing settings file stays byte-identical with its differences reported.
+
+The plugin's scripts run no git command that changes the vault, which `test/no-git-writes.test.mjs` pins. A finished task reports that the work is on disk and that Obsidian Git publishes it on its next run; the steps are in the [completion contract](skills/wiki-maintainer/references/operations.md).
 
 ### Content lint
 

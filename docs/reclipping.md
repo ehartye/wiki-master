@@ -1,15 +1,15 @@
 # Re-clipping layout-flagged evidence
 
-For prerequisite and capture-failure diagnosis use [setup capture prerequisites](../skills/wiki-setup/references/capture-prerequisites.md). Authorized content repair remains in [maintainer repair](../skills/wiki-maintainer/references/repair.md); the helper interfaces below are unchanged.
+For prerequisite and capture-failure diagnosis use [setup capture prerequisites](../skills/wiki-setup/references/capture-prerequisites.md). Authorized content repair remains in [maintainer repair](../skills/wiki-maintainer/references/repair.md).
 
 `apply-reclips.mjs` previews work by default. With no selector it replays pending re-clip/upload dispositions. An explicit request is honored even when a character-only check looks clean. `--include-tabular` also selects captures marked `fidelity: tabular`, `extraction: table-aware` or `extraction: table-flattened`, recursively under `raw/clippings/`.
 
 ```sh
 node scripts/apply-reclips.mjs --include-tabular
-node scripts/apply-reclips.mjs --apply --targets-file targets.json --owned-paths-file owned.json --on-failure quarantine
+node scripts/apply-reclips.mjs --apply --targets-file targets.json --on-failure quarantine
 ```
 
-`targets.json` is an exact array of vault-relative clipping paths. `owned.json` is the enclosing operation's exact ownership ledger, including affected summaries/citing pages. The helper refuses out-of-scope paths and reports concurrent edits. Cooperating apply sessions reserve an OS gate per vault before asynchronous fetching; the reservation is released on exit rather than leaving a stale lock file. An interrupted update retains a machine-local transaction under `.wiki-master/reclip-transactions/`; rerunning the same target resumes its saved hash transition without extracting again. Recovery rechecks newly added dependencies and refuses an incomplete ownership ledger. Do not commit or sync partial/conflicted updates until that transaction finishes. It returns changed paths for inspection before the operation commit. Open a scoped vault operation before applying, preserve other writers' files, validate the evidence and derived claims, log, commit and sync using the normal operation contract. The helper does not commit or push.
+`targets.json` is an exact array of vault-relative clipping paths. The helper refuses targets outside `raw/clippings/` and reports concurrent edits. Cooperating apply sessions reserve an OS gate per vault before asynchronous fetching; the reservation is released on exit and leaves no file behind. An interrupted update retains a machine-local transaction under `.wiki-master/reclip-transactions/`; rerunning the same target resumes its saved hash transition without extracting again. Recovery rechecks citing pages and retains the repair if that set has changed. The task is not finished while a transaction is pending or conflicted, so rerun the target until it completes. The helper returns the paths it changed for inspection: validate the evidence and derived claims, then finish by the [completion contract](../skills/wiki-maintainer/references/operations.md).
 
 PDF repairs use the shared `planExtraction` policy and preserve its mode/fidelity floor. `--mode auto|reading-order|table` applies to the selected batch; use a one-item target file when selecting a mode for a particular layout. Do not force reading-order globally merely to clear table warnings. It can flatten genuine tables. `--source-file original.pdf` requires exactly one selected clipping; uploaded originals or unambiguous `--from directory` matches otherwise take precedence over fetching the source URL. Fetches have a timeout/size bound and must return PDF bytes; an HTML landing page cannot masquerade as the original.
 
@@ -22,18 +22,18 @@ By default failed repairs reopen fidelity review. With explicit `--on-failure qu
 If a returned table cannot be verified after inspection, quarantine that exact target without re-extracting:
 
 ```sh
-node scripts/apply-reclips.mjs --apply --targets-file one-target.json --owned-paths-file owned.json --quarantine-reason "Row pairings remain unverifiable"
+node scripts/apply-reclips.mjs --apply --targets-file one-target.json --quarantine-reason "Row pairings remain unverifiable"
 ```
 
 This does not erase historical evidence. A later verified replacement needs an explicit decision to remove the quarantine marker and revisit affected citations. Quarantined captures are excluded from automatic selection. Report repaired, verified, quarantined, conflicted and remaining counts separately; never count quarantine as ingestion.
 
 ## Web pages
 
-A clipping made by `clip.mjs` takes the same transaction (ledger, dry run, journal, quarantine, hash propagation) through a different reader. It is recognised by an http(s) source that does not look like a PDF and has no PDF extraction mark (`extraction` absent or `rendered`). The page is fetched again through the clipper's own ladder, a static read and then a browser render when the text is thin, without the clipper's side effects: no decline and no triage row. `--kind auto|pdf|html` overrides the routing; use it for a PDF served from an address that does not say so, or to read a page the router took for a PDF. A PDF address given `--kind html` is refused. A clipping marked `extraction: manual` (text a person supplied with `clip.mjs <url> --from-file <path>`) is refused too, listed under `refused` in the report and never a target, because fetching the page again would replace what the person supplied; refresh it with `clip.mjs <url> --from-file <path> --recapture`.
+A clipping made by `clip.mjs` takes the same transaction (dry run, journal, quarantine, hash propagation) through a different reader. It is recognised by an http(s) source that does not look like a PDF and has no PDF extraction mark (`extraction` absent or `rendered`). The page is fetched again through the clipper's own ladder, a static read and then a browser render when the text is thin, without the clipper's side effects: no decline and no triage row. `--kind auto|pdf|html` overrides the routing; use it for a PDF served from an address that does not say so, or to read a page the router took for a PDF. A PDF address given `--kind html` is refused. A clipping marked `extraction: manual` (text a person supplied with `clip.mjs <url> --from-file <path>`) is refused too, listed under `refused` in the report and never a target, because fetching the page again would replace what the person supplied; refresh it with `clip.mjs <url> --from-file <path> --recapture`.
 
 ```sh
 node scripts/apply-reclips.mjs --targets-file one-page.json            # dry run
-node scripts/apply-reclips.mjs --apply --targets-file one-page.json --owned-paths-file owned.json
+node scripts/apply-reclips.mjs --apply --targets-file one-page.json
 ```
 
 What differs from a PDF repair:

@@ -9,6 +9,7 @@ skills/wiki-setup/references/operation-recovery.md | Obsidian Git still publishe
 skills/wiki-setup/references/operation-recovery.md | ## Nothing is publishing | Heading for diagnosing Obsidian Git's timer.
 skills/wiki-setup/references/operation-recovery.md | it publishes once the owner has | Says the work goes out by itself once the owner clears the cause.
 skills/wiki-setup/references/operation-recovery.md | the plugin then publishes nothing | Describes Obsidian Git stopping on a conflict.
+README.md | Obsidian Git publishes | The standard report: Obsidian Git does it, not the agent.
 templates/vault-schema.md | Obsidian Git publishes | Says Obsidian Git does it.
 scripts/init.mjs | a timer would keep publishing them | Comment init writes into .gitignore, about Obsidian Git's timer.
 scripts/lib/prerequisites.mjs | Obsidian Git may be mid-sync | Says Obsidian Git is the one running.
