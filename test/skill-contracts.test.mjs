@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -61,7 +61,7 @@ function referenceProblems(starts, load = file => readFileSync(file, 'utf8'), ex
 
 const capabilities = {
   'wiki-search': { 'advanced.md': 'search.mjs', 'answers.md': 'resolve-evidence.mjs' },
-  'wiki-project': { 'authoring.md': 'op-begin.mjs', 'backlog.md': 'backlog-list.mjs', 'catalogs.md': 'refresh-catalogs.mjs' },
+  'wiki-project': { 'authoring.md': 'refresh-index.mjs', 'backlog.md': 'backlog-list.mjs', 'catalogs.md': 'refresh-index.mjs' },
   'wiki-researcher': { 'discover.md': 'known-urls.mjs', 'capture.md': 'clip.mjs', 'ingest.md': 'health.mjs',
     'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
     'clip-xlsx.md': 'clip-xlsx.mjs', 'clip-gh.md': 'clip-gh.mjs', 'clip-confluence.md': 'clip-confluence.mjs' },
@@ -69,7 +69,7 @@ const capabilities = {
     'repair.md': 'health.mjs', 'relink.md': 'relationships.mjs', 'triage.md': 'triage.mjs', 'obsidian-cli.md': 'obsidian.mjs' },
   'wiki-setup': { 'initialization.md': 'init.mjs', 'validation.md': 'validate-authored.mjs',
     'checks.md': 'health.mjs', 'search-diagnostics.md': 'search.mjs',
-    'capture-prerequisites.md': 'doctor.mjs', 'app-access.md': 'obsidian.mjs', 'operation-recovery.md': 'wiki-sync.mjs' },
+    'capture-prerequisites.md': 'doctor.mjs', 'app-access.md': 'obsidian.mjs', 'operation-recovery.md': 'refresh-index.mjs' },
   'wiki-purge': { 'purge.md': 'purge.mjs' },
 };
 
@@ -99,21 +99,19 @@ test('the skill catalog exactly equals current candidate names and descriptions'
   assert.equal(read('eval/skill-catalog.md'), catalog, 'regenerate catalog when metadata changes');
 });
 
-test('all capabilities have direct procedures with live helpers, including six capture routes', () => {
-  for (const [name, routes] of Object.entries(capabilities)) {
+for (const [name, routes] of Object.entries(capabilities)) {
+  test(name + ': every capability has a direct procedure with a live helper', () => {
     const links = localLinks(read(entry(name))).map(link => link.split('#')[0]);
     for (const [ref, helper] of Object.entries(routes)) {
       assert.ok(links.includes('references/' + ref), name + ': missing direct mode ' + ref);
       assert.ok(read('skills/' + name + '/references/' + ref).includes(helper), ref + ': missing helper ' + helper);
       assert.ok(existsSync(join(root, 'scripts', helper)), helper);
     }
-  }
+  });
+}
+
+test('all six capture routes are discoverable and synthesis filing stays direct', () => {
   const clips = readdirSync(join(root, 'scripts')).filter(file => /^clip-.*\.mjs$/.test(file) && file !== 'clip-and-repoint.mjs');
-  const catalogs = read('skills/wiki-project/references/catalogs.md');
-  for (const helper of ['backlog-gen.mjs', 'moc-authored-gen.mjs']) {
-    assert.ok(catalogs.includes(helper), 'standalone project catalog helper: ' + helper);
-    assert.ok(existsSync(join(root, 'scripts', helper)), helper);
-  }
   assert.deepEqual(clips.sort(), Object.values(capabilities['wiki-researcher']).filter(file => /^clip-/.test(file)).sort());
   for (const format of ['PDF', 'Word', 'PowerPoint', 'spreadsheet', 'GitHub', 'Confluence'])
     assert.ok(description('wiki-researcher').includes(format), 'capture discovery metadata: ' + format);
@@ -152,13 +150,15 @@ test('roles load shared policy directly while ordinary search has a read-only st
   const search = read(entry('wiki-search'));
   assert.match(search, /## Simple search/);
   assert.match(search, /search\.mjs.*--json --limit=10/);
-  assert.doesNotMatch(search, /op-begin\.mjs|\]\([^)]*operations\.md/);
+  assert.doesNotMatch(search, /\]\([^)]*operations\.md/);
   assert.match(search, /never writes\s+content/);
   assert.match(search, /--include-raw/);
-  assert.doesNotMatch(read('skills/wiki-search/references/answers.md'), /op-begin\.mjs/);
-  assert.doesNotMatch(read('skills/wiki-setup/references/checks.md'), /op-begin\.mjs/);
+  assert.match(read('skills/wiki-setup/references/checks.md'), /Read-only reports write no\s+log/);
+});
+
+test('original authoring ends with the refresh and says when it is done', () => {
   const author = read('skills/wiki-project/references/authoring.md');
-  assert.match(author, /before (?:the first |any )?writ/i);
+  assert.match(author, /refresh-index\.mjs/);
   assert.match(author, /Done only/i);
 });
 
@@ -180,14 +180,199 @@ test('checks and original documentation have canonical owners with direct task o
   assert.match(setup, /does\s+not authorize installing tools, rebuilding indexes, editing content or adding a remote/);
 });
 
-test('operation examples expose both shells and all helper execution uses resolved absolute paths', () => {
+test('the completion contract is one short page, in the order every authoring task follows', () => {
   const text = read('skills/wiki-maintainer/references/operations.md');
-  assert.match(text, /`{3}powershell/); assert.match(text, /`{3}sh/); assert.match(text, /finally/);
-  for (const name of skills) {
-    assert.doesNotMatch(read(entry(name)), /TOKEN=\$\(/);
-    assert.doesNotMatch(read(entry(name)), /node (?:\.\.\/|scripts\/)/);
-  }
+  assert.ok(text.trimEnd().split('\n').length <= 60, 'about a screen long');
+  const steps = ['validate-authored.mjs', 'log-entry.mjs', 'refresh-index.mjs'].map(helper => text.indexOf(helper));
+  assert.ok(steps.every(at => at >= 0) && steps[0] < steps[1] && steps[1] < steps[2], 'validate, then log, then refresh');
+  assert.ok(localLinks(text).some(link => link.endsWith('operation-recovery.md#written-but-not-refreshed')));
+  const flat = text.replace(/\s+/g, ' ');
+  assert.match(flat, /once per task/i);
+  assert.match(flat, /delegated worker doesn't run it[^.]*enclosing task runs it/i);
+  assert.match(flat, /on disk and that Obsidian Git publishes it/);
+  assert.match(flat, /offer that fix to the user, don't apply it unasked/i);
+  assert.match(flat, /written but not refreshed/i);
+  assert.match(flat, /keep your edits to what your task needs/i);
+});
+
+test('completion examples expose both shells and all helper execution uses resolved absolute paths', () => {
+  const text = read('skills/wiki-maintainer/references/operations.md');
+  assert.match(text, /`{3}powershell/); assert.match(text, /`{3}sh/);
+  for (const name of skills) assert.doesNotMatch(read(entry(name)), /node (?:\.\.\/|scripts\/)/);
   for (const [, block] of text.matchAll(/`{3}(?:powershell|sh)\n([\s\S]*?)`{3}/g)) {
     for (const [, script] of block.matchAll(/scripts\/([\w-]+\.mjs)/g)) assert.ok(existsSync(join(root, 'scripts', script)), script);
   }
+});
+
+// Criterion 5: the standard sentence. wiki-setup and the vault schema have theirs pinned beside their own tests.
+for (const file of ['skills/wiki-maintainer/references/operations.md', 'README.md']) {
+  test(file + ' carries the standard sentence', () => {
+    assert.ok(read(file).includes('Obsidian Git handles all git operations.'));
+  });
+}
+
+// Criterion 9: refresh-index.mjs is the last numbered step of every authoring workflow. A paragraph after the list is
+// not a step, so a read-only handoff can follow it.
+function finalStep(text, heading) {
+  const section = text.split(new RegExp('^## ' + heading + '\\b.*$', 'm'))[1]?.split(/^## /m)[0] ?? '';
+  const lines = section.split('\n');
+  const start = lines.findLastIndex(line => /^\d+\. /.test(line));
+  if (start < 0) return '';
+  let end = start + 1;
+  while (end < lines.length && (!lines[end].trim() || /^\s/.test(lines[end]))) end++;
+  return lines.slice(start, end).join('\n');
+}
+
+const authoringWorkflows = [
+  ['wiki-project', entry('wiki-project'), 'Workflow'],
+  ['wiki-maintainer', entry('wiki-maintainer'), 'Workflow'],
+  ['wiki-researcher', entry('wiki-researcher'), 'Workflow'],
+  ['wiki-purge', entry('wiki-purge'), 'Workflow'],
+  ['wiki-setup first run', entry('wiki-setup'), 'First run'],
+  ['wiki-setup initialization', 'skills/wiki-setup/references/initialization.md', 'Initialize and verify'],
+];
+for (const [name, file, heading] of authoringWorkflows) {
+  test(name + ' names refresh-index.mjs as its final step', () => {
+    const step = finalStep(read(file), heading);
+    assert.notEqual(step, '', file + ': no numbered steps under ## ' + heading);
+    assert.match(step, /refresh-index\.mjs/, file + ': final step is:\n' + step);
+  });
+}
+
+test('wiki-search is read-only and does not gain the refresh step', () => {
+  const references = readdirSync(join(root, 'skills/wiki-search/references')).map(ref => 'skills/wiki-search/references/' + ref);
+  for (const file of [entry('wiki-search'), ...references]) assert.doesNotMatch(read(file), /refresh-index\.mjs/, file);
+});
+
+// Criterion 4: no advice to commit. Only prose and the strings a script holds are scanned. Each allow-list entry is
+// `path | substring | reason`. A path ending in / covers its folder, and a space in a substring matches any whitespace,
+// so a hard wrap does not break an entry. An entry clears only the words inside its substring, never the rest of a line.
+const GIT_WORD = /\b(?:commit(?:s|ted|ting)?|push(?:es|ed|ing)?|publish(?:es|ed|ing)?|sync(?:s|ed|ing)?)\b/gi;
+const JAVASCRIPT = /\.(?:mjs|cjs|js)$/;
+const SCANNED_TEXT = /\.(?:md|base|json|html|py|mjs|cjs|js)$/;
+const WORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'case', 'of', 'in', 'void', 'delete', 'throw', 'yield', 'await', 'else', 'do']);
+
+// A script's source with everything but its string and template text blanked, keeping offsets and lines. Comments and
+// identifiers such as `failed.push` never count; every message counts, however it reaches the user (console, a thrown
+// error, a `hint:` field or a helper's argument). A file it cannot read throws rather than passing quietly.
+function stringsOnly(source, file = 'source') {
+  const out = source.replace(/[^\n]/g, ' ').split('');
+  const keep = (from, to) => { for (let k = from; k < to; k++) out[k] = source[k]; };
+  const misread = at => new Error(file + ':' + source.slice(0, at).split('\n').length + ': unterminated literal');
+  let i = source.startsWith('#!') ? source.indexOf('\n') : 0;
+  function template() {
+    let start = i++;
+    while (i < source.length && source[i] !== '`') {
+      if (source[i] === '\\') i += 2;
+      else if (source[i] === '$' && source[i + 1] === '{') { keep(start, i); i += 2; code(true); start = i; }
+      else i++;
+    }
+    if (i >= source.length) throw misread(start);
+    keep(start, ++i);
+  }
+  function code(inExpression) {
+    let depth = 0, previous = '';
+    while (i < source.length) {
+      const c = source[i];
+      if (/\s/.test(c)) i++;
+      else if (source.startsWith('//', i)) { const end = source.indexOf('\n', i); i = end < 0 ? source.length : end; }
+      else if (source.startsWith('/*', i)) { const end = source.indexOf('*/', i); if (end < 0) throw misread(i); i = end + 2; }
+      else if (c === "'" || c === '"') {
+        let j = i + 1;
+        while (source[j] !== c) { if (j >= source.length || source[j] === '\n') throw misread(i); j += source[j] === '\\' ? 2 : 1; }
+        keep(i, j + 1); i = j + 1; previous = c;
+      } else if (c === '`') { template(); previous = c; }
+      else if (c === '/' && (!previous || /[(,=:[!&|?{};+\-*%<>~^}]/.test(previous) || WORDS_BEFORE_REGEX.has(previous))) {
+        let j = i + 1, inClass = false;
+        while (source[j] !== '/' || inClass) {
+          if (j >= source.length || source[j] === '\n') throw misread(i);
+          if (source[j] === '\\') j++;
+          else if (source[j] === '[') inClass = true;
+          else if (source[j] === ']') inClass = false;
+          j++;
+        }
+        i = j + 1; previous = '/regex/';
+      } else if (/[\w$]/.test(c)) {
+        let j = i; while (j < source.length && /[\w$]/.test(source[j])) j++;
+        previous = source.slice(i, j); i = j;
+      } else {
+        if (c === '{') depth++;
+        if (c === '}' && inExpression && depth-- === 0) { i++; return; }
+        previous = c; i++;
+      }
+    }
+  }
+  code(false);
+  return out.join('');
+}
+
+function parseAllowList(text) {
+  return text.split(/\r?\n/).filter(line => line.trim() && !line.startsWith('#')).map(line => {
+    const [path, substring, reason, ...rest] = line.split(' | ');
+    assert.ok(path && substring && reason?.trim() && !rest.length, 'allow-list entry needs path | substring | reason: ' + line);
+    const spans = new RegExp(substring.split(' ').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'), 'g');
+    return { path, substring, reason, spans, used: 0 };
+  });
+}
+
+function languageHits(file, raw, entries) {
+  const text = JAVASCRIPT.test(file) ? stringsOnly(raw, file) : raw;
+  const covers = entries.filter(entry => entry.path === file || (entry.path.endsWith('/') && file.startsWith(entry.path)))
+    .flatMap(entry => [...text.matchAll(entry.spans)].map(m => ({ entry, from: m.index, to: m.index + m[0].length })));
+  const lines = raw.split('\n');
+  const hits = [];
+  for (const match of text.matchAll(GIT_WORD)) {
+    const cover = covers.find(span => span.from <= match.index && match.index + match[0].length <= span.to);
+    if (cover) { cover.entry.used++; continue; }
+    const line = text.slice(0, match.index).split('\n').length;
+    hits.push({ file, line, word: match[0], text: lines[line - 1].trim().slice(0, 160) });
+  }
+  return hits;
+}
+
+function scanFiles(area) {
+  const absolute = join(root, area);
+  if (!statSync(absolute).isDirectory()) return [area];
+  return readdirSync(absolute, { recursive: true }).map(name => area + '/' + String(name).replaceAll('\\', '/'))
+    .filter(file => SCANNED_TEXT.test(file) && !file.startsWith('docs/superpowers/') && !file.includes('/node_modules/'));
+}
+
+const languageAreas = [...skills.map(name => 'skills/' + name), 'docs', 'README.md', 'templates', 'scripts'];
+
+for (const area of languageAreas) {
+  test('no git language outside the allow list: ' + area, () => {
+    const entries = parseAllowList(read('test/fixtures/git-language-allow.txt'));
+    const hits = scanFiles(area).flatMap(file => languageHits(file, read(file), entries));
+    assert.equal(hits.length, 0, hits.length + ' hit(s) in ' + area + ':\n' +
+      hits.map(hit => hit.file + ':' + hit.line + ': ' + hit.word + ': ' + hit.text).join('\n'));
+  });
+}
+
+test('every allow-list entry names a real path and still clears a hit', () => {
+  const entries = parseAllowList(read('test/fixtures/git-language-allow.txt'));
+  for (const area of languageAreas) for (const file of scanFiles(area)) languageHits(file, read(file), entries);
+  for (const entry of entries) assert.ok(existsSync(join(root, entry.path)), 'no such path: ' + entry.path);
+  assert.deepEqual(entries.filter(entry => !entry.used).map(entry => entry.path + ' | ' + entry.substring), []);
+});
+
+test('the language scan reads messages however a script delivers them, and clears only what an entry covers', () => {
+  const script = [
+    '// commit in a comment is not a message',
+    'failed.push({ path, why: commit.sha });',
+    "throw new Error('Commit or finish your edits');",
+    'console.log(`run ${sync} and push now`);',
+    "report({ message: 'sync it', reason: 'pushed late', fix: 'publish', hint: 'committing' });",
+    "throw failure(\n  'then commits',\n);",
+    "const r = /don't push/.test(text), half = a / 2;",
+  ].join('\n');
+  const words = languageHits('scripts/x.mjs', script, []).map(hit => hit.line + ':' + hit.word);
+  assert.deepEqual(words, ['3:Commit', '4:push', '5:sync', '5:pushed', '5:publish', '5:committing', '7:commits']);
+  assert.throws(() => stringsOnly("const a = 'never closed\n", 'scripts/x.mjs'), /scripts\/x\.mjs:1: unterminated/);
+
+  const prose = 'Obsidian Git\npublishes it. Commit it too.\n';
+  const entries = parseAllowList('docs/ | Obsidian Git publishes | Says Obsidian Git does it.\nother.md | Commit it | Elsewhere.');
+  assert.deepEqual(languageHits('docs/x.md', prose, entries).map(hit => hit.line + ':' + hit.word), ['2:Commit']);
+  assert.equal(entries[0].used, 1);
+  assert.equal(entries[1].used, 0);
+  assert.throws(() => parseAllowList('docs/x.md | only a substring'), /path \| substring \| reason/);
 });
