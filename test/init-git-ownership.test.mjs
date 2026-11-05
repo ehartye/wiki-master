@@ -29,7 +29,7 @@ test('a new vault gets a schema that says who owns Git', () => {
   assert.match(section, /write.*validate.*log.*refresh-index\.mjs/s);
   assert.match(section, /setup-obsidian-git\.mjs/);
   // The old passage called every other instruction stale, and init keeps an existing schema, so it outlived the policy.
-  assert.doesNotMatch(section, /op-commit|wiki-sync|auto-commit|auto-push|commit on file change|stale/i);
+  assert.doesNotMatch(section, /auto-commit|auto-push|commit on file change|stale/i);
 });
 
 test('a new vault gets .gitattributes with the union rules, and says what clears their duplicates', () => {
@@ -44,7 +44,7 @@ test('a new vault gets .gitattributes with the union rules, and says what clears
   const comment = text.split('\n').filter((line) => line.startsWith('#')).join('\n');
   assert.match(comment, /refresh-index\.mjs/);
   assert.match(comment, /duplicate/);
-  assert.doesNotMatch(text, /index-gen|post-merge|\.githooks/);
+  assert.doesNotMatch(text, /post-merge|\.githooks/);
   assert.equal(existsSync(join(vault, '.git')), false, 'init still creates no repository');
 });
 

@@ -63,10 +63,6 @@ test('the last step of every authoring task lists what refresh-index.mjs refuses
   assert.ok(OTHER.ollama && OTHER['obsidian-git']);
 });
 
-test('the table names no command that no longer exists', () => {
-  for (const [name, spec] of Object.entries(CLIPPERS)) assert.doesNotMatch(`${name} ${spec.summary}`, /op-begin|op-commit|wiki-sync/);
-});
-
 test('every requirement is used by some command', () => {
   const used = new Set(Object.values(CLIPPERS).flatMap((s) => [...s.required, ...s.optional]));
   for (const id of [...Object.keys(TOOLS), ...Object.keys(OTHER)]) assert.ok(used.has(id), `${id} is defined but no command needs it`);

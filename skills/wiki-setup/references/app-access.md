@@ -19,9 +19,16 @@ root. Diagnosis does not authorize a content repair or an app mutation.
    syntax description. The [native action reference](../../wiki-maintainer/references/obsidian-cli.md)
    owns supported actions and their authorization workflow.
 
+Helpers target a vault by name. `refresh-index.mjs` is the exception: its check asks the
+active vault, with no `vault=`, so that the question cannot open or switch a vault. If
+another vault is active it stops and says which; bring this vault's window to the front
+and rerun.
+
 Node.js 20.8 or newer is required by the guarded transport. App registration is
 separate from filesystem initialization: open the intended folder as an
 Obsidian vault and verify it through the helper when that setup is requested.
+The CLI cannot register a folder. Given one Obsidian does not know, it can print
+`Opened <path>` and open nothing, so `vaults` is what confirms it.
 A successful filesystem health report does not prove app access.
 
 ## Windows invocation
@@ -59,6 +66,7 @@ Keep the exact diagnostic and distinguish what was sent:
 | Result | Next action |
 |---|---|
 | `CLI_REQUEST`, `CLI_BUSY`, `CLI_LOCK` | Request was not sent. Narrow an oversized read or use the supported filesystem channel. Do not disable the guard or split a note into repeated CLI writes. |
+| `Vault not found.`, `Error: ...`, or `Command line interface is not enabled...` | The CLI still exits 0 for these, so read the text rather than the exit code. Report it; nothing was done. |
 | App unavailable | Report which app-only action could not run. Continue independent filesystem work; do not loop waiting or require an app restart for it. |
 | Command timeout or worker failure | A mutation may have run. Read the exact target and reconcile the intended effect before retrying or switching to filesystem editing. An app-only effect cannot be claimed from a filesystem approximation. |
 | Process death released the guard | This does not prove its child or submitted app mutation finished. Inspect the uncertain target as above. |
@@ -68,8 +76,8 @@ asynchronous CLI work before using the synchronous adapter so the event loop
 can release its gate. Existing older callers or direct native commands are not
 protected by updating this plugin; the guard is not machine-wide interception.
 See the [public transport contract](../../../docs/cli-transport-guards.md) for
-the exact enforced request and wait limits. Keep the existing operation and use
-[operation recovery](operation-recovery.md) if a requested write was interrupted.
+the exact enforced request and wait limits. Use
+[recovery](operation-recovery.md#interrupted-write) if a requested write was interrupted.
 
 ## Triage UI reachability and session recovery
 

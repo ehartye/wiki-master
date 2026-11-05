@@ -391,3 +391,164 @@ test('--check from the command line reads the vault it is given, and needs no ap
   assert.match(r.stdout, /met: autoSaveInterval = 10/);
   assert.ok(statSync(dataOf(vault)).isFile());
 });
+
+// ---- the wiki-setup skill ----
+
+const SKILL_DIR = join(ROOT, 'skills', 'wiki-setup');
+const SENTENCE = 'Obsidian Git handles all git operations.';
+const reference = (name) => readFileSync(join(SKILL_DIR, 'references', name), 'utf8');
+const skill = () => readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
+const body = () => skill().replace(/^---\n[\s\S]*?\n---\n/, '');
+const description = () => /^description: (.*)$/m.exec(skill())[1];
+
+function atOrFail(text, pattern, from = 0) {
+  const at = text.slice(from).search(pattern);
+  assert.ok(at >= 0, `not found after ${from}: ${pattern}`);
+  return at + from;
+}
+
+test('the standard sentence comes before the first workflow step', () => {
+  const text = body();
+  const sentence = text.indexOf(SENTENCE);
+  assert.ok(sentence >= 0, 'the sentence is missing');
+  assert.ok(sentence < atOrFail(text, /^\d+\. /m), 'before the first numbered step');
+  assert.ok(sentence < atOrFail(text, /^## Workflow/m), 'before the workflow heading');
+  assert.ok(sentence < atOrFail(text, /^## /m), 'before every section');
+});
+
+test('the offer follows the sentence, also before the first step, and existing settings are never overwritten', () => {
+  const text = body();
+  const firstStep = atOrFail(text, /^\d+\. /m);
+  const intro = text.slice(text.indexOf(SENTENCE), firstStep);
+  assert.match(intro, /offer to install, enable and configure/i);
+  assert.match(intro, /setup-obsidian-git\.mjs/);
+  assert.match(intro, /reported,?\s+never\s+overwritten/i);
+});
+
+test('the first-run order is the decided one, ending with the refresh', () => {
+  const text = body();
+  let at = atOrFail(text, /^## First run/m);
+  const start = at;
+  for (const step of [/prerequisite/i, /init\.mjs/, /git repository and upstream/i, /[Oo]pen the vault in Obsidian/, /setup-obsidian-git\.mjs/, /refresh-index\.mjs/]) at = atOrFail(text, step, at);
+  assert.match(text.slice(start), /does not create|creates? no/i);
+});
+
+function assertDeclinedPath(text, where) {
+  const section = text.slice(atOrFail(text, /declines?\b/i));
+  assert.match(section, /read\s+and\s+search/i, where);
+  assert.match(section, /authoring\s+cannot\s+complete/i, where);
+  assert.match(section, /rerun\s+setup\s+later/i, where);
+  assert.match(section, /`refresh-index\.mjs`\s+is\s+not\s+run/i, where);
+}
+
+test('initialization names the declined path, and so does the skill', () => {
+  assertDeclinedPath(reference('initialization.md'), 'initialization.md');
+  assertDeclinedPath(body(), 'SKILL.md');
+});
+
+test('initialization still creates no repository, and ends with the refresh', () => {
+  const text = reference('initialization.md');
+  assert.match(text, /[Nn]ever\s+initialize a guessed directory or create a Git repository/);
+  assert.match(text, /[Oo]wner sets up the git repository and upstream/i);
+  const steps = [...text.matchAll(/^\d+\. .*$/gm)].map((m) => m[0]);
+  assert.match(steps.at(-1), /refresh-index\.mjs/);
+});
+
+test('the description still fires for setup and for a genuine setup failure, without operations', () => {
+  const text = description();
+  assert.ok(text.length <= 1024, `${text.length} characters`);
+  for (const trigger of [/initialize a wiki vault/, /Obsidian Git/, /check prerequisites/, /recover/i, /setup/i, /not refreshed/, /conflict-files-obsidian-git\.md/, /search\/index\/app access failures/]) assert.match(text, trigger);
+  assert.doesNotMatch(text, /operation/i);
+  assert.match(text, /read-only/);
+});
+
+test('recovery is about what is written but not refreshed, Obsidian Git errors and its conflict file', () => {
+  const text = reference('operation-recovery.md');
+  assert.doesNotMatch(text.split('\n')[0], /operation/i, 'the title is renamed; the file name stays for its links');
+  assert.match(text, /^## Written but not refreshed/m);
+  assert.match(text, /^## Obsidian Git reports an error/m);
+  assert.match(text, /^## `conflict-files-obsidian-git\.md`/m);
+  assert.match(text, /^## Interrupted purge/m, 'other skills link this anchor');
+  assert.match(text, /tell the owner/i);
+  assert.doesNotMatch(text, /\bfetch\b/);
+  assert.doesNotMatch(text, /\block\b/i, 'no lock language of any kind');
+});
+
+test('a refresh stopped by another active vault is explained where an agent looks', () => {
+  for (const text of [reference('operation-recovery.md'), reference('app-access.md')]) {
+    assert.match(text, /active vault/);
+    assert.match(text, /no `vault=`/);
+  }
+});
+
+test('search diagnostics name the refresh, not the commands it replaced', () => {
+  const text = reference('search-diagnostics.md');
+  assert.match(text, /refresh-index\.mjs/);
+  assert.match(text, /refresh-index\.mjs --rebuild/);
+});
+
+test('validation describes the hand-written path list that stays', () => {
+  const text = reference('validation.md');
+  assert.match(text, /--paths-file/);
+  assert.match(text, /JSON array/);
+  assert.match(text, /by hand/);
+});
+
+const OWNED = () => [
+  ...readdirSync(join(SKILL_DIR, 'references')).map((name) => [`references/${name}`, reference(name)]),
+  ['SKILL.md', skill()],
+  ['vault-schema.md', readFileSync(join(ROOT, 'templates', 'vault-schema.md'), 'utf8')],
+  ['init.mjs', readFileSync(join(ROOT, 'scripts', 'init.mjs'), 'utf8')],
+  ['doctor-table.mjs', readFileSync(join(ROOT, 'scripts', 'lib', 'doctor-table.mjs'), 'utf8')],
+  ['setup-obsidian-git.mjs', readFileSync(SCRIPT, 'utf8')],
+];
+
+// A paired run of the old and new skill found these. Each left a first-time agent guessing.
+test('a decline given up front is covered, and says what search still does', () => {
+  for (const text of [body(), reference('initialization.md')]) {
+    assert.match(text, /up\s+front/);
+    assert.match(text, /keyword/i);
+  }
+});
+
+test('the step that ends a content change does not contradict the declined path', () => {
+  const stepFour = body().slice(atOrFail(body(), /^4\. Before an authorized change/m), atOrFail(body(), /^## First run/m));
+  assert.match(stepFour, /refresh-index\.mjs/);
+  assert.match(stepFour, /declined/);
+});
+
+test('initialization says how to name the vault to act on', () => {
+  assert.match(reference('initialization.md'), /WIKI_MASTER_VAULT/);
+});
+
+test('an owner told about a conflict file is told how it gets finished, and an agent still does not pick a side', () => {
+  const text = reference('operation-recovery.md');
+  const section = text.slice(atOrFail(text, /^## `conflict-files-obsidian-git\.md`/m), atOrFail(text, /^## Interrupted write/m));
+  assert.match(section, /source control view/);
+  assert.match(section, /which\s+side\s+wins/);
+  assert.match(text.slice(atOrFail(text, /\*\*Done only when\*\*/)), /once nothing blocks|when nothing blocks/i);
+});
+
+test('every setup file reads as the new contract', () => {
+  for (const [name, text] of OWNED()) {
+    assert.doesNotMatch(text, /no operation|owner's operation|owned transaction|operation state|the operation\b|an operation\b|completes? the operation/i, name);
+  }
+});
+
+test('every relative link in the setup skill reaches a file, and links inside it reach a heading', () => {
+  const slug = (heading) => heading.toLowerCase().replace(/[`*]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  const files = [['SKILL.md', SKILL_DIR], ...readdirSync(join(SKILL_DIR, 'references')).map((name) => [join('references', name), join(SKILL_DIR, 'references')])];
+  for (const [name, dir] of files) {
+    const text = readFileSync(join(SKILL_DIR, name), 'utf8').replace(/```[\s\S]*?```/g, '');
+    for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+      if (/^https?:/.test(target)) continue;
+      const [file, anchor] = target.split('#');
+      const full = file ? join(dir, file) : join(SKILL_DIR, name);
+      assert.ok(existsSync(full), `${name}: ${target}`);
+      if (anchor && full.startsWith(SKILL_DIR)) {
+        const headings = [...readFileSync(full, 'utf8').matchAll(/^#+ (.*)$/gm)].map((m) => slug(m[1]));
+        assert.ok(headings.includes(anchor), `${name}: no heading for ${target}`);
+      }
+    }
+  }
+});

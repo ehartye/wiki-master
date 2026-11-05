@@ -1,215 +1,109 @@
-# Diagnose and recover operation failures
+# Recover a failed setup or an unfinished refresh
 
-Read [operation ownership and completion](../../wiki-maintainer/references/operations.md)
-before any authorized recovery. A diagnostic request inspects state only. Keep
-the saved token, ledger, log path and actual commit state; never restart blindly.
+Obsidian Git handles all git operations, so nothing here runs a git command that changes
+the repository. Read-only commands such as `git status` and `git log` are fine. A diagnostic
+request inspects state only, and every fix below is offered, not applied unasked. Keep the
+exact failure text; do not redo work that is already on disk.
 
-## Recovery and token ownership
+Read [completion](../../wiki-maintainer/references/operations.md) before any authorized recovery.
 
-- **Retry the same operation.** After a recoverable failure, inspect the token,
-  exact owned files and actual commits before retrying the failed step. Resolve
-  an understood cause within the authorized scope without another confirmation.
-  A failed Git close keeps its token; retry that `op-commit`, not the edits or an
-  already-written log. Never delete a Git lock or guess at a content conflict.
-- **Reconcile uncertain completion.** A timeout may have occurred after a commit
-  or token removal. Verify the actual commit's subject and path membership, owned
-  content and validation state. A completed no-op or already-committed operation
-  with a retained token still closes through its own scoped `op-commit`; an empty
-  delta alone does not prove completion. If the token is already gone, verify
-  closure and continue from the next unfinished step rather than opening a new
-  token or replaying work. After a sync rebase, locate the operation through its
-  unique log path and recheck the resulting commit instead of relying on its old SHA.
-- **Respect holds and ownership.** Apply the shared [ownership contract](../../wiki-maintainer/references/operations.md#ownership-and-authorization); do not close a foreign or held token.
-- **Leave actionable blockers.** If safe progress requires an unresolved conflict,
-  missing authorization or another owner's action, retain the operation and record
-  its token, owned paths, completed steps, pending work and exact next action. Report
-  that blocker or ownership handoff; do not claim completion or silently abandon it.
+## Written but not refreshed
 
-## Abandoned tokens
+The pages are on disk and `refresh-index.mjs` stopped. Nothing is lost: Obsidian Git still
+publishes the pages on its next run, and the catalogs and search index catch up at the next
+refresh. Validate and log first if that has not happened yet, then report the task as written
+but not refreshed. Rerun the refresh once the cause is fixed; do not rewrite the pages or log again.
 
- List retained tokens with
-`node "<absolute-plugin-root>/scripts/op-cleanup.mjs"` (a dry run). Older than 24
-hours means a review candidate, not proven abandonment; these tokens still block
-`wiki-sync --commit-local`. For a verified-abandoned operation you own, with no
-unfinished work or user hold, apply cleanup with its explicit `--apply --token <id>`
-without another approval. Prefer normal `op-commit` closure when the saved operation
-can be completed. `--hours <n>` changes the age filter, with a one-hour minimum;
-respect that eligibility and verify removal. Never sweep tokens by age or delete
-them manually. Token files are local Git-ignored state, not cross-machine locks.
-The paths an operation's writers recorded sit in `<token>.paths.jsonl` beside the
-token. `op-commit` (when the close lands), `op-abort` and a stale token removed by
-`op-cleanup` take it with them; `op-cleanup` also lists a ledger whose token is
-already gone and removes it only with `--apply --token <that id>`.
+It checks everything first and reports every failure at once, having written nothing.
+`node "<absolute-plugin-root>/scripts/refresh-index.mjs" --status` shows how fresh the index
+is, checks nothing and always exits 0.
 
-## Stopping early
+| It reports | Fix to offer |
+|---|---|
+| Ollama is not reachable | Start the Ollama app. |
+| The embedding model is not pulled | Pull it: `ollama pull <model>`. |
+| Obsidian is not running for this user | Start Obsidian with this vault open. |
+| The CLI gate is busy or failing (`CLI_BUSY`, `CLI_LOCK`) | Rerun. Treat a repeat as the CLI being down, and offer to restart Obsidian. |
+| The Obsidian CLI did not answer | Start Obsidian with this vault open and its command line interface on. |
+| Obsidian's active vault is another one | Open this vault in Obsidian or bring its window to the front, then rerun. |
+| The process list could not be read | Rerun; if it repeats, check by hand that Obsidian is running. |
+| Obsidian Git is not installed or not enabled | Install it through [initialization](initialization.md#install-obsidian-git). |
+| Obsidian Git's timer is off (`autoSaveInterval` is 0 or unset) | Change it in Obsidian Git's settings. Setup never overwrites existing settings. |
+| Not a git repository, or no upstream | The owner sets these up; ask them to. |
+| A rebase or merge is in progress | Rerun shortly. Tell the owner if it stays stopped or the conflict file exists. |
+| A detached HEAD | Tell the owner; they put it back on its branch. |
 
- A session that opened an operation and will not finish it, or whose work landed another way, drops its own token with `node "<absolute-plugin-root>/scripts/op-abort.mjs" --since <token>`. It removes that one token whatever its age and nothing else: the files the operation wrote stay in the working tree, uncommitted, for a later operation to commit. Do not use it on a token another session holds. Open operations are visible without running a sync: `health` and `session-brief` print a line when any are open, and `wiki-sync` mentions other writers' operations once for a given set of tokens, again when the set changes, and once a day while it stays true.
+**Another active vault.** The Obsidian check asks about the active vault: it calls the CLI
+with no `vault=`, from a folder outside any vault, so that the question cannot open or
+switch anything. If another vault is active, `refresh-index.mjs` stops and says which one.
+When Obsidian runs only in another session, as over SSH, the check passes with a note and
+the CLI is not called.
 
-## Refused sync
+**After the checks.** The catalogs are written first, then the search index. Failed chunks
+exit 1 with their count and the catalogs stay, so rerun the same command. A damaged index
+is replaced by `refresh-index.mjs --rebuild`, which reuses every stored vector that still
+passes inspection.
 
- `wiki-sync` refuses to integrate while uncommitted edits overlap files
-that the upstream changed: it prints `uncommitted edits overlap incoming changes in
-<files>` and exits 3, the one exit code for this refusal (every other failure exits 1).
-It changes nothing: no commit, stash or checkout, and the files and open tokens are
-untouched. With no operation open the dirty files are hand edits, and the message is that
-one line ending `commit them (or finish the operation) and sync again`. With an operation
-open the message is longer: one line per overlapping file, `<file>: recorded by operation
-<token> (<op>)` when an open operation's recorded ledger names the file and it is still
-dirty, otherwise `<file>: not recorded by any open operation`; then `Open operations:
-<token> (<op>), ...`; then `If you wrote these edits, finish your operation
-(wiki-sync.mjs --op <token>) and sync again.` (the token is filled in only when exactly one
-open operation recorded an overlapping file, otherwise the line shows the literal
-`<token>`); then `If you did not, leave them exactly as they are:
-do not reset, checkout, stash or delete them. Wait for their owner to close the operation, then sync again.` That
-last instruction is the rule: a file you did not write is not yours to reset, check out,
-stash or delete to get the sync through. Wait, and sync again after its owner closes. The
-`recorded by` line is a hint, not proof of ownership. It reads only what writers recorded
-with `--since` or `op-ledger.mjs add` (a generated file such as `index.md` is recorded only
-when `index-gen` ran with `--since`) and ignores a ledger path that is not dirty now, an
-unreadable ledger and the opening snapshot in a token, which says what was already dirty,
-not who wrote it. `not recorded by any open operation` therefore does not mean no one is
-writing the file. Each refusal also appends a counts-only line to the refusal record below.
+## Setup did not finish
 
-## Refusal record
+`setup-obsidian-git.mjs --apply` stops at the first block, says what it was and prints the
+manual steps. Rerun `--apply` once the cause is gone: it skips what is already done, and it
+never rewrites an existing settings file.
 
- Each `op-commit` close that is refused and keeps its token, and each
-`wiki-sync` that stops on an overlap (see "Refused sync"), appends
-one JSON line to `.wiki-master/op-refusals.jsonl` (local, Git-ignored): `at` (ISO
-time), `op`, `kind` and `paths`. `paths` is a number and never a path name. `kind` is
-`pre-dirty` (a ledger path already dirty before `op-begin` and not adopted; `paths` is
-how many), `evidence` (a declared size or hash that does not match what git would store;
-`paths` is the size of the evidence map), `unscoped` (the guard; `paths` is how many
-delta paths the close would have committed) or `sync-overlap` (`op` is `wiki-sync`;
-`paths` is how many files overlap). A close that lands appends nothing, and a
-failed append (a directory in the file's place, a read-only disk) changes neither the
-message nor the exit code. `health` prints `Recorded refusals: N (pre-dirty a,
-evidence b, unscoped c, sync-overlap d).` only when N is above zero, and `health --json`
-always carries `opRefusals` as `{ total, preDirty, evidence, unscoped, syncOverlap }`. The
-line was `Recorded op-commit refusals: N (...)` in 0.85.0. Like the open-operations line it
-sits outside the defect count. The file is never trimmed by the plugin and a line that is
-not a record of a known kind counts as nothing.
+- **Restricted mode is on.** The owner turns it off under Settings > Community plugins.
+  Do not switch it from the command line.
+- **Obsidian has not opened this vault.** The owner opens the folder as a vault in Obsidian.
+  The CLI cannot do this, and it exits 0 while answering `Vault not found.`
+- **The vault name reaches a different folder.** The CLI matches a vault by folder name,
+  so two vaults can share one. Set `WIKI_MASTER_VAULT_NAME`, or have the owner rename a folder.
+- **Obsidian is in another session.** Run setup from the desktop session, or follow the
+  manual steps there.
 
-## Git ownership
+An interrupted `init.mjs` keeps what it created and retries safely; see
+[initialization](initialization.md#preflight-existing-files).
 
- The plugin's scripts make the scoped commits and the sync: `op-commit`
-commits what one operation wrote, and `wiki-sync.mjs` pulls, rebases and pushes. A new
-vault's `vault-schema.md` (written during initialization) carries the same statement; an existing
-vault keeps its own file. The Obsidian Git plugin stays installed for its source-control
-view and for pulling. Its auto-commit and auto-push must be off (auto commit-and-sync
-interval 0, commit on file change off, auto push interval 0): they commit half-finished
-operation edits under "vault backup" and leave `op-commit` an empty delta. `wiki-sync`
-warns when they are on. Every machine sharing the vault needs the same setting. An
-instruction elsewhere that says Obsidian Git is the sync engine is stale.
+## Obsidian Git reports an error
 
-**Done only when** the requested change is validated, applicable catalogs and one
-operation log are recorded, the operation commit is verified (or its precise
-limitation reported), and its push and remote publication are verified. A user-held
-or local-only result must be labeled accordingly. If blocked partway, preserve the
-actual operation/commit state and leave the actionable handoff above; a sync failure
-after token closure does not require a replacement token. Do not start over blindly.
+Tell the owner what it said. It shows the error as a notice inside Obsidian. Do not work
+around it with git commands, and do not retry anything on its behalf: its next run tries
+again by itself. Work already on disk stays on disk, and it publishes once the owner has
+cleared the cause.
 
-## Close refusals
+## `conflict-files-obsidian-git.md`
 
-A ledger path that
-   was already dirty when you ran `op-begin` is refused, not skipped: `op-commit` exits 1,
-   names it and keeps the token. If this operation wrote it, run the same `op-commit`
-   again with `--include <path>` for each (or `--include-from <file>`); if another writer
-   owns it, take it out of the ledger. **Create new files only after `op-begin`**: a page
-   written first counts as already dirty. It does not isolate simultaneous edits to the
-   same file.
-   **The guard.** `op-commit` without `--paths-file` commits everything that became
-   dirty since `op-begin`, which cannot tell this operation's new files from another
-   open operation's. So while any other operation token exists, of any age (age cannot
-   show that an operation was abandoned), such a close is refused: `op-commit: this
-   close has no --paths-file and another operation is open: <token> (<op>), ...`. It
-   exits 1, commits nothing, keeps the token, and prints the way out: `op-ledger.mjs
-   show --since <token> --out <ledger>`, then the same `op-commit` with `--paths-file
-   <ledger>`. There is no override flag. A close with `--paths-file` is unchanged, and
-   with no other token open an unscoped close behaves as before. Every refused close
-   (this one, a pre-dirty ledger path, an evidence mismatch) appends a counts-only
-   line to `.wiki-master/op-refusals.jsonl`; see "Refusal record" below.
-   When the ledger carries a receipt that records its own byte length and SHA-256
-   (captured JSON or log evidence), also pass `--evidence-map <file>`: a JSON object
-   of ledger path to `{ "bytes": N, "sha256": "<64 lower-case hex>" }`, kept beside
-   the ledger. After staging and before committing, `op-commit` compares each staged
-   blob with its declaration. On a mismatch it commits nothing, unstages, keeps the
-   token, and names the file, the declared and stored size and hash, and the exact
-   `.gitattributes` line (`<path> -text`) that keeps the bytes. Add that one line,
-   list `.gitattributes` in the ledger and rerun. It never edits an attribute itself,
-   and ordinary Markdown keeps the vault's text policy. A pass is reported as its own
-   `evidence:` line, separate from the index notice.
+Obsidian Git writes this file at the vault root when a rebase stops. With
+`mergeStrategy: theirs`, conflicts on the same lines complete by themselves. A file changed
+on one machine and deleted on another stops the rebase, and the plugin then publishes
+nothing until the conflict is resolved.
 
-## Sync verification and failures
+Tell the owner that the file exists and what it lists, adding what `git status` and `git log`
+show about each side. Do not edit or delete it, resolve the conflict, or guess at which side
+wins, even when asked to fix it: that choice is the owner's. They finish it in Obsidian Git's
+source control view or their own git client. Until they do, `refresh-index.mjs` can stop on a
+rebase in progress, so a task with pages waiting is reported as written but not refreshed.
 
-A conflict aborts the rebase, exits 1 and names the files; the local commits are
-   intact. Report it and stop: do not force, resolve by guessing, or claim success.
-   `rebase-failed` is different: the rebase never started (usually a held `.git/index.lock`),
-   so no files are named and nothing changed. Wait for the other git process, never delete
-   a lock, and run `wiki-sync` again. The line gives the lock's age; git records no holder,
-   so a lock that stays old with no git process running is for the owner to judge.
-   Older versions printed a held lock as a conflict in "unknown files": an empty file list
-   means it was not a content conflict. Any sync, yours or another writer's, stashes and
-   restores every uncommitted tracked file, so their modification times change and a CRLF
-   file can come back LF with git's content unchanged; check line endings and content
-   just before `op-commit`, not before an earlier sync.
+## Interrupted write
 
-## Combined completion results and open-operation notices
-
-   Success prints `closed operation <token>: committed <sha7> (<n> file(s))`, then the
-   normal sync lines, exit 0. After a landed close it prints the same hard-wrapped
-   wikilink warning `op-commit` does and refreshes the semantic index. A refused or
-   failed close (token not open, unreadable `--paths-file`, the guard, a pre-dirty
-   path, a git failure) prints a line starting `not committed:` to stderr, exits 1,
-   pushes nothing and keeps the token. A close that landed whose sync then failed
-   prints a line starting `committed, not published:` with the short sha, exits 1, and
-   the token is gone because the commit exists; run `wiki-sync.mjs` again once the
-   cause is fixed. Pass `--paths-file` instead of relying on the recorded paths when
-   you have also written pages with tools that do not record them.
-
-   Without `--op`, `wiki-sync` also prints, for each open operation that has recorded
-   paths still uncommitted, `operation <token> (<op>) has <n> recorded path(s) not
-   committed; if it is yours, close and publish it with: node scripts/wiki-sync.mjs
-   --op <token>`. It is a line, not a failure: a sync cannot know whose operation it
-   is, so the exit code is unchanged and already-committed work is still pushed. It
-   follows the once-per-set, once-a-day rule of the open-operations note, keyed by
-   token and recorded count, so it is said again when an operation records more. An
-   open operation with no recorded paths gets only the existing note.
-
+A timeout or a dead process does not prove what happened. Read the exact target, compare it
+with the intended effect and continue from the next unfinished step. Do not start over: edits
+from another writer may be in the same file, and nothing isolates two writers of one file.
 
 ## Interrupted purge
 
-The [purge workflow](../../wiki-purge/references/purge.md) owns approval, seeds,
-manifest and publication. Recovery never widens an approved plan.
+The [purge workflow](../../wiki-purge/references/purge.md) owns approval, seeds and the
+manifest. Recovery never widens an approved plan.
 
-`--apply` reports the files it could not move and **stops before committing**. The
-usual cause is a Windows file lock — antivirus mid-scan, the Search indexer, a sync
-client holding a read-only handle.
+`--apply` reports the files it could not move, usually because another program has them open:
+antivirus mid-scan, the search indexer, a client holding a read-only handle. What moved stays
+on disk and its log entry stands.
 
-Close whatever holds them open, then run `node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile`. It finishes this purge in
-place, into the same bin folder, and commits.
+Close whatever holds them open, then run
+`node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile`. It finishes this purge in place,
+into the same bin folder. Then run `refresh-index.mjs`.
 
-**Do not re-run `--apply`.** The seed pages are already gone, so its plan comes back
-empty; it starts a *second* purge under a new id, writes a manifest with no entries,
-and commits something that claims a purge and contains none — while the real
-half-purge stays uncommitted and gets reported back as the user's own work.
+**Do not re-run `--apply`.** It starts a *second* purge under a new id and fragments this one
+across two manifests, so neither restores correctly.
 
-
-## Purge history connectivity
-
-Before purge mutation, run the following against the actual configured vault and
-upstream, using scoped Git reads rather than assuming a branch name:
-
-```sh
-git -C "<vault>" fetch
-git -C "<vault>" merge-base HEAD "<configured-upstream>"
-```
-
-A failed fetch or missing upstream is a distinct failure, not proof of unrelated
-histories. A non-Git vault has no history to compare and is local-only. If Git
-confirms there is no merge base, stop: a locally successful purge cannot reach
-other machines on an unrelated lineage. Choosing which history is canonical is
-outside purge authorization; never force or invent a reconciliation.
-
-The [purge workflow](../../wiki-purge/references/purge.md) retains the obligation
-to perform this check and owns approval, removal and publication. Fetch/history
-diagnosis does not authorize applying a purge or mutating reconciliation.
+**Done only when** the requested change is validated and logged and `refresh-index.mjs` exits 0,
+or the report names exactly what is blocked and who clears it. When nothing blocks, say that the
+work is on disk and that Obsidian Git publishes it on its next run.

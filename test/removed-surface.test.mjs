@@ -7,16 +7,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The commands and language this change removes stay removed. These are the acceptance greps as a test, walking the
-// tree with node:fs so they work from a plain checkout. They cover scripts/ and test/ for now; docs, skills, templates
-// and the README join when the packages that rewrite them land.
+// tree with node:fs so they work from a plain checkout. They cover scripts/, test/, templates/ and skills/wiki-setup/
+// for now; docs, the other skills and the README join when the package that rewrites them lands.
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Files a later package rewrites. Each package deletes its lines here as it finishes, widening the scans to the full
 // acceptance criteria.
 const LATER_PACKAGE = {
-  'scripts/lib/doctor-table.mjs': 'WP3 removes this: the doctor table',
-  'test/init-git-ownership.test.mjs': 'WP3 removes this: rewritten with the vault schema template',
   'test/skill-contracts.test.mjs': 'WP4 removes this: rewritten with the skills',
   'test/skill-workflow.test.mjs': 'WP4 removes this: rewritten with the skills',
 };
@@ -29,7 +27,7 @@ const OLD_MARKERS = {
   'scripts/lib/index-fence.mjs': 'holds the old fence markers, so a first run can replace them (decision 14)',
 };
 
-const WALKED = ['scripts', 'test'];
+const WALKED = ['scripts', 'test', 'templates', 'skills/wiki-setup'];
 const SKIPPED_FOLDERS = new Set(['node_modules', '.wiki-master', '.playwright-mcp']);
 
 function trackedText(top) {
@@ -85,7 +83,7 @@ test('criterion 1: nothing names the token system', () => {
 });
 
 test('criterion 1: only the relationships command takes --since', () => {
-  const lines = grep(/--since/, { tops: ['scripts'] });
+  const lines = grep(/--since/, { tops: ['scripts', 'skills/wiki-setup'] });
   assert.deepEqual(lines.filter((line) => !line.startsWith('scripts/lib/cli-specs.mjs:') || !line.includes('relationships')), []);
 });
 
