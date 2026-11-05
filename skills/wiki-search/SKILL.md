@@ -6,8 +6,8 @@ description: Use when asked to find wiki pages or passages, look up a title or a
 # Search and answer from the wiki
 
 Find relevant passages and explain what they support. This skill never writes
-content, opens an operation, logs, commits or refreshes indexes. A question does
-not authorize filing its answer or researching new sources.
+content, logs or refreshes indexes. A question does not authorize filing its answer
+or researching new sources.
 
 ## Simple search
 

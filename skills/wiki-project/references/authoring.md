@@ -1,7 +1,7 @@
 # Author original wiki documentation
 
-Read directly for this operation: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [operations](../../wiki-maintainer/references/operations.md).
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [completion](../../wiki-maintainer/references/operations.md).
+Reuse existing session authorization.
 
 For: $ARGUMENTS
 
@@ -11,49 +11,37 @@ Steps:
 2. Read the existing page and relevant project behavior. Before writing that the
    vault holds no source or page on a topic, run two bounded `search.mjs` queries
    (the topic, and the key terms of the claim) and report "not found by these queries",
-   naming them; when a query returns a source page, cite it. Open before writing:
-   `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op relink`.
-   Save the token using the PowerShell or POSIX example in the operations reference. Create new files only after opening, never before: a page written first counts as already dirty, and `op-commit` refuses it until you pass `--include`.
+   naming them; when a query returns a source page, cite it.
 3. Use `_templates/authored-note.md`, `_templates/authored-decision.md`, or
    `_templates/authored-backlog-item.md` as appropriate. Set `type: authored`,
    `sources: []`, honest `ai-generated`, and matching `project:`/`kind:` metadata.
    Write ordinary Markdown through exact-path filesystem edits, even when the
    Obsidian app is healthy; never send a whole note body through CLI `content=`.
-   A stopped app does not prevent authoring. After an uncertain
-   CLI write, inspect the target before retrying.
+   A stopped app does not prevent writing, though the final refresh needs it. After an
+   uncertain CLI write, inspect the target before retrying.
 4. Revise living content in place; never stack dated update paragraphs. Keep
    architecture as-built, roadmaps current, ADR consequences balanced and
    reconstructed decisions labeled. Set `updated`; preserve `reviewed` unless
-   factual content or project behavior was actually verified.
+   factual content or project behavior was actually verified. Keep your edits to
+   what your task needs.
 5. Validate frontmatter, placement and links of exactly the pages this task wrote.
    Use full-path links when crossing project boundaries:
-   `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`. Record each page you
-   created or edited with `node "<absolute-plugin-root>/scripts/op-ledger.mjs" add --since <saved-token> <path>...`,
-   then write the ledger, a JSON array file of those vault-relative paths (kept under
-   `.wiki-master/` or outside the vault), with
-   `op-ledger.mjs show --since <saved-token> --out <ledger>`, and run
+   `[[wiki/authored/<project>/roadmap.md|<project> roadmap]]`. Write the ledger, a JSON
+   array file of those vault-relative paths (kept under `.wiki-master/` or outside the
+   vault), and run
    `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`
    with the vault set as in the access reference. Exit 1 means defects: fix, rerun,
    then continue. The ledger format, exit codes, rules and limits are in the
    [scoped validation](../../wiki-setup/references/validation.md).
-6. Refresh affected owned catalogs using [catalog updates](catalogs.md), record
-   generated paths and rerun [scoped validation](../../wiki-setup/references/validation.md)
-   when the ledger grows. Preserve foreign catalog edits.
-7. Complete the shared operations contract: one relink log entry (with `--since <saved-token>`),
-   then `op-ledger.mjs show --since <saved-token> --out <ledger>` once more and read what it
-   lists as unclaimed, then
-   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op relink --title "<summary>" --since <saved-token> --paths-file <ledger>`.
-   A close with no `--paths-file` is refused while another operation is open. Verify the commit and index-refresh notices, push with `wiki-sync.mjs`
-   (or close and push in one command with `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<summary>"`), and
-   verify that the update reached the configured upstream. The authoring request
-   includes this completion step unless the user explicitly holds publication;
-   do not ask another routine permission question or leave the push to the user.
-   If the sync is refused because uncommitted edits overlap incoming changes (exit 3), read [refused sync](../../wiki-setup/references/operation-recovery.md#refused-sync): never reset, check out, stash or delete a file you did not write.
+6. Log once with `--op relink`, as [completion](../../wiki-maintainer/references/operations.md) shows.
+7. Run `refresh-index.mjs` once, as [completion](../../wiki-maintainer/references/operations.md)
+   describes. It regenerates the [catalogs](catalogs.md); a delegated worker leaves it to
+   the enclosing task.
 
-**Done only when** the requested documentation and affected catalogs are
-validated, its log and operation commit are recorded, and remote publication is
-verified. Report explicit holds, local-only results and failed sync precisely;
-do not call a local commit published.
+**Done only when** the requested documentation is validated and logged and
+`refresh-index.mjs` exits 0, or the report names the task as written but not refreshed
+and gives the fix to offer. Say that the work is on disk and that Obsidian Git publishes
+it on its next run.
 
 ## Canonical placement for original project documentation
 
@@ -97,7 +85,7 @@ do not call a local commit published.
   a repository, uses it to find the project that repository belongs to and print its
   state page; the repository itself needs no change, and holds no project name.
   `kind: decision` additionally carries `decision-status: proposed | accepted |
-  superseded | deprecated` (Nygard's ADR vocabulary) — keep it in sync with
+  superseded | deprecated` (Nygard's ADR vocabulary) — keep it matching
   whatever the page's own `## Status` section says in prose. **Existing files
   are not renamed to fit this table** — only new ones follow it going forward;
   a bare canonical leaf name (`overview.md`) repeated across every project would
@@ -130,7 +118,7 @@ style preference.
   intended rather than shipped belongs in `roadmap.md` or a backlog item.
 - **`roadmap.md` records state, not history.** It is the page most likely to be
   silently stale, and the failure is specific: it keeps listing as "next" three
-  things that shipped a fortnight ago. **Update it in the same operation as the
+  things that shipped a fortnight ago. **Update it in the same task as the
   work** — a roadmap updated later is a roadmap updated never.
 - **An ADR states context, decision, consequences — good AND bad — and status.**
   *A consequences section that lists only benefits is a sales pitch, not a record.*
@@ -138,7 +126,7 @@ style preference.
   ADR without costs has thrown away the only part that will matter.
 - **Label a retrospective ADR as reconstructed.** Most projects start by writing up
   decisions already taken; that is legitimate and lossy. Reasoning recovered from
-  code and commit history is not the reasoning that was used, and saying so is the
+  code and its history is not the reasoning that was used, and saying so is the
   difference between a record and a plausible story.
 - **Record the failures.** Stalls, refuted hypotheses, and measurements that
   contradicted a confident diagnosis are the highest-value content in a project

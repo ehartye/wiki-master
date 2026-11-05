@@ -321,6 +321,62 @@ test('wiki-search is read-only and does not gain the refresh step', () => {
   for (const file of [entry('wiki-search'), ...references]) assert.doesNotMatch(read(file), /refresh-index\.mjs/, file);
 });
 
+// wiki-project and wiki-purge: original authoring ends with the contract, the catalogs have one command, and a purge has
+// one approval. A log entry's --op is the only operation left.
+const projectFiles = [entry('wiki-project'), ...readdirSync(join(root, 'skills/wiki-project/references')).map(ref => 'skills/wiki-project/references/' + ref)];
+const purgeFiles = [entry('wiki-purge'), 'skills/wiki-purge/references/purge.md'];
+
+test('wiki-project and wiki-purge keep no concept of an operation beyond the log entry', () => {
+  for (const file of [...projectFiles, ...purgeFiles]) {
+    const words = flatten(read(file).replace(/\]\([^)]*\)/g, ']'));
+    assert.deepEqual(words.match(/\boperations?\b|\bowned\b|\bownership\b|staleCatalogs|<saved-token>/gi), null, file);
+  }
+});
+
+test('catalogs.md is short: one command for the whole vault, and fences it overwrites', () => {
+  const text = read('skills/wiki-project/references/catalogs.md');
+  assert.ok(text.trimEnd().split('\n').length <= 20, 'about ten lines of prose');
+  assert.match(flatten(text), /refresh-index\.mjs[^.]*whole vault/);
+  assert.match(flatten(text), /overwritten/);
+  assert.doesNotMatch(text, /--project|--paths-file|--diff|--apply|dry run/i);
+  assert.ok(localLinks(text).includes('../../wiki-maintainer/references/operations.md'));
+});
+
+test('read-only backlog listing stays and needs no refresh', () => {
+  const flat = flatten(read('skills/wiki-project/references/backlog.md'));
+  assert.match(flat, /Read-only listing[^.]*no refresh/i);
+  assert.match(flat, /backlog-list\.mjs/);
+  assert.match(flatten(read(entry('wiki-project'))), /Backlog listing\.[^]*no writes or refresh/);
+});
+
+test('a purge has one approval, and it says what publishes the removal', () => {
+  for (const flat of [description('wiki-purge'), ...purgeFiles.map(file => flatten(read(file)))]) {
+    assert.match(flat, /Obsidian Git publishes the removal/);
+    assert.doesNotMatch(flat, /publication approval|push approval|before pushing|publish this purge/i);
+  }
+  assert.match(description('wiki-purge'), /one explicit approval/);
+  assert.match(flatten(read('skills/wiki-purge/references/purge.md')), /one explicit yes/);
+});
+
+test('purge writes its own log entry and the skill does not write a second one', () => {
+  for (const file of purgeFiles) assert.match(flatten(read(file)), /no second (?:log )?entry/i, file);
+  const steps = read('skills/wiki-purge/references/purge.md').split(/^## Steps$/m)[1].split(/^## /m)[0];
+  assert.doesNotMatch(steps, /log-entry\.mjs/);
+  const from = steps.indexOf('**Apply');
+  const order = ['--apply', 'refresh-index.mjs', 'broken-link'].map(word => steps.indexOf(word, from));
+  assert.ok(from >= 0 && order[0] < order[1] && order[1] < order[2], 'apply, refresh, then the count: catalogs list purged pages until the refresh');
+});
+
+test('purge recovery matches what purge.mjs does when it fails', () => {
+  const flat = flatten(read('skills/wiki-purge/references/purge.md'));
+  assert.match(flat, /--reconcile[^.]*by hand/, 'stays manual on other machines');
+  assert.match(flat, /timer[^.]*never/i, 'timer pulls do not trigger it');
+  assert.match(flat, /UNREADABLE manifest/, 'it does not change the exit code');
+  assert.match(flat, /MISSING/);
+  assert.match(flat, /Do not rerun `--apply`/);
+  assert.match(flat, /only replayed declines[^.]*no refresh/i);
+});
+
 // Criterion 4: no advice to commit. Only prose and the strings a script holds are scanned. Each allow-list entry is
 // `path | substring | reason`. A path ending in / covers its folder, and a space in a substring matches any whitespace,
 // so a hard wrap does not break an entry. An entry clears only the words inside its substring, never the rest of a line.

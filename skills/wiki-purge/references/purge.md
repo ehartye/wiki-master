@@ -1,32 +1,38 @@
-Read directly for this operation: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [operations](../../wiki-maintainer/references/operations.md).
-Purge owns its transaction and separate approvals. Only collateral edits use an ordinary scoped operation; retain the shared ownership and evidence rules without wrapping purge in a competing operation.
+Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [completion](../../wiki-maintainer/references/operations.md).
+A purge has one approval, for its reviewed plan. `purge.mjs` writes its own log entry, so the skill writes no second entry.
 
 # Purging a topic
 
-Deleting files does not remove a topic. Four things bring it back. Purge closes the
-first three in one transaction, and `--reconcile` closes them again on every other
-machine. **It cannot close the fourth** — recognizing that one is on you.
+Deleting files does not remove a topic. Three things bring it back. Purge closes the
+first two in one transaction, and `--reconcile` closes them again on another machine.
+**It cannot close the third** — recognizing that one is on you.
 
-1. **An uncommitted deletion.** A removal that never becomes a commit is not a
-   removal anything else can see; the next sync undoes it. Purge owns its whole
-   transaction through commit, so this one is closed by construction.
-2. **A `raw/` clipping left behind.** The ingest backlog reports it as
+1. **A `raw/` clipping left behind.** The ingest backlog reports it as
    un-summarized forever, and the next researcher ingestion faithfully rebuilds the topic
    from evidence nobody removed.
-3. **A source URL nobody declined.** Researcher discovery re-finds and re-clips it.
-4. **A removal committed onto a history this clone cannot reach.** This is the
-   failure that purge cannot detect. A
-   force-push or filter-branch rewrite gives origin a new lineage; a clone that
-   never pulls it keeps the old one — every removed file still present — and
-   auto-sync can keep committing to it. When the lineages have **no merge base**,
-   the clone can retain every removed file even though the remote records removal.
+2. **A source URL nobody declined.** Researcher discovery re-finds and re-clips it.
+3. **A clone on a history the remote has left.** This is the failure that purge cannot
+   detect. A rewrite gives the remote a new lineage; a clone still on the old one keeps
+   every removed file, and when the lineages have **no merge base**, a removal made in
+   either place never reaches the other.
 
-**Check before mutation:** follow the direct [history-connectivity diagnostic](../../wiki-setup/references/operation-recovery.md#purge-history-connectivity). Stop on confirmed unrelated histories. A missing upstream/fetch failure is a distinct condition; non-Git work is local-only. Choosing a canonical history is not a purge decision.
+## Check the history first
+
+Before any move, compare this clone with its upstream as last seen:
+
+```sh
+git -C "<vault>" merge-base HEAD '@{upstream}'
+```
+
+Exit 0 means the histories connect. Exit 1 with no output means there is no merge base:
+stop and tell the owner, because choosing a canonical history is not a purge decision. Any
+other failure, such as no upstream, is a distinct condition and not proof of unrelated
+histories; the owner sets up an upstream.
 
 ## Steps
 
 1. **Establish the baseline; reconcile only when authorized.**
-   Follow the direct [broken-link verification procedure](../../wiki-setup/references/checks.md#purge-broken-link-verification) before any mutation and retain its initial count. For a preview-only request, do not reconcile: proceed directly to the read-only plan. When completing an explicitly authorized prior removal, use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge); reconciliation moves files and commits, even when it is silent on a clean vault.
+   Follow the direct [broken-link verification procedure](../../wiki-setup/references/checks.md#purge-broken-link-verification) before any mutation and retain its initial count. For a preview-only request, do not reconcile: proceed directly to the read-only plan. When completing an explicitly authorized prior removal, use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge); reconciliation moves files, even when it is silent on a clean vault.
 
 2. **Plan.**
    `node "<absolute-plugin-root>/scripts/purge.mjs" --plan "<topic>"`
@@ -54,45 +60,52 @@ machine. **It cannot close the fourth** — recognizing that one is on you.
    the purge.
 
    **Then read the plan back** grouped by layer with counts, naming the collateral
-   and blocking pages specifically, and get an explicit yes. Purge moves many files
+   and blocking pages specifically, and get one explicit yes. Purge moves many files
    at once and the closure reaches further than expected when a topic is densely
-   linked.
+   linked. Say in the same request that Obsidian Git publishes the removal on its next
+   run, which carries it to every machine. Nothing else asks later, so this is the decision.
 
 4. **Apply** — with the same `--seeds` you approved, if you pinned any.
    `node "<absolute-plugin-root>/scripts/purge.mjs" --apply "<topic>" [--seeds "..."]`
-   Writes the manifest, moves the files, records declines, writes the log entry, and
-   commits — staging only what the purge touched, never the user's unrelated work.
-   Then:
-   - open an ordinary relink operation before repairing references on every
-     COLLATERAL page (the log entry lists them);
-   - regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`;
-   - [validate changed paths](../../wiki-setup/references/validation.md), log and close that repair operation through the shared contract,
-     preserving already-dirty files. Never `git add -A`. The purge transaction
-     itself already owns its commit and must not be wrapped in a competing one.
-     Defer publication of both commits until the explicit push approval in step 5.
+   Writes the manifest first, moves the files, records declines and writes the log entry,
+   which lists the COLLATERAL pages. An empty closure writes nothing. A file it could not
+   move exits 1: see [when a purge stops partway](#when-a-purge-stops-partway). Then repair
+   references on every COLLATERAL page and [validate the changed paths](../../wiki-setup/references/validation.md).
 
-5. **Ask before pushing.** A push publishes the removal to every machine. Ask
-   plainly — "publish this purge to the configured upstream?" — and only on a
-   yes run `node "<absolute-plugin-root>/scripts/wiki-sync.mjs"` and verify remote
-   publication through the shared completion contract. If the vault is not a Git
-   repo, say plainly that the purge is local and will not reach other copies.
+5. **Refresh.** `node "<absolute-plugin-root>/scripts/refresh-index.mjs"`, once, as
+   [completion](../../wiki-maintainer/references/operations.md) describes. It drops the
+   purged pages from the catalogs and the search index.
 
 6. **Verify — on the broken-link count, not the score.**
-   Repeat the direct [broken-link check](../../wiki-setup/references/checks.md#purge-broken-link-verification) and compare with the saved baseline. The count must not have grown. Inspect collateral and report actual publication state; a better score never proves a safe purge.
+   Repeat the direct [broken-link check](../../wiki-setup/references/checks.md#purge-broken-link-verification) and compare with the saved baseline. The count must not have grown. If the refresh did not finish, generated catalogs still link to purged pages, so say the count is provisional. Inspect collateral and report the result; a better score never proves a safe purge.
+
+A page changed on another machine and purged here is a conflict Obsidian Git stops on: tell
+the owner, as [its conflict file](../../wiki-setup/references/operation-recovery.md#conflict-files-obsidian-gitmd) says.
 
 ## When a purge stops partway
 
-Use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge) to inspect and finish the same authorized transaction. Do not rerun `--apply` as a substitute; preserve its original manifest, scope and publication boundary.
+Use [interrupted-purge recovery](../../wiki-setup/references/operation-recovery.md#interrupted-purge) to inspect and finish the same authorized transaction. **Do not rerun `--apply`:** it starts a second purge under a new id. Files that moved stay moved and logged; the declines wait until every move has succeeded, and `--reconcile` replays them from the manifest.
+
+## On another machine
+
+Obsidian Git carries the moved files, but its timer never runs `--reconcile`, and declines live in `.wiki-master/`, on one machine. So when asked, run `node "<absolute-plugin-root>/scripts/purge.mjs" --reconcile` by hand on each other machine. It re-bins any purged file that came back, by path or source hash, and replays the manifests' declines.
+
+- A run that changed nothing writes no log. One that changed something writes its own entry.
+- After re-binning files, run `refresh-index.mjs`. A run that only replayed declines needs no refresh.
+- Exit 1 means a file could not move: close whatever holds it open and run `--reconcile` again.
+- Read stderr. An `UNREADABLE manifest` line does not change the exit code, but that manifest's files never re-bin and its declines never replay. Report it as a blocker.
 
 ## Restoring
 
 `node "<absolute-plugin-root>/scripts/purge.mjs" --restore <purge-id>` puts everything
-back and commits.
+back and writes its log entry. A run that moved nothing writes no log and needs no refresh;
+otherwise finish with `refresh-index.mjs`.
 
 - It never overwrites a file already at the original path — that is newer work, and
   it is reported as **skipped** instead.
 - It clears the declines this purge recorded, so researcher discovery can find those
-  sources again. Declines made for other reasons are left alone.
+  sources again. Declines made for other reasons are left alone. A file that could not
+  move holds them back: close whatever holds it open and run `--restore` again.
 - Anything the manifest claims but the bin cannot supply is reported as **MISSING**
   with a non-zero exit. **Never read a bare `restored N file(s)` as success** without
   checking that line.
@@ -106,9 +119,6 @@ back and commits.
 - **Never hard-delete the bin.** Retention is deliberate and unbounded: purge is
   reversible, and that is the only reason it is safe to run at all.
 - **Never `--apply` without showing the plan and getting approval first.**
-- **Never `git add -A` in a vault.** Stage the paths the operation touched. The
-  vault carries the user's in-progress writing, and a commit that sweeps it up is
-  both mislabelled and impossible to revert cleanly.
 - **An empty result is not an answer.** If `--plan` reports no wiki pages for a
   topic, inspect its search diagnostics: the helper refuses to trust an empty
   result when the primary wiki keyword scan failed. Do not reinterpret unavailable

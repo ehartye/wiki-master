@@ -7,9 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The commands and language this change removes stay removed. These are the acceptance greps as a test, walking the
-// tree with node:fs so they work from a plain checkout. They cover scripts/, test/, templates/, skills/wiki-setup/,
-// skills/wiki-maintainer/ and skills/wiki-researcher/ for now; docs, the other skills and the README join when the
-// package that rewrites them lands.
+// tree with node:fs so they work from a plain checkout. They cover scripts/, test/, templates/ and skills/ for now; docs
+// and the README join when the package that rewrites them lands.
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -25,7 +24,7 @@ const OLD_MARKERS = {
   'scripts/lib/index-fence.mjs': 'holds the old fence markers, so a first run can replace them (decision 14)',
 };
 
-const WALKED = ['scripts', 'test', 'templates', 'skills/wiki-setup', 'skills/wiki-maintainer', 'skills/wiki-researcher'];
+const WALKED = ['scripts', 'test', 'templates', 'skills/wiki-setup', 'skills/wiki-maintainer', 'skills/wiki-researcher', 'skills/wiki-project', 'skills/wiki-purge', 'skills/wiki-search'];
 const SKIPPED_FOLDERS = new Set(['node_modules', '.wiki-master', '.playwright-mcp']);
 
 function trackedText(top) {
@@ -81,7 +80,7 @@ test('criterion 1: nothing names the token system', () => {
 });
 
 test('criterion 1: only the relationships command takes --since', () => {
-  const lines = grep(/--since/, { tops: ['scripts', 'skills/wiki-setup', 'skills/wiki-maintainer', 'skills/wiki-researcher'] });
+  const lines = grep(/--since/, { tops: WALKED.filter((top) => top !== 'test' && top !== 'templates') });
   const isRelationships = (line) => (line.startsWith('scripts/lib/cli-specs.mjs:') && line.includes('relationships')) || line.startsWith('skills/wiki-maintainer/references/relink.md:');
   assert.deepEqual(lines.filter((line) => !isRelationships(line)), []);
 });
