@@ -86,6 +86,20 @@ export function assessTiers({ ollama = {}, index = {} } = {}) {
     }
   }
 
+  // Shown with Ollama down too, after its gap: the rebuild needs Ollama, but a store that cannot be trusted stays
+  // worth knowing about. Like the missing model, the honest tier is lexical, and it is reported only by --health and
+  // --setup, because a query does not inspect the store.
+  if (index.damaged) {
+    indexOk = false;
+    gaps.push({
+      channel: 'index',
+      state: `damaged: ${index.damaged}`,
+      buys: 'semantic ranking that can be trusted',
+      fix: 'node scripts/refresh-index.mjs --rebuild',
+      misreports: true,
+    });
+  }
+
   const tier = ollamaOk && indexOk ? 'hybrid' : 'lexical';
   return { tier, gaps };
 }

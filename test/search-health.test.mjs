@@ -1,8 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan,
 } from '../scripts/lib/search-health.mjs';
+import { refreshIndex } from '../scripts/lib/embedding.mjs';
+
+const SEARCH = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'search.mjs');
 
 // The remaining channels post-qmd (design spec section 4/5.4): Obsidian
 // keyword (always available) and Ollama-backed chunk-semantic. `tier` is
@@ -13,6 +22,65 @@ const HEALTHY = {
   ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
   index: { available: true, coverage: { chunks: 5515, embedded: 5515, missing: 0 }, filesChanged: 0 },
 };
+
+test('a damaged vector store is a gap with the rebuild as its fix, an honest tier, and shows even with Ollama down', () => {
+  const damaged = { ...HEALTHY.index, damaged: 'vectors.bin has 3 unusable vector(s) of 3' };
+  const up = assessTiers({ ollama: HEALTHY.ollama, index: damaged });
+  assert.equal(up.tier, 'lexical');
+  assert.equal(up.gaps.length, 1);
+  assert.equal(up.gaps[0].channel, 'index');
+  assert.match(up.gaps[0].state, /damaged.*3 unusable/);
+  assert.equal(up.gaps[0].fix, 'node scripts/refresh-index.mjs --rebuild');
+  assert.match(setupPlan(up), /refresh-index\.mjs --rebuild/);
+  const down = assessTiers({ ollama: { reachable: false }, index: damaged });
+  assert.deepEqual(down.gaps.map((g) => g.channel), ['ollama', 'index'], 'Ollama comes first, since the rebuild needs it');
+});
+
+// The real command against a stub Ollama and a real store, because "all channels healthy" needs Ollama to answer.
+async function healthOf(t, harm) {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-health-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+  for (const name of ['a', 'b', 'c']) writeFileSync(join(vault, 'wiki', 'concepts', `${name}.md`), `# ${name}\n\nAbout ${name}, at some length.\n`);
+  const dir = join(vault, '.wiki-master');
+  await refreshIndex({ vaultPath: vault, dir, embedFn: async (text) => [text.length, 1, 1, 1], checkAvailable: async () => true, checkModel: async () => true });
+  harm?.(dir);
+  const server = createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ models: [{ name: 'test-embedder:latest' }] })); });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const child = spawn(process.execPath, [SEARCH, '--health'], { env: { ...process.env, WIKI_MASTER_VAULT: vault, OLLAMA_HOST: `http://127.0.0.1:${server.address().port}`, WIKI_MASTER_EMBED_MODEL: 'test-embedder' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', (d) => { output += d; });
+  child.stderr.on('data', (d) => { output += d; });
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  return { code, output };
+}
+const cut = (dir, size) => { const bin = join(dir, 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, size)); };
+const fileWide = (dir) => { const bin = join(dir, 'vectors.bin'); writeFileSync(bin, Buffer.alloc(statSync(bin).size, 0xff)); };
+const dimTwo = (dir) => { const file = join(dir, 'vectors.idx.json'); writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), dim: 2 })); };
+
+test('search --health says all channels are healthy on a sound store', async (t) => {
+  const { code, output } = await healthOf(t);
+  assert.equal(code, 0, output);
+  assert.match(output, /all channels healthy/);
+  assert.match(output, /tier: hybrid/);
+});
+
+for (const [label, harm] of [
+  ['all-0xFF', fileWide],
+  ['empty', (dir) => cut(dir, 0)],
+  ['truncated', (dir) => cut(dir, 16)],
+  ['cut mid-number', (dir) => cut(dir, 18)],
+  ['dim 2', dimTwo],
+]) {
+  test(`search --health on a ${label} store shows the damage and the rebuild`, async (t) => {
+    const { code, output } = await healthOf(t, harm);
+    assert.equal(code, 0, output);
+    assert.doesNotMatch(output, /all channels healthy/);
+    assert.match(output, /damaged/);
+    assert.match(output, /refresh-index\.mjs --rebuild/);
+  });
+}
 
 test('1. all channels healthy resolves to hybrid with no gaps', () => {
   const r = assessTiers(HEALTHY);

@@ -313,11 +313,11 @@ function writeNoticeIso(dir, iso) {
 // defaults to 0 (skip the vault walk) unless the caller already paid for a
 // statusReport -- see the design spec's own warning against re-walking/
 // re-hashing the vault on every query (section 3).
-async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0 }) {
+async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0, damaged = null }) {
   const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
   return assessTiers({
     ollama: { reachable: ollamaUp, modelPresent: modelOk, model: EMBED_MODEL },
-    index: { available: index.available, coverage: cov, filesChanged },
+    index: { available: index.available, coverage: cov, filesChanged, damaged },
   });
 }
 
@@ -350,22 +350,28 @@ async function runQuery(query, options = {}) {
   if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
 }
 
+// --health and --setup exist to report a broken index, so one they cannot load must not stop them.
+function loadIndexForDiagnosis(indexDir) {
+  try { return loadChunkIndex(indexDir); } catch { return { manifest: {}, vectors: {}, available: false }; }
+}
+
 async function runHealthCommand() {
   const { path: vaultPath } = resolveVault();
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadChunkIndex(indexDir);
+  const index = loadIndexForDiagnosis(indexDir);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
   let files = Object.keys(index.manifest).length;
   let filesChanged = 0;
   let filesRemoved = 0;
+  let damaged = null;
   try {
     const r = statusReport({ vaultPath, dir: indexDir });
-    files = r.files; filesChanged = r.filesChanged; filesRemoved = r.filesRemoved;
+    files = r.files; filesChanged = r.filesChanged; filesRemoved = r.filesRemoved; damaged = r.damaged;
   } catch { /* vault unreadable -- report what the index itself knows */ }
 
-  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
+  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged, damaged });
   const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
 
   const sizeBytes = ['chunks.json', 'vectors.bin', 'vectors.idx.json']
@@ -393,14 +399,15 @@ async function runHealthCommand() {
 async function runSetupCommand() {
   const { path: vaultPath } = resolveVault();
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadChunkIndex(indexDir);
+  const index = loadIndexForDiagnosis(indexDir);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
   let filesChanged = 0;
-  try { filesChanged = statusReport({ vaultPath, dir: indexDir }).filesChanged; } catch { /* best effort */ }
+  let damaged = null;
+  try { ({ filesChanged, damaged } = statusReport({ vaultPath, dir: indexDir })); } catch { /* best effort */ }
 
-  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged });
+  const assessed = await buildAssessment({ vaultPath, indexDir, index, ollamaUp, cov, filesChanged, damaged });
   console.log(setupPlan(assessed));
 }
 
