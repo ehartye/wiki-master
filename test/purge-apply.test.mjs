@@ -926,6 +926,96 @@ test('--restore with an unknown id writes no log', async () => {
   }
 });
 
+// A file where a restored page's folder belongs makes the move fail
+// deterministically, the same failure shape as a locked file.
+function blockFolder(v) {
+  rmSync(join(v, 'wiki', 'concepts'), { recursive: true, force: true });
+  writeFileSync(join(v, 'wiki', 'concepts'), 'blocking file, not a directory\n');
+}
+
+function unblockFolder(v) {
+  rmSync(join(v, 'wiki', 'concepts'));
+  mkdirSync(join(v, 'wiki', 'concepts'));
+}
+
+test('applyRestore reports an unmoveable entry in failed and finishes the rest of the batch', () => {
+  const v = tempVault();
+  try {
+    const manifest = { id: 'id', entries: [{ from: 'wiki/concepts/Foo.md' }, { from: 'raw/clippings/Src-abc1234.md' }] };
+    applyPurge(v, manifest);
+    blockFolder(v);
+    const r = applyRestore(v, manifest);
+    assert.equal(r.restored, 1);
+    assert.deepEqual(r.touched, ['.recycle/id/raw/clippings/Src-abc1234.md', 'raw/clippings/Src-abc1234.md']);
+    assert.equal(r.failed.length, 1);
+    assert.equal(r.failed[0].from, 'wiki/concepts/Foo.md');
+    assert.equal(existsSync(join(v, '.recycle', 'id', 'wiki', 'concepts', 'Foo.md')), true, 'still safe in the bin');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The same gap as a partly failed apply: what came back shows as changed for
+// Obsidian Git to publish, so the log names it. Declines clear only once every
+// file is back, so discovery does not re-clip a source still in the bin. Rerunning
+// has to finish the job, not report the files already back as missing.
+test('a partly failed --restore logs what came back and what did not, exits 1, and a rerun finishes it', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    const logsBefore = logEntries(v);
+    blockFolder(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
+    assert.match(entry, /Restored 1 file\(s\)/);
+    assert.match(entry, /Restored:\n- `raw\/clippings\/Src-abc1234\.md`/);
+    assert.match(entry, /Could not be restored:\n- `wiki\/concepts\/Foo\.md`/);
+    assert.ok(r.errs.some((l) => l.includes('could not be restored: wiki/concepts/Foo.md')));
+    assert.ok(r.errs.some((l) => l.includes('run --restore again')));
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), 'the decline holds until every file is back');
+    const output = r.logs.join('\n');
+    assert.match(output, /The restored files are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.doesNotMatch(output, /refresh-index/, 'the rerun comes first');
+
+    unblockFolder(v);
+    const again = await runMain(v, ['--restore', id]);
+
+    assert.equal(again.exitCode, undefined);
+    assert.deepEqual(again.errs, [], 'a file already back is not missing');
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true);
+    assert.equal(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), false);
+    assert.equal(again.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore that moved nothing because every move failed writes no log and clears no decline', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id, ...rest } = readManifests(v).manifests[0];
+    writeManifest(v, { id, ...rest, entries: rest.entries.filter((e) => e.from === 'wiki/concepts/Foo.md') });
+    const logsBefore = logEntries(v);
+    blockFolder(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    assert.deepEqual(logEntries(v), logsBefore);
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'));
+    assert.doesNotMatch(r.logs.join('\n'), /Obsidian Git publishes/);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
 // I3: an empty search result is only evidence of "nothing to plan" when the keyword scan of wiki/
 // actually ran. search.mjs reports that in result.channels, so purge reads the result itself
 // instead of probing the Obsidian app (search no longer uses it). Both --plan and --apply reach

@@ -123,6 +123,7 @@ export function applyRestore(vaultPath, manifest) {
   const skipped = [];
   const missing = [];
   const touched = [];
+  const failed = [];
   for (const e of manifest.entries) {
     let from = binPathFor(manifest.id, e.from);
     if (!existsSync(join(vaultPath, from))) {
@@ -137,7 +138,8 @@ export function applyRestore(vaultPath, manifest) {
         n += 1;
       }
       if (!latest) {
-        missing.push(e.from);
+        // A file already back at its path is a rerun finishing the job, not a gap.
+        if (!existsSync(join(vaultPath, e.from))) missing.push(e.from);
         continue;
       }
       from = latest;
@@ -146,14 +148,21 @@ export function applyRestore(vaultPath, manifest) {
       skipped.push(e.from);
       continue;
     }
-    moveInto(vaultPath, from, e.from);
+    // Isolated per entry, for the reason applyPurge gives: one locked file must
+    // be a reportable retry, not a throw that strands the batch unlogged.
+    try {
+      moveInto(vaultPath, from, e.from);
+    } catch (err) {
+      failed.push({ from: e.from, reason: err.message });
+      continue;
+    }
     restored += 1;
     // Same reasoning as applyPurge.touched. Only entries actually moved are
     // included — a skipped entry's original path is the user's own newer
     // work and must never be reported as restored.
     touched.push(from, e.from);
   }
-  return { restored, skipped, missing, touched };
+  return { restored, skipped, missing, touched, failed };
 }
 
 // Sorted, for the same reason planPurge sorts its pages. planReconcile shares
@@ -355,31 +364,42 @@ export async function main(argv, {
     // primary slot nor any resurrected-N/. Never silent — an unqualified
     // "restored N" over an unrecoverable gap is the failure this reports.
     for (const p of r.missing) console.error(`  MISSING from the bin, not restored: ${p}`);
-    if (r.missing.length) process.exitCode = 1;
+    for (const x of r.failed) console.error(`  could not be restored: ${x.from} — ${x.reason}`);
+    if (r.failed.length) console.error('Close whatever holds them open, then run --restore again.');
+    if (r.missing.length || r.failed.length) process.exitCode = 1;
     // The inverse of the decline this purge itself recorded on the way out —
     // without this, a restored source's URL stays declined for up to 180
     // days and wiki-researcher discovery silently keeps skipping it. Scoped to exactly
     // this purge's own reason tag (see removeDecline's own comment): a
     // decline the user made independently, on the same URL, must survive.
+    // Held back while any move failed, so discovery does not re-clip a source
+    // that is still in the bin; the rerun clears it.
     let clearedDeclines = 0;
-    for (const url of manifest.declines ?? []) {
-      clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
+    if (!r.failed.length) {
+      for (const url of manifest.declines ?? []) {
+        clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
+      }
     }
     if (clearedDeclines) console.log(`cleared ${clearedDeclines} decline(s) this purge recorded`);
-    // Every restore that found its manifest is logged, even one that brought
-    // nothing back: the entry is the record of what it skipped and why.
-    writeLogEntry({
-      vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
-      body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
-            pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
-            pathList('Skipped, newer work sits at the path:', r.skipped) +
-            pathList('Missing from the bin, not restored:', r.missing) +
-            (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
-    });
+    // A restore that found its manifest is logged even when it brought nothing
+    // back, as the record of what it skipped and why. The exception matches
+    // --apply: when every move failed, nothing changed and the rerun will log it.
+    const logged = r.restored > 0 || !r.failed.length;
+    if (logged) {
+      writeLogEntry({
+        vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
+        body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
+              pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
+              pathList('Skipped, newer work sits at the path:', r.skipped) +
+              pathList('Missing from the bin, not restored:', r.missing) +
+              pathList('Could not be restored:', r.failed.map((x) => x.from)) +
+              (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
+      });
+    }
     if (r.restored) {
       console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
-      console.log('NEXT: run node scripts/refresh-index.mjs');
-    } else {
+      if (!r.failed.length) console.log('NEXT: run node scripts/refresh-index.mjs');
+    } else if (logged) {
       console.log('\nNothing was restored. Obsidian Git publishes the log entry on its next run.');
     }
     return;
