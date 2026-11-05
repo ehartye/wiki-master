@@ -61,36 +61,61 @@ export function readVectorStore(dir) {
   return decodeVectors(readFileSync(binF), idx);
 }
 
-// The vector store with whatever it can still read, and why any of it could not be: `damaged` is null for a sound
-// store, or a missing one, which only means there is nothing to reuse yet. A vector is readable when its slot lies
-// wholly inside the file, so a truncated file still yields the vectors before the cut.
+function allFinite(data, start, end) {
+  for (let i = start; i < end; i++) if (!Number.isFinite(data[i])) return false;
+  return true;
+}
+
+// The vector store's usable vectors, and why any of it cannot be trusted: `damaged` is null for a sound store, or a
+// missing one, which only means there is nothing to reuse yet. `dim` is the store's dimension.
+//
+// What can be checked is the shape, because a chunk's hash keys its text and nothing records a vector's bytes: a
+// vector is usable when its slot is its own, lies wholly inside the file and holds only finite numbers. The file's
+// length has to agree with the index. Too short means a cut, and the vectors before it are still usable. Too long
+// means the index's dimension or its slots are wrong, so no byte can be assigned to any vector and none is usable.
+// This is one linear pass over the numbers: about 50 ms for 50 million.
 function inspectVectorStore(dir) {
   const binF = join(dir, VECTORS_BIN);
   const idxF = join(dir, VECTORS_IDX);
-  if (!existsSync(binF) || !existsSync(idxF)) return { vectors: {}, damaged: null };
+  if (!existsSync(binF) || !existsSync(idxF)) return { vectors: {}, dim: 0, damaged: null };
   let idx, bin;
   try {
     idx = JSON.parse(readFileSync(idxF, 'utf8'));
     bin = readFileSync(binF);
   } catch (error) {
-    return { vectors: {}, damaged: `${VECTORS_IDX}: ${error.message}` };
+    return { vectors: {}, dim: 0, damaged: `${VECTORS_IDX}: ${error.message}` };
   }
   const { dim, slots } = idx ?? {};
   if (!Number.isInteger(dim) || dim < 0 || slots === null || typeof slots !== 'object' || Array.isArray(slots)) {
-    return { vectors: {}, damaged: `${VECTORS_IDX} is not a vector index` };
+    return { vectors: {}, dim: 0, damaged: `${VECTORS_IDX} is not a vector index` };
+  }
+  const entries = Object.entries(slots);
+  if (bin.byteLength > entries.length * dim * 4) {
+    return { vectors: {}, dim: 0, damaged: `${VECTORS_BIN} is longer than ${VECTORS_IDX} accounts for` };
   }
   const floats = Math.floor(bin.byteLength / 4);
   const bytes = new Uint8Array(floats * 4);
   bytes.set(bin.subarray(0, floats * 4));
   const data = new Float32Array(bytes.buffer);
+  const uses = new Map();
+  for (const [, slot] of entries) uses.set(slot, (uses.get(slot) ?? 0) + 1);
   const vectors = {};
   let lost = 0;
-  for (const [hash, slot] of Object.entries(slots)) {
-    if (dim > 0 && Number.isInteger(slot) && slot >= 0 && (slot + 1) * dim <= floats) vectors[hash] = data.subarray(slot * dim, (slot + 1) * dim);
-    else lost++;
+  for (const [hash, slot] of entries) {
+    const start = slot * dim;
+    const end = start + dim;
+    if (dim > 0 && Number.isInteger(slot) && slot >= 0 && uses.get(slot) === 1 && end <= floats && allFinite(data, start, end)) {
+      vectors[hash] = data.subarray(start, end);
+    } else lost++;
   }
-  const damaged = lost ? `${VECTORS_BIN} is missing ${lost} vector(s)` : bin.byteLength % 4 ? `${VECTORS_BIN} is cut short` : null;
-  return { vectors, damaged };
+  return { vectors, dim, damaged: lost ? `${VECTORS_BIN} has ${lost} unusable vector(s) of ${entries.length}` : null };
+}
+
+// Why a vector from the embedder cannot be stored, or null.
+function answerProblem(vector) {
+  if (typeof vector?.length !== 'number' || typeof vector === 'string') return 'the embedder returned no vector';
+  if (vector.length === 0) return 'the embedder returned an empty vector';
+  return Array.prototype.every.call(vector, Number.isFinite) ? null : 'the embedder returned a non-finite number';
 }
 
 function manifestProblem(manifest) {
@@ -104,12 +129,12 @@ const damagedIndex = (why) => Object.assign(
   { code: 'INDEX_CORRUPT' },
 );
 
-// What a refresh starts from. A rebuild trusts no manifest, so it never parses one, and takes whichever vectors are
-// readable: their hashes prove their content. Any other run stops at damage, because repairing it means re-chunking
-// every page, which the caller should ask for.
+// What a refresh starts from. A rebuild trusts no manifest, so it never parses one, and reuses the vectors that pass
+// inspection, embedding the rest. Any other run stops at damage, before it can shrink or rewrite anything, because
+// repairing it means re-chunking every page, which the caller should ask for.
 function loadIndex(dir, rebuild) {
   const store = inspectVectorStore(dir);
-  if (rebuild) return { manifest: {}, vectors: store.vectors };
+  if (rebuild) return { manifest: {}, vectors: store.vectors, dim: 0 };
   let manifest;
   try {
     manifest = readManifestFile(dir);
@@ -118,7 +143,7 @@ function loadIndex(dir, rebuild) {
   }
   const problem = manifestProblem(manifest) ?? store.damaged;
   if (problem) throw damagedIndex(problem);
-  return { manifest, vectors: store.vectors };
+  return { manifest, vectors: store.vectors, dim: store.dim };
 }
 
 // Atomic persist: every artifact is written to a temp file FIRST, and only
@@ -208,7 +233,7 @@ export async function refreshIndex({
   }
 
   const startedAt = Date.now();
-  const { manifest: loadedManifest, vectors } = loadIndex(dir, rebuild);
+  const { manifest: loadedManifest, vectors, dim: storedDim } = loadIndex(dir, rebuild);
   // --rebuild discards the MANIFEST (forcing every file through the
   // "changed" path below, so every file is genuinely re-chunked) but never
   // discards the vector STORE: an unchanged chunk's content hashes
@@ -285,11 +310,26 @@ export async function refreshIndex({
   // itself once the cause is fixed. This matches the posture the rest of
   // wiki-master takes -- degrade and SAY SO, rather than die (search.mjs falls
   // back to lexical and reports the fact).
+  //
+  // The dimension: a plain run holds new vectors to the store's. The embedder disagreeing means the store or the model
+  // changed, and mixing the two would ruin the store, so the run stops below. A rebuild takes the embedder's first
+  // answer, and a stored vector of any other length is embedded again. With nothing to embed the embedder is never
+  // asked, so a store that agrees with itself at the wrong dimension can only surface on the next embedding.
   let embedded = 0;
+  let total = needed.length;
+  let expectedDim = storedDim || null;
+  let disagreed = null;
   const failures = [];
-  await runPool(needed, concurrency, async (h) => {
+  const embedOne = async (h) => {
     try {
       const vec = await embedFn(hashToText.get(h));
+      const problem = answerProblem(vec);
+      if (problem) throw new Error(problem);
+      expectedDim ??= vec.length;
+      if (vec.length !== expectedDim) {
+        disagreed ??= vec.length;
+        throw new Error(`the embedder returned ${vec.length} numbers where ${expectedDim} are expected`);
+      }
       vectors[h] = vec;
       embedded++;
     } catch (err) {
@@ -297,8 +337,19 @@ export async function refreshIndex({
       failures.push({ hash: h, chars: text.length, error: String(err && err.message || err) });
       return;
     }
-    onProgress({ phase: 'embed', embedded, total: needed.length });
-  });
+    onProgress({ phase: 'embed', embedded, total });
+  };
+  await runPool(needed, concurrency, embedOne);
+  if (storedDim && disagreed !== null) {
+    throw damagedIndex(`the embedder returns ${disagreed} numbers per vector and the store holds ${storedDim}`);
+  }
+  if (rebuild && expectedDim !== null) {
+    const stale = Object.keys(vectors).filter((h) => vectors[h].length !== expectedDim);
+    for (const h of stale) delete vectors[h];
+    const again = stale.filter((h) => hashToText.has(h));
+    total += again.length;
+    await runPool(again, concurrency, embedOne);
+  }
 
   // Tolerating SOME failures must not become silently accepting a dead backend.
   // If a run of any real size embedded nothing at all, that is infrastructure

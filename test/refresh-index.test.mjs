@@ -429,6 +429,8 @@ const DAMAGED_STORES = {
   'a half-truncated vectors.bin': (root) => cutVectors(root, (size) => Math.floor(size / 2)),
   'a vectors.bin cut mid-number': (root) => cutVectors(root, (size) => size - 1),
   'an unreadable vectors.idx.json': (root) => writeFileSync(join(root, '.wiki-master', 'vectors.idx.json'), '{ nope'),
+  'an all-0xFF vectors.bin of the same size': (root) => { const bin = join(root, '.wiki-master', 'vectors.bin'); writeFileSync(bin, Buffer.alloc(statSync(bin).size, 0xff)); },
+  'an index that says dim 2': (root) => { const file = join(root, '.wiki-master', 'vectors.idx.json'); writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), dim: 2 })); },
 };
 
 for (const [label, harm] of Object.entries(DAMAGED_STORES)) {
@@ -446,6 +448,15 @@ for (const [label, harm] of Object.entries(DAMAGED_STORES)) {
     const plain = await run(root);
     assert.equal(plain.code, 1, 'a plain run agrees with --status');
     assert.match(plain.output, /refresh-index\.mjs --rebuild/);
+    assert.deepEqual(snapshot(root), before, 'a plain run neither shrinks nor rewrites a damaged store');
+    const rebuilt = await run(root, ['--rebuild']);
+    assert.equal(rebuilt.code, 0, rebuilt.output);
+    assert.match(rebuilt.output, /search index: saved/);
+    assert.match((await run(root, ['--status'])).output, /--status: current/);
+    const settled = snapshot(root);
+    await delay(20);
+    assert.equal((await run(root)).code, 0);
+    assert.deepEqual(snapshot(root), settled, 'after the rebuild a healthy store is left alone');
   });
 }
 

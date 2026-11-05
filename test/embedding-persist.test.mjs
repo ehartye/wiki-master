@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { refreshIndex } from '../scripts/lib/embedding.mjs';
+import { refreshIndex, statusReport } from '../scripts/lib/embedding.mjs';
 import { EMBED_MODEL } from '../scripts/lib/embed.mjs';
+import { decodeVectors } from '../scripts/lib/vector-index.mjs';
 
 // A refresh that has nothing to do rewrites no file, so a timed backup of the vault never sees a change it did not
 // cause. Vectors are already sorted; the manifest's keys are sorted here. What must still persist is a change of
@@ -181,6 +182,40 @@ const damage = {
   'vectors.idx.json has the wrong shape': (root) => writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{"dim":"four"}'),
   'vectors.bin is cut mid-number': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, 18)); },
   'vectors.bin is missing whole vectors': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, 16)); },
+  'vectors.bin is all 0xFF at the same size': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, Buffer.alloc(statSync(bin).size, 0xff)); },
+  'one stored vector holds NaN': (root) => poke(root, 1, NaN),
+  'one stored vector holds Infinity': (root) => poke(root, 2, Infinity),
+  'vectors.bin is longer than the index says': (root) => { const bin = join(dirOf(root), 'vectors.bin'); writeFileSync(bin, Buffer.concat([readFileSync(bin), Buffer.alloc(16)])); },
+  'the index says dim 2 over a dim 4 file': (root) => setIndex(root, (idx) => ({ ...idx, dim: 2 })),
+  'the index says dim 8 over a dim 4 file': (root) => setIndex(root, (idx) => ({ ...idx, dim: 8 })),
+  'the index says dim 0 over vectors': (root) => setIndex(root, (idx) => ({ ...idx, dim: 0 })),
+  'two hashes share one slot': (root) => setIndex(root, (idx) => ({ ...idx, slots: Object.fromEntries(Object.keys(idx.slots).map((hash) => [hash, 0])) })),
+};
+
+// Overwrites one number of the vector in a slot, keeping the file's size.
+function poke(root, slot, value) {
+  const file = join(dirOf(root), 'vectors.bin');
+  const bytes = readFileSync(file);
+  bytes.writeFloatLE(value, slot * 16);
+  writeFileSync(file, bytes);
+}
+function setIndex(root, change) {
+  const file = join(dirOf(root), 'vectors.idx.json');
+  writeFileSync(file, JSON.stringify(change(JSON.parse(readFileSync(file, 'utf8')))));
+}
+const storedVectors = (root) => {
+  const idx = JSON.parse(readFileSync(join(dirOf(root), 'vectors.idx.json'), 'utf8'));
+  const bytes = readFileSync(join(dirOf(root), 'vectors.bin'));
+  assert.equal(bytes.byteLength, Object.keys(idx.slots).length * idx.dim * 4, 'the file is exactly as long as the index says');
+  return { idx, vectors: Object.values(decodeVectors(bytes, idx)) };
+};
+const assertHealthyStore = (root, dim) => {
+  const { idx, vectors } = storedVectors(root);
+  assert.equal(idx.dim, dim);
+  for (const vector of vectors) {
+    assert.equal(vector.length, dim);
+    assert.ok(vector.every(Number.isFinite), `a stored vector holds a non-number: ${[...vector]}`);
+  }
 };
 
 for (const [label, harm] of Object.entries(damage)) {
@@ -204,6 +239,7 @@ for (const [label, harm] of Object.entries(damage)) {
     const rebuilt = await refresh(root, { rebuild: true });
     assert.equal(rebuilt.result.persisted, true);
     assert.equal(rebuilt.result.chunksFailed, 0);
+    assertHealthyStore(root, 4);
     const clean = await refresh(root);
     assert.equal(clean.result.chunksEmbedded, 0, 'nothing is left to embed');
     backdate(root);
@@ -238,6 +274,144 @@ test('a rebuild over an unreadable vector index embeds everything again', async 
   writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{ nope');
   const run = await refresh(root, { rebuild: true });
   assert.equal(run.result.chunksEmbedded, first.result.chunksEmbedded);
+});
+
+// ---- what counts as a usable vector ----
+
+test('a plain run on an inconsistent store never shrinks or rewrites it', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  setIndex(root, (idx) => ({ ...idx, dim: 2 }));
+  const content = bytes(root);
+  await assert.rejects(refresh(root), /refresh-index\.mjs --rebuild/);
+  assert.deepEqual(bytes(root), content);
+  assert.equal(readFileSync(join(dirOf(root), 'vectors.bin')).byteLength, 48);
+});
+
+test('a rebuild re-embeds every vector of an all-0xFF file', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  damage['vectors.bin is all 0xFF at the same size'](root);
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assertHealthyStore(root, 4);
+});
+
+test('a rebuild re-embeds only the vector that fails, and reuses the ones that pass', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  poke(root, 1, NaN);
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 1);
+  assertHealthyStore(root, 4);
+});
+
+test('a rebuild over an index whose dim disagrees with its file discards the store', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  setIndex(root, (idx) => ({ ...idx, dim: 2 }));
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assertHealthyStore(root, 4);
+  assert.equal(readFileSync(join(dirOf(root), 'vectors.bin')).byteLength, 48);
+});
+
+test('statusReport names each kind of damage, and is silent on a healthy or missing store', async (t) => {
+  const root = vault(t);
+  assert.equal(statusReport({ vaultPath: root, dir: dirOf(root) }).damaged, null, 'nothing built yet');
+  await refresh(root);
+  assert.equal(statusReport({ vaultPath: root, dir: dirOf(root) }).damaged, null);
+  for (const [label, harm] of Object.entries(damage)) {
+    if (label.includes('chunks.json') || label.includes('manifest entry')) continue;
+    const other = vault(t);
+    await refresh(other);
+    harm(other);
+    assert.ok(statusReport({ vaultPath: other, dir: dirOf(other) }).damaged, label);
+  }
+});
+
+// ---- the embedder has the last word on the dimension ----
+
+// A store that agrees with itself and holds only finite numbers, but at another dimension than the embedder's.
+function wrongDimStore(root) {
+  setIndex(root, (idx) => ({ ...idx, dim: 2 }));
+  const bin = join(dirOf(root), 'vectors.bin');
+  writeFileSync(bin, readFileSync(bin).subarray(0, 24));
+}
+const editPage = (root) => writeFileSync(join(root, 'wiki/concepts/a.md'), '# A\n\nAbout A, edited.\n');
+
+test('a plain run stops when the embedder disagrees with the store, instead of mixing dimensions, and writes nothing', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  wrongDimStore(root);
+  editPage(root);
+  const content = bytes(root);
+  await assert.rejects(refresh(root), (error) => {
+    assert.equal(error.code, 'INDEX_CORRUPT');
+    assert.match(error.message, /refresh-index\.mjs --rebuild/);
+    return true;
+  });
+  assert.deepEqual(bytes(root), content);
+});
+
+test('a changed embedding model is the same case: plain stops, a rebuild replaces every vector', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  editPage(root);
+  const wider = async (text) => Array.from({ length: 8 }, (_, i) => text.length + i);
+  await assert.rejects(refresh(root, { embedFn: wider }), /refresh-index\.mjs --rebuild/);
+  const run = await refresh(root, { rebuild: true, embedFn: wider });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assert.equal(run.result.chunksFailed, 0);
+  assertHealthyStore(root, 8);
+});
+
+test('a rebuild with anything to embed lets the embedder settle a store of another dimension', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  wrongDimStore(root);
+  editPage(root);
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assertHealthyStore(root, 4);
+});
+
+test('with nothing to embed, a self-consistent store of another dimension is left as it is: only the embedder could tell', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  wrongDimStore(root);
+  const plain = await refresh(root);
+  assert.equal(plain.result.chunksEmbedded, 0);
+  assert.equal(plain.result.persisted, false);
+  const rebuilt = await refresh(root, { rebuild: true });
+  assert.equal(rebuilt.result.chunksEmbedded, 0);
+  assert.equal(rebuilt.result.persisted, false);
+});
+
+for (const [label, answer] of [
+  ['NaN', [NaN, 1, 1, 1]],
+  ['Infinity', [1, Infinity, 1, 1]],
+  ['an empty vector', []],
+  ['nothing', undefined],
+  ['a number', 7],
+]) {
+  test(`an embedder answering ${label} is a failed chunk, and never reaches the store`, async (t) => {
+    const root = vault(t);
+    let calls = 0;
+    const run = await refresh(root, { concurrency: 1, embedFn: async (text) => (++calls === 1 ? answer : [text.length, 1, 1, 1]) });
+    assert.equal(run.result.chunksFailed, 1);
+    assert.equal(run.result.chunksEmbedded, 2);
+    assertHealthyStore(root, 4);
+  });
+}
+
+test('in a fresh build the first answer sets the dimension, and a differing one is a failed chunk', async (t) => {
+  const root = vault(t);
+  let calls = 0;
+  const run = await refresh(root, { concurrency: 1, embedFn: async (text) => (++calls === 2 ? [1, 2] : [text.length, 1, 1, 1]) });
+  assert.equal(run.result.chunksFailed, 1);
+  assert.match(run.result.failures[0].error, /2 .*4|4 .*2/);
+  assertHealthyStore(root, 4);
 });
 
 test('a missing store is not damage: a plain refresh rebuilds it', async (t) => {
