@@ -14,7 +14,7 @@ cliGuard(import.meta.url);
 
 // Records what a person decided about lint findings (see lib/lint-dispositions.mjs), or removes the records of a page that
 // is gone. It is the only writer of lint-dispositions.jsonl, and lint.mjs stays read-only. The file lives at the vault root
-// and is tracked, so it is part of an operation's ledger like any page.
+// and is tracked, so it is listed in a ledger like any page.
 
 class InputError extends Error {}
 

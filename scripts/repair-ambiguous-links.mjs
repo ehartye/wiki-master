@@ -66,7 +66,7 @@ export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclud
     for (const [k, v] of wanted) {
       const probe = repointBareLinks(original, new Map([[k, v.path]]));
       if (!probe.count) report(v.issue, hasGeneratedFence(original) ? 'catalog-line' : 'no-live-occurrence', hasGeneratedFence(original)
-        ? 'the occurrences are inside a generated catalog; regenerate it (refresh-catalogs.mjs) instead of editing it'
+        ? 'the occurrences are inside a generated catalog; regenerate it (refresh-index.mjs) instead of editing it'
         : 'every occurrence is inside code, a comment or a generated fence');
     }
     if (!result.count) continue;

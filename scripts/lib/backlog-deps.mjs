@@ -1,5 +1,5 @@
 // What a backlog item depends on, read once for both consumers: validate-authored.mjs reports
-// the defects and backlog-gen.mjs renders the unmet and ready items. Pure and I/O-free, like
+// the defects and catalogs.mjs renders the unmet and ready items. Pure and I/O-free, like
 // authored-group.mjs; each caller reads its own items and hands them over.
 //
 // An item lists its prerequisites under `depends-on` as quoted wikilinks to other backlog items

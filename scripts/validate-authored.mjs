@@ -17,8 +17,8 @@ import {
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
-// Read-only check of exactly the pages one authoring task wrote. The ledger is the
-// JSON array of vault-relative paths that op-commit and refresh-catalogs take.
+// Read-only check of exactly the pages one authoring task wrote. The ledger is a
+// JSON array of vault-relative paths, written by hand.
 // Nothing is written: no cache, no .wiki-master directory, no temp file.
 //
 //   node validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <terms.txt> [--terms-projects a,b]]
@@ -35,7 +35,7 @@ export class InputError extends Error {}
 
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
-// The same shape op-commit enforces for an explicit operation scope.
+// The path rule every reader of a ledger shares.
 export function checkLedger(paths) {
   try { return checkLedgerPaths(paths); } catch (error) { throw new InputError(error.message); }
 }

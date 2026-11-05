@@ -121,7 +121,7 @@ test('re-running replaces only the fenced region — hand-written prose survives
   assert.ok(out.includes('[[demo-overview]]'));
 });
 
-test('an existing file with no fence gets one appended, mirroring index-gen.mjs — nothing existing is touched', () => {
+test('an existing file with no fence gets one appended, mirroring index.md — nothing existing is touched', () => {
   const v = tempVault();
   writeAuthored(v, 'demo-overview', 'demo', 'overview');
   writeAuthored(v, 'demo-guide', 'demo', 'guide');
