@@ -81,6 +81,19 @@ export const CLI_SPECS = {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
     usage: ['usage: node scripts/purge.mjs [--plan | --apply | --reconcile | --restore] "<topic>" [--seeds a.md,b.md]', '', 'Plans (default), applies, reconciles or restores the removal of a topic from the wiki and its evidence. Applying needs a reviewed plan.', VAULT],
   },
+  'refresh-index': {
+    options: ['rebuild', 'status'],
+    usage: [
+      'usage: node scripts/refresh-index.mjs [--rebuild] [--status]',
+      '',
+      'The last step of an authoring task. Regenerates the catalogs (index.md, every roadmap and project map) and refreshes the semantic search index, for the whole vault.',
+      'It first checks that Ollama is reachable with the embedding model pulled, Obsidian is up, Obsidian Git is installed and enabled with autoSaveInterval above 0, and the vault is a git repository with an upstream. If any check fails it names every failure with the fix to offer, writes nothing and exits 1.',
+      'A run with nothing to do rewrites no file. Failed chunks exit 1 with the count; the catalogs written stay, and a rerun retries them.',
+      '--rebuild re-chunks every page instead of trusting modification times; vectors for unchanged chunks are reused.',
+      '--status reports how fresh the index is. It checks nothing, writes nothing and always exits 0.',
+      VAULT,
+    ],
+  },
   'refresh-fidelity': {
     options: ['apply', 'ocr-floor', 'inventory'],
     usage: ['usage: node scripts/refresh-fidelity.mjs [--ocr-floor | --inventory] [--apply]', '', 'Re-assesses each clipping\'s cached fidelity verdict from its stored markdown and clears flags that no longer hold. A clipping whose flag rests on its extraction (a table mode, or OCR) is preserved.', '--ocr-floor instead lists the OCR clippings that carry no fidelity grade and, with --apply, sets fidelity: ocr on them. An existing grade is never replaced.', '--inventory instead lists the PDF clippings, not yet marked degraded, whose letter inventory now looks broken (a letter that every Latin-script text has is nearly absent). It only lists, and refuses --apply.', DRY, VAULT],
