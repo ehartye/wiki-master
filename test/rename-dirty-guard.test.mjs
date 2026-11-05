@@ -8,8 +8,8 @@ import { runRenameCli } from '../scripts/rename-unsafe-clippings.mjs';
 import { renameDoubledExtensionClippings } from '../scripts/rename-doubled-extension-clippings.mjs';
 
 // The vault is shared. A rename that rewrites a page another writer is in the middle of editing would mix
-// the two edits, and the repoint could not be committed with the rename. An apply therefore refuses to
-// start when any file it would change has uncommitted changes, and changes nothing.
+// the two edits. An apply therefore refuses to start when any file it would change has changes git has not
+// recorded yet, and changes nothing.
 
 const GH = 'raw/clippings/gh/acme/agent';
 const FILES = {
@@ -34,15 +34,26 @@ const run = (argv) => quiet(() => runRenameCli(argv, { type: 'rename-doubled-ext
 test('an apply refuses to start when a page it would rewrite has uncommitted changes, and changes nothing', (t) => {
   const v = gitVault(t);
   writeFileSync(join(v.root, 'wiki/sources/Cites.md'), `${FILES['wiki/sources/Cites.md']}\nSomeone else is editing this.\n`);
-  assert.throws(() => run(['--apply']), /uncommitted changes[\s\S]*wiki\/sources\/Cites\.md/);
+  assert.throws(() => run(['--apply']), /unpublished edits[\s\S]*wiki\/sources\/Cites\.md/);
   assert.ok(existsSync(join(v.root, `${GH}/README.md.md`)));
   assert.match(readFileSync(join(v.root, 'wiki/sources/Cites.md'), 'utf8'), /README\.md\.md/);
+});
+
+// The refusal advises no git step: Obsidian Git handles all git operations, so the person only finishes the edit.
+test('the refusal says to finish the edits and let Obsidian Git publish them, and advises no commit', (t) => {
+  const v = gitVault(t);
+  writeFileSync(join(v.root, 'wiki/sources/Cites.md'), `${FILES['wiki/sources/Cites.md']}\nSomeone else is editing this.\n`);
+  assert.throws(() => run(['--apply']), (err) => {
+    assert.match(err.message, /Finish those edits and let Obsidian Git publish them on its next run, then rerun; nothing was changed\./);
+    assert.doesNotMatch(err.message, /\bcommit/i);
+    return true;
+  });
 });
 
 test('an apply refuses when a file it would rename has uncommitted changes', (t) => {
   const v = gitVault(t);
   writeFileSync(join(v.root, `${GH}/README.md.md`), `${FILES[`${GH}/README.md.md`]}edited\n`);
-  assert.throws(() => run(['--apply']), /uncommitted changes/);
+  assert.throws(() => run(['--apply']), /unpublished edits/);
   assert.ok(existsSync(join(v.root, `${GH}/README.md.md`)));
 });
 

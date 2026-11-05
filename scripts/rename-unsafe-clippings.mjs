@@ -137,7 +137,7 @@ export function runRenameCli(argv, { type, run }) {
     if (dirty) {
       const blocked = run(vaultPath, { apply: false, exclude }).paths.filter((p) => dirty.has(p));
       if (blocked.length) {
-        throw new Error(`${type}: refusing to apply: ${blocked.length} file(s) it would change have uncommitted changes (another writer may be editing them): ${blocked.slice(0, 10).join(', ')}${blocked.length > 10 ? ', ...' : ''}. Commit or finish those edits first; nothing was changed.`);
+        throw new Error(`${type}: refusing to apply: ${blocked.length} file(s) it would change have unpublished edits (another writer may be editing them): ${blocked.slice(0, 10).join(', ')}${blocked.length > 10 ? ', ...' : ''}. Finish those edits and let Obsidian Git publish them on its next run, then rerun; nothing was changed.`);
       }
     }
   }
