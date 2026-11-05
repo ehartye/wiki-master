@@ -59,8 +59,10 @@ never rewrites an existing settings file.
   The CLI cannot do this, and it exits 0 while answering `Vault not found.`
 - **The vault name reaches a different folder.** The CLI matches a vault by folder name,
   so two vaults can share one. Set `WIKI_MASTER_VAULT_NAME`, or have the owner rename a folder.
-- **Obsidian is in another session.** Run setup from the desktop session, or follow the
-  manual steps there.
+- **Obsidian is in another session.** Over SSH, say, `--apply` cannot reach the app, so
+  rerunning it from there cannot help. On a finished vault it exits 0 and says so, though
+  restricted mode goes unseen. If anything is missing, run it from the desktop session.
+  `--check` confirms what is on disk from any session.
 
 An interrupted `init.mjs` keeps what it created and retries safely; see
 [initialization](initialization.md#preflight-existing-files).

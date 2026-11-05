@@ -27,6 +27,12 @@ function pluginLine({ installed, enabled }) {
   return `Obsidian Git: installed${enabled ? ' and enabled' : ', not enabled'}`;
 }
 
+function isFinished(vaultPath) {
+  const { installed, enabled } = obsidianGitPrerequisite(vaultPath);
+  const { missing, differing } = compareSettings(vaultPath);
+  return installed && enabled && !missing.length && !differing.length;
+}
+
 // Reports the vault as it now stands and returns the exit code: 0 only when the plugin is on and every setting matches.
 function report(vaultPath, { out }) {
   const state = obsidianGitPrerequisite(vaultPath);
@@ -40,7 +46,7 @@ function report(vaultPath, { out }) {
   if (state.settings !== 'absent' && (differing.length || missing.length)) {
     out('  Change these in Obsidian Git\'s settings. Setup never overwrites an existing settings file.');
   }
-  return state.installed && state.enabled && !differing.length && !missing.length ? 0 : 1;
+  return isFinished(vaultPath) ? 0 : 1;
 }
 
 function manualSteps(vaultPath, { out }) {
@@ -52,17 +58,17 @@ function manualSteps(vaultPath, { out }) {
   out(`  Or enable the plugin yourself and set these in its settings: ${settingsList}.`);
 }
 
+// The app cannot be reached from another session, as over SSH, so a rerun from here can never pass. A finished vault
+// has nothing to do, and restricted mode is all that goes unseen; anything else has to be done where the app runs.
+function fromAnotherSession(vaultPath, { out, err }) {
+  const confirm = `${NAME}.mjs --check reports what is on disk from any session.`;
+  if (isFinished(vaultPath)) out(`${NAME}: nothing needed doing. Restricted mode cannot be seen from this session. ${confirm}`);
+  else err(`${NAME}: not finished: Obsidian runs in another session, so this cannot finish from this session. Run --apply from the desktop session, with the vault open there. ${confirm}`);
+  return report(vaultPath, { out });
+}
+
 // Whether the app in this session has this vault open and allows plugins. Returns the reason it cannot go on, or null.
-function blocker(vault, { session, cli }) {
-  let where;
-  try {
-    where = session();
-  } catch (error) {
-    return `could not read the process list to look for Obsidian: ${error.message}`;
-  }
-  // Calling the CLI with no app running could start one.
-  if (where === 'none') return 'Obsidian is not running for this user.';
-  if (where === 'other-session') return 'Obsidian is running in another session, so its command line cannot be reached from here.';
+function blocker(vault, { cli }) {
   try {
     const reported = cli(['vault', 'info=path']);
     // A name reaches the first registered vault with that folder name, which need not be this one.
@@ -163,7 +169,17 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
     delay: hooks.delay ?? ((ms) => new Promise((done) => setTimeout(done, ms))),
     writeSettings: hooks.writeSettings ?? writeRequiredSettings,
   };
-  const stopped = await apply(vault, deps, { out });
+  let where;
+  let stopped = null;
+  try {
+    where = deps.session();
+  } catch (error) {
+    stopped = `could not read the process list to look for Obsidian: ${error.message}`;
+  }
+  if (where === 'other-session') return fromAnotherSession(vault.path, { out, err });
+  // Calling the CLI with no app running could start one.
+  if (where === 'none') stopped = 'Obsidian is not running for this user.';
+  stopped ??= await apply(vault, deps, { out });
   if (stopped) {
     err(`${NAME}: not finished: ${stopped}`);
     manualSteps(vault.path, { out });

@@ -346,9 +346,47 @@ test('--apply: Obsidian not running stops it before any CLI call, which could st
   assert.deepEqual(h.calls, []);
 });
 
-test('--apply: Obsidian in another session stops it before any CLI call', async (t) => {
-  const h = await blockedBeforeInstall(t, { session: () => 'other-session' }, /another session/);
+// Over SSH the app cannot be reached, and a rerun from there can never pass.
+test('--apply from another session on a finished vault exits 0, and says what it could not see', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
+  const h = hooks(vault, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], h), 0, h.text());
   assert.deepEqual(h.calls, []);
+  assert.match(h.text(), /[Nn]othing needed doing/);
+  assert.match(h.text(), /[Rr]estricted mode cannot be seen from this session/);
+  assert.match(h.text(), /--check/);
+  assert.doesNotMatch(h.text(), /not finished|Manual steps/);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+for (const [label, files] of [
+  ['nothing installed', {}],
+  ['a plugin not enabled', { ...INSTALLED, [`${PLUGIN}/data.json`]: MET }],
+  ['a setting that differs', { ...ENABLED, [`${PLUGIN}/data.json`]: JSON.stringify({ ...REQUIRED_SETTINGS, autoSaveInterval: 5 }) }],
+  ['no settings file', ENABLED],
+]) {
+  test(`--apply from another session with ${label} sends it to the desktop session, not to a rerun from here`, async (t) => {
+    const vault = world(t, files);
+    const before = snapshot(vault.path);
+    const h = hooks(vault, { session: () => 'other-session' });
+    assert.equal(await main(['--apply'], h), 1, h.text());
+    assert.deepEqual(h.calls, [], 'no CLI call');
+    assert.match(h.text(), /cannot finish from this session/);
+    assert.match(h.text(), /desktop session/);
+    assert.match(h.text(), /--check/);
+    assert.doesNotMatch(h.text(), /--apply again|once more|Manual steps/);
+    assert.deepEqual(snapshot(vault.path), before);
+  });
+}
+
+test('recovery says what another session can and cannot do', () => {
+  const text = reference('operation-recovery.md');
+  const bullet = text.slice(atOrFail(text, /^- \*\*Obsidian is in another session\.\*\*/m)).split(/\n(?=- |\n)/)[0];
+  assert.match(bullet, /desktop session/);
+  assert.match(bullet, /--check/);
+  assert.match(bullet, /restricted\s+mode/i);
+  assert.doesNotMatch(bullet, /manual\s+steps/i);
 });
 
 test('--apply: a failed process list stops it', async (t) => {
