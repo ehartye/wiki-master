@@ -235,6 +235,8 @@ const IN_TURN = [
   ['autoSaveInterval at 0', TIMER_OFF, {}, /autoSaveInterval is 0/, /Obsidian Git's settings/],
   ['no repository', {}, { git: () => ({ repo: false, upstream: false }) }, /not a git repository/, /owner/],
   ['no upstream', {}, { git: () => ({ repo: true, upstream: false }) }, /no upstream/, /owner/],
+  ['a stopped rebase', {}, { git: () => ({ repo: true, upstream: false, inProgress: 'rebase', detached: true }) }, /rebase is in progress/, /conflict-files-obsidian-git\.md/],
+  ['a detached HEAD', {}, { git: () => ({ repo: true, upstream: false, inProgress: null, detached: true }) }, /detached/i, /owner/],
 ];
 
 for (const [label, files, probes, problem, fix] of IN_TURN) {

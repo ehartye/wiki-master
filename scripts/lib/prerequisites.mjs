@@ -4,7 +4,7 @@
 // Nothing here starts an application or changes a setting, and the Obsidian CLI is called only after a process was
 // found. Asking the CLI first would start the app on some systems.
 import { execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { resolve } from 'node:path';
 import { isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './embed.mjs';
@@ -49,6 +49,9 @@ export function obsidianSession({ platform = process.platform, username = userIn
   return platform === 'win32' ? windowsSession({ username, pid, exec }) : posixSession({ uid, exec });
 }
 
+// What a stopped git operation leaves in the repository's metadata, by the name to report it under.
+const STOPPED = [['rebase', 'rebase-merge'], ['rebase', 'rebase-apply'], ['merge', 'MERGE_HEAD'], ['cherry-pick', 'CHERRY_PICK_HEAD'], ['revert', 'REVERT_HEAD']];
+
 // Read-only. A vault may sit in a subfolder of its repository: Obsidian Git supports that.
 export function gitState(vaultPath, { exec = run } = {}) {
   const revParse = (...args) => exec('git', ['-C', vaultPath, 'rev-parse', ...args]);
@@ -58,11 +61,20 @@ export function gitState(vaultPath, { exec = run } = {}) {
   } catch (error) {
     return { repo: false, upstream: false, detail: reason(error) };
   }
+  // First, because a stopped rebase leaves HEAD detached, and that is not the problem to report.
+  const present = (name) => {
+    try { return existsSync(resolve(vaultPath, revParse('--git-path', name).trim())); } catch { return false; }
+  };
+  const inProgress = STOPPED.find(([, name]) => present(name))?.[0] ?? null;
+  if (inProgress) return { repo: true, upstream: false, inProgress, detached: false };
+  let detached = false;
+  try { detached = revParse('--abbrev-ref', 'HEAD').trim() === 'HEAD'; } catch { /* a branch with no commit yet has no HEAD to name */ }
+  if (detached) return { repo: true, upstream: false, inProgress: null, detached };
   try {
     revParse('--abbrev-ref', '--symbolic-full-name', '@{upstream}');
-    return { repo: true, upstream: true };
+    return { repo: true, upstream: true, inProgress: null, detached };
   } catch (error) {
-    return { repo: true, upstream: false, detail: reason(error) };
+    return { repo: true, upstream: false, inProgress: null, detached, detail: reason(error) };
   }
 }
 
@@ -125,6 +137,8 @@ function checkObsidianGit(vaultPath) {
 function checkGit(vaultPath, { git }) {
   const state = git(vaultPath);
   if (!state.repo) return [failure('git-repository', `The vault is not a git repository${state.detail ? ` (${state.detail})` : ''}.`, 'The owner sets up the repository and its upstream; ask them to.')];
+  if (state.inProgress) return [failure('git-in-progress', `A git ${state.inProgress} is in progress in the vault's repository, so Obsidian Git may be mid-sync.`, 'Rerun shortly, and tell the owner if it stays stopped or conflict-files-obsidian-git.md exists.')];
+  if (state.detached) return [failure('git-detached', 'The vault\'s repository has a detached HEAD, so no branch is checked out.', 'Tell the owner; they put it back on its branch.')];
   if (!state.upstream) return [failure('git-upstream', `The vault's current branch has no upstream${state.detail ? ` (${state.detail})` : ''}.`, 'The owner sets up the upstream; ask them to.')];
   return [];
 }

@@ -171,6 +171,67 @@ test('a vault in a repository subfolder passes every git check, with the real pr
   assert.deepEqual(r.failures, []);
 });
 
+// A repository whose current branch has an upstream and conflicts with `side`.
+function conflicted(t) {
+  const root = mkdtempSync(join(tmpdir(), 'wm-prereq-stop-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  run(root, 'init', '--bare', 'origin.git');
+  run(root, 'clone', 'origin.git', 'work');
+  const work = join(root, 'work');
+  const git = (...args) => run(work, '-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args);
+  const save = (text) => { writeFileSync(join(work, 'f.txt'), text); git('add', 'f.txt'); git('commit', '-m', text); };
+  save('base\n');
+  git('push', '-u', 'origin', 'HEAD');
+  const main = git('rev-parse', '--abbrev-ref', 'HEAD').trim();
+  git('checkout', '-b', 'side');
+  save('side\n');
+  git('checkout', main);
+  save('main\n');
+  const stops = (...args) => assert.throws(() => git(...args), undefined, `git ${args[0]} should stop on the conflict`);
+  return { work, git, stops };
+}
+const shape = ({ repo, upstream, inProgress, detached }) => ({ repo, upstream, inProgress, detached });
+
+test('gitState: a clean branch with an upstream has nothing in progress and is not detached', (t) => {
+  const { work } = conflicted(t);
+  assert.deepEqual(shape(gitState(work)), { repo: true, upstream: true, inProgress: null, detached: false });
+});
+
+test('gitState names a stopped rebase, and does not call its detached HEAD a missing upstream', (t) => {
+  const { work, stops } = conflicted(t);
+  stops('rebase', 'side');
+  assert.equal(gitState(work).inProgress, 'rebase');
+  const inner = join(work, 'sub');
+  mkdirSync(inner);
+  assert.equal(gitState(inner).inProgress, 'rebase', 'also from a vault in a subfolder of the repository');
+});
+
+test('gitState names a stopped merge', (t) => {
+  const { work, stops } = conflicted(t);
+  stops('merge', 'side');
+  assert.equal(gitState(work).inProgress, 'merge');
+});
+
+test('gitState names a stopped cherry-pick', (t) => {
+  const { work, stops } = conflicted(t);
+  stops('cherry-pick', 'side');
+  assert.equal(gitState(work).inProgress, 'cherry-pick');
+});
+
+test('gitState names a detached HEAD', (t) => {
+  const { work, git } = conflicted(t);
+  git('checkout', '--detach');
+  assert.deepEqual(shape(gitState(work)), { repo: true, upstream: false, inProgress: null, detached: true });
+});
+
+test('gitState asks git only through rev-parse', (t) => {
+  const { work } = conflicted(t);
+  const commands = [];
+  gitState(work, { exec: (command, args) => { commands.push([command, args[2]]); return run(work, ...args.slice(2)); } });
+  assert.ok(commands.length > 0);
+  for (const [command, sub] of commands) assert.deepEqual([command, sub], ['git', 'rev-parse']);
+});
+
 // ---- all of them ----
 
 // Healthy probes on a healthy fixture, with one override per test. `cli` records its calls.
@@ -309,6 +370,27 @@ test('no repository and no upstream are reported apart, and the owner sets them 
   const lonely = await world(t, { git: () => ({ repo: true, upstream: false }) }).check();
   assert.deepEqual(ids(lonely), ['git-upstream']);
   assert.match(lonely.failures[0].fix, /owner/);
+});
+
+test('a rebase or merge in progress is its own failure: it may pass, so rerun shortly, and tell the owner if it stays', async (t) => {
+  for (const inProgress of ['rebase', 'merge']) {
+    const r = await world(t, { git: () => ({ repo: true, upstream: false, inProgress, detached: true }) }).check();
+    assert.deepEqual(ids(r), ['git-in-progress']);
+    assert.match(r.failures[0].problem, new RegExp(inProgress));
+    assert.match(r.failures[0].problem, /Obsidian Git may be/);
+    assert.match(r.failures[0].fix, /rerun shortly/i);
+    assert.match(r.failures[0].fix, /tell the owner/i);
+    assert.match(r.failures[0].fix, /conflict-files-obsidian-git\.md/);
+    assert.doesNotMatch(`${r.failures[0].problem} ${r.failures[0].fix}`, /upstream/);
+  }
+});
+
+test('a detached HEAD names itself and does not mention an upstream', async (t) => {
+  const r = await world(t, { git: () => ({ repo: true, upstream: false, inProgress: null, detached: true }) }).check();
+  assert.deepEqual(ids(r), ['git-detached']);
+  assert.match(r.failures[0].problem, /detached/i);
+  assert.match(r.failures[0].fix, /owner/);
+  assert.doesNotMatch(`${r.failures[0].problem} ${r.failures[0].fix}`, /upstream/);
 });
 
 test('with everything failing every failure is named at once, each with a fix to offer', async (t) => {
