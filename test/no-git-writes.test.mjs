@@ -60,6 +60,28 @@ const WRITES = [
   'execFileSync(\'gh\', [\'repo\', \'clone\', name, tmp])',
   'const a = [\'api\', \'repos\', \'--method\', \'POST\']; run(\'gh\', a)',
   'execSync(`gh pr merge ${n}`)',
+  // Only `remote get-url` is a read: every other form can change the repository's remotes, or cannot be read.
+  'execFileSync(\'git\', [\'remote\', \'add\', \'origin\', url])',
+  'execFileSync(\'git\', [\'-C\', dir, \'remote\', \'set-url\', \'origin\', url])',
+  'execFileSync(\'git\', [\'remote\', \'remove\', \'origin\'])',
+  'execFileSync(\'git\', [\'remote\', action, \'origin\'])',
+  'execFileSync(\'git\', [\'remote\'])',
+  'git(dir, \'remote\', \'add\', \'origin\', url)',
+  'execSync(\'git remote add origin x\')',
+  // gh api becomes a POST as soon as it is given a body, without any method flag.
+  'run(\'gh\', [\'api\', route, \'-f\', \'title=x\'])',
+  'run(\'gh\', [\'api\', route, \'-F\', \'n=1\'])',
+  'run(\'gh\', [\'api\', route, \'--field\', \'title=x\'])',
+  'run(\'gh\', [\'api\', route, \'--raw-field\', \'title=x\'])',
+  'run(\'gh\', [\'api\', route, \'--input\', file])',
+  'run(\'gh\', [\'api\', route, \'-ftitle=x\'])',
+  'run(\'gh\', [\'api\', route, \'--field=title=x\'])',
+  'run(\'gh\', [\'api\', route, \'-X\', \'POST\'])',
+  'run(\'gh\', [\'api\', route, \'-XPOST\'])',
+  'run(\'gh\', [\'api\', route, \'--method=POST\'])',
+  'run(\'gh\', [\'api\', route, \'--method\', method])',
+  'run(\'gh\', [\'api\', route, ...more])',
+  'execSync(\'gh api repos/a/b/issues -f title=x\')',
 ];
 
 for (const line of WRITES) {
@@ -84,6 +106,9 @@ const READS = [
   'execFileSync(\'gh\', [\'repo\', \'view\', name, \'--json\', \'description\'])',
   'function r({ run = execFileSync }) { const args = [\'api\', \'--hostname\', \'github.com\', \'--method\', \'GET\', route]; if (jq) args.push(\'--jq\', jq); return run(\'gh\', args, { encoding: \'utf8\' }); }',
   'run(\'gh\', [\'api\', route])',
+  'run(\'gh\', [\'api\', route, \'-X\', \'GET\'])',
+  'run(\'gh\', [\'api\', route, \'-XGET\'])',
+  'run(\'gh\', [\'api\', route, \'--method=GET\'])',
   '// execFileSync(\'git\', [\'commit\'])',
   '/* run(\'git\', [\'push\']) */ const x = 1;',
   'console.log(\'Run `git push` from the vault\');',

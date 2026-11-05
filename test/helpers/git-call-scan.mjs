@@ -9,10 +9,13 @@ import { join } from 'node:path';
 // refused as well as a known write, so a new git call has to be added to a list here on purpose. When the subcommand
 // cannot be read from the source the call is refused too, so the scan fails closed.
 
-const GIT_READS = new Set(['status', 'rev-parse', 'remote', 'ls-files', '--version']);
+const GIT_READS = new Set(['status', 'rev-parse', 'ls-files', '--version']);
 const GIT_WRITES = new Set(['add', 'commit', 'push', 'pull', 'fetch', 'rebase', 'stash', 'reset', 'merge', 'checkout', 'switch', 'rm', 'mv', 'clean', 'restore', 'worktree', 'init', 'clone', 'tag', 'branch']);
 const GIT_OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
 const GH_CLONER = 'scripts/clip-gh.mjs';
+// gh api turns a request into a POST as soon as it has a body, with no method flag in sight.
+const GH_API_BODY = /^(?:-[fF]|--field|--raw-field|--input)(?:=|$)|^-[fF]./;
+const GH_API_JOINED_METHOD = /^(?:--method=|-X=?)(.+)$/;
 
 const PROCESS_APIS = ['execFileSync', 'execFile', 'execSync', 'exec', 'spawnSync', 'spawn', 'serializedExecFileSync'];
 const SHELL_LIKE = ['run', 'sh', 'shell'];
@@ -349,9 +352,27 @@ function judgeGit(argv) {
   if (!sub) return 'git with no subcommand the scan can read';
   if (!sub.literal) return `git subcommand cannot be read from the source (${sub.text})`;
   if (sub.value === 'config') return rest.some((t) => t.literal && t.value === '--get') ? null : 'git config without --get writes';
+  if (sub.value === 'remote') {
+    const action = rest[1];
+    return action?.literal && action.value === 'get-url' ? null : `git remote ${action?.literal ? action.value : `<${action?.text ?? ''}>`} is not on the read-only list: only get-url is`;
+  }
   if (GIT_READS.has(sub.value)) return null;
   if (GIT_WRITES.has(sub.value)) return `git ${sub.value} is a write`;
   return `git ${sub.value} is not on the read-only list`;
+}
+
+function judgeGhApi(argv) {
+  if (argv.some((t) => t.spread)) return 'gh api with arguments the scan cannot read';
+  if (argv.some((t) => t.literal && GH_API_BODY.test(t.value))) return 'gh api with a request body writes';
+  for (let k = 0; k < argv.length; k++) {
+    const t = argv[k];
+    if (!t.literal) continue;
+    const joined = GH_API_JOINED_METHOD.exec(t.value);
+    const method = t.value === '--method' || t.value === '-X' ? argv[k + 1] : joined && literal(joined[1]);
+    if (method === null) continue;
+    if (!method?.literal || method.value.toUpperCase() !== 'GET') return 'gh api with a method other than GET writes';
+  }
+  return null;
 }
 
 function judgeGh(argv, file) {
@@ -359,12 +380,7 @@ function judgeGh(argv, file) {
   if (!first) return 'gh with no subcommand the scan can read';
   if (!first.literal) return `gh subcommand cannot be read from the source (${first.text})`;
   if (first.value === '--version') return null;
-  if (first.value === 'api') {
-    const flag = argv.findIndex((t) => t.literal && (t.value === '--method' || t.value === '-X'));
-    if (flag < 0) return null;
-    const method = argv[flag + 1];
-    return method?.literal && method.value.toUpperCase() === 'GET' ? null : 'gh api with a method other than GET writes';
-  }
+  if (first.value === 'api') return judgeGhApi(argv);
   const pair = `${first.value} ${second?.literal ? second.value : `<${second?.text ?? ''}>`}`;
   if (pair === 'auth status' || pair === 'repo view') return null;
   if (pair === 'repo clone' && file === GH_CLONER) return null;
