@@ -8,6 +8,7 @@ import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib
 import { keptByMention, scopeGraph } from './lib/catalog-scope.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { writtenRecorder } from './lib/op-ledger.mjs';
+import { BEGIN_MARK, END_MARK, writeFence } from './lib/index-fence.mjs';
 
 // index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
 // LLM from writing its index; TheKnowledge's recovery rests on "indexes are
@@ -17,8 +18,7 @@ import { writtenRecorder } from './lib/op-ledger.mjs';
 // regenerations race harmlessly because both derive from the same ground truth
 // and the next run converges. Prose outside the fence is never touched.
 
-export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/index-gen.mjs %%';
-export const END_MARK = '%% END GENERATED CATALOG %%';
+export { BEGIN_MARK, END_MARK };
 
 const SECTIONS = [
   ['synthesis', '## Syntheses'],
@@ -75,16 +75,9 @@ export function regenerateIndex(vaultPath, { graph, apply = true, excluded = [] 
   const catalog = renderCatalog(kept.length ? { ...seen, pages: [...seen.pages, ...kept] } : seen);
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
 
-  let next;
-  const begin = existing.indexOf(BEGIN_MARK);
-  const end = existing.indexOf(END_MARK);
-  if (begin !== -1 && end !== -1 && end > begin) {
-    next = existing.slice(0, begin) + fenced + existing.slice(end + END_MARK.length);
-  } else {
-    // No fence yet: append one, leaving all existing content untouched. The
-    // legacy hand-maintained catalog is pruned by a human/skill, not by us.
-    next = `${existing.trimEnd()}\n\n${fenced}\n`;
-  }
+  // With no fence yet one is appended, leaving all existing content untouched. The
+  // legacy hand-maintained catalog is pruned by a human/skill, not by us.
+  const next = writeFence(existing, fenced);
 
   // `changed` says what an apply would change, so a dry run predicts it; only `apply` writes.
   const changed = next !== existing;

@@ -22,11 +22,11 @@ import { groupByProject, groupByBacklogStatus, unrecognizedBacklogItems, BACKLOG
 import { analyzeBacklog, CLOSED_STATUSES } from './lib/backlog-deps.mjs';
 import { parseNote } from './lib/note.mjs';
 import { keptByMention } from './lib/catalog-scope.mjs';
+import { BEGIN_MARK, END_MARK, writeFence } from './lib/index-fence.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
-export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/backlog-gen.mjs %%';
-export const END_MARK = '%% END GENERATED CATALOG %%';
+export { BEGIN_MARK, END_MARK };
 
 const STATUS_HEADING = {
   'in-progress': '## In progress',
@@ -120,18 +120,7 @@ export function shippedStub(projectTitle, now) {
 function planFenced(path, catalog, projectTitle, now, stub = roadmapStub) {
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
   const previous = existsSync(path) ? readFileSync(path, 'utf8') : null;
-  const existing = previous ?? stub(projectTitle, now);
-  let next;
-  const begin = existing.indexOf(BEGIN_MARK);
-  const end = existing.indexOf(END_MARK);
-  if (begin !== -1 && end !== -1 && end > begin) {
-    next = existing.slice(0, begin) + fenced + existing.slice(end + END_MARK.length);
-  } else {
-    // No fence yet: append one, leaving all existing content untouched — mirrors
-    // index-gen.mjs/moc-authored-gen.mjs exactly (see module comment).
-    next = `${existing.trimEnd()}\n\n${fenced}\n`;
-  }
-  return { previous, next };
+  return { previous, next: writeFence(previous ?? stub(projectTitle, now), fenced) };
 }
 
 // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.

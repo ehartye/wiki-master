@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { repairAmbiguousLinks } from '../scripts/repair-ambiguous-links.mjs';
 import { scanIntegrity } from '../scripts/lib/integrity.mjs';
+import { BEGIN_MARK, END_MARK, LEGACY_BEGIN_MARKS } from '../scripts/lib/index-fence.mjs';
+import { repointBareLinks, hasGeneratedFence } from '../scripts/lib/ambiguous-repair.mjs';
 
 // Two lints in a row repaired ambiguous `[[architecture]]`-style links with a throwaway script. This is the
 // reusable, tested version. On its own it applies one deterministic rule (the page lives in a project's folder
@@ -153,6 +155,39 @@ test('an occurrence inside a generated catalog fence is left for regeneration an
   assert.equal(r.reported[0].class, 'catalog-line');
   assert.match(r.reported[0].reason, /regenerat/i);
   assert.equal(read(root, 'wiki/authored/proj/roadmap.md'), before);
+});
+
+// Every generated fence is masked, whichever script's name its begin line carries, in every kind of catalog.
+for (const begin of [BEGIN_MARK, ...LEGACY_BEGIN_MARKS]) {
+  // A project map is outside every project folder, so only a reviewed mapping can aim a repair at it.
+  for (const [path, options] of [
+    ['wiki/authored/proj/roadmap.md', {}],
+    ['moc/proj.md', { mapping: [{ target: 'architecture', path: 'wiki/authored/proj/architecture.md' }] }],
+  ]) {
+    test(`${path} with the fence "${begin.slice(-30)}" is left for regeneration and reported`, t => {
+      const fence = [begin, '- [[architecture]]', END_MARK].join('\n');
+      const root = vault(t, { ...TWO_ARCH, [path]: page('proj', `# Catalog\n${SUBSTANTIVE}\n${fence}`) });
+      const before = read(root, path);
+      const r = repairAmbiguousLinks(root, { apply: true, ...options });
+      assert.equal(r.fixed, 0);
+      assert.equal(r.reported[0].class, 'catalog-line');
+      assert.equal(read(root, path), before);
+    });
+  }
+}
+
+test('index.md and other catalog text: every fence is masked, and a link in the prose around them is still repointed', () => {
+  const wanted = new Map([['architecture', 'wiki/authored/proj/architecture.md']]);
+  for (const begin of [BEGIN_MARK, ...LEGACY_BEGIN_MARKS]) {
+    const fence = [begin, '- [[architecture]]', END_MARK].join('\n');
+    const text = `---\ntype: synthesis\n---\n# Index\n${fence}\nSee [[architecture]].\n${fence}\n`;
+    assert.equal(hasGeneratedFence(text), true);
+    const r = repointBareLinks(text, wanted);
+    assert.equal(r.count, 1, 'only the link between the fences');
+    assert.equal(r.text, text.replace('See [[architecture]]', 'See [[wiki/authored/proj/architecture.md|architecture]]'));
+  }
+  assert.equal(hasGeneratedFence('# no fence\n- [[architecture]]\n'), false);
+  assert.equal(hasGeneratedFence(`${END_MARK}\n${BEGIN_MARK}\n`), false, 'an end before the begin is not a fence');
 });
 
 test('--exclude leaves pages an application reads alone and says so', t => {

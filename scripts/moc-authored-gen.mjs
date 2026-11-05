@@ -23,11 +23,11 @@ import { catalogArgs, validateProject } from './lib/catalog-options.mjs';
 import { buildGraph, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
 import { groupByProject, groupByKind, OTHER } from './lib/authored-group.mjs';
 import { keptByMention } from './lib/catalog-scope.mjs';
+import { BEGIN_MARK, END_MARK, writeFence } from './lib/index-fence.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
-export const BEGIN_MARK = '%% BEGIN GENERATED CATALOG — edits inside this fence are overwritten; run scripts/moc-authored-gen.mjs %%';
-export const END_MARK = '%% END GENERATED CATALOG %%';
+export { BEGIN_MARK, END_MARK };
 
 // A project with only one page has nothing to navigate BETWEEN -- a MOC would
 // be pure ceremony. Documented, adjustable constant rather than an unexplained
@@ -77,18 +77,7 @@ export function renderProjectCatalog({ pages, ambiguousNames = new Set() }) {
 function planFenced(path, catalog) {
   const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
   const previous = existsSync(path) ? readFileSync(path, 'utf8') : null;
-  const existing = previous ?? `---\ntype: moc\nsources: []\nai-generated: true\n---\n`;
-  let next;
-  const begin = existing.indexOf(BEGIN_MARK);
-  const end = existing.indexOf(END_MARK);
-  if (begin !== -1 && end !== -1 && end > begin) {
-    next = existing.slice(0, begin) + fenced + existing.slice(end + END_MARK.length);
-  } else {
-    // No fence yet: append one, leaving all existing content untouched --
-    // mirrors index-gen.mjs's regenerateIndex exactly (see module comment).
-    next = `${existing.trimEnd()}\n\n${fenced}\n`;
-  }
-  return { previous, next };
+  return { previous, next: writeFence(previous ?? `---\ntype: moc\nsources: []\nai-generated: true\n---\n`, fenced) };
 }
 
 // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
