@@ -4,7 +4,8 @@ Resolve the known vault and absolute helpers through
 [access](../../wiki-maintainer/references/access.md). Read-only reports write no
 log, disposition, catalog or cache. Follow
 [evidence](../../wiki-maintainer/references/evidence.md) when reviewing claims;
-structural checks cannot establish truth.
+structural checks cannot establish truth. For a vault other than the default, name it on
+every command below, as in [name the vault](initialization.md#name-the-vault).
 
 ## Health and ingest backlog
 

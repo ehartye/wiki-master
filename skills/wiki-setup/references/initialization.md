@@ -58,7 +58,7 @@ overwrite mode.
    incomplete files before retrying. Inspect the expected `raw/clippings`, wiki content
    folders, `moc`, `log`, `_templates`, schema, index, bases and `.gitattributes`, and
    confirm prior content bytes are unchanged. Run the direct
-   [health check](checks.md#health-and-ingest-backlog): empty content is expected in a new
+   [health check](checks.md#health-and-ingest-backlog), in the named form: empty content is expected in a new
    vault, so report scan scope instead of claiming factual health. Validate any authored
    pages this task also created using [scoped validation](validation.md), then write one
    log entry, with its body on stdin: `log-entry.mjs --op relink --title "Initialize vault"`, in

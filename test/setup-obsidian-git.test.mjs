@@ -391,6 +391,23 @@ for (const [label, files] of [
   });
 }
 
+// Each of these gives commands by itself, so an agent that lands here without initialization.md still names the vault.
+test('every setup reference that gives commands says how to name a non-default vault', () => {
+  for (const name of readdirSync(join(SKILL_DIR, 'references')).filter((file) => file !== 'initialization.md')) {
+    const text = reference(name);
+    if (!text.includes('<absolute-plugin-root>')) continue;
+    const heading = text.search(/^## /m); // a short reference may have no sections
+    const opening = heading < 0 ? text.split('\n\n').slice(0, 2).join('\n\n') : text.slice(0, heading);
+    assert.match(opening, /\(initialization\.md#name-the-vault\)/, name);
+  }
+});
+
+test('the health check initialization sends an agent to carries the vault', () => {
+  const text = reference('initialization.md');
+  const stepTwo = text.slice(atOrFail(text, /^2\. Run `init\.mjs`/m), atOrFail(text, /^3\. The owner/m));
+  assert.match(stepTwo, /health check\]\(checks\.md#health-and-ingest-backlog\),?\s+in\s+the\s+named\s+form/);
+});
+
 test('recovery says what another session can and cannot do', () => {
   const text = reference('operation-recovery.md');
   const bullet = text.slice(atOrFail(text, /^- \*\*Obsidian is in another session\.\*\*/m)).split(/\n(?=- |\n)/)[0];

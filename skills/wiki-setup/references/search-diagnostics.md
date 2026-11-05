@@ -3,6 +3,8 @@
 This procedure is read-only unless the user explicitly requests a particular
 setup/repair action. Run quoted absolute installed helpers in the known vault.
 Ordinary lookup uses [wiki-search](../../wiki-search/SKILL.md) without this preamble.
+For a vault other than the default, name it on every command below, as in
+[name the vault](initialization.md#name-the-vault).
 
 ## Inspect the result and backend
 

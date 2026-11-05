@@ -3,7 +3,9 @@
 Use [access](../../wiki-maintainer/references/access.md) for the canonical root,
 supported channels and guarded-action policy. The app is needed for app actions;
 filesystem reads, checks and ordinary Markdown edits work from the known vault
-root. Diagnosis does not authorize a content repair or an app mutation.
+root. Diagnosis does not authorize a content repair or an app mutation. For a vault other
+than the default, name it on every command below, as in
+[name the vault](initialization.md#name-the-vault).
 
 ## Resolve the requested app surface
 

@@ -6,6 +6,8 @@ request inspects state only, and every fix below is offered, not applied unasked
 exact failure text; do not redo work that is already on disk.
 
 Read [completion](../../wiki-maintainer/references/operations.md) before any authorized recovery.
+For a vault other than the default, name it on every command below, as in
+[name the vault](initialization.md#name-the-vault).
 
 ## Written but not refreshed
 

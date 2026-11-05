@@ -2,7 +2,8 @@
 
 Before the log entry, check exactly the pages the task wrote:
 `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`,
-with the vault set through [access](../../wiki-maintainer/references/access.md).
+with the vault set through [access](../../wiki-maintainer/references/access.md). For a vault
+other than the default, name it as in [name the vault](initialization.md#name-the-vault).
 This procedure is read-only. A validation-only request makes no edits, logs or catalog
 refreshes. For supplied paths, place the ledger outside the vault.
 
