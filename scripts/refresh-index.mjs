@@ -7,7 +7,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { embed as ollamaEmbed } from './lib/embed.mjs';
 import { refreshCatalogs } from './lib/catalogs.mjs';
-import { refreshIndex, statusReport, progressPrinter } from './lib/embedding.mjs';
+import { probeDimension, refreshIndex, statusReport, progressPrinter } from './lib/embedding.mjs';
 import { checkPrerequisites } from './lib/prerequisites.mjs';
 cliGuard(import.meta.url);
 
@@ -42,10 +42,12 @@ function runCatalogs(vaultPath, { out, err }) {
   out(`${NAME}: catalogs: ${changed.length} file(s) changed`);
 }
 
-async function runEmbedding(vaultPath, rebuild, hooks, { out, err }) {
-  const { embedFn = (text) => ollamaEmbed(text), probes = {} } = hooks;
+const embedderOf = (hooks) => hooks.embedFn ?? ((text) => ollamaEmbed(text));
+
+async function runEmbedding(vaultPath, { rebuild, probedDim }, hooks, { out, err }) {
+  const { probes = {} } = hooks;
   const r = await refreshIndex({
-    vaultPath, dir: dirOf(vaultPath), rebuild, embedFn, onProgress: progressPrinter(err),
+    vaultPath, dir: dirOf(vaultPath), rebuild, probedDim, embedFn: embedderOf(hooks), onProgress: progressPrinter(err),
     checkAvailable: probes.ollamaUp, checkModel: probes.modelPulled, model: probes.model,
   });
   out(`${NAME}: search index: ${r.persisted ? 'saved' : 'nothing to save'} -- ${r.filesChanged} file(s) changed, ` +
@@ -76,6 +78,18 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
     return 1;
   }
 
+  // A rebuild asks the embedder first, so an embedder that cannot answer stops it before anything is written.
+  const rebuild = argv.includes('--rebuild');
+  let probedDim;
+  if (rebuild) {
+    try {
+      probedDim = await probeDimension(embedderOf(hooks));
+    } catch (error) {
+      err(`${NAME}: not rebuilt, and nothing was written: ${error.message}.`);
+      return 1;
+    }
+  }
+
   try {
     runCatalogs(vault.path, io);
   } catch (error) {
@@ -83,9 +97,10 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
     return 1;
   }
   try {
-    return await runEmbedding(vault.path, argv.includes('--rebuild'), hooks, io);
+    return await runEmbedding(vault.path, { rebuild, probedDim }, hooks, io);
   } catch (error) {
-    const next = error.code === 'INDEX_CORRUPT' ? '' : ' Rerun refresh-index.mjs.';
+    // These two errors already say what to do; anything else may pass, and a rerun is the same command again.
+    const next = ['INDEX_CORRUPT', 'INDEX_REBUILD_FAILED'].includes(error.code) ? '' : ` Rerun refresh-index.mjs${rebuild ? ' --rebuild' : ''}.`;
     err(`${NAME}: the catalogs are written, but the search index is not: ${error.message}.${next}`);
     return 1;
   }

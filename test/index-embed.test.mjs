@@ -7,6 +7,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decodeVectors } from '../scripts/lib/vector-index.mjs';
 import { refreshIndex, statusReport, walkVault } from '../scripts/index-embed.mjs';
+import * as embedding from '../scripts/lib/embedding.mjs';
+
+const { DIMENSION_PROBE } = embedding;
 
 // Builds a throwaway vault with the given { relPath: content } map under
 // wiki/, plus whatever else the caller writes directly. Returns the vault
@@ -273,7 +276,7 @@ test('rebuild re-chunks every file but reuses vectors for unchanged chunk conten
   const r = await refreshIndex({ vaultPath: v, dir: dir(v), embedFn: second.embedFn, ...okAvailable, rebuild: true });
 
   assert.equal(r.filesChanged, 1, 'rebuild must re-chunk every file, ignoring the manifest');
-  assert.equal(second.calls.length, 0, 'unchanged chunk content must not be re-embedded');
+  assert.deepEqual(second.calls, [DIMENSION_PROBE], 'unchanged chunk content must not be re-embedded; the one call is the dimension probe');
 });
 
 // ── One bad chunk must not discard the whole run ───────────────────────────

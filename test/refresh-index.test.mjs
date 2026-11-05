@@ -9,6 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { main } from '../scripts/refresh-index.mjs';
 import { LEGACY_BEGIN_MARKS, BEGIN_MARK, END_MARK } from '../scripts/lib/index-fence.mjs';
+import * as embedding from '../scripts/lib/embedding.mjs';
+
+const { DIMENSION_PROBE } = embedding;
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'refresh-index.mjs');
 const page = (project, kind, extra = '') => `---\ntype: authored\ncreated: 2026-01-01\nupdated: 2026-01-01\nstatus: draft\nsources: []\nai-generated: true\nproject: ${project}\nkind: ${kind}\n${extra}---\n# ${project} ${kind}\n\nA paragraph about ${project} and its ${kind}.\n`;
@@ -157,8 +160,73 @@ test('--rebuild re-chunks every page, reuses vectors by chunk hash, and has noth
   await delay(20);
   const r = await run(root, ['--rebuild']);
   assert.equal(r.code, 0);
-  assert.deepEqual(r.embedCalls, []);
+  assert.deepEqual(r.embedCalls, [DIMENSION_PROBE], 'the only embed call is the dimension probe');
   assert.deepEqual(snapshot(root), before);
+});
+
+test('--rebuild with a probe that fails exits 1 and writes nothing, not even the catalogs', async (t) => {
+  const root = vault(t);
+  const before = snapshot(root);
+  let calls = 0;
+  const r = await run(root, ['--rebuild'], { embedFn: async () => { calls++; throw new Error('connection refused'); } });
+  assert.equal(r.code, 1, r.output);
+  assert.equal(calls, 1);
+  assert.match(r.output, /connection refused/);
+  assert.match(r.output, /refresh-index\.mjs --rebuild/);
+  assert.doesNotMatch(r.output, /Rerun refresh-index\.mjs\./);
+  assert.deepEqual(snapshot(root), before);
+});
+
+test('--rebuild that changes the dimension and has a failed chunk exits 1 with the count, and the old store stands', async (t) => {
+  const root = vault(t);
+  await run(root);
+  const files = INDEX_FILES.map((path) => readFileSync(join(root, path)).toString('base64'));
+  let chunk = 0;
+  const r = await run(root, ['--rebuild'], { embedFn: async (text) => {
+    if (text !== DIMENSION_PROBE && ++chunk === 1) throw new Error('too long');
+    return [text.length, 1, 2, 3, 4, 5];
+  } });
+  assert.equal(r.code, 1, r.output);
+  assert.match(r.output, /1 of \d+ chunk\(s\)/);
+  assert.match(r.output, /refresh-index\.mjs --rebuild/);
+  assert.doesNotMatch(r.output, /Rerun refresh-index\.mjs\./, 'a plain rerun would not change the dimension');
+  assert.deepEqual(INDEX_FILES.map((path) => readFileSync(join(root, path)).toString('base64')), files);
+  assert.equal((await run(root)).code, 0, 'the old store still works');
+});
+
+test('--rebuild whose chunks all fail names --rebuild as the next step, not a plain rerun', async (t) => {
+  const root = vault(t);
+  await run(root);
+  const r = await run(root, ['--rebuild'], { embedFn: async (text) => {
+    if (text === DIMENSION_PROBE) return [text.length, 1, 2, 3, 4, 5];
+    throw new Error('backend died');
+  } });
+  assert.equal(r.code, 1);
+  assert.match(r.output, /refresh-index\.mjs --rebuild/);
+  assert.doesNotMatch(r.output, /Rerun refresh-index\.mjs\./);
+});
+
+test('a same-dimension --rebuild whose chunks all fail also names --rebuild, and keeps the catalogs', async (t) => {
+  const root = vault(t);
+  await run(root);
+  const bin = join(root, '.wiki-master', 'vectors.bin');
+  writeFileSync(bin, Buffer.alloc(statSync(bin).size, 0xff));
+  const r = await run(root, ['--rebuild'], { embedFn: async (text) => {
+    if (text === DIMENSION_PROBE) return [1, 2, 3, 4];
+    throw new Error('backend died');
+  } });
+  assert.equal(r.code, 1);
+  assert.match(r.output, /backend died/);
+  assert.match(r.output, /Rerun refresh-index\.mjs --rebuild\./);
+  assert.ok(read(root, 'index.md').includes(BEGIN_MARK));
+});
+
+test('--rebuild asks the probe once, and a plain run never asks it', async (t) => {
+  const root = vault(t);
+  const plain = await run(root);
+  assert.ok(!plain.embedCalls.includes(DIMENSION_PROBE));
+  const rebuilt = await run(root, ['--rebuild']);
+  assert.equal(rebuilt.embedCalls.filter((text) => text === DIMENSION_PROBE).length, 1);
 });
 
 test('--rebuild distrusts modification times: only it notices an edit that kept the size and the time', async (t) => {
@@ -179,8 +247,9 @@ test('--rebuild distrusts modification times: only it notices an edit that kept 
 
   const rebuilt = await run(root, ['--rebuild']);
   assert.equal(rebuilt.code, 0, rebuilt.output);
-  assert.equal(rebuilt.embedCalls.length, 1, 'only the changed chunk is embedded; the rest reuse their vectors');
-  assert.match(rebuilt.embedCalls[0], /A concept PAGE\./);
+  const chunks = rebuilt.embedCalls.filter((text) => text !== DIMENSION_PROBE);
+  assert.equal(chunks.length, 1, 'only the changed chunk is embedded; the rest reuse their vectors');
+  assert.match(chunks[0], /A concept PAGE\./);
   assert.notEqual(hashOf(), original);
   assert.match(rebuilt.output, /search index: saved/);
 });

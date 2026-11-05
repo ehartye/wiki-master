@@ -91,7 +91,7 @@ function inspectVectorStore(dir) {
   }
   const entries = Object.entries(slots);
   if (bin.byteLength > entries.length * dim * 4) {
-    return { vectors: {}, dim: 0, damaged: `${VECTORS_BIN} is longer than ${VECTORS_IDX} accounts for` };
+    return { vectors: {}, dim, damaged: `${VECTORS_BIN} is longer than ${VECTORS_IDX} accounts for` };
   }
   const floats = Math.floor(bin.byteLength / 4);
   const bytes = new Uint8Array(floats * 4);
@@ -125,16 +125,33 @@ function manifestProblem(manifest) {
 }
 
 const damagedIndex = (why) => Object.assign(
-  new Error(`the search index is damaged (${why}). Run refresh-index.mjs --rebuild, which replaces it and reuses the vectors it can still read`),
+  new Error(`the search index is damaged (${why}). Run refresh-index.mjs --rebuild, which replaces it, embedding again whatever it cannot reuse`),
   { code: 'INDEX_CORRUPT' },
 );
+const rebuildFailed = (why) => Object.assign(new Error(why), { code: 'INDEX_REBUILD_FAILED' });
+
+export const DIMENSION_PROBE = 'wiki-master dimension probe';
+
+// What a rebuild holds every vector to: the length of the embedder's answer to one short fixed string. Asking first
+// means no chunk's answer can set the dimension, and a store of the wrong one shows even when no page changed.
+export async function probeDimension(embedFn) {
+  let answer, problem;
+  try {
+    answer = await embedFn(DIMENSION_PROBE);
+    problem = answerProblem(answer);
+  } catch (error) {
+    problem = String(error?.message || error);
+  }
+  if (problem) throw rebuildFailed(`the embedder did not answer the dimension probe (${problem}), so the search index was left as it was. Run refresh-index.mjs --rebuild again once it answers`);
+  return answer.length;
+}
 
 // What a refresh starts from. A rebuild trusts no manifest, so it never parses one, and reuses the vectors that pass
 // inspection, embedding the rest. Any other run stops at damage, before it can shrink or rewrite anything, because
 // repairing it means re-chunking every page, which the caller should ask for.
 function loadIndex(dir, rebuild) {
   const store = inspectVectorStore(dir);
-  if (rebuild) return { manifest: {}, vectors: store.vectors, dim: 0 };
+  if (rebuild) return { manifest: {}, vectors: store.vectors, dim: store.dim };
   let manifest;
   try {
     manifest = readManifestFile(dir);
@@ -222,6 +239,7 @@ export async function refreshIndex({
   checkAvailable = isAvailable,
   checkModel = modelPresent,
   model = EMBED_MODEL,
+  probedDim,
   writeFileImpl = writeFileSync,
   renameImpl = renameSync,
 } = {}) {
@@ -233,13 +251,17 @@ export async function refreshIndex({
   }
 
   const startedAt = Date.now();
-  const { manifest: loadedManifest, vectors, dim: storedDim } = loadIndex(dir, rebuild);
+  const dimension = rebuild ? probedDim ?? await probeDimension(embedFn) : null;
+  const { manifest: loadedManifest, vectors: stored, dim: storedDim } = loadIndex(dir, rebuild);
   // --rebuild discards the MANIFEST (forcing every file through the
-  // "changed" path below, so every file is genuinely re-chunked) but never
-  // discards the vector STORE: an unchanged chunk's content hashes
-  // identically either way, so it still misses re-embedding via
-  // neededHashes. Rebuild buys "distrust the mtime/size shortcut", not
-  // "throw away work that content-hashing already proves is still valid".
+  // "changed" path below, so every file is genuinely re-chunked). It keeps the
+  // vector STORE when the store is at the embedder's dimension: an unchanged
+  // chunk's content hashes identically either way, so its usable vector still
+  // misses re-embedding via neededHashes. Rebuild buys "distrust the mtime/size
+  // shortcut", not "throw away work that is still valid". At another dimension
+  // nothing in the store can be used, so everything is embedded again.
+  const changesDimension = rebuild && storedDim > 0 && storedDim !== dimension;
+  const vectors = changesDimension ? {} : stored;
   const baseManifest = rebuild ? {} : metadataRefreshManifest(loadedManifest);
 
   const files = walkVault(vaultPath);
@@ -311,16 +333,15 @@ export async function refreshIndex({
   // wiki-master takes -- degrade and SAY SO, rather than die (search.mjs falls
   // back to lexical and reports the fact).
   //
-  // The dimension: a plain run holds new vectors to the store's. The embedder disagreeing means the store or the model
-  // changed, and mixing the two would ruin the store, so the run stops below. A rebuild takes the embedder's first
-  // answer, and a stored vector of any other length is embedded again. With nothing to embed the embedder is never
-  // asked, so a store that agrees with itself at the wrong dimension can only surface on the next embedding.
+  // The dimension: a rebuild holds every answer to the probe's length, and an answer of another length is a failed
+  // chunk. A plain run holds new vectors to the store's; the embedder disagreeing means the store or the model changed,
+  // and mixing the two would ruin the store, so the run stops below. A plain run with nothing to embed never asks the
+  // embedder, so a store that agrees with itself at the wrong dimension surfaces only at the next embedding or rebuild.
   let embedded = 0;
-  let total = needed.length;
-  let expectedDim = storedDim || null;
+  let expectedDim = dimension ?? (storedDim || null);
   let disagreed = null;
   const failures = [];
-  const embedOne = async (h) => {
+  await runPool(needed, concurrency, async (h) => {
     try {
       const vec = await embedFn(hashToText.get(h));
       const problem = answerProblem(vec);
@@ -337,18 +358,15 @@ export async function refreshIndex({
       failures.push({ hash: h, chars: text.length, error: String(err && err.message || err) });
       return;
     }
-    onProgress({ phase: 'embed', embedded, total });
-  };
-  await runPool(needed, concurrency, embedOne);
-  if (storedDim && disagreed !== null) {
+    onProgress({ phase: 'embed', embedded, total: needed.length });
+  });
+  if (!rebuild && storedDim && disagreed !== null) {
     throw damagedIndex(`the embedder returns ${disagreed} numbers per vector and the store holds ${storedDim}`);
   }
-  if (rebuild && expectedDim !== null) {
-    const stale = Object.keys(vectors).filter((h) => vectors[h].length !== expectedDim);
-    for (const h of stale) delete vectors[h];
-    const again = stale.filter((h) => hashToText.has(h));
-    total += again.length;
-    await runPool(again, concurrency, embedOne);
+  // A dimension change is all or nothing: a partial store at the new dimension would have thrown away every good vector
+  // at the old one, and plain runs could not finish the job.
+  if (changesDimension && failures.length) {
+    throw rebuildFailed(`${failures.length} of ${needed.length} chunk(s) failed in a rebuild that changes the store's dimension from ${storedDim} to ${dimension}, so nothing was saved and the old store stands (first error: ${failures[0].error}). Run refresh-index.mjs --rebuild again once that is fixed`);
   }
 
   // Tolerating SOME failures must not become silently accepting a dead backend.

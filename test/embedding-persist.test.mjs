@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { refreshIndex, statusReport } from '../scripts/lib/embedding.mjs';
+import * as embedding from '../scripts/lib/embedding.mjs';
 import { EMBED_MODEL } from '../scripts/lib/embed.mjs';
 import { decodeVectors } from '../scripts/lib/vector-index.mjs';
 
@@ -11,6 +11,7 @@ import { decodeVectors } from '../scripts/lib/vector-index.mjs';
 // cause. Vectors are already sorted; the manifest's keys are sorted here. What must still persist is a change of
 // mtime: a touched file with identical content has to reach the manifest once, or it would be re-chunked forever.
 
+const { refreshIndex, statusReport } = embedding;
 const ARTIFACTS = ['chunks.json', 'vectors.bin', 'vectors.idx.json'];
 const OLD = new Date('2020-01-01T00:00:00Z');
 
@@ -376,16 +377,164 @@ test('a rebuild with anything to embed lets the embedder settle a store of anoth
   assertHealthyStore(root, 4);
 });
 
-test('with nothing to embed, a self-consistent store of another dimension is left as it is: only the embedder could tell', async (t) => {
+test('a plain run with nothing to embed asks the embedder nothing, so a self-consistent store of another dimension stays', async (t) => {
   const root = vault(t);
   await refresh(root);
   wrongDimStore(root);
-  const plain = await refresh(root);
+  let calls = 0;
+  const plain = await refresh(root, { embedFn: async (text) => { calls++; return embedFn(text); } });
+  assert.equal(calls, 0, 'a plain no-op run gains no embed call');
   assert.equal(plain.result.chunksEmbedded, 0);
   assert.equal(plain.result.persisted, false);
-  const rebuilt = await refresh(root, { rebuild: true });
-  assert.equal(rebuilt.result.chunksEmbedded, 0);
-  assert.equal(rebuilt.result.persisted, false);
+});
+
+// ---- a rebuild asks the embedder first ----
+
+const counting = (answer) => {
+  const texts = [];
+  return { texts, embedFn: async (text) => { texts.push(text); return answer(text, texts.length); } };
+};
+const isProbe = (text) => text === embedding.DIMENSION_PROBE;
+const asWide = (width) => (text) => Array.from({ length: width }, (_, i) => text.length + i);
+const notProbe = (texts) => texts.filter((text) => !isProbe(text));
+
+test('a rebuild repairs a self-consistent store of another dimension with no edits at all', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  wrongDimStore(root);
+  const run = await refresh(root, { rebuild: true });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assert.equal(run.result.persisted, true);
+  assertHealthyStore(root, 4);
+});
+
+test('a rebuild replaces every vector when the model\'s dimension changed, with no edits at all', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  const wide = counting(asWide(8));
+  const run = await refresh(root, { rebuild: true, embedFn: wide.embedFn });
+  assert.equal(run.result.chunksEmbedded, 3);
+  assert.equal(wide.texts.filter(isProbe).length, 1);
+  assertHealthyStore(root, 8);
+});
+
+test('a rebuild at the store\'s dimension reuses everything: the probe is its only embed call', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  const same = counting(asWide(4));
+  const run = await refresh(root, { rebuild: true, embedFn: same.embedFn });
+  assert.equal(run.result.chunksEmbedded, 0);
+  assert.equal(run.result.persisted, false);
+  assert.deepEqual(same.texts, [embedding.DIMENSION_PROBE]);
+});
+
+for (const [label, answer] of [
+  ['throws', () => { throw new Error('connection refused'); }],
+  ['is empty', () => []],
+  ['holds NaN', () => [NaN, 1, 1, 1]],
+  ['is nothing', () => undefined],
+]) {
+  test(`a probe that ${label} stops the rebuild before the store is touched`, async (t) => {
+    const root = vault(t);
+    await refresh(root);
+    const content = bytes(root);
+    const bad = counting(answer);
+    await assert.rejects(refresh(root, { rebuild: true, embedFn: bad.embedFn }), (error) => {
+      assert.equal(error.code, 'INDEX_REBUILD_FAILED');
+      assert.match(error.message, /refresh-index\.mjs --rebuild/);
+      return true;
+    });
+    assert.equal(bad.texts.length, 1, 'nothing but the probe was asked');
+    assert.deepEqual(bytes(root), content);
+  });
+}
+
+test('a wrong-length first answer in a rebuild is a failed chunk: it is not stored, and the good vectors stay', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  writeFileSync(join(root, 'wiki/concepts/a.md'), '# A\n\nAbout A, edited.\n');
+  const odd = counting((text) => (isProbe(text) ? asWide(4)(text) : [1, 2, 3]));
+  const run = await refresh(root, { rebuild: true, embedFn: odd.embedFn });
+  assert.equal(run.result.chunksFailed, 1);
+  assert.equal(run.result.chunksEmbedded, 0);
+  assert.match(run.result.failures[0].error, /3 numbers where 4/);
+  assertHealthyStore(root, 4);
+  assert.equal(storedVectors(root).vectors.length, 2, 'the two untouched pages keep their vectors');
+});
+
+test('a wrong-length answer among many never redefines the dimension', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  writeFileSync(join(root, 'wiki/concepts/a.md'), '# A\n\nAbout A, edited.\n');
+  writeFileSync(join(root, 'wiki/concepts/b.md'), '# B\n\nAbout B, edited.\n');
+  const mixed = counting((text, call) => (call === 2 ? [1, 2] : asWide(4)(text)));
+  const run = await refresh(root, { rebuild: true, concurrency: 1, embedFn: mixed.embedFn });
+  assert.equal(run.result.chunksFailed, 1);
+  assert.equal(run.result.chunksEmbedded, 1);
+  assertHealthyStore(root, 4);
+});
+
+test('a rebuild that would change the dimension saves all or nothing: one failure leaves the old store as it was', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  const content = bytes(root);
+  let chunk = 0;
+  const flaky = counting((text) => {
+    if (!isProbe(text) && ++chunk === 2) throw new Error('too long');
+    return asWide(8)(text);
+  });
+  await assert.rejects(refresh(root, { rebuild: true, concurrency: 1, embedFn: flaky.embedFn }), (error) => {
+    assert.equal(error.code, 'INDEX_REBUILD_FAILED');
+    assert.match(error.message, /1 of 3 chunk\(s\)/);
+    assert.match(error.message, /from 4 to 8/);
+    assert.match(error.message, /refresh-index\.mjs --rebuild/);
+    assert.match(error.message, /too long/);
+    return true;
+  });
+  assert.deepEqual(bytes(root), content);
+  assertHealthyStore(root, 4);
+
+  const healthy = await refresh(root, { rebuild: true, embedFn: counting(asWide(8)).embedFn });
+  assert.equal(healthy.result.chunksFailed, 0);
+  assertHealthyStore(root, 8);
+});
+
+test('a wrong probe cannot wipe a good store: the answers that follow fail, and nothing is saved', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  const content = bytes(root);
+  const misprobe = counting((text) => (isProbe(text) ? [1, 2, 3] : asWide(4)(text)));
+  await assert.rejects(refresh(root, { rebuild: true, embedFn: misprobe.embedFn }), { code: 'INDEX_REBUILD_FAILED' });
+  assert.deepEqual(bytes(root), content);
+});
+
+test('a same-dimension rebuild keeps today\'s handling of failed chunks: what succeeded is saved, and the count is reported', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  poke(root, 1, NaN);
+  poke(root, 2, NaN);
+  let chunk = 0;
+  const flaky = counting((text) => {
+    if (!isProbe(text) && ++chunk === 1) throw new Error('too long');
+    return asWide(4)(text);
+  });
+  const run = await refresh(root, { rebuild: true, concurrency: 1, embedFn: flaky.embedFn });
+  assert.equal(run.result.chunksFailed, 1);
+  assert.equal(run.result.chunksEmbedded, 1);
+  assert.equal(run.result.persisted, true);
+  assertHealthyStore(root, 4);
+  assert.equal(notProbe(flaky.texts).length, 2);
+});
+
+test('the damage message is true when everything has to be embedded again', async (t) => {
+  const root = vault(t);
+  await refresh(root);
+  writeFileSync(join(dirOf(root), 'vectors.idx.json'), '{ nope');
+  await assert.rejects(refresh(root), (error) => {
+    assert.doesNotMatch(error.message, /reuses the vectors it can still read/);
+    assert.match(error.message, /whatever it cannot reuse/);
+    return true;
+  });
 });
 
 for (const [label, answer] of [
