@@ -49,6 +49,36 @@ test('a new vault gets .gitattributes with the union rules, and says what clears
   assert.equal(existsSync(join(vault, '.git')), false, 'init still creates no repository');
 });
 
+// A timer commits whatever changed, and using the app changes these on every machine.
+const PER_MACHINE = ['.obsidian/workspace.json', '.obsidian/workspace-mobile.json', '.obsidian/app.json', '.obsidian/graph.json', '.obsidian/types.json'];
+
+test('a new vault ignores per-machine Obsidian state, and keeps what the plugin settings need tracked', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
+  assert.equal(runInit(vault, home).status, 0);
+  const lines = readFileSync(join(vault, '.gitignore'), 'utf8').split('\n');
+  for (const entry of ['.wiki-master/', ...PER_MACHINE]) assert.ok(lines.includes(entry), entry);
+  const rules = lines.filter((line) => line && !line.startsWith('#'));
+  assert.deepEqual(rules.sort(), ['.wiki-master/', ...PER_MACHINE].sort(), 'community-plugins.json and data.json have to stay tracked');
+});
+
+test('a vault that already has .gitignore keeps it byte for byte', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
+  const custom = 'mine/\r\n';
+  writeFileSync(join(vault, '.gitignore'), custom);
+  const r = runInit(vault, home);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /preserved: \.gitignore/);
+  assert.equal(readFileSync(join(vault, '.gitignore'), 'utf8'), custom);
+});
+
+test('the skill offers those lines to an existing vault rather than editing its file', () => {
+  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8');
+  for (const entry of PER_MACHINE) assert.ok(text.includes(entry), entry);
+  assert.match(text, /[Oo]ffer to add/);
+});
+
 test('a vault that already has .gitattributes keeps it byte for byte', () => {
   const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
   const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));

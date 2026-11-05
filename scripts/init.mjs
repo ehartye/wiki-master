@@ -7,6 +7,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
+const GITIGNORE = `.wiki-master/
+
+# Per-machine Obsidian state. Using the app changes these, and a timer would keep publishing them.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/app.json
+.obsidian/graph.json
+.obsidian/types.json
+`;
+
 const GITATTRIBUTES = `# Shared files that most tasks change, so two machines often change them at once.
 # merge=union keeps both sides' lines, with no conflict to resolve by hand.
 # refresh-index.mjs regenerates the catalogs, which clears any duplicate lines a union merge leaves in them.
@@ -84,7 +94,7 @@ export function scaffold(vaultPath, templatesDir) {
     '---\ntype: synthesis\n---\n# Index\n\n_Catalog of wiki pages. Maintained by wiki-master._\n'));
   attempt('log.md', () => writeMissing('log.md',
     '# Log\n\nEntries now live one file per operation in the log/ folder. Open **log.base** to browse them.\n'));
-  attempt('.gitignore', () => writeMissing('.gitignore', '.wiki-master/\n'));
+  attempt('.gitignore', () => writeMissing('.gitignore', GITIGNORE));
   attempt('.gitattributes', () => writeMissing('.gitattributes', GITATTRIBUTES));
   for (const path of ['vault-schema.md', 'stale.base', 'log.base', '_templates']) attempt(path, () => copyMissing(path));
   for (const key of ['created', 'preserved', 'differing', 'incomplete']) report[key].sort();

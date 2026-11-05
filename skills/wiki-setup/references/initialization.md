@@ -24,6 +24,11 @@ contents. A differing ordinary file is a successful skip, not an error. An exist
 `vault-schema.md` or `.gitattributes` is kept like any other file, so an older vault's
 schema can still describe the old git policy; report that as a difference, do not rewrite it.
 
+An existing `.gitignore` is kept too. If it does not list the per-machine Obsidian files, Obsidian
+Git's timer keeps committing them as the app changes them, so offer to add these lines, and edit it
+only on a yes: `.obsidian/workspace.json`, `.obsidian/workspace-mobile.json`, `.obsidian/app.json`,
+`.obsidian/graph.json` and `.obsidian/types.json`.
+
 Linked source/destination roots or descendants and file/directory conflicts are
 obstructions. The initializer does not follow or replace them. An I/O failure or
 obstruction exits nonzero and reports blocked paths and any partial creation.
