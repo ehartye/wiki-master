@@ -41,6 +41,40 @@ export function resolveVault(env = process.env, { onRefuse = refuseAndExit } = {
   return { path, name };
 }
 
+// A command in both shells' forms, acting on the vault in `env`, or null for the default vault, which needs no naming.
+// A later command that loses the vault reads the default one, and a refresh writes catalogs there, so neither form can
+// run node after a failed assignment: the PowerShell line is a syntax error in a POSIX shell, and the POSIX line an
+// unknown command in PowerShell. `if` rather than `;` keeps a failing exit visible from `-Command`.
+export function commandForms(script, args = '', env = process.env) {
+  if (!env.WIKI_MASTER_VAULT) return null;
+  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
+  const single = (value) => `'${value.replaceAll("'", "''")}'`;
+  const posix = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  const assignments = keys.map((key) => `$env:${key}=${single(env[key])}`);
+  const condition = assignments.length > 1 ? assignments.map((a) => `(${a})`).join(' -and ') : assignments[0];
+  return {
+    powershell: `if (${condition}) { node ${single(script)}${args} }`,
+    posix: `${keys.map((key) => `${key}=${posix(env[key])}`).join(' ')} node ${posix(script)}${args}`,
+  };
+}
+
+// The lines to show someone for one command: bare for the default vault, otherwise each form labeled.
+export function commandLines(script, args = '', env = process.env) {
+  const forms = commandForms(script, args, env);
+  return forms ? [`PowerShell: ${forms.powershell}`, `POSIX shell: ${forms.posix}`] : [`node "${script}"${args}`];
+}
+
+const samePath = (a, b) => (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
+
+// Whether a vault is only the default one, reached because nothing named another.
+export const isDefaultVault = (path, env = process.env) => !env.WIKI_MASTER_VAULT && samePath(path, join(homedir(), '.wiki-master-vault'));
+
+// The variables a command needs to act on this vault: none for the default one.
+export function vaultEnvFor(path, env = process.env) {
+  if (isDefaultVault(path, env)) return {};
+  return { WIKI_MASTER_VAULT: path, ...(env.WIKI_MASTER_VAULT_NAME ? { WIKI_MASTER_VAULT_NAME: env.WIKI_MASTER_VAULT_NAME } : {}) };
+}
+
 export function buildArgs(name, args) {
   return [`vault=${name}`, ...args];
 }

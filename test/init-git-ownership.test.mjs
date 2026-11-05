@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
-import { commandForms } from '../scripts/init.mjs';
+import { commandForms } from '../scripts/lib/vault.mjs';
 
 const initScript = fileURLToPath(new URL('../scripts/init.mjs', import.meta.url));
 

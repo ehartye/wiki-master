@@ -1,7 +1,7 @@
 import { mkdirSync, lstatSync, readdirSync, readFileSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { extractionAvailable } from './clip.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { commandLines, resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -103,33 +103,8 @@ export function scaffold(vaultPath, templatesDir) {
   return report;
 }
 
-// A command in both shells' forms, acting on the vault this run acted on, or null for the default vault, which needs
-// no naming. A later command that loses the vault reads the default one, and a refresh writes catalogs there, so
-// neither form can run node after a failed assignment: the PowerShell line is a syntax error in a POSIX shell, and the
-// POSIX line an unknown command in PowerShell. `if` rather than `;` keeps a failing exit visible from `-Command`.
-export function commandForms(script, args = '', env = process.env) {
-  if (!env.WIKI_MASTER_VAULT) return null;
-  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
-  const single = (value) => `'${value.replaceAll("'", "''")}'`;
-  const posix = (value) => `'${value.replaceAll("'", "'\\''")}'`;
-  const assignments = keys.map((key) => `$env:${key}=${single(env[key])}`);
-  const condition = assignments.length > 1 ? assignments.map((a) => `(${a})`).join(' -and ') : assignments[0];
-  return {
-    powershell: `if (${condition}) { node ${single(script)}${args} }`,
-    posix: `${keys.map((key) => `${key}=${posix(env[key])}`).join(' ')} node ${posix(script)}${args}`,
-  };
-}
-
-// One printed step's command: bare for the default vault, otherwise each form on its own labeled line.
 function printCommand(script, args) {
-  const file = fileURLToPath(new URL(`./${script}`, import.meta.url));
-  const forms = commandForms(file, args);
-  if (!forms) {
-    console.log(`     node "${file}"${args}`);
-    return;
-  }
-  console.log(`     PowerShell: ${forms.powershell}`);
-  console.log(`     POSIX shell: ${forms.posix}`);
+  for (const line of commandLines(fileURLToPath(new URL(`./${script}`, import.meta.url)), args)) console.log(`     ${line}`);
 }
 
 function printReport(report) {

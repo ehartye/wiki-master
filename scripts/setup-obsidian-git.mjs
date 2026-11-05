@@ -5,8 +5,8 @@
 // The app's CLI exits 0 when it fails, printing "Error: ..." or "Vault not found.", so a step counts as done only when
 // its effect is on disk.
 import { writeFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
-import { resolveVault, obsidian } from './lib/vault.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { commandLines, isDefaultVault, resolveVault, obsidian, vaultEnvFor } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { OBSIDIAN_GIT_ID, REQUIRED_SETTINGS, compareSettings, obsidianGitDataFile, obsidianGitPrerequisite } from './lib/obsidian-git.mjs';
 import { canonical, looksLikePath, obsidianSession } from './lib/prerequisites.mjs';
@@ -36,7 +36,7 @@ function isFinished(vaultPath) {
 function report(vaultPath, { out }) {
   const state = obsidianGitPrerequisite(vaultPath);
   const { met, missing, differing } = compareSettings(vaultPath);
-  out(`${NAME}: ${vaultPath}`);
+  out(`${NAME}: vault checked: ${vaultPath}${isDefaultVault(vaultPath) ? ' (the default vault; set WIKI_MASTER_VAULT to check another)' : ''}`);
   out(`  ${pluginLine(state)}`);
   if (state.settings === 'unreadable') out(`  ${obsidianGitDataFile(vaultPath)} cannot be read, so its settings are unknown.`);
   for (const { key, required } of met) out(`  met: ${key} = ${JSON.stringify(required)}`);
@@ -48,21 +48,33 @@ function report(vaultPath, { out }) {
   return isFinished(vaultPath) ? 0 : 1;
 }
 
-function manualSteps(vaultPath, { out }) {
+// A rerun printed bare reads the default vault, which can be healthy and exit 0: a false all-clear for this one.
+function printRerun(vaultPath, args, { out }) {
+  for (const line of commandLines(fileURLToPath(import.meta.url), args, vaultEnvFor(vaultPath))) out(`     ${line}`);
+}
+
+function manualSteps(vaultPath, io) {
+  const { out } = io;
   out('Manual steps:');
   out(`  1. Open ${vaultPath} as a vault in Obsidian, with its command line interface on (Settings > General > Advanced).`);
   out('  2. Settings > Community plugins: turn off Restricted mode, which every new vault starts with. Any prompt about trusting the vault is the owner\'s to answer.');
   out(`  3. Run ${NAME}.mjs --apply again for this vault: it installs the plugin, writes the settings and enables it.`);
-  out(`  If that still fails, by hand: browse community plugins, find "Git" by Vinzent (${OBSIDIAN_GIT_ID}) and install it without enabling it, then run --apply once more.`);
+  printRerun(vaultPath, ' --apply', io);
+  out(`  If that still fails, by hand: browse community plugins, find "Git" by Vinzent (${OBSIDIAN_GIT_ID}) and install it without enabling it, then run that command once more.`);
   out(`  Or enable the plugin yourself and set these in its settings: ${settingsList}.`);
 }
 
 // The app cannot be reached from another session, as over SSH, so a rerun from here can never pass. A finished vault
 // has nothing to do, and restricted mode is all that goes unseen; anything else has to be done where the app runs.
 function fromAnotherSession(vaultPath, { out, err }) {
-  const confirm = `${NAME}.mjs --check reports what is on disk from any session.`;
-  if (isFinished(vaultPath)) out(`${NAME}: nothing needed doing. Restricted mode cannot be seen from this session. ${confirm}`);
-  else err(`${NAME}: not finished: Obsidian runs in another session, so this cannot finish from this session. Run --apply from the desktop session, with the vault open there. ${confirm}`);
+  if (isFinished(vaultPath)) {
+    out(`${NAME}: nothing needed doing. Restricted mode cannot be seen from this session.`);
+  } else {
+    err(`${NAME}: not finished: Obsidian runs in another session, so this cannot finish from this session. From the desktop session, with the vault open there, run:`);
+    printRerun(vaultPath, ' --apply', { out });
+  }
+  out(`  ${NAME}.mjs --check reports what is on disk from any session:`);
+  printRerun(vaultPath, ' --check', { out });
   return report(vaultPath, { out });
 }
 

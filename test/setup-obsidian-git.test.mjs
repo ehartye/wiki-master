@@ -2,11 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/setup-obsidian-git.mjs';
 import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
+import { commandLines, vaultEnvFor } from '../scripts/lib/vault.mjs';
 
 // Setup installs and configures the one plugin that handles git for the vault. The stubbed app below behaves as the
 // real one was read to behave: its CLI exits 0 and prints "Error: ..." or "Vault not found." on failure, and a plugin's
@@ -406,6 +407,70 @@ test('the health check initialization sends an agent to carries the vault', () =
   const text = reference('initialization.md');
   const stepTwo = text.slice(atOrFail(text, /^2\. Run `init\.mjs`/m), atOrFail(text, /^3\. The owner/m));
   assert.match(stepTwo, /health check\]\(checks\.md#health-and-ingest-backlog\),?\s+in\s+the\s+named\s+form/);
+});
+
+// Run bare, a rerun reads the default vault, which can be healthy, and exits 0: a false all-clear for this vault.
+const assertCarriesVault = (text, vault, args) => {
+  for (const label of ['PowerShell', 'POSIX shell']) {
+    const line = text.split('\n').find((l) => l.trimStart().startsWith(`${label}:`) && l.includes('setup-obsidian-git.mjs') && l.includes(args));
+    assert.ok(line, `no ${label} line for ${args}:\n${text}`);
+    assert.ok(line.includes('WIKI_MASTER_VAULT='), line);
+    assert.ok(line.includes(vault.path), line);
+  }
+};
+
+test('--apply: the rerun advice in the manual steps shows the command carrying this vault', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { 'plugins:restrict': () => 'on' });
+  assert.equal(await main(['--apply'], h), 1);
+  assertCarriesVault(h.text(), vault, '--apply');
+});
+
+test('--apply from another session: both pieces of advice show the command carrying this vault', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], h), 1);
+  assertCarriesVault(h.text(), vault, '--apply');
+  assertCarriesVault(h.text(), vault, '--check');
+  const finished = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const done = hooks(finished, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], done), 0);
+  assertCarriesVault(done.text(), finished, '--check');
+});
+
+test('a command for the default vault is bare, and only a set variable or another folder gets named', () => {
+  const home = join(homedir(), '.wiki-master-vault');
+  assert.deepEqual(vaultEnvFor(home, {}), {});
+  assert.deepEqual(vaultEnvFor('/elsewhere', {}), { WIKI_MASTER_VAULT: '/elsewhere' });
+  assert.deepEqual(vaultEnvFor(home, { WIKI_MASTER_VAULT: home }), { WIKI_MASTER_VAULT: home });
+  assert.deepEqual(vaultEnvFor('/v', { WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' }), { WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' });
+  assert.deepEqual(commandLines('/p/x.mjs', ' --check', {}), ['node "/p/x.mjs" --check']);
+  assert.deepEqual(commandLines('/p/x.mjs', ' --check', { WIKI_MASTER_VAULT: '/v' }), [
+    "PowerShell: if ($env:WIKI_MASTER_VAULT='/v') { node '/p/x.mjs' --check }",
+    "POSIX shell: WIKI_MASTER_VAULT='/v' node '/p/x.mjs' --check",
+  ]);
+});
+
+test('every --check report names the vault it read, and says when that is only the default', (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const named = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault.path } });
+  assert.equal(named.status, 0, named.stderr);
+  assert.ok(named.stdout.includes(`vault checked: ${vault.path}`), named.stdout);
+  assert.doesNotMatch(named.stdout, /the default vault/);
+
+  const home = mkdtempSync(join(tmpdir(), 'wm-setup-home-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const healthy = join(home, '.wiki-master-vault');
+  for (const [file, text] of Object.entries({ ...ENABLED, [`${PLUGIN}/data.json`]: MET })) {
+    mkdirSync(dirname(join(healthy, file)), { recursive: true });
+    writeFileSync(join(healthy, file), text);
+  }
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.WIKI_MASTER_VAULT;
+  const bare = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8', env });
+  assert.equal(bare.status, 0, bare.stderr);
+  assert.ok(bare.stdout.includes(`vault checked: ${healthy}`), bare.stdout);
+  assert.match(bare.stdout, /the default vault; set WIKI_MASTER_VAULT to check another/);
 });
 
 test('recovery says what another session can and cannot do', () => {
