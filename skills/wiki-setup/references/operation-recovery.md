@@ -1,7 +1,6 @@
 # Recover a failed setup or an unfinished refresh
 
-Obsidian Git handles all git operations, so nothing here runs a git command that changes
-the repository. Read-only commands such as `git status` and `git log` are fine. A diagnostic
+Obsidian Git handles all git operations, so nothing here runs a git command. A diagnostic
 request inspects state only, and every fix below is offered, not applied unasked. Keep the
 exact failure text; do not redo work that is already on disk.
 
@@ -98,8 +97,7 @@ Obsidian Git writes this file at the vault root when a rebase stops. With
 on one machine and deleted on another stops the rebase, and the plugin then publishes
 nothing until the conflict is resolved.
 
-Tell the owner that the file exists and what it lists, adding what `git status` and `git log`
-show about each side. Do not edit or delete it, resolve the conflict, or guess at which side
+Tell the owner that the file exists and what it lists. Do not edit or delete it, resolve the conflict, or guess at which side
 wins, even when asked to fix it: that choice is the owner's. They finish it in Obsidian Git's
 source control view or their own git client. Until they do, `refresh-index.mjs` can stop on a
 rebase in progress, so a task with pages waiting is reported as written but not refreshed.

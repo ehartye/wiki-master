@@ -93,7 +93,7 @@ combine selection with `--decline`; record a decline separately.
 `clip-gh.mjs` shells out to the **`gh` CLI** (`gh repo clone owner/repo <tmp>
 -- --depth 1`), so cloning transparently uses the user's existing `gh auth`
 session — private repos the user can already see on the command line work
-with no extra config. It never runs a bare `git clone`, and it never writes
+with no extra config. It never clones any other way, and it never writes
 into the temp clone's own `.git` history.
 
 **"Don't clip the whole repo contents" is enforced by three curated

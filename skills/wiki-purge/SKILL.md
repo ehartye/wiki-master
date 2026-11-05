@@ -17,10 +17,9 @@ removal.
    [completion](../wiki-maintainer/references/operations.md). Resolve the
    intended vault and open applicable instructions. Confirm preview, apply,
    restore or authorized reconciliation scope.
-2. Before mutation, check [actual history connectivity](references/purge.md#check-the-history-first) and retain the
+2. Before mutation, retain the
    [broken-link baseline](../wiki-setup/references/checks.md#purge-broken-link-verification).
-   A missing upstream differs from unrelated histories; never guess a new
-   remote or canonical history. Preview-only requests do not run mutating reconciliation.
+   Preview-only requests do not run mutating reconciliation.
 3. Generate the plan, inspect every seed and search coverage, pin corrected seeds,
    then present layer counts, collateral and blocking pages for one explicit approval,
    stating that Obsidian Git publishes the removal on its next run. Nothing else asks
@@ -72,5 +71,5 @@ Use [maintainer repair](../wiki-maintainer/references/repair.md) for authorized 
 
 A preview has a reviewed, scoped plan and no mutation. An applied or restored
 transaction is verified, collateral is accounted for, and it is refreshed or reported
-as written but not refreshed. Missing files, an unreadable manifest, unrelated
-histories or an incomplete transaction are reported as blockers.
+as written but not refreshed. Missing files, an unreadable manifest or an incomplete
+transaction are reported as blockers.

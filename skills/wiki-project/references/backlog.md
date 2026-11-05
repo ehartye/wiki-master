@@ -10,7 +10,7 @@ Read-only listing writes nothing and needs no refresh. For edits follow [authori
   blocked | dropped`). "Add an item" = create exactly one new small file.
   "Update an item" = edit exactly that one file's `backlog-status:` and body —
   **never append a new dated "Update (date): ..." paragraph on top of the old
-  ones; edit the item's own text in place.** `git log`/`git blame` is the
+  ones; edit the item's own text in place.** The file's history is the
   changelog now, not a stack of callouts inside the body. `<project>/roadmap.md`
   itself becomes a thin, mostly-generated index over `backlog/*.md`
   (`refresh-index.mjs`, the task's last step, regenerates it) —

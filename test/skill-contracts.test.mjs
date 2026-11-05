@@ -398,6 +398,37 @@ test('purge recovery matches what purge.mjs does when it fails', () => {
   assert.match(flat, /only replayed declines[^.]*no refresh/i);
 });
 
+test('purge runs no history check: it cannot do that job on a timer, and a rewrite is the owner\'s to handle', () => {
+  for (const file of purgeFiles) assert.doesNotMatch(read(file), /merge-base|unrelated histor|upstream/i, file);
+  const flat = flatten(read('skills/wiki-purge/references/purge.md'));
+  assert.match(flat, /history rewrite is the owner's decision/i);
+  assert.match(flat, /old history can bring removed files back on its next run/i);
+  assert.match(flat, /If a removed file reappears, tell the owner/);
+});
+
+// No skill tells an agent to run git. A command shows up in a code span, at the start of a line, as in a fence, or after a
+// verb that runs it. Prose about a git repository or git commands names no command, and that is how wiki-setup describes
+// the owner's repository and upstream setup, so there is no exception to carry.
+const GIT_COMMAND = /(?:`|^[ \t]*|\b(?:[Rr]un|[Rr]uns|[Rr]unning|[Uu]se|[Tt]ry|[Ee]xecute)\s+)git(?:\s+-[cC]\s+\S+)*\s+(?!(?:repositor|remote\s+URL|client|command|operation|polic|history|handles)\w*)[a-z][a-z-]*/gm;
+const gitCommands = text => [...text.matchAll(GIT_COMMAND)].map(m => m[0].trim());
+
+test('no skill or reference tells an agent to run a git command', () => {
+  const files = skills.flatMap(name => readdirSync(join(root, 'skills', name), { recursive: true }).map(file => 'skills/' + name + '/' + String(file).replaceAll('\\', '/')))
+    .filter(file => file.endsWith('.md'));
+  assert.ok(files.includes('skills/wiki-setup/references/operation-recovery.md'));
+  const found = files.flatMap(file => gitCommands(read(file)).map(command => file + ': ' + command));
+  assert.deepEqual(found, []);
+});
+
+test('the git command check catches a command in any of its forms and ignores prose about git', () => {
+  for (const text of ['Run `git status` first.', '```sh\ngit -C "<vault>" merge-base HEAD x\n```', 'then run git add .', 'use git blame here']) {
+    assert.equal(gitCommands(text).length, 1, text);
+  }
+  for (const text of ['a git repository', 'git repository and upstream', 'Obsidian Git handles all git operations.', 'work around it with git commands', 'their own git client', '(a git remote URL)']) {
+    assert.deepEqual(gitCommands(text), [], text);
+  }
+});
+
 // Criterion 4: no advice to commit. Only prose and the strings a script holds are scanned. Each allow-list entry is
 // `path | substring | reason`. A path ending in / covers its folder, and a space in a substring matches any whitespace,
 // so a hard wrap does not break an entry. An entry clears only the words inside its substring, never the rest of a line.

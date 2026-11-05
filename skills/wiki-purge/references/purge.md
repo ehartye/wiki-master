@@ -11,23 +11,9 @@ first two in one transaction, and `--reconcile` closes them again on another mac
    un-summarized forever, and the next researcher ingestion faithfully rebuilds the topic
    from evidence nobody removed.
 2. **A source URL nobody declined.** Researcher discovery re-finds and re-clips it.
-3. **A clone on a history the remote has left.** This is the failure that purge cannot
-   detect. A rewrite gives the remote a new lineage; a clone still on the old one keeps
-   every removed file, and when the lineages have **no merge base**, a removal made in
-   either place never reaches the other.
-
-## Check the history first
-
-Before any move, compare this clone with its upstream as last seen:
-
-```sh
-git -C "<vault>" merge-base HEAD '@{upstream}'
-```
-
-Exit 0 means the histories connect. Exit 1 with no output means there is no merge base:
-stop and tell the owner, because choosing a canonical history is not a purge decision. Any
-other failure, such as no upstream, is a distinct condition and not proof of unrelated
-histories; the owner sets up an upstream.
+3. **A machine on an old history.** A history rewrite is the owner's decision. A machine
+   still on the old history can bring removed files back on its next run, and purge cannot
+   detect it. If a removed file reappears, tell the owner.
 
 ## Steps
 
