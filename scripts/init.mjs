@@ -103,14 +103,33 @@ export function scaffold(vaultPath, templatesDir) {
   return report;
 }
 
-// What a printed command needs in front of it to act on the vault this run acted on, in the shell of this platform.
-// Nothing when the vault is the default one, which needs no naming. Without this a later command reads the default
-// vault, and a refresh writes catalogs there.
-export function vaultPrefix(env = process.env, platform = process.platform) {
-  const set = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
-  if (!env.WIKI_MASTER_VAULT) return '';
-  if (platform === 'win32') return set.map((key) => `$env:${key}='${env[key].replaceAll("'", "''")}'; `).join('');
-  return `${set.map((key) => `${key}='${env[key].replaceAll("'", "'\\''")}'`).join(' ')} `;
+// A command in both shells' forms, acting on the vault this run acted on, or null for the default vault, which needs
+// no naming. A later command that loses the vault reads the default one, and a refresh writes catalogs there, so
+// neither form can run node after a failed assignment: the PowerShell line is a syntax error in a POSIX shell, and the
+// POSIX line an unknown command in PowerShell. `if` rather than `;` keeps a failing exit visible from `-Command`.
+export function commandForms(script, args = '', env = process.env) {
+  if (!env.WIKI_MASTER_VAULT) return null;
+  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
+  const single = (value) => `'${value.replaceAll("'", "''")}'`;
+  const posix = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  const assignments = keys.map((key) => `$env:${key}=${single(env[key])}`);
+  const condition = assignments.length > 1 ? assignments.map((a) => `(${a})`).join(' -and ') : assignments[0];
+  return {
+    powershell: `if (${condition}) { node ${single(script)}${args} }`,
+    posix: `${keys.map((key) => `${key}=${posix(env[key])}`).join(' ')} node ${posix(script)}${args}`,
+  };
+}
+
+// One printed step's command: bare for the default vault, otherwise each form on its own labeled line.
+function printCommand(script, args) {
+  const file = fileURLToPath(new URL(`./${script}`, import.meta.url));
+  const forms = commandForms(file, args);
+  if (!forms) {
+    console.log(`     node "${file}"${args}`);
+    return;
+  }
+  console.log(`     PowerShell: ${forms.powershell}`);
+  console.log(`     POSIX shell: ${forms.posix}`);
 }
 
 function printReport(report) {
@@ -133,14 +152,16 @@ export function main() {
   }
   console.log(`Scaffolded vault at: ${path}`);
   console.log(`\nOne-time setup:`);
-  const command = (file) => `${vaultPrefix()}node "${fileURLToPath(new URL(`./${file}`, import.meta.url))}"`;
-  if (vaultPrefix()) console.log(`  Every command below names this vault. Name it the same way on any other command for it.`);
+  if (process.env.WIKI_MASTER_VAULT) console.log(`  Every command below names this vault, in a form for each shell. Use the one for yours, and name the vault the same way on any other command for it.`);
   console.log(`  1. The owner sets up the git repository and upstream for this folder. Init creates neither.`);
   console.log(`  2. In Obsidian: Open folder as vault → ${path}`);
-  console.log(`  3. Verify: ${command('obsidian.mjs')} vaults   (should list "${name}")`);
-  console.log(`  4. Obsidian Git handles all git operations. With the owner's yes: ${command('setup-obsidian-git.mjs')} --apply`);
+  console.log(`  3. Verify (should list "${name}"):`);
+  printCommand('obsidian.mjs', ' vaults');
+  console.log(`  4. Obsidian Git handles all git operations. With the owner's yes:`);
+  printCommand('setup-obsidian-git.mjs', ' --apply');
   console.log(`  5. Import templates/webclipper-template.json into the Web Clipper.`);
-  console.log(`  6. Last: ${command('refresh-index.mjs')}`);
+  console.log(`  6. Last:`);
+  printCommand('refresh-index.mjs', '');
   if (!extractionAvailable()) {
     console.log(`\n  Note: wiki-researcher discovery needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }

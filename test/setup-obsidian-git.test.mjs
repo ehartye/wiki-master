@@ -585,30 +585,35 @@ test('the step that ends a content change does not contradict the declined path'
   assert.match(stepFour, /declined/);
 });
 
-// Scoping the vault to init alone sent every later command to the default vault, where a refresh writes catalogs.
-const NAMED = "WIKI_MASTER_VAULT='<root>' ";
-function assertEveryCommandNamesTheVault(text, where) {
-  const commands = [...text.matchAll(/^.*node "<absolute-plugin-root>\/scripts\/.*$/gm)].map((m) => m[0]);
-  assert.ok(commands.length > 0, `${where}: no commands found`);
-  for (const line of commands) assert.ok(line.includes(`${NAMED}node "<absolute-plugin-root>`), `${where}: ${line}`);
+// Scoping the vault to init alone sent every later command to the default vault, where a refresh writes catalogs. A form
+// for one shell only did the same from the other shell, so each file names both forms once and its steps refer to them.
+const POWERSHELL_FORM = "- PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { node \"<absolute-plugin-root>/scripts/<script>.mjs\" <args> }`";
+const POSIX_FORM = "- POSIX shell: `WIKI_MASTER_VAULT='<root>' node \"<absolute-plugin-root>/scripts/<script>.mjs\" <args>`";
+function assertNamesBothFormsOnce(text, where) {
+  const commands = [...text.matchAll(/^.*node "<absolute-plugin-root>\/scripts\/.*$/gm)].map((m) => m[0].trim());
+  assert.deepEqual(commands, [POWERSHELL_FORM, POSIX_FORM], `${where}: the two forms, once each, and no command written out elsewhere`);
 }
 
-test('every command in initialization names the vault, and no step scopes it to one command', () => {
+test('initialization names the two forms once, and its steps refer to them', () => {
   const text = reference('initialization.md');
-  assertEveryCommandNamesTheVault(text, 'initialization.md');
+  assertNamesBothFormsOnce(text, 'initialization.md');
   assert.doesNotMatch(text, /for that command only/);
   assert.match(text, /every command/i);
-  assert.match(text, /\$env:WIKI_MASTER_VAULT/, 'the PowerShell form');
   assert.match(text, /WIKI_MASTER_VAULT_NAME/);
+  const steps = text.slice(atOrFail(text, /^## Initialize and verify/m));
+  for (const script of ['doctor.mjs', 'init.mjs', 'log-entry.mjs', 'obsidian.mjs', 'refresh-index.mjs', 'setup-obsidian-git.mjs']) {
+    assert.match(steps, new RegExp(`\`${script.replace('.', '\.')}`), script);
+  }
+  assert.match(steps, /named form/);
+  assert.match(text, /^## Name the vault$/m);
 });
 
-test('every command in the skill names the vault, and the flow says it carries through', () => {
-  assertEveryCommandNamesTheVault(body(), 'SKILL.md');
+test('the skill names the two forms once, and its first run refers to them', () => {
+  assertNamesBothFormsOnce(body(), 'SKILL.md');
   const firstRun = body().slice(atOrFail(body(), /^## First run/m), atOrFail(body(), /^## Procedures/m));
-  for (const script of ['init.mjs', 'setup-obsidian-git.mjs', 'refresh-index.mjs']) {
-    assert.match(firstRun, new RegExp(`WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/${script.replace('.', '\\.')}"`), script);
-  }
+  for (const script of ['init.mjs', 'setup-obsidian-git.mjs', 'refresh-index.mjs']) assert.match(firstRun, new RegExp(`\`${script.replace('.', '\.')}`), script);
   assert.match(firstRun, /every command/i);
+  assert.match(firstRun, /named form/);
   const stepOne = body().slice(atOrFail(body(), /^1\. Resolve the vault/m), atOrFail(body(), /^2\. Select/m));
   assert.match(stepOne, /every command/i, 'short names in the procedures rely on this');
 });

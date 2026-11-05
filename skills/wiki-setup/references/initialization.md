@@ -6,11 +6,19 @@ initializing. Resolve the explicit intended root. Never
 initialize a guessed directory or create a Git repository or remote: the owner sets up
 the git repository and upstream. Obsidian Git handles all git operations from there.
 
-For a vault other than the default, every command in this flow names it, as written below.
-A command that loses it acts on the default vault, and a refresh writes catalogs there. In
-PowerShell the form is `$env:WIKI_MASTER_VAULT='<root>'; node ...`. If the app knows the vault by a
-name other than its folder's, set `WIKI_MASTER_VAULT_NAME` the same way on every command. Only
-the default vault can leave these off. `init.mjs` prints its next steps in this form.
+## Name the vault
+
+For a vault other than the default, every command in this flow names it. A command that loses
+it acts on the default vault, and a refresh writes catalogs there. "In the named form" below
+means the form for your shell, with `<script>` and `<args>` filled in:
+
+- PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { node "<absolute-plugin-root>/scripts/<script>.mjs" <args> }`
+- POSIX shell: `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/<script>.mjs" <args>`
+
+Neither runs `node` if pasted into the other shell. Inside the quotes, double an apostrophe in
+PowerShell and write it as `'\''` in a POSIX shell. If the app knows the vault by a name other
+than its folder's, set `WIKI_MASTER_VAULT_NAME` the same way on every command. The default vault
+needs only the `node` part. `init.mjs` prints its next steps in both forms.
 
 ## Preflight existing files
 
@@ -41,37 +49,32 @@ overwrite mode.
 
 1. State the prerequisites before changing anything: Obsidian with its command line
    interface on, Obsidian Git, Ollama with the embedding model, and a git repository
-   with an upstream.
-   `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/doctor.mjs" refresh-index`
-   reports the programs, Ollama with its model, and Obsidian Git's plugin and timer. It does
+   with an upstream. `doctor.mjs refresh-index`, in the named form, reports the programs, Ollama with its model, and Obsidian Git's plugin and timer. It does
    not check the repository, the upstream, a running Obsidian or restricted mode.
    `setup-obsidian-git.mjs --check` adds each required setting, and `refresh-index.mjs --status`
    reports only how fresh the index is. Only `refresh-index.mjs` itself checks the rest, before it
    writes anything. Reading and searching need none of them; authoring needs them all.
-2. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/init.mjs"` and inspect
-   the exit status and path report: a failure is not a completed scaffold. Account for retained new and
+2. Run `init.mjs` in the named form and inspect the exit status and path report: a failure is not a completed scaffold. Account for retained new and
    incomplete files before retrying. Inspect the expected `raw/clippings`, wiki content
    folders, `moc`, `log`, `_templates`, schema, index, bases and `.gitattributes`, and
    confirm prior content bytes are unchanged. Run the direct
    [health check](checks.md#health-and-ingest-backlog): empty content is expected in a new
    vault, so report scan scope instead of claiming factual health. Validate any authored
    pages this task also created using [scoped validation](validation.md), then write one
-   log entry, with its body on stdin:
-   `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/log-entry.mjs" --op relink --title "Initialize vault"`.
+   log entry, with its body on stdin: `log-entry.mjs --op relink --title "Initialize vault"`, in
+   the named form.
 3. The owner sets up the git repository and upstream. This skill does not create either,
    and a vault without them cannot complete a refresh. Ask them to, and wait for the answer.
 4. Have the owner open the vault in Obsidian: "Open folder as vault". The CLI cannot do this
    for a folder Obsidian has not registered. Ask them, at this step, to trust the vault and turn
    off restricted mode under Settings > Community plugins: every new vault starts with
    restricted mode on, and the install in the next step stops until it is off. Verify with
-   `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults`, and use
-   [app access](app-access.md) if that fails. Filesystem health does not prove the native
+   `obsidian.mjs vaults` in the named form, and use [app access](app-access.md) if that fails. Filesystem health does not prove the native
    CLI reaches the app. Relay the optional step of importing
    `templates/webclipper-template.json` into Web Clipper.
 5. Offer to install, enable and configure Obsidian Git, as [below](#install-obsidian-git).
    If the owner declines, follow [the declined path](#if-the-owner-declines) and stop here.
-6. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/refresh-index.mjs"` last.
-   Its first run builds the search index. If it stops, read [written but not refreshed](operation-recovery.md#written-but-not-refreshed).
+6. Run `refresh-index.mjs` in the named form, last. Its first run builds the search index. If it stops, read [written but not refreshed](operation-recovery.md#written-but-not-refreshed).
 
 **Done:** expected files exist, prior content is preserved, one log entry is written, Obsidian
 Git is enabled and the refresh exited 0. Say that the work is on disk and that Obsidian Git
@@ -89,24 +92,17 @@ There is no other mode to fall back to.
 
 ## Install Obsidian Git
 
-`--check` reads files and needs no app, so it cannot see restricted mode, which lives in the
-app. A clean result does not prove the plugin is running:
-
-```sh
-WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --check
-```
+`setup-obsidian-git.mjs --check`, in the named form, reads files and needs no app, so it cannot see
+restricted mode, which lives in the app. A clean result does not prove the plugin is running.
 
 It reports the plugin's state and each required setting as `met`, `missing` or `differs`. It
 exits 0 only when the plugin is enabled and every setting matches. The required settings are
 `autoSaveInterval: 10`, `syncMethod: rebase`, `mergeStrategy: theirs`, `autoPullOnBoot: true`,
 `autoPushInterval: 0` and `autoPullInterval: 0`. Every machine sharing the vault needs them.
 
-Offer `--apply` when something is missing. The owner's yes is the permission, and there is no
-further gate. It needs the vault open in Obsidian in this session:
-
-```sh
-WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --apply
-```
+Offer `setup-obsidian-git.mjs --apply`, in the named form, when something is missing. The owner's
+yes is the permission, and there is no further gate. It needs the vault open in Obsidian in this
+session.
 
 It installs the plugin without enabling it, writes the settings only if the plugin has none,
 then enables it, so the plugin's first load already sees them. Reinstalling is never part of it,

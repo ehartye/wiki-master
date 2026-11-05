@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
-import { vaultPrefix } from '../scripts/init.mjs';
+import { commandForms } from '../scripts/init.mjs';
 
 const initScript = fileURLToPath(new URL('../scripts/init.mjs', import.meta.url));
 
@@ -114,65 +114,100 @@ function decoyHome() {
   return home;
 }
 
-// The printed line run as printed, in the shell it was printed for, with no vault in its environment.
-function runPrinted(line, home) {
+function shellEnv(home) {
   const env = { ...process.env, HOME: home, USERPROFILE: home };
   delete env.WIKI_MASTER_VAULT;
   delete env.WIKI_MASTER_VAULT_NAME;
-  return process.platform === 'win32'
-    ? spawnSync('powershell.exe', ['-NoProfile', '-Command', line], { encoding: 'utf8', env })
-    : spawnSync('sh', ['-c', line], { encoding: 'utf8', env });
+  return env;
 }
 
-const printedLine = (stdout, script) => {
-  const line = stdout.split(/\r?\n/).find((l) => l.includes(script));
-  assert.ok(line, `no printed command for ${script}:\n${stdout}`);
-  return line.slice(line.search(/\$env:|WIKI_MASTER_VAULT=|node "/));
+const runs = (command, args) => spawnSync(command, args, { encoding: 'utf8', timeout: 60000 }).status === 0;
+// A shell counts as present only if it can also reach node: a Windows bash can be a launcher for a system with neither.
+const firstShell = (names, args) => names.find((name) => runs(name, [...args, 'node --version']));
+const SHELLS = {
+  'POSIX shell': { name: firstShell(['bash'], ['-c']), args: ['-c'] },
+  PowerShell: { name: firstShell(['pwsh', 'powershell.exe', 'powershell'], ['-NoProfile', '-Command']), args: ['-NoProfile', '-Command'] },
 };
+const runIn = (shell, line, home) => spawnSync(shell.name, [...shell.args, line], { encoding: 'utf8', env: shellEnv(home), timeout: 60000 });
 
-test('the commands a named init prints act on that vault, run as printed with nothing else set', () => {
-  const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+// The command printed under one label, for one script.
+function printedForm(stdout, label, script) {
+  const line = stdout.split(/\r?\n/).find((l) => l.trimStart().startsWith(`${label}:`) && l.includes(script));
+  assert.ok(line, `no ${label} line for ${script}:\n${stdout}`);
+  return line.trimStart().slice(label.length + 1).trim();
+}
+
+// A vault folder holding what a path can hold, with a healthy default vault as the decoy.
+function namedVaultWorld(t) {
+  const parent = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const vault = join(parent, "it's a vault");
   const home = decoyHome();
+  t.after(() => { rmSync(parent, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); });
   const r = runInit(vault, home);
   assert.equal(r.status, 0, r.stderr);
+  return { vault, home, stdout: r.stdout };
+}
+
+for (const [label, shell] of Object.entries(SHELLS)) {
+  test(`printed for ${label}, run through it as printed: it acts on the named vault, not the default`, { skip: shell.name ? false : `${label} is not on this machine` }, (t) => {
+    const { vault, home, stdout } = namedVaultWorld(t);
+    const check = runIn(shell, printedForm(stdout, label, 'setup-obsidian-git.mjs').replace('--apply', '--check'), home);
+    assert.notEqual(check.status, 0, 'the vault is not set up, and a failure must show in the exit code');
+    assert.ok(check.stdout.includes(vault), `${check.stdout}${check.stderr}`);
+    assert.match(check.stdout, /not installed/);
+    assert.doesNotMatch(check.stdout, /\.wiki-master-vault/);
+    mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+    writeFileSync(join(vault, 'wiki', 'concepts', 'page.md'), '---\ntype: concept\nsources: []\n---\n# Page\n\nA page.\n');
+    const refresh = printedForm(stdout, label, 'refresh-index.mjs');
+    const status = runIn(shell, refresh.replace(/refresh-index\.mjs(["'])/, 'refresh-index.mjs$1 --status'), home);
+    assert.equal(status.status, 0, `${status.stdout}${status.stderr}`);
+    assert.match(status.stdout, /not built/, 'this vault has a page and no index; the decoy has no page and would say current');
+    assert.equal(existsSync(join(home, '.wiki-master-vault', 'index.md')), false, 'the default vault is left alone');
+  });
+}
+
+for (const [label, wrong, shell] of [['PowerShell', 'a POSIX shell', SHELLS['POSIX shell']], ['POSIX shell', 'PowerShell', SHELLS.PowerShell]]) {
+  test(`a ${label} line pasted into ${wrong} never reaches node, so it cannot fall through to the default vault`, { skip: shell.name ? false : `${wrong} is not on this machine` }, (t) => {
+    const { home, stdout } = namedVaultWorld(t);
+    const r = runIn(shell, printedForm(stdout, label, 'setup-obsidian-git.mjs').replace('--apply', '--check'), home);
+    assert.notEqual(r.status, 0);
+    assert.doesNotMatch(r.stdout, /setup-obsidian-git:|met: autoSaveInterval/, `${r.stdout}${r.stderr}`);
+  });
+}
+
+test('init prints both labeled forms on every platform, with nothing bare beside them', (t) => {
+  const { stdout } = namedVaultWorld(t);
   for (const script of ['obsidian.mjs', 'setup-obsidian-git.mjs', 'refresh-index.mjs']) {
-    assert.match(printedLine(r.stdout, script), /WIKI_MASTER_VAULT/, script);
+    assert.match(printedForm(stdout, 'PowerShell', script), /^if \(\$env:WIKI_MASTER_VAULT=/, script);
+    assert.match(printedForm(stdout, 'POSIX shell', script), /^WIKI_MASTER_VAULT=/, script);
   }
-  const check = runPrinted(printedLine(r.stdout, 'setup-obsidian-git.mjs').replace('--apply', '--check'), home);
-  assert.equal(check.status, 1, `${check.stdout}${check.stderr}`);
-  assert.ok(check.stdout.includes(vault), check.stdout);
-  assert.match(check.stdout, /not installed/);
-  const status = runPrinted(`${printedLine(r.stdout, 'refresh-index.mjs')} --status`, home);
-  assert.equal(status.status, 0, status.stderr);
-  assert.match(status.stdout, /not built|stale|current/);
-  assert.equal(existsSync(join(home, '.wiki-master-vault', 'index.md')), false, 'the default vault is left alone');
+  const unlabeled = stdout.split(/\r?\n/).filter((l) => l.includes('node ') && !/^\s*(PowerShell|POSIX shell):/.test(l));
+  assert.deepEqual(unlabeled, []);
 });
 
-test('a vault name set for the app is carried too', () => {
+test('a vault name set for the app is carried in both forms', () => {
   const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
   const r = spawnSync(process.execPath, [initScript], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault, WIKI_MASTER_VAULT_NAME: 'Named Vault', HOME: vault, USERPROFILE: vault } });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(printedLine(r.stdout, 'setup-obsidian-git.mjs'), /WIKI_MASTER_VAULT_NAME/);
+  for (const label of ['PowerShell', 'POSIX shell']) assert.match(printedForm(r.stdout, label, 'setup-obsidian-git.mjs'), /WIKI_MASTER_VAULT_NAME/, label);
   assert.match(r.stdout, /Named Vault/);
 });
 
 test('a command for the default vault stays bare', () => {
   const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
-  const env = { ...process.env, HOME: home, USERPROFILE: home };
-  delete env.WIKI_MASTER_VAULT;
-  delete env.WIKI_MASTER_VAULT_NAME;
-  const r = spawnSync(process.execPath, [initScript], { encoding: 'utf8', env });
+  const r = spawnSync(process.execPath, [initScript], { encoding: 'utf8', env: shellEnv(home) });
   assert.equal(r.status, 0, r.stderr);
-  assert.doesNotMatch(r.stdout, /WIKI_MASTER_VAULT/);
+  assert.doesNotMatch(r.stdout, /WIKI_MASTER_VAULT|PowerShell:|POSIX shell:/);
 });
 
-test('the printed form suits each shell, and quotes what a path can hold', () => {
-  const env = { WIKI_MASTER_VAULT: "/tmp/it's a vault" };
-  assert.equal(vaultPrefix(env, 'linux'), "WIKI_MASTER_VAULT='/tmp/it'\\''s a vault' ");
-  assert.equal(vaultPrefix({ WIKI_MASTER_VAULT: "C:/it's" }, 'win32'), "$env:WIKI_MASTER_VAULT='C:/it''s'; ");
-  assert.equal(vaultPrefix({}, 'linux'), '');
-  assert.equal(vaultPrefix({ WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' }, 'darwin'), "WIKI_MASTER_VAULT='/v' WIKI_MASTER_VAULT_NAME='n' ");
-  assert.equal(vaultPrefix({ WIKI_MASTER_VAULT: 'C:/v', WIKI_MASTER_VAULT_NAME: 'n' }, 'win32'), "$env:WIKI_MASTER_VAULT='C:/v'; $env:WIKI_MASTER_VAULT_NAME='n'; ");
+test('each form quotes spaces and apostrophes for its own shell', () => {
+  const forms = commandForms("/opt/it's plugin/refresh-index.mjs", '', { WIKI_MASTER_VAULT: "/tmp/it's a vault" });
+  assert.equal(forms.posix, String.raw`WIKI_MASTER_VAULT='/tmp/it'\''s a vault' node '/opt/it'\''s plugin/refresh-index.mjs'`);
+  assert.equal(forms.powershell, "if ($env:WIKI_MASTER_VAULT='/tmp/it''s a vault') { node '/opt/it''s plugin/refresh-index.mjs' }");
+  const named = commandForms('/p/x.mjs', ' --apply', { WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' });
+  assert.equal(named.posix, "WIKI_MASTER_VAULT='/v' WIKI_MASTER_VAULT_NAME='n' node '/p/x.mjs' --apply");
+  assert.equal(named.powershell, "if (($env:WIKI_MASTER_VAULT='/v') -and ($env:WIKI_MASTER_VAULT_NAME='n')) { node '/p/x.mjs' --apply }");
+  assert.equal(commandForms('/p/x.mjs', '', {}), null);
 });
 
 test('a vault that already has a schema file keeps it unchanged', () => {
