@@ -405,6 +405,13 @@ test('purge recovery matches what purge.mjs does when it fails', () => {
   assert.match(flat, /only replayed declines[^.]*no refresh/i);
 });
 
+test('purge repairs hand-written references: a generated fence clears itself at the refresh', () => {
+  const steps = flatten(read('skills/wiki-purge/references/purge.md').split(/^## Steps$/m)[1].split(/^## /m)[0]);
+  assert.match(steps, /hand-written/);
+  assert.match(steps, /generated fence[^.]*clears itself at the refresh/i);
+  assert.match(flatten(read(entry('wiki-purge'))), /generated fence[^.]*clears itself at the refresh/i);
+});
+
 test('purge runs no history check: it cannot do that job on a timer, and a rewrite is the owner\'s to handle', () => {
   for (const file of purgeFiles) assert.doesNotMatch(read(file), /merge-base|unrelated histor|upstream/i, file);
   const flat = flatten(read('skills/wiki-purge/references/purge.md'));

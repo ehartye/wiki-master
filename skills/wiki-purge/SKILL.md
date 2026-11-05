@@ -26,7 +26,8 @@ removal.
    later. Resolve blocking dependencies before applying. A relevance score is not consent.
 4. Apply only the approved plan with the same pinned seeds. The helper owns
    manifest, moves, declines and log, so write no second entry. Repair authorized
-   collateral and [validate changed paths](../wiki-setup/references/validation.md).
+   collateral in hand-written text and [validate changed paths](../wiki-setup/references/validation.md);
+   a generated fence clears itself at the refresh.
    If interrupted, follow [recovery](../wiki-setup/references/operation-recovery.md#interrupted-purge)
    for the same transaction instead of applying another plan.
 5. Run `refresh-index.mjs` once, as [completion](../wiki-maintainer/references/operations.md)

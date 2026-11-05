@@ -56,7 +56,9 @@ first two in one transaction, and `--reconcile` closes them again on another mac
    Writes the manifest first, moves the files, records declines and writes the log entry,
    which lists the COLLATERAL pages. An empty closure writes nothing. A file it could not
    move exits 1: see [when a purge stops partway](#when-a-purge-stops-partway). Then repair
-   references on every COLLATERAL page and [validate the changed paths](../../wiki-setup/references/validation.md).
+   references in the hand-written text of the COLLATERAL pages and
+   [validate the changed paths](../../wiki-setup/references/validation.md). A generated fence,
+   such as a project map's list, clears itself at the refresh in step 5.
 
 5. **Refresh.** `node "<absolute-plugin-root>/scripts/refresh-index.mjs"`, once, as
    [completion](../../wiki-maintainer/references/operations.md) describes. It drops the
