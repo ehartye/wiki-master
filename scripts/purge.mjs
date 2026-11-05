@@ -9,7 +9,6 @@ import { resolveVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
-import { commitPaths, isGitRepo } from './lib/git.mjs';
 import { main as searchMain } from './search.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -99,8 +98,8 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
     // place: mkdirSync runs first, so a failure here is never a half-made
     // destination directory. Isolating the failure per entry is what turns
     // "one locked file in a 100-file purge" into a reportable retry instead of
-    // an uncaught throw that aborts the whole batch mid-loop, uncommitted —
-    // the exact stranded state this feature exists to prevent.
+    // an uncaught throw that aborts the whole batch mid-loop — the exact
+    // stranded state this feature exists to prevent.
     try {
       moveInto(vaultPath, e.from, to);
     } catch (err) {
@@ -374,7 +373,8 @@ export async function main(argv, {
       body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
             pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
             pathList('Skipped, newer work sits at the path:', r.skipped) +
-            pathList('Missing from the bin, not restored:', r.missing),
+            pathList('Missing from the bin, not restored:', r.missing) +
+            (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
     });
     if (r.restored) {
       console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
@@ -390,11 +390,10 @@ export async function main(argv, {
     for (const u of unreadable) console.error(`purge: UNREADABLE manifest ${u} — its files will never re-bin and its declines will never replay`);
     const pages = buildGraph(vaultPath).pages;
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
-    // reconcile IS the recovery path a stalled --apply is told to run, so its
-    // moves must land in a commit like any other — collect what every
-    // applyPurge call actually touched, the same way --apply does.
-    const touched = [];
-    const ids = new Set();
+    // reconcile IS the recovery path a stalled --apply is told to run, so a file
+    // that still will not move has to say so rather than read as re-binned.
+    const moved = [];
+    const failed = [];
     for (const r of plan.rebin) {
       // Only a HASH match needs forcing: a re-clip has a new filename, so it
       // never collides and would otherwise land at the bin's top level as though
@@ -404,23 +403,33 @@ export async function main(argv, {
       // FREE slot is recovery after a purge crashed partway.
       const res = applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
                               { asResurrection: r.reason === 'source-hash' });
-      touched.push(...res.touched);
-      ids.add(r.id);
-      console.log(`re-binned ${r.from} (matched by ${r.reason})`);
+      moved.push(...movePairs(res.touched));
+      failed.push(...res.failed);
+      if (res.moved) console.log(`re-binned ${r.from} (matched by ${r.reason})`);
     }
     for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
-    console.log(`reconcile: ${plan.rebin.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`);
-    if (touched.length && isGitRepo(vaultPath)) {
-      // The crash reconcile recovers from is "writeManifest ran but the
-      // process died before ever committing" — so manifest.json is exactly
-      // as uncommitted as the files it describes. Stage it alongside the
-      // moves for every id touched, or a "successful" reconcile still leaves
-      // it stray on disk, untracked. Harmless to include when it was already
-      // committed by a prior, unrelated purge: git stages no-op unchanged.
-      const manifestPaths = [...ids].map((id) => `${BIN_DIR}/${id}/manifest.json`);
-      const paths = [...new Set([...touched, ...manifestPaths])];
-      const c = commitPaths(vaultPath, paths, `purge: reconcile re-binned ${plan.rebin.length} file(s)`);
-      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    const counts = `${moved.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`;
+    console.log(`reconcile: ${counts}${failed.length ? `, ${failed.length} could not be moved` : ''}`);
+    if (failed.length) {
+      for (const x of failed) console.error(`purge: could not re-bin ${x.from} — ${x.reason}`);
+      console.error('Close whatever holds them open, then run --reconcile again.');
+      process.exitCode = 1;
+    }
+    // A reconcile that changed nothing leaves no trace: it runs on any machine at
+    // any time, and most runs find the vault already in agreement.
+    if (!moved.length && !plan.replayDeclines.length) return;
+    writeLogEntry({
+      vaultPath, op: 'reconcile', title: counts,
+      body: `Reconcile: ${counts}.\n` +
+            (moved.length ? `\nRe-binned:\n${moved.map((m) => `- \`${m.from}\` to \`${m.to}\``).join('\n')}\n` : '') +
+            pathList('Could not be moved:', failed.map((x) => x.from)) +
+            pathList('Declines replayed:', plan.replayDeclines),
+    });
+    if (moved.length) {
+      console.log('\nThe re-binned files are on disk. Obsidian Git publishes them on its next run.');
+      console.log('NEXT: run node scripts/refresh-index.mjs');
+    } else {
+      console.log('\nThe replayed declines stay on this machine. Obsidian Git publishes the log entry on its next run.');
     }
     return;
   }

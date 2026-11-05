@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { planReconcile } from '../scripts/lib/purge.mjs';
+import { loadDeclines } from '../scripts/lib/decline.mjs';
 
 const manifest = {
   id: '2026-08-08-topic',
@@ -241,4 +247,169 @@ test('a source-hash match is case-insensitive against the manifest entry', () =>
   const page = { path: 'raw/clippings/Src-newname.md', name: 'src-newname', sourceHash: 'abc1234deadbeef' };
   const r = planReconcile({ manifests: [caseManifest], pages: [page], declines: [] });
   assert.deepEqual(r.rebin, [{ id: '2026-08-08-case', from: page.path, reason: 'source-hash' }]);
+});
+
+// ---- purge.mjs --reconcile, run as the command it is ----
+//
+// AC11: a reconcile that changes something leaves one log entry and no new commit,
+// and one that changes nothing writes no log.
+
+const PURGE = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'purge.mjs');
+const ID = '2026-01-02-crash';
+
+function repository(t) {
+  const v = mkdtempSync(join(tmpdir(), 'wm-reconcile-'));
+  t.after(() => rmSync(v, { recursive: true, force: true }));
+  mkdirSync(join(v, 'wiki', 'concepts'), { recursive: true });
+  mkdirSync(join(v, 'raw', 'clippings'), { recursive: true });
+  writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), '---\ntype: concept\n---\n# Foo\n\nbody\n');
+  writeFileSync(join(v, 'index.md'), '# Index\n');
+  const git = (...args) => execFileSync('git', args, { cwd: v, encoding: 'utf8' });
+  git('init', '-q');
+  git('config', 'core.autocrlf', 'false');
+  git('config', 'user.email', 'test@example.com');
+  git('config', 'user.name', 'Test');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'initial');
+  const state = () => ({
+    head: git('rev-parse', 'HEAD').trim(),
+    index: git('ls-files', '--stage'),
+    staged: git('diff', '--cached', '--name-status'),
+  });
+  return { v, state };
+}
+
+function manifestOn(v, { entries = [], declines = [] }) {
+  mkdirSync(join(v, '.recycle', ID), { recursive: true });
+  writeFileSync(join(v, '.recycle', ID, 'manifest.json'),
+    JSON.stringify({ id: ID, topic: 'crash', date: '2026-01-02', entries, declines }));
+}
+
+function reconcile(v) {
+  const r = spawnSync(process.execPath, [PURGE, '--reconcile'], {
+    env: { ...process.env, WIKI_MASTER_VAULT: v }, encoding: 'utf8', timeout: 60000,
+  });
+  return { ...r, lines: r.stdout.split(/\r?\n/).filter(Boolean) };
+}
+
+function logEntries(v) {
+  return existsSync(join(v, 'log')) ? readdirSync(join(v, 'log')).sort() : [];
+}
+
+test('a reconcile that re-bins a file leaves one log entry and no new commit', (t) => {
+  const { v, state } = repository(t);
+  manifestOn(v, { entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }] });
+  const before = state();
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(existsSync(join(v, '.recycle', ID, 'wiki', 'concepts', 'Foo.md')), true, 'the file was re-binned');
+  assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false);
+  assert.deepEqual(state(), before);
+  const entries = logEntries(v);
+  assert.equal(entries.length, 1);
+  assert.match(entries[0], /-reconcile-/);
+  assert.ok(readFileSync(join(v, 'log', entries[0]), 'utf8')
+    .includes(`- \`wiki/concepts/Foo.md\` to \`.recycle/${ID}/wiki/concepts/Foo.md\``));
+  assert.doesNotMatch(r.stdout, /\bcommit|git push/i);
+  assert.ok(r.lines.includes('reconcile: 1 re-binned, 0 decline(s) replayed'), r.stdout);
+  assert.ok(r.lines.includes('The re-binned files are on disk. Obsidian Git publishes them on its next run.'), r.stdout);
+  assert.equal(r.lines.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+});
+
+test('the reconcile log names where a hash-matched re-clip actually landed', (t) => {
+  const { v } = repository(t);
+  writeFileSync(join(v, 'raw', 'clippings', 'Src-new0000.md'),
+    '---\ntitle: "Src"\nsource-hash: abc1234deadbeef\n---\ntext\n');
+  manifestOn(v, { entries: [{ layer: 'raw', from: 'raw/clippings/Src-old0000.md', sha256: 'x', 'source-hash': 'abc1234deadbeef' }] });
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 0, r.stderr);
+  const [entry] = logEntries(v);
+  assert.ok(readFileSync(join(v, 'log', entry), 'utf8')
+    .includes(`- \`raw/clippings/Src-new0000.md\` to \`.recycle/${ID}/resurrected-1/raw/clippings/Src-new0000.md\``));
+});
+
+// declined.json does not sync, so only the log entry has anything to publish, and
+// no page moved, so there is nothing to refresh.
+test('a reconcile that only replays declines logs it, and asks for no refresh', (t) => {
+  const { v, state } = repository(t);
+  manifestOn(v, { declines: ['https://example.com/a'] });
+  const before = state();
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), 'the decline was replayed');
+  assert.deepEqual(state(), before);
+  const entries = logEntries(v);
+  assert.equal(entries.length, 1);
+  assert.match(readFileSync(join(v, 'log', entries[0]), 'utf8'), /- `https:\/\/example\.com\/a`/);
+  assert.equal(r.lines.at(-1), 'The replayed declines stay on this machine. Obsidian Git publishes the log entry on its next run.');
+  assert.doesNotMatch(r.stdout, /refresh-index/);
+});
+
+test('a no-op reconcile writes no log and says only that nothing happened', (t) => {
+  const { v, state } = repository(t);
+  manifestOn(v, { entries: [{ layer: 'wiki', from: 'wiki/concepts/Gone.md', sha256: 'x' }] });
+  const before = state();
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(logEntries(v), []);
+  assert.deepEqual(state(), before);
+  assert.deepEqual(r.lines, ['reconcile: 0 re-binned, 0 decline(s) replayed']);
+});
+
+test('reconcile converges: the second run writes no second log', (t) => {
+  const { v } = repository(t);
+  manifestOn(v, { entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }], declines: ['https://example.com/a'] });
+
+  assert.equal(reconcile(v).status, 0);
+  const afterFirst = logEntries(v);
+  assert.equal(afterFirst.length, 1);
+  assert.equal(reconcile(v).status, 0);
+  assert.deepEqual(logEntries(v), afterFirst);
+});
+
+// The stalled --apply is told to run this, so a file still locked has to say so:
+// it must not read as re-binned, or be logged as a change that never happened.
+test('a re-bin that fails is reported, not logged, and exits 1', (t) => {
+  const { v, state } = repository(t);
+  manifestOn(v, { entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }] });
+  // A file where the bin's wiki/ folder belongs makes the move fail deterministically.
+  writeFileSync(join(v, '.recycle', ID, 'wiki'), 'blocking file, not a directory\n');
+  const before = state();
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 1);
+  assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true, 'the file stayed put');
+  assert.match(r.stderr, /could not re-bin wiki\/concepts\/Foo\.md/);
+  assert.match(r.stderr, /run --reconcile again/);
+  assert.deepEqual(r.lines, ['reconcile: 0 re-binned, 0 decline(s) replayed, 1 could not be moved']);
+  assert.deepEqual(logEntries(v), []);
+  assert.deepEqual(state(), before);
+});
+
+test('a partly failed reconcile logs what moved and what did not, and still exits 1', (t) => {
+  const { v } = repository(t);
+  writeFileSync(join(v, 'raw', 'clippings', 'Src-abc1234.md'), '---\ntitle: "Src"\n---\ntext\n');
+  manifestOn(v, { entries: [
+    { layer: 'raw', from: 'raw/clippings/Src-abc1234.md', sha256: 'x' },
+    { layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'y' },
+  ] });
+  writeFileSync(join(v, '.recycle', ID, 'wiki'), 'blocking file, not a directory\n');
+
+  const r = reconcile(v);
+
+  assert.equal(r.status, 1);
+  const entries = logEntries(v);
+  assert.equal(entries.length, 1);
+  const entry = readFileSync(join(v, 'log', entries[0]), 'utf8');
+  assert.ok(entry.includes(`- \`raw/clippings/Src-abc1234.md\` to \`.recycle/${ID}/raw/clippings/Src-abc1234.md\``), entry);
+  assert.match(entry, /Could not be moved:\n- `wiki\/concepts\/Foo\.md`/);
 });

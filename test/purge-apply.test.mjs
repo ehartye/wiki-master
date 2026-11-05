@@ -713,34 +713,6 @@ test('re-running --apply after the topic is already purged writes no second mani
   }
 });
 
-// C2: --reconcile is the recovery path a stalled --apply is told to run in
-// place of a second --apply. It must actually commit what it re-bins, or
-// running it leaves the exact working-tree-only state this whole feature
-// exists to prevent -- just reached via the "fix" instead of the crash.
-test('reconcile commits what it re-bins, leaving a clean working tree', async () => {
-  const v = tempVault();
-  try {
-    gitInit(v);
-    commitAll(v, 'initial');
-    const manifest = {
-      id: '2026-01-02-crash', topic: 'crash', declines: [],
-      entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }],
-    };
-    writeManifest(v, manifest); // simulates a crash right after the manifest was written
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-
-    const r = await runMain(v, ['--reconcile']);
-
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.notEqual(after, before, 'reconcile must produce a commit');
-    assert.ok(r.logs.some((l) => l.startsWith('committed ')));
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
-    assert.equal(status.trim(), '', 'the tree must be clean -- nothing left uncommitted by reconcile');
-  } finally {
-    rmSync(v, { recursive: true, force: true });
-  }
-});
-
 // I1: an aborted apply (a move failed) must not still
 // record a decline or write a log entry -- both describe a move that, for a
 // failed entry, never actually happened. A decline recorded anyway silently
@@ -835,6 +807,7 @@ test('--restore leaves one log entry and no new commit, and says what is on disk
     const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
     assert.match(entry, /Restored 2 file\(s\) from `\.recycle\//);
     assert.ok(entry.includes('`wiki/concepts/Foo.md`'), entry);
+    assert.match(entry, /Cleared 1 decline\(s\) this purge recorded\./);
     const output = r.logs.join('\n');
     assert.doesNotMatch(output, /\bcommit|git push/i);
     assert.match(output, /The restored files are on disk\. Obsidian Git publishes them on its next run\./);
@@ -1179,6 +1152,52 @@ test('--apply puts reference repair on the collateral pages before the refresh',
     assert.equal(r.logs.at(-1), 'NEXT: repair references on the collateral pages, then run node scripts/refresh-index.mjs');
   } finally {
     rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Purge has no git branch left to take, so a vault without a repository gets the
+// same moves, manifests, log entries and output as one with a repository. Dates
+// are masked only because the two runs could straddle midnight.
+test('a vault that is not a git repository works the same through apply, restore and reconcile', async () => {
+  const mask = (text) => text.replace(/\d{4}-\d{2}-\d{2}(-\d{6})?/g, 'DATE');
+  const tree = (dir) => Object.fromEntries(
+    readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((e) => e.isFile())
+      .map((e) => join(e.parentPath, e.name).slice(dir.length + 1).replaceAll('\\', '/'))
+      .filter((p) => !p.startsWith('.git/'))
+      .sort()
+      .map((p) => [mask(p), mask(readFileSync(join(dir, p), 'utf8'))])
+  );
+  const run = async (v) => {
+    const outputs = [];
+    const step = async (argv) => {
+      const r = await runMain(v, argv);
+      outputs.push({ argv: argv.map(mask), logs: r.logs.map(mask), errs: r.errs.map(mask), exitCode: r.exitCode });
+    };
+    await step(['--apply', 'Foo', '--seeds', 'wiki/concepts/Foo.md']);
+    await step(['--reconcile']);                                  // nothing to do
+    const { id } = readManifests(v).manifests[0];
+    await step(['--restore', id]);
+    await step(['--reconcile']);                                  // re-bins what came back
+    return { outputs, tree: tree(v) };
+  };
+
+  const withRepo = tempVault();
+  const withoutRepo = tempVault();
+  try {
+    gitInit(withRepo);
+    commitAll(withRepo, 'initial');
+    const expected = await run(withRepo);
+    const actual = await run(withoutRepo);
+
+    assert.deepEqual(actual, expected);
+    assert.equal(existsSync(join(withoutRepo, '.git')), false, 'purge must not create a repository');
+    assert.ok(existsSync(join(withoutRepo, '.recycle')), 'sanity: the purge ran');
+    assert.equal(logEntries(withoutRepo).length, 3, 'apply, restore and the reconcile that changed something');
+    assert.doesNotMatch(JSON.stringify(actual.outputs), /not a git repository|\bcommit/i);
+  } finally {
+    rmSync(withRepo, { recursive: true, force: true });
+    rmSync(withoutRepo, { recursive: true, force: true });
   }
 });
 
