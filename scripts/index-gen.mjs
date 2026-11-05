@@ -1,94 +1,15 @@
-import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+// A thin command over lib/catalogs.mjs, kept until a later change removes it.
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './lib/graph.mjs';
-import { keptByMention, scopeGraph } from './lib/catalog-scope.mjs';
+import { buildGraph } from './lib/graph.mjs';
+import { scopeGraph } from './lib/catalog-scope.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { writtenRecorder } from './lib/op-ledger.mjs';
-import { BEGIN_MARK, END_MARK, writeFence } from './lib/index-fence.mjs';
+import { regenerateIndex } from './lib/catalogs.mjs';
 
-// index.md is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the
-// LLM from writing its index; TheKnowledge's recovery rests on "indexes are
-// derived"; Waypoint/packed-refs regenerate rather than merge): a catalog that
-// is a pure function of the pages must never be read-modify-written. Regenerate
-// the fenced region in full and commit by atomic rename — concurrent
-// regenerations race harmlessly because both derive from the same ground truth
-// and the next run converges. Prose outside the fence is never touched.
-
-export { BEGIN_MARK, END_MARK };
-
-const SECTIONS = [
-  ['synthesis', '## Syntheses'],
-  ['authored', '## Authored'],
-  ['moc', '## Maps of Content'],
-  ['concept', '## Concepts'],
-  ['source', '## Sources'],
-  ['entity', '## Entities'],
-];
-
-function link(p, ambiguousNames) {
-  return `- [[${wikilinkTarget(p, ambiguousNames)}]]${p.status === 'stub' ? ' (stub)' : ''}`;
-}
-
-export function renderCatalog({ pages }) {
-  // kind: backlog-item pages are already indexed by their own project's generated
-  // roadmap.md (backlog-gen.mjs) -- excluded here for the same reason
-  // moc-authored-gen.mjs excludes them from its per-project catalog.
-  const content = pages.filter((p) => isContent(p.path) && p.kind !== 'backlog-item');
-  // Computed from the FULL, unfiltered vault pages (this function's own `pages`
-  // param already is that, unlike the per-project catalogs) -- two pages sharing
-  // a basename are just as ambiguous to a bare link here as anywhere else.
-  const ambiguousNames = findAmbiguousNames(pages);
-  const byType = new Map(SECTIONS.map(([t]) => [t, []]));
-  const other = [];
-  for (const p of content) {
-    if (byType.has(p.type)) byType.get(p.type).push(p);
-    else other.push(p);
-  }
-  const lines = [];
-  for (const [type, heading] of SECTIONS) {
-    const group = byType.get(type);
-    if (!group.length) continue;
-    lines.push(heading);
-    group.sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...group.map((p) => link(p, ambiguousNames)), '');
-  }
-  if (other.length) {
-    lines.push('## Other');
-    other.sort((a, b) => a.path.localeCompare(b.path));
-    lines.push(...other.map((p) => link(p, ambiguousNames)), '');
-  }
-  return lines.join('\n').trimEnd();
-}
-
-// `excluded` is the pages a scoped refresh left out of `graph` (an ownership ledger omits other writers'
-// uncommitted pages). One the current index already lists stays listed: the index is regenerated in full, and
-// without this the other writer's line would be deleted from the working copy.
-export function regenerateIndex(vaultPath, { graph, apply = true, excluded = [] } = {}) {
-  const indexPath = join(vaultPath, 'index.md');
-  const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '---\ntype: synthesis\n---\n# Index\n';
-  const seen = graph ?? buildGraph(vaultPath);
-  const kept = keptByMention(excluded, [...seen.pages, ...excluded], existing);
-  const catalog = renderCatalog(kept.length ? { ...seen, pages: [...seen.pages, ...kept] } : seen);
-  const fenced = `${BEGIN_MARK}\n${catalog}\n${END_MARK}`;
-
-  // With no fence yet one is appended, leaving all existing content untouched. The
-  // legacy hand-maintained catalog is pruned by a human/skill, not by us.
-  const next = writeFence(existing, fenced);
-
-  // `changed` says what an apply would change, so a dry run predicts it; only `apply` writes.
-  const changed = next !== existing;
-  const result = { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed, previous: existsSync(indexPath) ? existing : null, next };
-  if (!apply || !changed) return result;
-  // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
-  const tmp = join(vaultPath, `index.md.tmp-${process.pid}`);
-  writeFileSync(tmp, next);
-  renameSync(tmp, indexPath);
-  return result;
-}
+export { BEGIN_MARK, END_MARK, renderCatalog, regenerateIndex } from './lib/catalogs.mjs';
 
 export function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, since: { type: 'string' } } });
