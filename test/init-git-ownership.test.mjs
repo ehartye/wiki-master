@@ -9,6 +9,7 @@ import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
 import { commandForms } from '../scripts/lib/vault.mjs';
 
 const initScript = fileURLToPath(new URL('../scripts/init.mjs', import.meta.url));
+const ROOT_SCRIPTS = fileURLToPath(new URL('../scripts/', import.meta.url));
 
 function runInit(vault, home) {
   return spawnSync(process.execPath, [initScript], {
@@ -193,6 +194,32 @@ test('init prints both labeled forms on every platform, with nothing bare beside
   }
   const unlabeled = stdout.split(/\r?\n/).filter((l) => l.includes('node ') && !/^\s*(PowerShell|POSIX shell):/.test(l));
   assert.deepEqual(unlabeled, []);
+});
+
+// PowerShell closes a single-quoted string on any of these, so a typographic apostrophe in a path is a parse error.
+const POWERSHELL_QUOTES = ["'", '‘', '’', '‚', '‛'];
+
+test('the PowerShell form doubles every quote character PowerShell recognizes', () => {
+  for (const quote of POWERSHELL_QUOTES) {
+    const { powershell } = commandForms(`/opt/a${quote}b/x.mjs`, '', { WIKI_MASTER_VAULT: `/v${quote}w` });
+    assert.equal(powershell, `if ($env:WIKI_MASTER_VAULT='/v${quote}${quote}w') { node '/opt/a${quote}${quote}b/x.mjs' }`, `U+${quote.codePointAt(0).toString(16)}`);
+  }
+  assert.equal(commandForms('/x.mjs', '', { WIKI_MASTER_VAULT: '/v’w' }).posix, "WIKI_MASTER_VAULT='/v’w' node '/x.mjs'", 'a POSIX shell treats it as an ordinary character');
+});
+
+test('a path holding every PowerShell quote character reaches the named vault', { skip: SHELLS.PowerShell.name ? false : 'PowerShell is not on this machine' }, (t) => {
+  const parent = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const vault = join(parent, `q${POWERSHELL_QUOTES.join('')}v`);
+  const home = decoyHome();
+  t.after(() => { rmSync(parent, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); });
+  const r = runInit(vault, home);
+  assert.equal(r.status, 0, r.stderr);
+  mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+  writeFileSync(join(vault, 'wiki', 'concepts', 'page.md'), '---\ntype: concept\nsources: []\n---\n# Page\n\nA page.\n');
+  const line = commandForms(join(ROOT_SCRIPTS, 'refresh-index.mjs'), ' --status', { WIKI_MASTER_VAULT: vault }).powershell;
+  const status = runIn(SHELLS.PowerShell, line, home);
+  assert.equal(status.status, 0, `${status.stdout}${status.stderr}`);
+  assert.match(status.stdout, /not built/, 'only this vault has a page and no index');
 });
 
 test('a vault name set for the app is carried in both forms', () => {

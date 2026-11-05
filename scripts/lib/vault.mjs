@@ -48,8 +48,9 @@ export function resolveVault(env = process.env, { onRefuse = refuseAndExit } = {
 export function commandForms(script, args = '', env = process.env) {
   if (!env.WIKI_MASTER_VAULT) return null;
   const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
-  const single = (value) => `'${value.replaceAll("'", "''")}'`;
-  const posix = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  // PowerShell closes a single-quoted string on a straight or typographic quote alike, so each is doubled.
+  const single = (value) => `'${value.replace(/['‘’‚‛]/g, '$&$&')}'`;
+  const posix =(value) => `'${value.replaceAll("'", "'\\''")}'`;
   const assignments = keys.map((key) => `$env:${key}=${single(env[key])}`);
   const condition = assignments.length > 1 ? assignments.map((a) => `(${a})`).join(' -and ') : assignments[0];
   return {
