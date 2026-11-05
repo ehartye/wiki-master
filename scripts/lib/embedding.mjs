@@ -20,7 +20,7 @@ import { join, basename } from 'node:path';
 import { isContent } from './graph.mjs';
 import { chunkMarkdown } from './chunk.mjs';
 import { hash } from './embed-cache.mjs';
-import { isAvailable, modelPresent } from './embed.mjs';
+import { isAvailable, modelPresent, EMBED_MODEL } from './embed.mjs';
 import { encodeVectors, decodeVectors, planRefresh, neededHashes, coverage } from './vector-index.mjs';
 import { noteIdentity, METADATA_VERSION, inScope } from './retrieval.mjs';
 
@@ -66,21 +66,28 @@ export function readVectorStore(dir) {
 // throws partway (disk full, injected failure), zero renames have happened,
 // so whatever was on disk before this call remains fully intact -- an
 // interrupted run never leaves a half-written index.
+//
+// Writes all three or none, and returns whether it wrote: when every output is byte-identical to what is on disk the
+// run had nothing to save, and a rewrite would only show up as a change to whatever watches the vault's files. An
+// edit moves a manifest key to the end, so keys are sorted first or the next idle run would differ by order alone.
 export function persistIndex(dir, manifest, vectors, { writeFileImpl = writeFileSync, renameImpl = renameSync } = {}) {
-  mkdirSync(dir, { recursive: true });
   const { buffer, idx } = encodeVectors(vectors);
-  const pid = process.pid;
-  const manifestTmp = join(dir, `${CHUNKS_FILE}.tmp-${pid}`);
-  const binTmp = join(dir, `${VECTORS_BIN}.tmp-${pid}`);
-  const idxTmp = join(dir, `${VECTORS_IDX}.tmp-${pid}`);
+  const sorted = Object.fromEntries(Object.keys(manifest).sort().map((path) => [path, manifest[path]]));
+  const outputs = [
+    [CHUNKS_FILE, Buffer.from(JSON.stringify(sorted))],
+    [VECTORS_BIN, buffer],
+    [VECTORS_IDX, Buffer.from(JSON.stringify(idx))],
+  ];
+  const same = ([name, bytes]) => {
+    try { return readFileSync(join(dir, name)).equals(bytes); } catch { return false; }
+  };
+  if (outputs.every(same)) return false;
 
-  writeFileImpl(manifestTmp, JSON.stringify(manifest));
-  writeFileImpl(binTmp, buffer);
-  writeFileImpl(idxTmp, JSON.stringify(idx));
-
-  renameImpl(manifestTmp, join(dir, CHUNKS_FILE));
-  renameImpl(binTmp, join(dir, VECTORS_BIN));
-  renameImpl(idxTmp, join(dir, VECTORS_IDX));
+  mkdirSync(dir, { recursive: true });
+  const tmp = (name) => join(dir, `${name}.tmp-${process.pid}`);
+  for (const [name, bytes] of outputs) writeFileImpl(tmp(name), bytes);
+  for (const [name] of outputs) renameImpl(tmp(name), join(dir, name));
+  return true;
 }
 
 // A small fixed-size worker pool: `size` workers pull from `items` until
@@ -128,6 +135,7 @@ export async function refreshIndex({
   onProgress = () => {},
   checkAvailable = isAvailable,
   checkModel = modelPresent,
+  model = EMBED_MODEL,
   writeFileImpl = writeFileSync,
   renameImpl = renameSync,
 } = {}) {
@@ -135,7 +143,7 @@ export async function refreshIndex({
     throw new Error('Ollama is unreachable at ' + (process.env.OLLAMA_HOST || 'http://localhost:11434') + ' -- start it before building the index.');
   }
   if (!(await checkModel())) {
-    throw new Error('the embedding model is not pulled -- run `ollama pull nomic-embed-text` before building the index.');
+    throw new Error(`the embedding model is not pulled -- run \`ollama pull ${model}\` before building the index.`);
   }
 
   const startedAt = Date.now();
@@ -258,9 +266,10 @@ export async function refreshIndex({
     if (!liveHashes.has(h)) { delete vectors[h]; pruned++; }
   }
 
-  persistIndex(dir, finalManifest, vectors, { writeFileImpl, renameImpl });
+  const persisted = persistIndex(dir, finalManifest, vectors, { writeFileImpl, renameImpl });
 
   return {
+    persisted,
     filesChanged: plan.changed.length,
     filesUnchanged: plan.unchanged.length,
     filesRemoved: plan.removed.length,
