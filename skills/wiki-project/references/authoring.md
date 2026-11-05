@@ -35,8 +35,10 @@ Steps:
    [scoped validation](../../wiki-setup/references/validation.md).
 6. Log once with `--op relink`, as [completion](../../wiki-maintainer/references/operations.md) shows.
 7. Run `refresh-index.mjs` once, as [completion](../../wiki-maintainer/references/operations.md)
-   describes. It regenerates the [catalogs](catalogs.md); a delegated worker leaves it to
-   the enclosing task.
+   describes. It regenerates the [catalogs](catalogs.md).
+
+A delegated worker writes and validates, then reports the paths it wrote; the enclosing task
+logs once and runs the refresh.
 
 **Done only when** the requested documentation is validated and logged and
 `refresh-index.mjs` exits 0, or the report names the task as written but not refreshed

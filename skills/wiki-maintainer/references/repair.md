@@ -18,9 +18,9 @@ of a source is a citation contract even on a stub.
 
 1. **Bound the work.** Honor requested issue IDs or page scope; otherwise process
    the worklist in manageable batches. For preview/report-only requests, return
-   the findings without writes or logs. Use one writer for a repair run. If a parent
-   delegates a batch, the worker keeps its edits to the assigned pages and reports the
-   paths it wrote; the enclosing task does the final verification and completion.
+   the findings without writes or logs. Use one writer for a repair run. A delegated
+   worker writes and validates only its assigned pages, then reports the paths it wrote;
+   the enclosing task does the final verification, logs once and runs the refresh.
 2. **Investigate each issue.** Read its current source and surrounding prose; line
    numbers can move. For `unresolved-citation`, locate the intended evidence and
    verify the supported claim. A unique matching source hash can establish the

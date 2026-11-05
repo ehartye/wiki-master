@@ -20,7 +20,8 @@ log and refresh nothing.
    `relink`, a filed answer `query`; discovery, ingestion, lint and relink use their own.
 4. **Run `refresh-index.mjs`,** once per task, not per page. It regenerates the catalogs
    and the search index for the whole vault; never hand-edit a generated fence. A delegated
-   worker doesn't run it: it reports the paths it wrote, and the enclosing task runs it.
+   worker writes and validates, then reports the paths it wrote; the enclosing task logs once
+   and runs the refresh.
 
 ```powershell
 node '<absolute-plugin-root>/scripts/validate-authored.mjs' --paths-file '<ledger>'

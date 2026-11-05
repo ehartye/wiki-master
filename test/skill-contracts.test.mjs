@@ -188,7 +188,6 @@ test('the completion contract is one short page, in the order every authoring ta
   assert.ok(localLinks(text).some(link => link.endsWith('operation-recovery.md#written-but-not-refreshed')));
   const flat = text.replace(/\s+/g, ' ');
   assert.match(flat, /once per task/i);
-  assert.match(flat, /delegated worker doesn't run it[^.]*enclosing task runs it/i);
   assert.match(flat, /on disk and that Obsidian Git publishes it/);
   assert.match(flat, /offer that fix to the user, don't apply it unasked/i);
   assert.match(flat, /written but not refreshed/i);
@@ -203,6 +202,14 @@ test('completion examples expose both shells and all helper execution uses resol
     for (const [, script] of block.matchAll(/scripts\/([\w-]+\.mjs)/g)) assert.ok(existsSync(join(root, 'scripts', script)), script);
   }
 });
+
+// Decision 16: log once and refresh once per task, so a worker stops after validating. operations.md is the source.
+const delegated = /delegated (?:worker|writer) writes and validates[^.]*reports the paths[^.]*the enclosing task[^.]*logs once and runs the refresh/i;
+for (const file of ['skills/wiki-maintainer/references/operations.md', 'skills/wiki-project/references/authoring.md', 'skills/wiki-researcher/references/ingest.md', 'skills/wiki-maintainer/references/repair.md']) {
+  test(file + ': a delegated worker writes and validates, and the enclosing task logs and refreshes', () => {
+    assert.match(read(file).replace(/\s+/g, ' '), delegated);
+  });
+}
 
 // Criterion 5: the standard sentence. wiki-setup and the vault schema have theirs pinned beside their own tests.
 for (const file of ['skills/wiki-maintainer/references/operations.md', 'README.md']) {

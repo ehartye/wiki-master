@@ -51,8 +51,8 @@ before the first authorized write. An ingest ends the way it says.
 
 **Note each page you write** (`wiki/sources/...`, a concept or synthesis you create or
 change): that list is the validation ledger. When this ingest follows a capture, take the
-clipping set from the paths the clippers printed. Delegated writers report the paths they
-wrote; the enclosing task validates, logs and refreshes.
+clipping set from the paths the clippers printed. A delegated writer writes and validates,
+then reports the paths it wrote; the enclosing task logs once and runs the refresh.
 
 Prefer a named clipping set; two concurrent ingests can overwrite shared concept
 pages and nothing isolates them, so coordinate overlapping targets rather than processing
