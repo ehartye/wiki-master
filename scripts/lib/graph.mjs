@@ -73,7 +73,7 @@ export function isFigureAsset(path) {
   return path.startsWith('raw/figures/');
 }
 
-// A generated catalog (moc-authored-gen writes moc/<project>.md for every project). It is navigation
+// A generated catalog (refresh-index writes moc/<project>.md for every project). It is navigation
 // with no content of its own, so a page of the same name outranks it when a reader follows a link.
 export function isMoc(path) { return path.startsWith('moc/'); }
 
@@ -448,8 +448,8 @@ export function resolveLinkTarget(byName, target, { nav = false } = {}) {
   return pick(bare);
 }
 
-// The three catalog GENERATORS (index-gen.mjs, moc-authored-gen.mjs,
-// backlog-gen.mjs) all write bare `- [[title]]` links — safe only when title's
+// The three catalog GENERATORS (index.md, project maps, roadmaps; all in
+// catalogs.mjs) write bare `- [[title]]` links — safe only when title's
 // basename is unique, vault-wide, among content pages. resolveLinkTarget's nav
 // resolution already prefers a content page over a raw/log/template file for a
 // shared basename (see buildNameIndex above), so a content/non-content

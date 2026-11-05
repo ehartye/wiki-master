@@ -110,16 +110,14 @@ export async function runReclips(options={}) {
   }
   try {return await runReclipsOwned(options);} finally {await release();}
 }
-async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',kind='auto',onFailure='reopen',limit=Infinity,from,sourceFile,ownedPaths,quarantineReason,obtain=obtainSource,extract=extractForReclip,readPage=readPageForReclip,write=atomic}={}) {
+async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',kind='auto',onFailure='reopen',limit=Infinity,from,sourceFile,quarantineReason,obtain=obtainSource,extract=extractForReclip,readPage=readPageForReclip,write=atomic}={}) {
   if (!['auto','reading-order','table'].includes(mode)) throw new Error('Invalid reading mode');
   if (!['auto','pdf','html'].includes(kind)) throw new Error('Invalid kind (auto, pdf or html)');
   if (!['reopen','quarantine'].includes(onFailure)) throw new Error('Invalid failure policy');
   if (!(limit>0) || (!Number.isInteger(limit) && limit!==Infinity)) throw new Error('Limit must be a positive integer');
-  if (ownedPaths!==undefined && (!Array.isArray(ownedPaths)||!ownedPaths.every(x=>typeof x==='string'))) throw new Error('Ownership ledger must be a JSON path array');
   if (quarantineReason && targets===undefined) throw new Error('Quarantine needs explicit targets');
   const root=resolve(vaultPath),dir=resolve(root,'raw','clippings');
   const rel=path=>path.slice(root.length+1).split(sep).join('/');
-  const assertOwned=paths=>{for(const path of paths) if(ownedPaths&&!ownedPaths.includes(rel(path))){const e=new Error(`Outside owned paths: ${rel(path)}`);e.code='CONFLICT';throw e;}};
   const conflict=message=>{const e=new Error(message);e.code='CONFLICT';throw e;};
   const stateDir=join(root,'.wiki-master','reclip-transactions');
   const statePath=path=>join(stateDir,createHash('sha256').update(rel(path)).digest('hex')+'.json');
@@ -189,7 +187,7 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   };
   const save=(path,state)=>{mkdirSync(stateDir,{recursive:true});atomic(statePath(path),JSON.stringify(state));};
   const quarantineState=(path,text,url,reason)=>{
-    const pages=citing(text,path);assertOwned([path,...pages]);
+    const pages=citing(text,path);
     // Build every transformation before a durable marker can suppress the item.
     for(const page of pages)restrict(readFileSync(page,'utf8'),path,reason);
     const state={kind:'quarantine',rawPath:rel(path),url,reason,rawBefore:text,rawAfter:metadata(text,{'citation-status':'quarantined','citation-restriction':reason}),pages:pages.map(rel)};
@@ -207,7 +205,6 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
     save(path,state);
     const pages=state.pages.map(p=>resolve(root,p));
     for(const page of pages)if(!page.startsWith(resolve(root,'wiki')+sep)||!realpathSync(page).startsWith(realpathSync(join(root,'wiki'))+sep))conflict('Pending page outside wiki scope');
-    assertOwned([path,...pages]);
     const project=value=>state.kind==='quarantine'?restrict(value,path,state.reason):swapSourceHash(value,state.fromHash,state.toHash);
     const updates=pages.map(page=>{const before=readFileSync(page,'utf8');return {page,before,after:project(before)};});
     for(const u of updates){if(readFileSync(u.page,'utf8')!==u.before)conflict(`Concurrent page edit: ${rel(u.page)}`);if(u.after!==u.before){write(u.page,u.after);mark(u.page);}}
@@ -239,7 +236,6 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
     if(!apply){report.results.push({path:rel(path),url,status:existsSync(statePath(path))?'pending':'planned'});continue;}
     let resource;
     try{
-      assertOwned([path]);
       if(existsSync(statePath(path))){finish(path,JSON.parse(readFileSync(statePath(path),'utf8')));continue;}
       if(quarantineReason){finish(path,quarantineState(path,text,url,quarantineReason));continue;}
       // A page is read again through the clipper's own ladder; a PDF or document is obtained and extracted.
@@ -266,7 +262,6 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
       // The same body again is not a repair: leave the file, the summaries and the triage rows as they are.
       if(html&&clip.hash===old){report.alreadyResolved++;report.results.push({path:rel(path),url,status:'unchanged',retained});continue;}
       const summaries=[...markdown(join(root,'wiki','sources'))].filter(p=>old&&readFileSync(p,'utf8').includes(old));
-      assertOwned(summaries);
       const state={kind:'repair',rawPath:rel(path),url,rawBefore:text,rawAfter:mergeReclip(text,clip),fromHash:old,toHash:clip.hash,pages:summaries.map(rel),fidelity:clip.fidelity,warning:clip.warning,...(retained!==undefined?{retained}:{})};
       save(path,state);finish(path,state);
     }catch(err){

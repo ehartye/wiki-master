@@ -4,13 +4,12 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LedgerError, ledgerPathProblem, checkLedgerPaths, parseLedgerText, readLedger } from '../scripts/lib/ledger.mjs';
-import { commitOp } from '../scripts/op-commit.mjs';
-import { refreshCatalogs } from '../scripts/refresh-catalogs.mjs';
 import { checkLedger } from '../scripts/validate-authored.mjs';
 
-// The ownership ledger (a JSON array of vault-relative paths) is read by op-commit, refresh-catalogs and
-// validate-authored. They used to carry three copies of the path rule that disagreed (a colon, a byte-order
-// mark), so one ledger could pass one script and fail another. They now share scripts/lib/ledger.mjs.
+// A ledger (a JSON array of vault-relative paths) is what --paths-file takes on validate-authored, lint and
+// lint-disposition. Copies of the path rule used to disagree (a colon, a byte-order mark), so one ledger could pass
+// one script and fail another. They now share scripts/lib/ledger.mjs. lint-scope and lint-dispositions cover the two
+// lint readers.
 
 const BS = String.fromCharCode(92);
 
@@ -38,22 +37,13 @@ const CASES = [
 
 const verdicts = (ledger) => {
   const viaLib = (() => { try { checkLedgerPaths(ledger); return true; } catch (e) { assert.ok(e instanceof LedgerError); return false; } })();
-  const viaOpCommit = commitOp('/no/such/vault', { op: 'relink', title: 't', token: 'abcdef12', paths: ledger }).reason?.startsWith('explicit operation scope') !== true;
-  const viaRefresh = (() => { try { refreshCatalogs('/no/such/vault', { project: 'demo', ownedPaths: ledger }); return true; } catch (e) { return !/exact vault-relative paths/.test(e.message); } })();
   const viaValidate = (() => { try { checkLedger(ledger); return true; } catch (e) { return false; } })();
-  return { viaLib, viaOpCommit, viaRefresh, viaValidate };
+  return { viaLib, viaValidate };
 };
 
 for (const [label, ledger, accepted] of CASES) {
-  test(`all four readers give the same verdict on ${label}: ${accepted ? 'accepted' : 'refused'}`, () => {
-    const v = verdicts(ledger);
-    if (accepted) {
-      // op-commit and refresh-catalogs go on to look at the vault, which does not exist here: accepted means the
-      // shape check did not refuse them.
-      assert.deepEqual(v, { viaLib: true, viaOpCommit: true, viaRefresh: true, viaValidate: true });
-    } else {
-      assert.deepEqual(v, { viaLib: false, viaOpCommit: false, viaRefresh: false, viaValidate: false });
-    }
+  test(`the library and validate-authored give the same verdict on ${label}: ${accepted ? 'accepted' : 'refused'}`, () => {
+    assert.deepEqual(verdicts(ledger), { viaLib: accepted, viaValidate: accepted });
   });
 }
 

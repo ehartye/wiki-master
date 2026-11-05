@@ -58,40 +58,37 @@ export const CLI_SPECS = {
     ],
   },
   'log-entry': {
-    options: ['op', 'title', 'since'],
-    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>" [--since <token>]   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md. Write it after op-begin and list it in the operation\'s ledger: --since records its path there (op-ledger.mjs show prints the ledger).', VAULT],
-  },
-  'op-abort': {
-    options: ['since'],
-    usage: ['usage: node scripts/op-abort.mjs --since <token>', '', 'Drops one operation token without committing: for the session that holds it and stopped early. It removes only the token named; the files the operation wrote stay in the working tree, uncommitted.', VAULT],
-  },
-  'op-begin': {
-    options: ['op'],
-    usage: ['usage: node scripts/op-begin.mjs --op <op>', '', 'Opens a vault operation: records what is already uncommitted and prints the token that op-commit takes as --since.', VAULT],
-  },
-  'op-commit': {
-    options: ['op', 'title', 'since', 'paths-file', 'include', 'include-from', 'evidence-map'],
-    usage: ['usage: node scripts/op-commit.mjs --op <op> --title "<title>" --since <token> [--paths-file <JSON-file>] [--include <path>]... [--include-from <JSON-file>] [--evidence-map <JSON-file>]', '', 'Commits one operation\'s changes and closes its token. With --paths-file only the ledger\'s paths are committed; a ledger path that was already uncommitted when the operation opened is refused unless --include (or --include-from) adopts it. Never pushes.', VAULT],
-  },
-  'op-ledger': {
-    options: ['since', 'from', 'out'],
-    usage: ['usage: node scripts/op-ledger.mjs add --since <token> (<path>... | --from <JSON-file>)', '       node scripts/op-ledger.mjs show --since <token> [--out <file>]', '', 'add records paths you wrote yourself in the operation\'s ledger (the clippers, log-entry, refresh-catalogs and index-gen record theirs when given --since). show prints the JSON array op-commit takes as --paths-file (to --out, or stdout) and, on stderr, lists what the close would get wrong: recorded paths that were already dirty before op-begin, recorded paths that are not dirty now, and changed paths nobody recorded. It never claims the last group.', 'show is read-only. Exit 1: no such operation, nothing recorded, or a bad path.', VAULT],
+    options: ['op', 'title'],
+    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', VAULT],
   },
   purge: {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
     usage: ['usage: node scripts/purge.mjs [--plan | --apply | --reconcile | --restore] "<topic>" [--seeds a.md,b.md]', '', 'Plans (default), applies, reconciles or restores the removal of a topic from the wiki and its evidence. Applying needs a reviewed plan.', VAULT],
+  },
+  'refresh-index': {
+    options: ['rebuild', 'status'],
+    usage: [
+      'usage: node scripts/refresh-index.mjs [--rebuild] [--status]',
+      '',
+      'The last step of an authoring task. Regenerates the catalogs (index.md, every roadmap and project map) and refreshes the semantic search index, for the whole vault.',
+      'It first checks that Ollama is reachable with the embedding model pulled, Obsidian is up and not in restricted mode, Obsidian Git is installed and enabled with autoSaveInterval above 0, and the vault is a git repository with an upstream. If any check fails it names every failure with the fix to offer, writes nothing and exits 1.',
+      'A run with nothing to do rewrites no file. Failed chunks exit 1 with the count; the catalogs written stay, and a rerun retries them.',
+      '--rebuild re-chunks every page instead of trusting modification times, and repairs a damaged index. It first asks the embedder for its dimension with one short probe. Stored vectors that pass inspection at that dimension are reused and the rest are embedded again. If the dimension changes, one failed chunk means nothing is saved and the old index stands.',
+      '--status reports how fresh the index is. It checks nothing, writes nothing and always exits 0.',
+      VAULT,
+    ],
   },
   'refresh-fidelity': {
     options: ['apply', 'ocr-floor', 'inventory'],
     usage: ['usage: node scripts/refresh-fidelity.mjs [--ocr-floor | --inventory] [--apply]', '', 'Re-assesses each clipping\'s cached fidelity verdict from its stored markdown and clears flags that no longer hold. A clipping whose flag rests on its extraction (a table mode, or OCR) is preserved.', '--ocr-floor instead lists the OCR clippings that carry no fidelity grade and, with --apply, sets fidelity: ocr on them. An existing grade is never replaced.', '--inventory instead lists the PDF clippings, not yet marked degraded, whose letter inventory now looks broken (a letter that every Latin-script text has is nearly absent). It only lists, and refuses --apply.', DRY, VAULT],
   },
   'rename-doubled-extension-clippings': {
-    options: ['apply', 'exclude', 'flag', 'list-out', 'paths-out'],
-    usage: ['usage: node scripts/rename-doubled-extension-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>] [--paths-out <file>]', '', 'Renames raw clippings whose names double the extension (README.md.md) and repoints the citations to them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits. --paths-out writes the changed paths for op-commit --paths-file.', VAULT],
+    options: ['apply', 'exclude', 'flag', 'list-out'],
+    usage: ['usage: node scripts/rename-doubled-extension-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Renames raw clippings whose names double the extension (README.md.md) and repoints the citations to them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'rename-unsafe-clippings': {
-    options: ['apply', 'exclude', 'flag', 'list-out', 'paths-out'],
-    usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>] [--paths-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits. --paths-out writes the changed paths for op-commit --paths-file.', VAULT],
+    options: ['apply', 'exclude', 'flag', 'list-out'],
+    usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'render-page': {
     options: [],
@@ -135,9 +132,6 @@ export const CLI_SPECS = {
   },
   // Scripts whose own parser refuses an unknown option (test/cli-guard.test.mjs checks that): the guard only
   // answers `--help` for them, so the accepted options are not repeated here.
-  'backlog-gen': {
-    usage: ['usage: node scripts/backlog-gen.mjs [--apply] [--project <slug>]', '', 'Regenerates the fenced backlog catalog of each project\'s roadmap.md from its backlog items.', DRY, 'It takes neither --diff nor --paths-file; refresh-catalogs.mjs does.', VAULT],
-  },
   'backlog-list': {
     usage: ['usage: node scripts/backlog-list.mjs [--project <slug>] [--backlog-status <list>] [--startable] [--json]', '', 'Lists backlog items by lifecycle status, one row per item (project, status, path, title, what it waits on). --startable lists the planned items whose prerequisites are all closed; --backlog-status takes in-progress, planned, blocked, shipped, dropped or unrecognized, comma separated.', 'Read-only.', VAULT],
   },
@@ -156,15 +150,6 @@ export const CLI_SPECS = {
   'identity-audit': {
     usage: ['usage: node scripts/identity-audit.mjs [--vault <dir>] [--limit <n>] [--json]', '', 'Reports identity findings for review (pages that may name the same thing). A finding is never permission to merge or rename a page.', 'Read-only.', VAULT],
   },
-  'moc-authored-gen': {
-    usage: ['usage: node scripts/moc-authored-gen.mjs [--apply] [--project <slug>]', '', 'Regenerates the fenced project map moc/<project>.md from the project\'s pages.', DRY, 'It takes neither --diff nor --paths-file; refresh-catalogs.mjs does.', VAULT],
-  },
-  'op-cleanup': {
-    usage: ['usage: node scripts/op-cleanup.mjs [--hours <n>] [--apply]', '', 'Removes operation tokens left behind by operations that never closed. A token older than --hours (default 24, at least 1) is stale; a recent token is never removed.', DRY, VAULT],
-  },
-  'refresh-catalogs': {
-    usage: ['usage: node scripts/refresh-catalogs.mjs [--project <slug>] [--project-only] [--apply] [--paths-file <ledger>] [--diff] [--since <token>]', '', 'Regenerates a project\'s roadmap catalog, project map and the global index from one vault graph.', '--project-only requires --project <slug> and omits the global index in both dry runs and applies; only the selected project catalogs are generated.', 'The default is a dry run whose "changed" list is what an apply would change; --diff adds the lines each file would lose and gain on stderr. --paths-file is the operation\'s ownership ledger: foreign committed pages use pinned HEAD content, owned pages use working files, and foreign new pages stay out. The JSON snapshot field reports the policy and commit. With --apply, --since records the changed paths in the operation\'s written-paths ledger (op-ledger.mjs show prints it).', VAULT],
-  },
   relationships: {
     usage: ['usage: node scripts/relationships.mjs [--vault <dir>] [--limit <n>] [--seed <page>] [--since <date>] [--semantic] [--json]', '', 'Proposes relationship candidates between pages from shared sources and neighbors. A candidate is a reason to inspect two pages, never proof of a relationship.', 'Read-only.', VAULT],
   },
@@ -174,11 +159,20 @@ export const CLI_SPECS = {
   'validate-authored': {
     usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'Read-only.', VAULT],
   },
-  'wiki-sync': {
-    usage: ['usage: node scripts/wiki-sync.mjs [--commit-local | --op <token> [--paths-file <ledger.json>] [--title "<title>"]]', '', 'Brings the vault and its shared remote to the same state: rebases onto the upstream, pushes, and checks the remote has the commits, or says exactly why it could not. --commit-local first commits the vault\'s uncommitted changes itself; it refuses while an operation is open.', '--op <token> first closes that one operation (the close op-commit makes: scoped by --paths-file, else by the paths its writers recorded, else unscoped, which is refused while another operation is open), then syncs and verifies. A refused close prints "not committed:" and pushes nothing; a close that landed but could not be published prints "committed, not published:". --op cannot be combined with --commit-local.', VAULT],
-  },
   triage: { options: ['remote'] },
   init: { options: [] },
+  'setup-obsidian-git': {
+    options: ['check', 'apply'],
+    usage: [
+      'usage: node scripts/setup-obsidian-git.mjs [--check | --apply]',
+      '',
+      'Obsidian Git handles all git operations, and this checks or sets up that plugin in the vault.',
+      '--check (the default) reports whether it is installed and enabled, and which required settings are met, missing or differing. It reads files only and needs no app.',
+      '--apply needs the vault open in Obsidian. It installs the plugin without enabling it, writes its settings only if it has none, then enables it. An existing settings file stays byte-identical and its differences are reported. If restricted mode or anything else blocks a step, it stops and prints the manual steps.',
+      'Exit 0: the plugin is enabled and every setting matches. Exit 1: something is missing, differs or blocked. Exit 2: bad input.',
+      VAULT,
+    ],
+  },
   lint: { options: ['json', 'full', 'near', 'tier', 'page', 'paths-file', 'updated-since', 'ids', 'include-reviewed'] },
   'lint-disposition': {
     options: ['ids', 'disposition', 'reviewer', 'note', 'page', 'paths-file', 'whole-vault', 'apply'],
@@ -194,5 +188,4 @@ export const CLI_SPECS = {
     ],
   },
   stale: { options: [] },
-  'index-embed': { options: ['rebuild', 'status', 'concurrency'] },
 };

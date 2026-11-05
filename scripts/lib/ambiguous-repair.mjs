@@ -1,5 +1,5 @@
 import { prose } from './prose.mjs';
-import { BEGIN_MARK, END_MARK } from '../backlog-gen.mjs';
+import { fenceSpans } from './index-fence.mjs';
 
 // Pure pieces of repair-ambiguous-links.mjs: classify an `ambiguous-link` issue, and repoint bare wikilinks to
 // one chosen path. No file access here.
@@ -27,15 +27,15 @@ export function classifyAmbiguous(issue) {
 
 const lower = (s) => String(s).trim().toLowerCase();
 const LINK = /\[\[([^\]\n]+)\]\]/g;
-// Mask what is not a citation: code, comments (prose()) and the generated catalog fence, which regeneration overwrites.
+// Mask what is not a citation: code, comments (prose()) and every generated catalog fence, which regeneration overwrites.
 function maskedBody(body) {
   const mask = prose(body).split('');
-  const from = body.indexOf(BEGIN_MARK);
-  const to = body.indexOf(END_MARK);
-  if (from >= 0 && to > from) for (let i = from; i < to + END_MARK.length; i++) if (mask[i] !== '\n' && mask[i] !== '\r') mask[i] = ' ';
+  for (const { start, end, closed } of fenceSpans(body)) {
+    if (closed) for (let i = start; i < end; i++) if (mask[i] !== '\n' && mask[i] !== '\r') mask[i] = ' ';
+  }
   return mask.join('');
 }
-const hasFence = (text) => text.includes(BEGIN_MARK) && text.indexOf(END_MARK) > text.indexOf(BEGIN_MARK);
+const hasFence = (text) => fenceSpans(text).some((span) => span.closed);
 
 // Rewrite the links whose bare target is a key of `wanted` (lower-cased target to vault path). In the body the
 // displayed text is kept ([[path|target]]), an existing alias and #heading are kept, and a link in a table row

@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { buildGraph, buildNameIndex, evidencePaths, resolveLinkTarget, isContent } from './lib/graph.mjs';
 import { cosine } from './lib/embed.mjs';
 import { resolveVault } from './lib/vault.mjs';
-import { readManifestFile, readVectorStore } from './index-embed.mjs';
+import { readManifestFile, readVectorStore } from './lib/embedding.mjs';
 import { auditIdentity } from './identity-audit.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, basename } from 'node:path';
 import { resolveVault, buildArgs } from '../scripts/lib/vault.mjs';
 
@@ -27,7 +27,7 @@ test('buildArgs prepends vault= and passes through args', () => {
   assert.deepEqual(args, ['vault=MyWiki', 'orphans', 'format=json']);
 });
 
-import { obsidian, obsidianJson } from '../scripts/lib/vault.mjs';
+import { obsidian, obsidianActive, obsidianJson } from '../scripts/lib/vault.mjs';
 
 test('shared wrapper rejects unsafe note payloads before invoking its executor', () => {
   for (const content of ['private'.repeat(500), 'first\nsecond']) {
@@ -81,4 +81,20 @@ test('assertRunning preserves the timeout reason for app-only operations', async
   assert.throws(() => assertRunning({ name: 'MyWiki', execFileSyncImpl() {
     throw Object.assign(new Error('hung'), { code: 'ETIMEDOUT' });
   } }), /Obsidian CLI unavailable.*timed out after 10000ms/);
+});
+
+test('obsidianActive names no vault, runs from the temp folder, and keeps a failure\'s code', () => {
+  const calls = [];
+  const execFileSyncImpl = (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return ' C:\some\vault \n'; };
+  assert.equal(obsidianActive(['vault', 'info=path'], { name: 'ignored', execFileSyncImpl }), 'C:\some\vault');
+  assert.deepEqual(calls, [{ command: 'obsidian', argv: ['vault', 'info=path'], cwd: tmpdir() }]);
+  for (const code of ['CLI_BUSY', 'CLI_LOCK']) {
+    assert.throws(() => obsidianActive(['vault', 'info=path'], { execFileSyncImpl() { throw Object.assign(new Error('gate'), { code }); } }), (error) => error.code === code);
+  }
+});
+
+test('obsidian still names the vault, and passes no working directory, when asked the ordinary way', () => {
+  const calls = [];
+  obsidian(['vault', 'info=path'], { name: 'MyWiki', execFileSyncImpl: (command, argv, options) => { calls.push({ argv, hasCwd: 'cwd' in options }); return ''; } });
+  assert.deepEqual(calls, [{ argv: ['vault=MyWiki', 'vault', 'info=path'], hasCwd: false }]);
 });

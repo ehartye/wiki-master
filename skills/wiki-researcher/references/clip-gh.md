@@ -1,6 +1,6 @@
-Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [operations](../../wiki-maintainer/references/operations.md).
+Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this task: [completion](../../wiki-maintainer/references/operations.md).
 Load the rest only when this run reaches it — [evidence](../../wiki-maintainer/references/evidence.md) before a quote or figure from this capture lands on a wiki page, or when reporting a fidelity limit.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Reuse existing session authorization for the first write.
 
 # Clipping a GitHub repository into the wiki
 
@@ -35,8 +35,8 @@ For a narrow source investigation, use repeated exact paths instead of changing 
 full/digest caps. The existing clone-based behavior remains the default.
 
 ```sh
-node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=<branch-tag-or-full-commit-sha> --path=package.json --path=package-lock.json --path=vite.config.js --path=test/component.test.js --topic="Build contract review" --since=<operation-token>
-node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=main --readme-only --topic="Repository introduction" --since=<operation-token>
+node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=<branch-tag-or-full-commit-sha> --path=package.json --path=package-lock.json --path=vite.config.js --path=test/component.test.js --topic="Build contract review"
+node "<plugin-root>/scripts/clip-gh.mjs" owner/repo --ref=main --readme-only --topic="Repository introduction"
 ```
 
 The authenticated `gh api` route fixes the host to github.com, resolves the requested
@@ -61,7 +61,7 @@ Missing, binary/control-byte or invalid UTF-8 content is refused. Explicit selec
 may include lockfiles or short configs normally excluded/thin in full capture.
 Unknown flags and conflicting full/digest controls are rejected before capture.
 
-All files are fetched and validated before publication. A preflight refusal/failure
+All files are fetched and validated before any is written. A preflight refusal/failure
 writes no clippings, with per-path diagnostics. Each body records a commit-pinned blob
 URL, Git blob SHA-1, exact source-byte SHA-256 (`supplied-sha256`), byte count, topic and
 the separate rendered `source-hash`. CRLF/outer whitespace can normalize in the rendered
@@ -75,21 +75,17 @@ refused, never overwritten. Existing raw captures and listings are not renamed o
 The JSON result distinguishes selected/prepared, refused, failed, clipped and unchanged
 files; `selected` includes requested files plus deduplicated root notices. The canonical
 selection manifest lists that exact scope, hashes and file destinations, without claiming
-a complete repository inventory. It is published last and is itself immutable/deduplicated.
+a complete repository inventory. It is written last and is itself immutable/deduplicated.
 
-A disk error, interruption or concurrent conflicting writer can still leave a partially
-published selection of complete immutable files. Each body is written/flushed in an owned
-hidden staging directory, then published with an atomic no-clobber hard link on the same
+A disk error, interruption or concurrent conflicting writer can still leave a partial
+selection of complete immutable files. Each body is written/flushed in its own
+hidden staging directory, then moved into place with an atomic no-clobber hard link on the same
 volume. Filesystems without hard-link support refuse; there is no overwrite/copy fallback.
 Incomplete staged bytes never become a destination. A process killed before cleanup may
 leave its hidden stage; cleanup errors are reported separately. Preserve completed files,
-inspect the result/ledger and retry the identical selection;
+inspect the result and retry the identical selection;
 do not infer completion without a matching manifest. Only successful completion finishes
-an authorized decline override. With `--since`, the selected route strictly reserves each
-new destination in the operation ledger before exclusive creation; a ledger failure stops
-before that file is written. Resume the same operation after interruption. Verified unchanged
-files are not adopted into a different operation. Reservation is not a cross-process lock;
-inspect a collision and the planned ledger scope before committing a failed run. Do not
+an authorized decline override. Inspect a collision before retrying a failed run. Do not
 combine selection with `--decline`; record a decline separately.
 
 ### Default repository capture
@@ -97,7 +93,7 @@ combine selection with `--decline`; record a decline separately.
 `clip-gh.mjs` shells out to the **`gh` CLI** (`gh repo clone owner/repo <tmp>
 -- --depth 1`), so cloning transparently uses the user's existing `gh auth`
 session — private repos the user can already see on the command line work
-with no extra config. It never runs a bare `git clone`, and it never writes
+with no extra config. It never clones any other way, and it never writes
 into the temp clone's own `.git` history.
 
 **"Don't clip the whole repo contents" is enforced by three curated
@@ -227,7 +223,7 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
 
 1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#github-repositories) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for GitHub repos):
-   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>" --since <token>`
+   `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>"`
    - Accepts a bare `owner/repo`, a full `https://github.com/owner/repo` URL
      (`.git` suffix optional), or a `git@github.com:owner/repo.git` remote —
      all resolve to the same identity.
@@ -261,7 +257,7 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
    sensible (digest mode).
 4. **Only when ingestion is authorized, follow [ingestion](ingest.md)** for this exact clipping batch —
    summarize into `wiki/sources/`, cross-reference, index, log. Start from
-   `_repo-overview.md` for the repo-level summary, then pull in individual
+   `_repo-overview.md` for the repo-level summary, then read individual
    files (per-file mode) or a curated set of key-module write-ups informed
    by the listings (digest mode) as evidence for specific claims. Ingest only when authorized for this scope; reuse explicit authorization
    already supplied in the session.
@@ -287,12 +283,9 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
 
 ## Completion
 
-For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
-remote publication through the shared operations contract. During discovery,
-use the enclosing operation and report the results to its owner for completion.
-Pass `--since <saved-token>` to the clipping helper so every written path enters
-that operation's ledger. Capture-only requests end after this completion and
-create no derived source or concept pages.
+Verify the paths the clipper printed and its extraction diagnostics, then
+[finish the capture](capture.md#finish-capture-and-report). During discovery, report the
+results to the enclosing task, which logs once. Capture-only requests create no derived
+source or concept pages.
 Capturing evidence does not by itself authorize ingestion; reuse explicit
 discover-and-ingest authorization when it is already present.

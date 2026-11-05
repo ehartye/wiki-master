@@ -1,0 +1,64 @@
+# path | substring | reason
+# A path ending in / covers its folder. A space in a substring matches any whitespace, so a hard wrap still matches.
+# An entry clears only the words inside its substring, and an entry that clears nothing fails the contract test.
+
+# Sentences saying Obsidian Git does it.
+skills/ | Obsidian Git publishes | The standard report: Obsidian Git does it, not the agent.
+skills/wiki-setup/references/initialization.md | Git's timer keeps committing them | Explains what Obsidian Git's timer does with per-machine files.
+skills/wiki-setup/references/operation-recovery.md | Obsidian Git still publishes | Says Obsidian Git does it.
+skills/wiki-setup/references/operation-recovery.md | ## Nothing is publishing | Heading for diagnosing Obsidian Git's timer.
+skills/wiki-setup/references/operation-recovery.md | it publishes once the owner has | Says the work goes out by itself once the owner clears the cause.
+skills/wiki-setup/references/operation-recovery.md | the plugin then publishes nothing | Describes Obsidian Git stopping on a conflict.
+README.md | Obsidian Git publishes | The standard report: Obsidian Git does it, not the agent.
+templates/vault-schema.md | Obsidian Git publishes | Says Obsidian Git does it.
+scripts/init.mjs | a timer would keep publishing them | Comment init writes into .gitignore, about Obsidian Git's timer.
+scripts/lib/prerequisites.mjs | Obsidian Git may be mid-sync | Says Obsidian Git is the one running.
+scripts/purge.mjs | Obsidian Git publishes | What purge prints after it writes: Obsidian Git does it.
+scripts/rename-unsafe-clippings.mjs | let Obsidian Git publish them | Advises waiting for Obsidian Git instead of a git step.
+
+# clip-gh records the source repository's SHAs. None of these is the vault's history.
+scripts/lib/clip-args.mjs | one resolved commit | clip-gh captures a source repository at one SHA.
+scripts/lib/github-selection.mjs | commits/ | GitHub REST path for the source commit.
+scripts/lib/github-selection.mjs | .commit.tree.sha | GitHub REST field for the source commit.
+scripts/lib/github-selection.mjs | resolved commit | clip-gh errors about the source SHA.
+scripts/lib/github-selection.mjs | 'commit' | GitHub tree entry type for a submodule.
+scripts/lib/github-selection.mjs | github-commit: | Provenance field on a captured source.
+scripts/lib/html-extract.mjs | 'latest commit' | GitHub page chrome stripped from a capture.
+skills/wiki-researcher/references/clip-gh.md | full-commit-sha | The source repository's SHA that --ref takes.
+skills/wiki-researcher/references/clip-gh.md | immutable commit | clip-gh reads the source repository at one SHA.
+skills/wiki-researcher/references/clip-gh.md | commit-pinned blob | A source file's GitHub URL at its SHA.
+skills/wiki-researcher/references/clip-gh.md | source commit/path | A clipping's identity includes its source SHA.
+skills/wiki-researcher/references/clip-gh.md | exact commit clipped | A source file's GitHub URL at its SHA.
+
+# Other meanings of the words.
+scripts/clip.mjs | `published: | A source's publication date in clipping frontmatter.
+templates/vault-schema.md | author, published, created | A source's publication date in clipping frontmatter.
+templates/webclipper-template.json | "published" | A source's publication date in the Web Clipper template.
+templates/webclipper-template.json | {{published}} | A source's publication date in the Web Clipper template.
+templates/_templates/authored-decision.md | above in sync | The status field agrees with the prose; nothing to do with git.
+skills/wiki-setup/references/app-access.md | Never publish the token | The triage session token, never to be put into logs.
+skills/wiki-setup/references/capture-prerequisites.md | override to push through | Forcing unreadable content past a floor; nothing to do with git.
+
+# Bare pull and rebase. Each is a statement about Obsidian Git's own rebase, a setting's value, or not git at all.
+skills/wiki-setup/references/operation-recovery.md | when a rebase stops | Says when Obsidian Git writes its conflict file.
+skills/wiki-setup/references/operation-recovery.md | stops the rebase | Describes Obsidian Git stopping on a conflict.
+skills/wiki-setup/references/operation-recovery.md | stop on a rebase in progress | Says the refresh stops while Obsidian Git's rebase is stopped.
+skills/wiki-setup/references/operation-recovery.md | A rebase or merge is in progress | What the refresh reports about Obsidian Git's rebase; the fix is to rerun or tell the owner.
+skills/wiki-setup/references/initialization.md | syncMethod: rebase | An Obsidian Git setting's value.
+templates/vault-schema.md | syncMethod: rebase | An Obsidian Git setting's value.
+README.md | syncMethod: rebase | An Obsidian Git setting's value.
+scripts/lib/obsidian-git.mjs | 'rebase' | An Obsidian Git setting's value.
+scripts/lib/prerequisites.mjs | 'rebase' 'rebase-merge' | Read-only check for the state Obsidian Git's stopped rebase leaves.
+scripts/lib/prerequisites.mjs | 'rebase' 'rebase-apply' | Read-only check for the state Obsidian Git's stopped rebase leaves.
+README.md | ollama pull | Pulls an embedding model, not git.
+skills/wiki-setup/references/operation-recovery.md | Pull it: `ollama pull | Pulls an embedding model, not git.
+skills/wiki-setup/references/search-diagnostics.md | pull models | Embedding models, not git, and it says not to.
+scripts/lib/doctor-table.mjs | pull the embedding model | Pulls an embedding model, not git.
+scripts/lib/embedding.mjs | ollama pull | Pulls an embedding model, not git.
+scripts/lib/prerequisites.mjs | Offer to pull it: ollama pull | Pulls an embedding model, not git.
+scripts/lib/search-health.mjs | ollama pull | Pulls an embedding model, not git.
+docs/clipping-fidelity.md | pull request | GitHub pages used as a clipping sample.
+
+# The plugin's own repository, not a vault: a contributor's line endings.
+README.md | `git add` warnings | Why the plugin repository's line-ending policy exists.
+README.md | `git rm --cached -r -q . && git reset --hard` | Rewrites line endings once in a contributor's clone of the plugin; never a vault.

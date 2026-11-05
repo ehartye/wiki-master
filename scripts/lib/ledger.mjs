@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 
-// The ownership ledger: a JSON array of vault-relative file paths naming the pages one operation owns. It is the
-// `--paths-file` of op-commit, refresh-catalogs and validate-authored, which used to carry three copies of the path
-// rule (one also refused a colon, one accepted a byte-order mark). This is the one definition.
+// A ledger: a JSON array of vault-relative file paths naming the pages one authoring task wrote. It is the
+// `--paths-file` of validate-authored, lint and lint-disposition. This is the one definition of its path rule.
 //
 // A path is exact, with `/` separators, and names one file: no empty entry, no empty, `.` or `..` segment (so no
 // leading or trailing slash), no backslash, no NUL, and no colon. A colon is refused anywhere, not only as a drive

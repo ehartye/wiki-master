@@ -46,13 +46,21 @@ test('the interpreter candidates the pptx clipper tries are exported for the doc
 
 test('every command in the table is a script, every requirement is defined, and each has a hint', () => {
   for (const [name, spec] of Object.entries(CLIPPERS)) {
-    if (name !== 'vault') assert.ok(existsSync(join(SCRIPTS, `${name}.mjs`)), `${name}.mjs does not exist`);
+    assert.ok(existsSync(join(SCRIPTS, `${name}.mjs`)), `${name}.mjs does not exist`);
     for (const id of [...spec.required, ...spec.optional]) {
       assert.ok(id in TOOLS || id in OTHER, `${name} needs ${id}, which the table does not define`);
       assert.ok(TOOLS[id]?.hint || HINTS[id], `${id} has no hint`);
     }
     assert.ok(spec.required.length, `${name} has no required entry`);
   }
+});
+
+test('the last step of every authoring task lists what refresh-index.mjs refuses to run without', () => {
+  const refresh = CLIPPERS['refresh-index'];
+  for (const id of ['git', 'ollama', 'obsidian-git']) assert.ok(refresh.required.includes(id), id);
+  assert.deepEqual(refresh.optional, ['obsidian'], 'it passes without the CLI when Obsidian runs in another session');
+  assert.deepEqual(CLIPPERS['setup-obsidian-git'].required, ['obsidian']);
+  assert.ok(OTHER.ollama && OTHER['obsidian-git']);
 });
 
 test('every requirement is used by some command', () => {

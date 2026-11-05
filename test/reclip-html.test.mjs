@@ -13,7 +13,7 @@ import { extractHtml } from '../scripts/lib/html-extract.mjs';
 import { loadIssueLog, openIssues } from '../scripts/lib/triage.mjs';
 
 // A page clipped before an extractor fix cannot be repaired: clip.mjs refuses a URL it already holds, and the only
-// repair route, apply-reclips, read PDFs only. The HTML mode runs the same transaction (journal, ledger, dry run,
+// repair route, apply-reclips, read PDFs only. The HTML mode runs the same transaction (journal, dry run,
 // quarantine) over a page read again through the current extraction. A page, unlike a PDF, can have changed since
 // it was clipped, so a replacement that loses too much of the old text is refused.
 
@@ -280,3 +280,4 @@ test('apply-reclips takes --kind and refuses a value it does not know', () => {
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(run('--help').stdout, /--kind/);
 });
+

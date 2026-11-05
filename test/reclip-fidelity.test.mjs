@@ -89,12 +89,6 @@ test('failed repair can quarantine without changing raw body; restriction is dur
   assert.equal(queue.clipFailures.length,0);assert.equal(queue.fidelity.length,0);assert.equal(queue.backlogTotal,0);
 });
 
-test('ownership restrictions prevent quarantine and raw replacement from sweeping other pages',async t=>{
- const root=vault(t);const path=join(root,'raw/clippings/example.md');const before=readFileSync(path,'utf8');
- const result=await runReclips({vaultPath:root,apply:true,includeTabular:true,onFailure:'quarantine',ownedPaths:['raw/clippings/example.md'],obtain:async()=>{throw new Error('unavailable');}});
- assert.equal(result.conflicts.length,1);assert.equal(result.quarantined,0);assert.equal(readFileSync(path,'utf8'),before);
-});
-
 test('explicitly unverifiable table can be quarantined after visual review without another extraction',async t=>{
  const root=vault(t);let attempted=false;
  const result=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'Row pairing could not be verified',obtain:async()=>{attempted=true;}});
@@ -141,8 +135,6 @@ test('interrupted hash propagation retains the old transition and resumes withou
 
 test('quarantine supports valid extensionless citations and resumes an interrupted page restriction',async t=>{
  const root=vault(t);const page=join(root,'wiki/sources/example.md');writeFileSync(page,'Prior text cites [[raw/clippings/example|Example]].\n');
- const refused=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'Unverified',ownedPaths:['raw/clippings/example.md']});
- assert.equal(refused.conflicts.length,1);assert.doesNotMatch(readFileSync(join(root,'raw/clippings/example.md'),'utf8'),/citation-status/);
  const first=await runReclips({vaultPath:root,apply:true,targets:['raw/clippings/example.md'],quarantineReason:'Unverified',write:()=>{throw new Error('interrupted write');}});
  assert.equal(first.conflicts.length,1);
  const retry=await runReclips({vaultPath:root,apply:true,includeTabular:true});
@@ -183,13 +175,11 @@ test('a second writer cannot replace the active repair session or its transactio
  assert.ok(readFileSync(join(root,'wiki/sources/example.md'),'utf8').includes(clip.hash));
 });
 
-test('recovery discovers new dependencies and refuses an incomplete ownership ledger',async t=>{
- const root=vault(t);const raw='raw/clippings/example.md',old='wiki/sources/example.md',added='wiki/sources/new.md';
+test('recovery discovers new dependencies',async t=>{
+ const root=vault(t);const raw='raw/clippings/example.md',added='wiki/sources/new.md';
  const first=await runReclips({vaultPath:root,apply:true,targets:[raw],quarantineReason:'Unverifiable rows',write:()=>{throw new Error('interrupted');}});
  assert.equal(first.conflicts.length,1);
  writeFileSync(join(root,added),'A new citation [[raw/clippings/example]].\n');
- const refused=await runReclips({vaultPath:root,apply:true,targets:[raw],ownedPaths:[raw,old]});
- assert.equal(refused.conflicts.length,1);assert.doesNotMatch(readFileSync(join(root,raw),'utf8'),/citation-status: quarantined/);
- const done=await runReclips({vaultPath:root,apply:true,targets:[raw],ownedPaths:[raw,old,added]});
+ const done=await runReclips({vaultPath:root,apply:true,targets:[raw]});
  assert.equal(done.quarantined,1);assert.match(readFileSync(join(root,added),'utf8'),/Do not cite/);
 });

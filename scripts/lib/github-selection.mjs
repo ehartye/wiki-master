@@ -24,7 +24,6 @@ export function selectionOptions(argv) {
   if (!paths.length && !readmeOnly) return null;
   if (!argv[0] || argv[0].startsWith('-')) throw failure('Selection requires a repository target');
   for (let i=1;i<argv.length;i++) {
-    if (argv[i] === '--since') { i++; continue; }
     if (!argv[i].startsWith('--')) throw failure('Unexpected positional argument in selection');
   }
   if (readmeOnly && paths.length) throw failure('Use --readme-only or repeated --path=<exact-path>, not both');
@@ -134,7 +133,7 @@ function clipping(file, options) {
 }
 
 function safeDirectory(vault, segments) {
-  // Validate against the real root, but retain the caller's spelling for ledger paths
+  // Validate against the real root, but retain the caller's spelling in the paths returned
   // (for example macOS /var -> /private/var). Child links remain forbidden.
   const root = realpathSync(vault); let current = resolve(vault);
   for (const segment of segments) {
@@ -171,7 +170,7 @@ export function publishImmutable(path, body, { write = writeFileSync, link = lin
   return { cleanupWarnings, ...(cleanupWarnings.length ? { staging: stage } : {}) };
 }
 
-export function captureSelection({ owner, repo, selection, vaultPath, quality = 'medium', topic, record = () => {}, read = githubObjectReader(owner, repo), publish = publishImmutable }) {
+export function captureSelection({ owner, repo, selection, vaultPath, quality = 'medium', topic, read = githubObjectReader(owner, repo), publish = publishImmutable }) {
   let plan;
   try { plan = prepare({ owner, repo, selection, read }); }
   catch (e) { return { status: 'failed', mode: 'selected', error: e.message, refused: e.selectionStatus === 'refused' ? 1 : 0, failed: e.selectionStatus === 'refused' ? 0 : 1, selected: 0, clipped: 0, unchanged: 0, entries: [] }; }
@@ -192,7 +191,6 @@ export function captureSelection({ owner, repo, selection, vaultPath, quality = 
       const path = join(outDir,file.name), entry = summary.entries.find(e=>e.path===file.path);
       writingEntry = entry;
       if (sameExisting(path,file.body)) { entry.status='unchanged'; summary.unchanged++; continue; }
-      record(path); // strict planned-scope reservation; a failure must precede creation
       try { const result = publish(path,file.body); entry.status='clipped'; summary.clipped++; if (result?.cleanupWarnings?.length) summary.cleanupWarnings.push(result); }
       catch (e) { if (e.code==='EEXIST' && sameExisting(path,file.body)) {entry.status='unchanged';summary.unchanged++;} else throw e; }
     }
@@ -200,7 +198,6 @@ export function captureSelection({ owner, repo, selection, vaultPath, quality = 
     writingEntry = null;
     let manifestWritten = false;
     if (!sameExisting(path,manifest.body)) {
-      record(path);
       try { const result = publish(path,manifest.body); manifestWritten=true; if (result?.cleanupWarnings?.length) summary.cleanupWarnings.push(result); }
       catch (e) { if (e.code!=='EEXIST' || !sameExisting(path,manifest.body)) throw e; }
     }

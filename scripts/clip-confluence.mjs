@@ -6,7 +6,6 @@ import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -128,7 +127,6 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
-  const record = writtenRecorder(vaultPath, argv);
 
   // --decline never fetches -- it only needs an identity to record against,
   // exactly like clip.mjs and clip-docx.mjs, so it works with no dependency
@@ -231,7 +229,6 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
-  record(file);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, confluence, space=${parsed.space || '?'}, v${parsed.version || '?'})`);
   gate.finish();
   return { status: 'clipped', slug, file, space: parsed.space, pageId: parsed.pageId, version: parsed.version };

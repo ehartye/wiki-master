@@ -131,7 +131,7 @@ test('the catalog is neither a referent nor collateral', () => {
 // A MOC is excluded from the REFERENT test (it links everything, so an edge from
 // one proves nothing about topic membership) but must still appear as collateral:
 // isContent('moc/x.md') is true, so health.mjs counts its broken links, and
-// nothing regenerates a MOC the way index-gen.mjs regenerates the catalog. The
+// nothing regenerates a MOC the way a refresh regenerates the catalog. The
 // log and templates stay out — the log is an immutable audit trail.
 test('a MOC linking into the set is collateral; the catalog, log and templates are not', () => {
   const pages = [

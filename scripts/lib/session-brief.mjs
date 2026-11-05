@@ -21,6 +21,15 @@ export function normalizeRepoRef(value) {
 
 const AUTHORED = 'wiki/authored';
 
+// A project maps to a vault-relative directory (including nested project tiers).
+export function validateProject(project) {
+  if (project === undefined) return;
+  if (typeof project !== 'string' || !project || project.includes('\\') || project.includes(':') ||
+      project.includes('\0') || project.split('/').some(p => !p || p === '.' || p === '..' || p.startsWith('.'))) {
+    throw new Error('project must be a nonempty vault-relative project slug');
+  }
+}
+
 // The overview pages that carry a `repo:` key, as { project, path, refs }. Overview pages sit at most three
 // folders under wiki/authored (a project tier may be nested), so the walk stops there.
 function overviewPages(vaultPath) {
@@ -181,11 +190,10 @@ export function buildBrief({ state, items = [], today = new Date(), staleDays = 
 
 const BY = { remote: 'the repository remote', folder: 'the repository folder name', flag: '--project' };
 
-export function formatBrief({ project, path, by, brief, staleDays = 30, openOperations = null }) {
+export function formatBrief({ project, path, by, brief, staleDays = 30 }) {
   const lines = [`Project: ${project} (${path}), matched by ${BY[by] ?? by}`];
   if (!brief) {
     lines.push(`no state page at ${path}/reference/studio-state.md; orientation is optional and work can continue`);
-    if (openOperations) lines.push('', openOperations);
     return lines.join('\n');
   }
   // Existing callers may construct the historical brief object themselves.
@@ -203,6 +211,5 @@ export function formatBrief({ project, path, by, brief, staleDays = 30, openOper
   if (brief.overdue.length) extra.push('Legacy open questions past their recorded gate:', ...brief.overdue.map((q) => `  - ${readable(q.question)} (gate ${q.gate}, owner: ${readable(q.owner || 'none')})`));
   if (brief.dueNext.length) extra.push('Legacy open questions at their recorded phase:', ...brief.dueNext.map((q) => `  - ${readable(q.question)} (gate ${q.gate}, owner: ${readable(q.owner || 'none')})`));
   lines.push(...brief.report, '', ...(extra.length ? extra : ['No stale artifacts, blocked items or overdue questions.']));
-  if (openOperations) lines.push('', openOperations);
   return lines.join('\n');
 }

@@ -1,8 +1,8 @@
-import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readStdin } from './lib/read-stdin.mjs';
 import { resolveVault } from './lib/vault.mjs';
-import { writtenRecorder } from './lib/op-ledger.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -41,15 +41,12 @@ export function writeLogEntry({ vaultPath, op, title, body = '', now = new Date(
     `## [${day}] ${op} | ${oneLineTitle}\n\n${body.trim()}\n`;
   writeFileSync(join(logDir, file), content);
   // Forward-slash, not join('log', file): on Windows join() would return
-  // 'log\\file.md', and while git normalizes that fine on its own, this
-  // return value also has to match the forward-slash `staged` set inside
-  // commitPaths's own intersection check (git diff --cached always reports
-  // forward slashes) -- a caller that stages this path via commitPaths would
-  // otherwise never see it counted as staged.
+  // 'log\\file.md', and this is a vault-relative path, the form every other
+  // vault path takes.
   return `log/${file}`;
 }
 
-export function main() {
+export async function main() {
   const args = process.argv.slice(2);
   const get = (flag) => {
     const idx = args.indexOf(flag);
@@ -61,12 +58,9 @@ export function main() {
     console.error('usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)');
     process.exit(1);
   }
-  const body = process.stdin.isTTY ? '' : readFileSync(0, 'utf8');
+  const body = process.stdin.isTTY ? '' : await readStdin();
   const { path: vaultPath } = resolveVault();
-  const written = writeLogEntry({ vaultPath, op, title, body });
-  // The name carries a timestamp, so this is the one place it is known. --since puts it in the operation's ledger.
-  writtenRecorder(vaultPath, args)(written);
-  console.log(written);
+  console.log(writeLogEntry({ vaultPath, op, title, body }));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

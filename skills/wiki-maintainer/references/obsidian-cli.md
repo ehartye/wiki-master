@@ -1,4 +1,4 @@
-Read directly for this operation: [access](access.md).
+Read directly for this task: [access](access.md).
 Select the calling workflow before mutations; CLI syntax alone does not authorize writes.
 
 # Driving the Obsidian CLI
@@ -20,6 +20,8 @@ an earlier write's outcome is uncertain. See the directly linked access contract
 The guarded `vault info=path` command can confirm the root
 when the app responds; the known configured/default root supports filesystem access
 without that probe.
+`refresh-index.mjs` is the exception: it asks Obsidian about its active vault without
+naming one, so another vault in focus stops it with a message naming the fix to offer.
 
 ## Access failures and empty results
 
@@ -33,9 +35,9 @@ Use the direct [app-access diagnosis](../../wiki-setup/references/app-access.md)
   `search` defaults to `text`, `backlinks`/`tags`/`properties` to `tsv`,
   `base:query` to `json`. Never assume JSON; ask for it.
 - **`node "<absolute-plugin-root>/scripts/obsidian.mjs" help` outranks the docs.** Obsidian's own skill says it "is always
-  up to date" — so when the published reference and the binary disagree, the
+  up to date" — so when the documented reference and the binary disagree, the
   binary wins. Check `node "<absolute-plugin-root>/scripts/obsidian.mjs" help <command>` before concluding a flag is gone.
-- Prior art worth comparing against: kepano (Obsidian's CEO) publishes a
+- Prior art worth comparing against: kepano (Obsidian's CEO) offers a
   first-party `obsidian-cli` Agent Skill. Where it and this skill agree — `total`
   for counts, `file=` vs `path=`, vault-first ordering — the agreement is
   independent corroboration, not inheritance.
@@ -67,7 +69,7 @@ Use the direct [app-access diagnosis](../../wiki-setup/references/app-access.md)
 
 ## Create / edit / move
 - Create, replace or append ordinary Markdown through exact-path filesystem edits
-  under the known root, using the shared operation lifecycle. Preserve current
+  under the known root, finishing through [completion](operations.md). Preserve current
   content and raw evidence. Do not send substantial text through the CLI.
 - `node "<absolute-plugin-root>/scripts/obsidian.mjs" move file=foo to=wiki/entities`
 
@@ -86,7 +88,5 @@ Use the direct [app-access diagnosis](../../wiki-setup/references/app-access.md)
 
 If a command fails, report its diagnostic and use
 [app failure recovery](../../wiki-setup/references/app-access.md#failure-refusal-and-uncertain-mutation).
-Never claim a filesystem fallback performed an app-only action. For content
-mutations, retain [operation completion](operations.md) and direct
-[scoped validation](../../wiki-setup/references/validation.md); UI-only actions do
-not manufacture content operations.
+Never claim a filesystem fallback performed an app-only action. Content changes
+finish through [completion](operations.md); a UI-only action needs no log or refresh.

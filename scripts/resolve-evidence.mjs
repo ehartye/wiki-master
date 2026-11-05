@@ -18,6 +18,7 @@
 //   node scripts/resolve-evidence.mjs "wiki/sources/Foo.md:23"
 //   node scripts/search.mjs "topic" --include-raw | node scripts/resolve-evidence.mjs
 import { pathToFileURL } from 'node:url';
+import { readStdin } from './lib/read-stdin.mjs';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, buildNameIndex, evidenceRoutes } from './lib/graph.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -95,20 +96,6 @@ export function formatEvidenceReport(result) {
     default:
       return [path, `  unknown status: ${status}`];
   }
-}
-
-// Reads stdin asynchronously rather than via `readFileSync(0)`: confirmed
-// live that the synchronous read hits Node's `EAGAIN: resource temporarily
-// unavailable` on macOS specifically when the pipe's other end is ALSO a
-// live Node process still writing/flushing (`node search.mjs ... | node
-// resolve-evidence.mjs` — this script's own primary documented use case) --
-// a synchronous read races a non-blocking pipe fd in exactly that shape.
-// Async iteration goes through libuv's real async I/O path instead of a
-// bare read syscall, and does not hit this.
-async function readStdin() {
-  const chunks = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  return Buffer.concat(chunks.map((c) => (Buffer.isBuffer(c) ? c : Buffer.from(c)))).toString('utf8');
 }
 
 export async function main(argv) {

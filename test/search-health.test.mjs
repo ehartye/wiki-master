@@ -1,8 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan,
 } from '../scripts/lib/search-health.mjs';
+import { freshness, refreshIndex, statusReport, walkVault } from '../scripts/lib/embedding.mjs';
+
+const SEARCH = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'search.mjs');
 
 // The remaining channels post-qmd (design spec section 4/5.4): Obsidian
 // keyword (always available) and Ollama-backed chunk-semantic. `tier` is
@@ -13,6 +22,129 @@ const HEALTHY = {
   ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
   index: { available: true, coverage: { chunks: 5515, embedded: 5515, missing: 0 }, filesChanged: 0 },
 };
+
+test('a damaged vector store is a gap with the rebuild as its fix, an honest tier, and shows even with Ollama down', () => {
+  const damaged = { ...HEALTHY.index, damaged: 'vectors.bin has 3 unusable vector(s) of 3' };
+  const up = assessTiers({ ollama: HEALTHY.ollama, index: damaged });
+  assert.equal(up.tier, 'lexical');
+  assert.equal(up.gaps.length, 1);
+  assert.equal(up.gaps[0].channel, 'index');
+  assert.match(up.gaps[0].state, /damaged.*3 unusable/);
+  assert.equal(up.gaps[0].fix, 'node scripts/refresh-index.mjs --rebuild');
+  assert.match(setupPlan(up), /refresh-index\.mjs --rebuild/);
+  const down = assessTiers({ ollama: { reachable: false }, index: damaged });
+  assert.deepEqual(down.gaps.map((g) => g.channel), ['ollama', 'index'], 'Ollama comes first, since the rebuild needs it');
+});
+
+// The real command against a stub Ollama and a real store, because "all channels healthy" needs Ollama to answer.
+async function healthOf(t, harm, args = ['--health']) {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-health-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+  for (const name of ['a', 'b', 'c']) writeFileSync(join(vault, 'wiki', 'concepts', `${name}.md`), `# ${name}\n\nAbout ${name}, at some length.\n`);
+  const dir = join(vault, '.wiki-master');
+  await refreshIndex({ vaultPath: vault, dir, embedFn: async (text) => [text.length, 1, 1, 1], checkAvailable: async () => true, checkModel: async () => true });
+  harm?.(dir);
+  const server = createServer((req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ models: [{ name: 'test-embedder:latest' }] })); });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const child = spawn(process.execPath, [SEARCH, ...args], { env: { ...process.env, WIKI_MASTER_VAULT: vault, OLLAMA_HOST: `http://127.0.0.1:${server.address().port}`, WIKI_MASTER_EMBED_MODEL: 'test-embedder' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', (d) => { output += d; });
+  child.stderr.on('data', (d) => { output += d; });
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  return { code, output };
+}
+const cut = (dir, size) => { const bin = join(dir, 'vectors.bin'); writeFileSync(bin, readFileSync(bin).subarray(0, size)); };
+const fileWide = (dir) => { const bin = join(dir, 'vectors.bin'); writeFileSync(bin, Buffer.alloc(statSync(bin).size, 0xff)); };
+const dimTwo = (dir) => { const file = join(dir, 'vectors.idx.json'); writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), dim: 2 })); };
+
+test('search --health says all channels are healthy on a sound store', async (t) => {
+  const { code, output } = await healthOf(t);
+  assert.equal(code, 0, output);
+  assert.match(output, /all channels healthy/);
+  assert.match(output, /tier: hybrid/);
+});
+
+for (const [label, harm] of [
+  ['all-0xFF', fileWide],
+  ['empty', (dir) => cut(dir, 0)],
+  ['truncated', (dir) => cut(dir, 16)],
+  ['cut mid-number', (dir) => cut(dir, 18)],
+  ['dim 2', dimTwo],
+]) {
+  test(`search --health on a ${label} store shows the damage and the rebuild`, async (t) => {
+    const { code, output } = await healthOf(t, harm);
+    assert.equal(code, 0, output);
+    assert.doesNotMatch(output, /all channels healthy/);
+    assert.match(output, /damaged/);
+    assert.match(output, /refresh-index\.mjs --rebuild/);
+  });
+}
+
+test('search --health on a store full of bad numbers shows the damage instead of counting the vectors as embedded', async (t) => {
+  const { output } = await healthOf(t, fileWide);
+  assert.match(output, /index: damaged/);
+  assert.doesNotMatch(output, /\d+ embedded/);
+});
+
+const CORRUPT_MANIFESTS = {
+  'unparsable': '{ nope',
+  'not a manifest': '[]',
+  'a page with no chunk list': JSON.stringify({ 'wiki/concepts/a.md': { mtimeMs: 1, size: 1 } }),
+};
+for (const [label, text] of Object.entries(CORRUPT_MANIFESTS)) {
+  for (const arg of ['--health', '--setup']) {
+    test(`search ${arg} on a chunks.json that is ${label} points to the rebuild, never to a plain refresh`, async (t) => {
+      const { code, output } = await healthOf(t, (dir) => writeFileSync(join(dir, 'chunks.json'), text), [arg]);
+      assert.equal(code, 0, output);
+      assert.match(output, /refresh-index\.mjs --rebuild/);
+      assert.doesNotMatch(output, /refresh-index\.mjs(?! --rebuild)/, 'a plain refresh stops at damage, so it cannot be the fix');
+      if (arg === '--health') assert.match(output, /index: damaged/);
+    });
+  }
+}
+
+test('damage is the only index gap: the rebuild repairs the rest, and the plain refresh the others name would stop', () => {
+  for (const index of [
+    { available: false, coverage: { chunks: 0, embedded: 0, missing: 0 }, filesChanged: 0, damaged: 'x' },
+    { available: true, coverage: { chunks: 9, embedded: 3, missing: 6 }, filesChanged: 4, damaged: 'x' },
+  ]) {
+    const r = assessTiers({ ollama: HEALTHY.ollama, index });
+    assert.equal(r.tier, 'lexical');
+    assert.deepEqual(r.gaps.map((g) => g.fix), ['node scripts/refresh-index.mjs --rebuild']);
+  }
+});
+
+test('freshness gives the counts statusReport gives, from a manifest already in memory', async (t) => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-fresh-'));
+  t.after(() => rmSync(vault, { recursive: true, force: true }));
+  mkdirSync(join(vault, 'wiki', 'concepts'), { recursive: true });
+  for (const name of ['a', 'b', 'c']) writeFileSync(join(vault, 'wiki', 'concepts', `${name}.md`), `# ${name}\n\nAbout ${name}.\n`);
+  const dir = join(vault, '.wiki-master');
+  await refreshIndex({ vaultPath: vault, dir, embedFn: async (text) => [text.length, 1], checkAvailable: async () => true, checkModel: async () => true });
+  const compare = (expected) => {
+    const manifest = JSON.parse(readFileSync(join(dir, 'chunks.json'), 'utf8'));
+    const { filesChanged, filesRemoved } = statusReport({ vaultPath: vault, dir });
+    assert.deepEqual({ filesChanged, filesRemoved }, expected);
+    assert.deepEqual(freshness({ vaultPath: vault, manifest }), expected);
+  };
+  compare({ filesChanged: 0, filesRemoved: 0 });
+  writeFileSync(join(vault, 'wiki', 'concepts', 'a.md'), '# a\n\nChanged, and longer than before.\n');
+  rmSync(join(vault, 'wiki', 'concepts', 'b.md'));
+  writeFileSync(join(vault, 'wiki', 'concepts', 'new.md'), '# new\n');
+  compare({ filesChanged: 2, filesRemoved: 1 });
+  assert.equal(walkVault(vault).length, 3);
+});
+
+test('a first query in the window still reports changed files, and runs no pass over the vector store', async (t) => {
+  const { output } = await healthOf(t, (dir) => writeFileSync(join(dir, '..', 'wiki', 'concepts', 'a.md'), '# a\n\nChanged, and longer than before.\n'), ['about', '--limit', '1']);
+  assert.match(output, /index: 1 file\(s\) changed since last refresh/);
+  const source = readFileSync(SEARCH, 'utf8');
+  const query = source.slice(source.indexOf('async function runQuery'), source.indexOf('function loadIndexForDiagnosis'));
+  assert.match(query, /freshness\(/);
+  assert.doesNotMatch(query, /statusReport/, 'the inspection costs about 59 ms on a real vault and a query has no use for its answer');
+});
 
 test('1. all channels healthy resolves to hybrid with no gaps', () => {
   const r = assessTiers(HEALTHY);
@@ -46,7 +178,7 @@ test('3. Ollama up but the model is not pulled is flagged with misreports: true'
   assert.match(g.fix, /ollama pull nomic-embed-text/);
 });
 
-test('4. index missing resolves to lexical even with Ollama fully healthy, fix names index-embed', () => {
+test('4. index missing resolves to lexical even with Ollama fully healthy, fix names refresh-index', () => {
   const r = assessTiers({
     ollama: { reachable: true, modelPresent: true, model: 'nomic-embed-text' },
     index: { available: false, coverage: { chunks: 0, embedded: 0, missing: 0 }, filesChanged: 0 },
@@ -54,7 +186,7 @@ test('4. index missing resolves to lexical even with Ollama fully healthy, fix n
   assert.equal(r.tier, 'lexical');
   const g = r.gaps.find((x) => x.channel === 'index');
   assert.ok(g, 'a gap must name the index');
-  assert.match(g.fix, /index-embed\.mjs/);
+  assert.match(g.fix, /refresh-index\.mjs/);
   assert.notEqual(g.misreports, true, 'a missing index does not misreport -- search() itself already degrades correctly');
 });
 
@@ -70,7 +202,7 @@ test('5. a stale index still answers hybrid, but a gap reports how many files ch
   const g = r.gaps.find((x) => x.channel === 'index');
   assert.match(g.state, /12 file\(s\) changed/);
   assert.notEqual(g.misreports, true);
-  assert.match(g.fix, /index-embed\.mjs/);
+  assert.match(g.fix, /refresh-index\.mjs/);
 });
 
 test('index partially embedded reports a gap naming the missing chunk count', () => {
@@ -144,12 +276,12 @@ test('setupPlan prints the exact fix commands in order and de-duplicates a repea
   const assessed = {
     tier: 'hybrid',
     gaps: [
-      { channel: 'index', state: 'a', fix: 'node scripts/index-embed.mjs' },
-      { channel: 'index', state: 'b', fix: 'node scripts/index-embed.mjs' },
+      { channel: 'index', state: 'a', fix: 'node scripts/refresh-index.mjs' },
+      { channel: 'index', state: 'b', fix: 'node scripts/refresh-index.mjs' },
     ],
   };
   const plan = setupPlan(assessed);
-  const occurrences = plan.split('node scripts/index-embed.mjs').length - 1;
+  const occurrences = plan.split('node scripts/refresh-index.mjs').length - 1;
   assert.equal(occurrences, 1, 'the same remediation command must not repeat');
 });
 

@@ -12,11 +12,13 @@ export const TOOLS = {
   pdftoppm: { command: 'pdftoppm', args: ['-v'], poppler: true, hint: 'install poppler (see pdftotext); it also provides pdftoppm' },
   tesseract: { command: 'tesseract', args: ['--version'], hint: 'install Tesseract OCR: https://github.com/tesseract-ocr/tesseract' },
   soffice: { command: 'soffice', args: ['--version'], hint: 'install LibreOffice and put its program folder on PATH' },
-  obsidian: { command: 'obsidian', args: null, hint: 'enable the Obsidian command line interface in the app (optional: file work does not need it)' },
+  obsidian: { command: 'obsidian', args: null, hint: 'enable the Obsidian command line interface in the app (Settings > General > Advanced)' },
 };
 
-// Things that are not a single program.
+// Things that are not a single program, or that are asked over HTTP or read from the vault instead of being started.
 export const OTHER = {
+  ollama: 'Ollama reachable with the embedding model pulled, asked over HTTP',
+  'obsidian-git': 'the Obsidian Git plugin in the vault, installed and enabled with its timer on, read from the vault\'s files',
   python: 'a Python interpreter (python3, python or py)',
   'python-pptx': 'the python-pptx library in that interpreter',
   'html-runtime': 'the pinned npm packages for HTML extraction (defuddle, linkedom, turndown)',
@@ -26,6 +28,8 @@ export const OTHER = {
 };
 
 export const HINTS = {
+  ollama: 'install Ollama (https://ollama.com), start it, and pull the embedding model',
+  'obsidian-git': 'run setup-obsidian-git.mjs --check; the wiki-setup skill offers the install',
   python: 'install Python 3 and put it on PATH',
   'python-pptx': 'pip install python-pptx',
   'html-runtime': 'in a development checkout run `npm ci`; an installed copy runs through the pinned npm exec launcher',
@@ -42,7 +46,8 @@ export const POPPLER_EXTRAS = ['pdfimages', 'pdftocairo', 'pdfinfo'];
 
 // Per command: what it cannot work without (`required`) and what only widens it (`optional`).
 export const CLIPPERS = {
-  vault: { summary: 'vault operations (op-begin, op-commit, wiki-sync, health)', required: ['git'], optional: ['obsidian'] },
+  'refresh-index': { summary: 'the last step of every authoring task (refresh-index.mjs)', required: ['git', 'ollama', 'obsidian-git'], optional: ['obsidian'] },
+  'setup-obsidian-git': { summary: 'installing Obsidian Git in the vault (setup-obsidian-git.mjs --apply)', required: ['obsidian'], optional: [] },
   clip: { summary: 'web pages (clip.mjs)', required: ['html-runtime'], optional: ['playwright-core', 'browser'] },
   'clip-pdf': { summary: 'PDF files', required: ['pdftotext'], optional: ['pdftoppm', 'tesseract'] },
   'clip-docx': { summary: 'Word documents', required: ['pandoc'], optional: [] },

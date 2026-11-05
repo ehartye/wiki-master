@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,12 +22,9 @@ function tempVault() {
     '---\ntype: concept\nsources: ["[[raw/clippings/Src-abc1234.md]]"]\n---\n# Foo\n\nbody\n');
   writeFileSync(join(dir, 'raw', 'clippings', 'Src-abc1234.md'),
     '---\ntitle: "Src"\nsource: https://example.com/a\nsource-hash: abc1234deadbeef\n---\ntext\n');
-  // Every real vault has an index.md (the vault-schema.md contract) -- main's
-  // --apply commit always stages it, and git fails a whole
-  // --pathspec-from-file add/commit outright (exit 128) if any listed path
-  // matches nothing at all. Present here so the `main` CLI tests below reach
-  // a realistic vault, not one only the lower-level applyPurge/applyRestore
-  // tests above were shaped for.
+  // Every real vault has an index.md (the vault-schema.md contract). Present
+  // here so the `main` CLI tests below reach a realistic vault, not one only
+  // the lower-level applyPurge/applyRestore tests above were shaped for.
   writeFileSync(join(dir, 'index.md'), '# Index\n');
   return dir;
 }
@@ -68,8 +65,7 @@ test('applyPurge parks a resurrection in resurrected-N rather than overwriting',
     // slot — a mutant that pushes only e.from (dropping the destination)
     // leaves every other test in this file passing, because none of them
     // assert touched on a diverted move. Without the real destination here,
-    // the caller cannot stage where the resurrection actually landed, and a
-    // re-binned resurrection would be moved on disk but never committed.
+    // the reconcile log could not say where the resurrection actually landed.
     assert.deepEqual(r.touched,
       ['wiki/concepts/Foo.md', '.recycle/id/resurrected-1/wiki/concepts/Foo.md']);
   } finally {
@@ -189,9 +185,8 @@ test('applyRestore puts every entry back where it came from', () => {
     assert.equal(readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8'), before);
     assert.equal(r.restored, 1);
     assert.deepEqual(r.missing, []);
-    // A restore is otherwise a purely local working-tree change: the caller
-    // needs exactly what moved to stage a commit, the same reasoning as
-    // applyPurge.touched.
+    // The caller reports exactly what moved in the log entry, the same
+    // reasoning as applyPurge.touched.
     assert.deepEqual(r.touched, ['.recycle/id/wiki/concepts/Foo.md', 'wiki/concepts/Foo.md']);
   } finally {
     rmSync(v, { recursive: true, force: true });
@@ -457,6 +452,20 @@ function commitAll(dir, message) {
   execFileSync('git', ['commit', '-q', '-m', message], { cwd: dir });
 }
 
+// What a git write would move: the commit, the staged entries and the staged diff.
+function gitState(dir) {
+  const git = (...args) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+  return {
+    head: git('rev-parse', 'HEAD').trim(),
+    index: git('ls-files', '--stage'),
+    staged: git('diff', '--cached', '--name-status'),
+  };
+}
+
+function logEntries(dir) {
+  return existsSync(join(dir, 'log')) ? readdirSync(join(dir, 'log')).sort() : [];
+}
+
 // Runs main() against a real vault, pointing WIKI_MASTER_VAULT at it (saved and
 // restored), capturing console output and process.exitCode instead of letting
 // either leak into the rest of the suite.
@@ -529,7 +538,7 @@ test('main --apply refuses to move anything when a survivor would lose all prove
   }
 });
 
-// M3: the `if (failed.length)` stop-before-commit guard.
+// M3: the `if (failed.length)` stop-before-logging guard.
 //
 // A real move failure could not be driven through `main --apply` from
 // outside. Two mechanisms were tried and both dead-end structurally, not for
@@ -547,19 +556,19 @@ test('main --apply refuses to move anything when a survivor would lose all prove
 //      silently succeeding, never reaching the new guard at all. Confirmed
 //      empirically: calling applyPurge directly on this exact fixture (no
 //      prior writeManifest) reports `failed: [...]`; going through `main`
-//      reports a clean, fully committed purge instead.
+//      reports a clean purge instead.
 // So this tests the WIRING of the guard via the one injection seam `main`
 // already has a precedent for (`searchImpl`): an injected `applyPurge` that
 // fails on demand, independent of what real-world condition would cause
 // applyPurge to report a failure. That underlying condition is covered by
 // the "a locked or otherwise unmoveable entry..." test in this file and its
 // G3 re-run in the mutation table.
-test('main --apply stops before committing when applyPurge reports a failed move', async () => {
+test('main --apply writes no log when applyPurge moved nothing and reports a failed move', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    const before = gitState(v);
     const failingApplyPurge = () => ({
       moved: 0, touched: [], failed: [{ from: 'wiki/concepts/Foo.md', reason: 'simulated failure' }],
     });
@@ -567,10 +576,15 @@ test('main --apply stops before committing when applyPurge reports a failed move
     const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: failingApplyPurge });
 
     assert.equal(r.exitCode, 1);
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.equal(after, before, 'a purge with a failed move must not be committed');
-    assert.ok(r.errs.some((l) => l.includes('could not be moved')));
-    assert.ok(r.errs.some((l) => l.includes('simulated failure')));
+    assert.deepEqual(gitState(v), before);
+    assert.deepEqual(logEntries(v), [], 'a purge that moved nothing has nothing to log');
+    const errs = r.errs.join('\n');
+    assert.ok(errs.includes('could not be moved'));
+    assert.ok(errs.includes('simulated failure'));
+    assert.match(errs, /run --reconcile to finish this purge/);
+    assert.match(errs, /re-bins the stragglers into \.recycle\//);
+    assert.doesNotMatch(errs, /\bcommit/i);
+    assert.doesNotMatch(r.logs.join('\n'), /Obsidian Git publishes/, 'a failed purge has not finished, so it must not say it has');
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -640,31 +654,29 @@ test('reconcile puts a path-matched crash-recovery file in its proper slot, not 
   }
 });
 
-// M6: the commit staging set. `main` must stage and commit exactly what the
-// purge touched -- an unrelated, already-dirty file in the vault (someone's
-// own in-progress edit) must not ride along in the purge's commit.
-test('an unrelated pre-staged file is not swept into the purge commit', async () => {
+// AC11: --apply leaves one log entry and no new commit. Obsidian Git publishes
+// the removal; purge runs no git at all, so an unrelated, already-staged file
+// (someone's own in-progress edit) stays exactly as it was.
+test('--apply leaves one log entry and no new commit, with an unrelated staged file left alone', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
     writeFileSync(join(v, 'wiki', 'concepts', 'Draft.md'), 'work in progress\n');
     execFileSync('git', ['add', 'wiki/concepts/Draft.md'], { cwd: v });
+    const before = gitState(v);
 
     const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
 
-    // A genuinely new commit, not a stale match against the initial commit
-    // (which also added Foo.md) -- the real hazard this test exists to catch.
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.notEqual(after, before, 'the purge must have produced a new commit');
-    assert.ok(r.logs.some((l) => l.startsWith('committed ')), 'main must report the commit');
-    const files = execFileSync('git', ['show', '--name-status', '--format=', 'HEAD'], { cwd: v, encoding: 'utf8' });
-    assert.equal(/Draft\.md/.test(files), false, 'the unrelated draft must not ride along in the purge commit');
-    assert.match(files, /\.recycle\/.*Foo\.md/, 'the purge move itself must be in this commit');
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
-    assert.match(status, /Draft\.md/, 'and it must remain exactly as dirty as it was, neither committed nor lost');
     assert.equal(r.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false, 'the purge ran');
+    assert.deepEqual(gitState(v), before);
+    const entries = logEntries(v);
+    assert.equal(entries.length, 1);
+    assert.match(entries[0], /-purge-foo\.md$/);
+    assert.match(readFileSync(join(v, 'log', entries[0]), 'utf8'), /Purged 2 file\(s\) to `\.recycle\//);
+    assert.equal(r.logs.some((l) => /\bcommit/i.test(l)), false, 'the output must not mention a commit');
+    assert.equal(r.logs.some((l) => l.includes('other file(s)')), false, 'the uncommitted-work advisory is gone');
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -676,18 +688,17 @@ test('an unrelated pre-staged file is not swept into the purge commit', async ()
 // case (a stale search hit for a page that's gone). planPurge's own
 // known.has(p) filter makes plan.purge empty even though seedPaths is not --
 // main must recognize that and write NOTHING, rather than a second manifest
-// with zero entries, a "purged 0 file(s)" log entry, and a commit containing
-// no purge at all.
-test('re-running --apply after the topic is already purged writes no second manifest and commits nothing', async () => {
+// with zero entries and a "purged 0 file(s)" log entry.
+test('re-running --apply after the topic is already purged writes no second manifest and no second log', async () => {
   const v = tempVault();
   try {
     gitInit(v);
     commitAll(v, 'initial');
-    const first = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
-    assert.ok(first.logs.some((l) => l.startsWith('committed ')));
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
     const { manifests: before } = readManifests(v);
     assert.equal(before.length, 1);
-    const headAfterFirst = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
+    const logsAfterFirst = logEntries(v);
+    assert.equal(logsAfterFirst.length, 1);
 
     // The same stale search hit again -- Foo.md no longer exists in the vault.
     const second = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
@@ -695,47 +706,18 @@ test('re-running --apply after the topic is already purged writes no second mani
     assert.ok(second.logs.some((l) => l.includes('the closure is empty')));
     const { manifests: after } = readManifests(v);
     assert.equal(after.length, 1, 'no second manifest must be written');
-    const headAfterSecond = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.equal(headAfterSecond, headAfterFirst, 'no new commit for an empty closure');
+    assert.deepEqual(logEntries(v), logsAfterFirst, 'no log entry for an empty closure');
     assert.equal(second.exitCode, undefined);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
 });
 
-// C2: --reconcile is the recovery path a stalled --apply is told to run in
-// place of a second --apply. It must actually commit what it re-bins, or
-// running it leaves the exact working-tree-only state this whole feature
-// exists to prevent -- just reached via the "fix" instead of the crash.
-test('reconcile commits what it re-bins, leaving a clean working tree', async () => {
-  const v = tempVault();
-  try {
-    gitInit(v);
-    commitAll(v, 'initial');
-    const manifest = {
-      id: '2026-01-02-crash', topic: 'crash', declines: [],
-      entries: [{ layer: 'wiki', from: 'wiki/concepts/Foo.md', sha256: 'x' }],
-    };
-    writeManifest(v, manifest); // simulates a crash right after the manifest was written
-    const before = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-
-    const r = await runMain(v, ['--reconcile']);
-
-    const after = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: v, encoding: 'utf8' }).trim();
-    assert.notEqual(after, before, 'reconcile must produce a commit');
-    assert.ok(r.logs.some((l) => l.startsWith('committed ')));
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: v, encoding: 'utf8' });
-    assert.equal(status.trim(), '', 'the tree must be clean -- nothing left uncommitted by reconcile');
-  } finally {
-    rmSync(v, { recursive: true, force: true });
-  }
-});
-
-// I1: an aborted apply (a move failed, nothing committed) must not still
-// record a decline or write a log entry -- both describe a move that, for a
-// failed entry, never actually happened. A decline recorded anyway silently
-// makes /wiki-discover skip a source the user still has, for up to 180 days.
-test('an aborted apply leaves declined.json and log/ untouched', async () => {
+// I1: an apply whose every move failed changed nothing, so it writes no log
+// entry. It records no decline either: a decline recorded anyway silently makes
+// /wiki-discover skip a source the user still has, for up to 180 days. An apply
+// that moved anything is logged: see the partial case below.
+test('an apply that moved nothing leaves declined.json and log/ untouched', async () => {
   const v = tempVault();
   try {
     gitInit(v);
@@ -749,6 +731,65 @@ test('an aborted apply leaves declined.json and log/ untouched', async () => {
     assert.equal(r.exitCode, 1);
     assert.equal(existsSync(join(v, '.wiki-master', 'declined.json')), false);
     assert.equal(existsSync(join(v, 'log')), false);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Files that did move show as deleted for Obsidian Git to publish, so the log has
+// to name them, and the failed ones, even though the purge is not finished. The
+// reasons stay out of the entry: a system error can quote a local path, and logs
+// sync between machines. Declines still wait for --reconcile, which replays them
+// from the manifest once the stragglers have moved.
+test('a partly failed apply logs what moved and what did not, keeps exit 1, and reconcile finishes it', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const before = gitState(v);
+    const partialApplyPurge = (vault, manifest) => {
+      const stuck = manifest.entries.filter((e) => e.from === 'wiki/concepts/Foo.md');
+      const free = manifest.entries.filter((e) => e.from !== 'wiki/concepts/Foo.md');
+      const moved = applyPurge(vault, { ...manifest, entries: free });
+      return { ...moved, failed: stuck.map((e) => ({ from: e.from, reason: 'locked at C:\\private\\path' })) };
+    };
+
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch, applyPurge: partialApplyPurge });
+
+    assert.equal(r.exitCode, 1);
+    assert.deepEqual(gitState(v), before);
+    const entries = logEntries(v);
+    assert.equal(entries.length, 1);
+    const entry = readFileSync(join(v, 'log', entries[0]), 'utf8');
+    assert.match(entry, /Purged 1 file\(s\) to `\.recycle\//);
+    assert.match(entry, /Moved:\n- `raw\/clippings\/Src-abc1234\.md`/);
+    assert.match(entry, /Could not be moved:\n- `wiki\/concepts\/Foo\.md`/);
+    assert.doesNotMatch(entry, /private/);
+    assert.equal(existsSync(join(v, '.wiki-master', 'declined.json')), false, 'declines wait for reconcile');
+    assert.ok(r.errs.join('\n').includes('run --reconcile to finish this purge'));
+    const output = r.logs.join('\n');
+    assert.match(output, /The 1 moved file\(s\) are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.doesNotMatch(output, /refresh-index/, 'reconcile comes first');
+
+    const finished = await runMain(v, ['--reconcile']);
+
+    assert.equal(finished.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), false);
+    assert.equal(logEntries(v).length, 2);
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'));
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A complete purge names what it moved too, so one code path writes every entry.
+test('a complete apply names what it moved in the log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const entry = readFileSync(join(v, 'log', logEntries(v)[0]), 'utf8');
+    assert.match(entry, /Moved:\n- `raw\/clippings\/Src-abc1234\.md`\n- `wiki\/concepts\/Foo\.md`/);
+    assert.doesNotMatch(entry, /Could not be moved/);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -798,6 +839,251 @@ test('--restore does not clear a same-url decline recorded for a different reaso
     const entry = loadDeclines(v).find((d) => d.url === 'https://example.com/a');
     assert.ok(entry, 'the independently-recorded decline must survive');
     assert.equal(entry.reason, 'declined by the user, unrelated to the purge');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// AC11: --restore leaves one log entry and no new commit.
+test('--restore leaves one log entry and no new commit, and says what is on disk', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    const logsBefore = logEntries(v);
+    const before = gitState(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true, 'the restore ran');
+    assert.deepEqual(gitState(v), before);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    assert.match(added[0], /-restore-foo\.md$/);
+    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
+    assert.match(entry, /Restored 2 file\(s\) from `\.recycle\//);
+    assert.ok(entry.includes('`wiki/concepts/Foo.md`'), entry);
+    assert.match(entry, /Cleared 1 decline\(s\) this purge recorded\./);
+    const output = r.logs.join('\n');
+    assert.doesNotMatch(output, /\bcommit|git push/i);
+    assert.match(output, /The restored files are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.equal(r.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Nothing moved means no log, the same rule as --apply. What a restore could not
+// bring back is reported on the console instead, and its closing lines must not
+// claim restored files or ask for a refresh.
+test('a --restore that skips everything writes no log, reports the skips and claims no restored files', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'newer work\n');
+    writeFileSync(join(v, 'raw', 'clippings', 'Src-abc1234.md'), 'newer capture\n');
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, undefined);
+    assert.deepEqual(logEntries(v), logsBefore);
+    const output = r.logs.join('\n');
+    assert.match(output, /restored 0 file\(s\)/);
+    assert.match(output, /skipped \(your newer work sits at that path\): raw\/clippings\/Src-abc1234\.md/);
+    assert.match(output, /skipped \(your newer work sits at that path\): wiki\/concepts\/Foo\.md/);
+    assert.doesNotMatch(output, /Obsidian Git publishes|refresh-index/);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore rerun with everything already back writes no second log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    await runMain(v, ['--restore', id]);
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, undefined);
+    assert.deepEqual(r.errs, []);
+    assert.deepEqual(logEntries(v), logsBefore);
+    assert.deepEqual(r.logs, ['restored 0 file(s)']);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore with entries missing from the bin reports them, exits 1 and writes no log', async () => {
+  const v = tempVault();
+  try {
+    writeManifest(v, { id: 'gap', topic: 'gap', declines: [], entries: [{ from: 'wiki/concepts/Gone.md' }] });
+    const r = await runMain(v, ['--restore', 'gap']);
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('MISSING from the bin')));
+    assert.deepEqual(logEntries(v), []);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A restore that moved something still names what it could not bring back.
+test('a --restore that moved something logs what is missing from the bin too', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    rmSync(join(v, '.recycle', manifest.id, 'wiki', 'concepts', 'Foo.md'));
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, 1);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    assert.match(readFileSync(join(v, 'log', added[0]), 'utf8'), /Missing from the bin, not restored:\n- `wiki\/concepts\/Foo\.md`/);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// With the bin copy gone, a file at the path counts as already restored only when
+// its content is the content that was purged. Anything else is a different page,
+// and the purged content is lost, which has to be reported.
+test('a --restore with the bin copy lost and a different page at the path reports it missing and exits 1', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    rmSync(join(v, '.recycle', id, 'wiki', 'concepts', 'Foo.md'));
+    writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'a different page\n');
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('MISSING from the bin, not restored: wiki/concepts/Foo.md')), r.errs.join('\n'));
+    assert.equal(readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8'), 'a different page\n', 'the page is left alone');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('applyRestore counts a file as already back only when its hash matches the manifest', () => {
+  const v = tempVault();
+  try {
+    const text = readFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'utf8');
+    const entry = (hash) => ({ id: 'id', entries: [{ from: 'wiki/concepts/Foo.md', ...(hash ? { sha256: hash } : {}) }] });
+
+    assert.deepEqual(applyRestore(v, entry(sha256(text))).missing, [], 'same content: already restored');
+    assert.deepEqual(applyRestore(v, entry(sha256('other'))).missing, ['wiki/concepts/Foo.md'], 'different content');
+    assert.deepEqual(applyRestore(v, entry(null)).missing, ['wiki/concepts/Foo.md'], 'no hash to compare: reported as missing');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('--restore with an unknown id writes no log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--restore', 'nonexistent-id']);
+    assert.deepEqual(logEntries(v), []);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A file where a restored page's folder belongs makes the move fail
+// deterministically, the same failure shape as a locked file.
+function blockFolder(v) {
+  rmSync(join(v, 'wiki', 'concepts'), { recursive: true, force: true });
+  writeFileSync(join(v, 'wiki', 'concepts'), 'blocking file, not a directory\n');
+}
+
+function unblockFolder(v) {
+  rmSync(join(v, 'wiki', 'concepts'));
+  mkdirSync(join(v, 'wiki', 'concepts'));
+}
+
+test('applyRestore reports an unmoveable entry in failed and finishes the rest of the batch', () => {
+  const v = tempVault();
+  try {
+    const manifest = { id: 'id', entries: [{ from: 'wiki/concepts/Foo.md' }, { from: 'raw/clippings/Src-abc1234.md' }] };
+    applyPurge(v, manifest);
+    blockFolder(v);
+    const r = applyRestore(v, manifest);
+    assert.equal(r.restored, 1);
+    assert.deepEqual(r.touched, ['.recycle/id/raw/clippings/Src-abc1234.md', 'raw/clippings/Src-abc1234.md']);
+    assert.equal(r.failed.length, 1);
+    assert.equal(r.failed[0].from, 'wiki/concepts/Foo.md');
+    assert.equal(existsSync(join(v, '.recycle', 'id', 'wiki', 'concepts', 'Foo.md')), true, 'still safe in the bin');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The same gap as a partly failed apply: what came back shows as changed for
+// Obsidian Git to publish, so the log names it. Declines clear only once every
+// file is back, so discovery does not re-clip a source still in the bin. Rerunning
+// has to finish the job, not report the files already back as missing.
+test('a partly failed --restore logs what came back and what did not, exits 1, and a rerun finishes it', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id } = readManifests(v).manifests[0];
+    const logsBefore = logEntries(v);
+    blockFolder(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
+    assert.match(entry, /Restored 1 file\(s\)/);
+    assert.match(entry, /Restored:\n- `raw\/clippings\/Src-abc1234\.md`/);
+    assert.match(entry, /Could not be restored:\n- `wiki\/concepts\/Foo\.md`/);
+    assert.ok(r.errs.some((l) => l.includes('could not be restored: wiki/concepts/Foo.md')));
+    assert.ok(r.errs.some((l) => l.includes('run --restore again')));
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), 'the decline holds until every file is back');
+    const output = r.logs.join('\n');
+    assert.match(output, /The restored files are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.doesNotMatch(output, /refresh-index/, 'the rerun comes first');
+
+    unblockFolder(v);
+    const again = await runMain(v, ['--restore', id]);
+
+    assert.equal(again.exitCode, undefined);
+    assert.deepEqual(again.errs, [], 'a file already back is not missing');
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true);
+    assert.equal(loadDeclines(v).some((d) => d.url === 'https://example.com/a'), false);
+    assert.equal(again.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore that moved nothing because every move failed writes no log and clears no decline', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const { id, ...rest } = readManifests(v).manifests[0];
+    writeManifest(v, { id, ...rest, entries: rest.entries.filter((e) => e.from === 'wiki/concepts/Foo.md') });
+    const logsBefore = logEntries(v);
+    blockFolder(v);
+
+    const r = await runMain(v, ['--restore', id]);
+
+    assert.equal(r.exitCode, 1);
+    assert.deepEqual(logEntries(v), logsBefore);
+    assert.ok(loadDeclines(v).some((d) => d.url === 'https://example.com/a'));
+    assert.doesNotMatch(r.logs.join('\n'), /Obsidian Git publishes/);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
@@ -971,7 +1257,7 @@ test('end to end: health score does not drop after purge + reference repair', ()
     // collateral pages the plan named. index.md is not touched here — it is
     // a SYSTEM_FILES entry excluded from computeGraphMetrics as a link
     // source, so its own stale catalog entries do not affect the score, and
-    // full regeneration is index-gen.mjs's job, not this test's.
+    // full regeneration is refresh-index.mjs's job, not this test's.
     const purgedTitles = new Set(
       plan.purge.filter((p) => p.startsWith('wiki/')).map((p) => p.split('/').pop().replace(/\.md$/i, ''))
     );
@@ -1057,6 +1343,83 @@ test('end to end: restore puts the full closure back and leaves the survivors un
     assert.equal(existsSync(join(v, 'wiki', 'syntheses', 'Offtopic.md')), true);
   } finally {
     rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// The closing lines are what the skill reads back to the owner, so they say what
+// is true: the removal is on disk, Obsidian Git publishes it, and the refresh is
+// the next step. Purge never runs the refresh itself.
+test('--apply closes by saying the removal is on disk and naming refresh-index.mjs as the next step', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    const r = await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const output = r.logs.join('\n');
+    assert.match(output, /The removal is on disk\. Obsidian Git publishes it on its next run\./);
+    assert.equal(r.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+    assert.doesNotMatch(output, /git push/);
+    assert.equal(existsSync(join(v, '.wiki-master', 'chunks.json')), false, 'purge does not run the refresh');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('--apply puts reference repair on the collateral pages before the refresh', async () => {
+  const v = fixtureCopy();
+  try {
+    const r = await runMain(v, ['--apply', 'topic', '--seeds', TOPIC_SEEDS.join(',')]);
+    assert.equal(r.exitCode, undefined);
+    assert.ok(r.logs.join('\n').includes('wiki/concepts/Outside Page.md'), 'sanity: this purge has collateral');
+    assert.equal(r.logs.at(-1), 'NEXT: repair references on the collateral pages, then run node scripts/refresh-index.mjs');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// Purge has no git branch left to take, so a vault without a repository gets the
+// same moves, manifests, log entries and output as one with a repository. Dates
+// are masked only because the two runs could straddle midnight.
+test('a vault that is not a git repository works the same through apply, restore and reconcile', async () => {
+  const mask = (text) => text.replace(/\d{4}-\d{2}-\d{2}(-\d{6})?/g, 'DATE');
+  const tree = (dir) => Object.fromEntries(
+    readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((e) => e.isFile())
+      .map((e) => join(e.parentPath, e.name).slice(dir.length + 1).replaceAll('\\', '/'))
+      .filter((p) => !p.startsWith('.git/'))
+      .sort()
+      .map((p) => [mask(p), mask(readFileSync(join(dir, p), 'utf8'))])
+  );
+  const run = async (v) => {
+    const outputs = [];
+    const step = async (argv) => {
+      const r = await runMain(v, argv);
+      outputs.push({ argv: argv.map(mask), logs: r.logs.map(mask), errs: r.errs.map(mask), exitCode: r.exitCode });
+    };
+    await step(['--apply', 'Foo', '--seeds', 'wiki/concepts/Foo.md']);
+    await step(['--reconcile']);                                  // nothing to do
+    const { id } = readManifests(v).manifests[0];
+    await step(['--restore', id]);
+    await step(['--reconcile']);                                  // re-bins what came back
+    return { outputs, tree: tree(v) };
+  };
+
+  const withRepo = tempVault();
+  const withoutRepo = tempVault();
+  try {
+    gitInit(withRepo);
+    commitAll(withRepo, 'initial');
+    const expected = await run(withRepo);
+    const actual = await run(withoutRepo);
+
+    assert.deepEqual(actual, expected);
+    assert.equal(existsSync(join(withoutRepo, '.git')), false, 'purge must not create a repository');
+    assert.ok(existsSync(join(withoutRepo, '.recycle')), 'sanity: the purge ran');
+    assert.equal(logEntries(withoutRepo).length, 3, 'apply, restore and the reconcile that changed something');
+    assert.doesNotMatch(JSON.stringify(actual.outputs), /not a git repository|\bcommit/i);
+  } finally {
+    rmSync(withRepo, { recursive: true, force: true });
+    rmSync(withoutRepo, { recursive: true, force: true });
   }
 });
 

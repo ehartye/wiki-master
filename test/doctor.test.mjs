@@ -25,6 +25,8 @@ function deps(overrides = {}) {
     playwright: async () => ({ ok: true }),
     browser: () => '/usr/bin/chromium',
     confluencer: () => '/plugins/confluencer/scripts',
+    ollama: async () => [],
+    obsidianGit: () => ({ vault: '/vaults/wiki', failures: [] }),
     packageVersions: () => ({ defuddle: '0.19.5', linkedom: '0.18.12', turndown: '7.2.0' }),
     nodeVersion: 'v22.0.0',
     ...overrides,
@@ -79,6 +81,54 @@ test('the npm runtime, playwright and the browser are reported on their own', as
   assert.match(r['html-runtime'].detail, /run npm ci/);
   assert.equal(r['playwright-core'].ok, false);
   assert.equal(r.browser.ok, false);
+});
+
+test('Ollama is reported with the model, and neither row starts a program', async () => {
+  const d = deps();
+  const r = await gather(d);
+  assert.equal(r.ollama.ok, true);
+  assert.match(r.ollama.detail, /embedding model/);
+  assert.equal(r['obsidian-git'].ok, true);
+  assert.match(r['obsidian-git'].detail, /\/vaults\/wiki/);
+  assert.ok(!d.calls.includes('ollama'), 'the doctor started the Ollama program, which can start the app');
+});
+
+test('Ollama down, or the model missing, is reported with what was seen and the fix', async () => {
+  const down = await gather(deps({ ollama: async () => [{ problem: 'Ollama is not reachable at http://localhost:11434.', fix: 'Offer to start Ollama.' }] }));
+  assert.equal(down.ollama.ok, false);
+  assert.match(down.ollama.detail, /not reachable/);
+  assert.match(down.ollama.hint, /ollama/i);
+});
+
+test('Obsidian Git falling short is reported, for every reason at once', async () => {
+  const r = await gather(deps({ obsidianGit: () => ({ vault: '/v', failures: [{ problem: 'Obsidian Git is not enabled in this vault.', fix: 'a' }, { problem: 'Its timer is off.', fix: 'b' }] }) }));
+  assert.equal(r['obsidian-git'].ok, false);
+  assert.match(r['obsidian-git'].detail, /not enabled.*timer is off/);
+  assert.match(r['obsidian-git'].hint, /setup-obsidian-git\.mjs/);
+});
+
+test('refresh-index is ready only with its required rows; the Obsidian CLI is optional for it', async () => {
+  const healthy = await gather(deps());
+  assert.equal(evaluate(healthy, ['refresh-index']).exit, 0);
+  const noModel = await gather(deps({ ollama: async () => [{ problem: 'model missing', fix: 'pull it' }] }));
+  const asked = evaluate(noModel, ['refresh-index']);
+  assert.equal(asked.exit, 1);
+  assert.deepEqual(asked.clippers.find((c) => c.name === 'refresh-index').missing, ['ollama']);
+  const noCli = deps(); noCli.present.delete('obsidian');
+  const withoutCli = evaluate(await gather(noCli), ['refresh-index']);
+  assert.equal(withoutCli.exit, 0);
+  assert.deepEqual(withoutCli.clippers.find((c) => c.name === 'refresh-index').optionalMissing, ['obsidian']);
+});
+
+test('the report and the JSON carry the new rows', async () => {
+  const d = deps({ obsidianGit: () => ({ vault: '/v', failures: [{ problem: 'Obsidian Git is not installed in this vault.', fix: 'a' }] }) });
+  const out = await main(['refresh-index'], d);
+  assert.equal(out.exit, 1);
+  assert.match(out.output, /refresh-index: .*NOT READY \(missing obsidian-git\)/);
+  assert.match(out.output, /MISSING {2}obsidian-git: Obsidian Git is not installed/);
+  const j = JSON.parse((await main(['--json'], d)).output);
+  assert.equal(j.requirements['obsidian-git'].ok, false);
+  assert.equal(j.requirements.ollama.ok, true);
 });
 
 test('naming a command: a missing requirement fails it, a missing optional one does not', async () => {
@@ -149,10 +199,53 @@ test('installInfo: the installed copy itself, a development checkout and no reco
   assert.match(none.note, /no installed copy/);
 });
 
+test('the real command with no vault chosen reports that on the row and still finishes', () => {
+  const home = mkdtempSync(join(tmpdir(), 'wm-doctor-home-'));
+  try {
+    const env = { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: join(home, '.claude'), OLLAMA_HOST: 'http://127.0.0.1:9', WIKI_MASTER_REQUIRE_VAULT: '1' };
+    delete env.WIKI_MASTER_VAULT;
+    const r = spawnSync(process.execPath, [SCRIPT, '--json'], { cwd: home, env, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const json = JSON.parse(r.stdout);
+    assert.equal(json.requirements['obsidian-git'].ok, false);
+    assert.match(json.requirements['obsidian-git'].detail, /no vault chosen/);
+    assert.equal(json.requirements.ollama.ok, false);
+    assert.match(json.requirements.ollama.detail, /127\.0\.0\.1:9/);
+    // Doctor's probes (npm, python) may leave their own caches in this HOME, and which ones varies by machine.
+    // What must hold is that doctor creates nothing of its own: no vault, no plugin state, no Obsidian config.
+    const created = readdirSync(home);
+    for (const own of ['.wiki-master-vault', '.wiki-master', '.claude', '.codex', '.obsidian']) assert.ok(!created.includes(own), `doctor created ${own}`);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('the real command reads the Obsidian Git row from the vault it is given and writes nothing there', () => {
+  const home = mkdtempSync(join(tmpdir(), 'wm-doctor-home-'));
+  const vault = join(home, 'vault');
+  const plugin = join(vault, '.obsidian', 'plugins', 'obsidian-git');
+  mkdirSync(plugin, { recursive: true });
+  writeFileSync(join(vault, '.obsidian', 'community-plugins.json'), JSON.stringify(['obsidian-git']));
+  writeFileSync(join(plugin, 'manifest.json'), JSON.stringify({ id: 'obsidian-git' }));
+  writeFileSync(join(plugin, 'data.json'), JSON.stringify({ autoSaveInterval: 10 }));
+  try {
+    const env = { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: join(home, '.claude'), OLLAMA_HOST: 'http://127.0.0.1:9', WIKI_MASTER_VAULT: vault };
+    const r = spawnSync(process.execPath, [SCRIPT, '--json'], { cwd: home, env, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const row = JSON.parse(r.stdout).requirements['obsidian-git'];
+    assert.equal(row.ok, true, JSON.stringify(row));
+    assert.ok(row.detail.includes(vault));
+    assert.deepEqual(readdirSync(vault), ['.obsidian']);
+    assert.deepEqual(readdirSync(plugin).sort(), ['data.json', 'manifest.json']);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test('the real command on a machine with nothing on PATH: exit 1 for a clipper, 0 for the plain report, nothing written', () => {
   const work = mkdtempSync(join(tmpdir(), 'wm-doctor-')), home = mkdtempSync(join(tmpdir(), 'wm-doctor-home-')), empty = mkdtempSync(join(tmpdir(), 'wm-doctor-path-'));
   try {
-    const env = { ...process.env, PATH: empty, Path: empty, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: join(home, '.claude') };
+    const env = { ...process.env, PATH: empty, Path: empty, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: join(home, '.claude'), OLLAMA_HOST: 'http://127.0.0.1:9' };
     delete env.WIKI_MASTER_VAULT;
     const run = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { cwd: work, env, encoding: 'utf8' });
     const docx = run(['clip-docx']);

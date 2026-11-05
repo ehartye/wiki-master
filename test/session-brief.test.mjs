@@ -338,6 +338,17 @@ test('the command: a project that does not exist, a bad option and --help', (t) 
   assert.match(help.stdout, /usage: node scripts\/session-brief\.mjs/);
 });
 
+// The catalogs took a project once and shared this check. session-brief is the last command that takes one.
+test('a --project that is not a vault-relative slug is refused before the vault is looked at', (t) => {
+  const v = vault(t, { demo: { state: STATE({}) } });
+  const dir = repo(t, {});
+  for (const project of ['../escape', '/abs', 'a/../b', 'a\\b', 'C:/x', 'a//b', '.hidden']) {
+    const r = run(['--project', project], { cwd: dir, vaultPath: v });
+    assert.equal(r.status, 2, project);
+    assert.match(r.stderr, /project must be a nonempty vault-relative project slug/, project);
+  }
+});
+
 test('a state page with nothing to flag says so in one line', () => {
   const text = formatBrief({ project: 'demo', path: 'wiki/authored/demo', by: 'folder', brief: brief({}), staleDays: 30 });
   assert.equal(text.split('\n').slice(5).join('\n'), 'No stale artifacts, blocked items or overdue questions.');

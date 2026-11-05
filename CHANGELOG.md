@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.91.0 — 2026-11-05
+
+- **Breaking:** Obsidian Git now handles all git operations and the plugin runs no git writes. Agents write, validate, log once and run `refresh-index.mjs`; there is no fallback flow for a vault without Obsidian Git.
+- **Breaking, removed commands:** `op-begin`, `op-commit`, `op-abort`, `op-cleanup`, `op-ledger`, `wiki-sync`, `index-embed`, `index-gen`, `refresh-catalogs`, `backlog-gen` and `moc-authored-gen`.
+- **Breaking, removed flags:** `--since` on the clippers and `log-entry`, `--commit-local`, `--evidence-map`, `apply-reclips --owned-paths-file`, `--paths-out` on the rename scripts, and catalog `--project`, `--project-only`, `--paths-file` and `--diff`. `--paths-file` stays on `validate-authored`, `lint` and `lint-disposition`, and `--since` stays on `relationships`.
+- **Breaking, new prerequisites:** Obsidian Git installed, enabled, not in restricted mode and with `autoSaveInterval` above 0; Ollama running with the embedding model; Obsidian running; a repository with an upstream. All are hard errors for `refresh-index.mjs`, which writes nothing and reports every failure with the fix to offer. Reading and searching still work without them.
+- **Breaking, existing vaults:** they keep their old `vault-schema.md` text, because `init.mjs` never overwrites, so owners must update any text saying automation is off. Remove any existing `.githooks` and unset `core.hooksPath`. The first refresh replaces old markers in the `index.md`, roadmaps and project maps it generates, leaving one fence with manual framing intact. A fence it doesn't generate stays as it is until its owner removes it: a page elsewhere, a roadmap with no backlog items, or a project map below the page minimum.
+- **Breaking, JSON output:** `health --json` drops `openOperations` and `opRefusals`. `session-brief --json` is unchanged, and the text output of `health` and `session-brief` no longer reports open operations or refusals.
+- Add `refresh-index.mjs [--rebuild] [--status]`, the single last step of every authoring task, which always covers the whole vault and rewrites no file when nothing changed. Add `setup-obsidian-git.mjs`, whose `--check` reports the plugin's state and settings and whose `--apply` installs the plugin, writes settings only if it has none and enables it.
+- Catalogs read the working tree instead of a pinned commit, so other agents' pending pages can appear in them. `init.mjs` also scaffolds `.gitattributes`, and `doctor` reports Obsidian Git and Ollama.
+- Purge writes a log entry for apply, restore and any reconcile that changes something, with one approval and no git calls.
+- `log-entry` reads its piped body asynchronously, so a pipe from PowerShell on Linux or macOS no longer fails with `EAGAIN`.
+
 ## 0.90.1 — 2026-11-04
 
 - Reap POSIX PDF doctor descendants leaf-first while their parents remain alive, and verify disappearance before reporting cleanup success. Keep the existing deadline and retain fixtures when cleanup is uncertain.

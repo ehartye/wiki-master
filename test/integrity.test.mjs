@@ -285,7 +285,7 @@ test('in navigation, the content page named for a link outranks another content 
 });
 
 // ------------------------------------------ a generated MOC and its entity --
-// moc-authored-gen writes moc/<project>.md for every authored project. When the vault also has an
+// A refresh writes moc/<project>.md for every authored project. When the vault also has an
 // entity page for the project, the two share a basename and every bare mention became ambiguous. A
 // catalog is navigation with no content of its own, so in navigation the entity wins.
 const MOC = '---\ntype: moc\n---\n# Catalog\n- [[wiki/authored/proj/overview]]\n';

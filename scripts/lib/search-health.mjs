@@ -46,17 +46,18 @@ export function assessTiers({ ollama = {}, index = {} } = {}) {
   }
 
   // Index gaps are only meaningful once Ollama itself is healthy -- building
-  // or refreshing the index requires Ollama (index-embed.mjs's own preflight
-  // check), so surfacing "index is stale" while Ollama is down would point
-  // at a fix that cannot succeed yet. Fix Ollama first.
+  // or refreshing the index requires Ollama (refresh-index.mjs checks it first),
+  // so surfacing "index is stale" while Ollama is down would point
+  // at a fix that cannot succeed yet. Fix Ollama first. Damage is reported on its
+  // own below: a plain refresh stops at it, and the rebuild repairs these too.
   let indexOk = false;
-  if (ollamaOk) {
+  if (ollamaOk && !index.damaged) {
     if (!index.available) {
       gaps.push({
         channel: 'index',
         state: 'missing or empty',
         buys: 'semantic ranking fused with keyword results',
-        fix: 'node scripts/index-embed.mjs',
+        fix: 'node scripts/refresh-index.mjs',
       });
     } else {
       indexOk = true;
@@ -71,7 +72,7 @@ export function assessTiers({ ollama = {}, index = {} } = {}) {
           channel: 'index',
           state: `${filesChanged} file(s) changed since last refresh`,
           buys: 'coverage of the vault as it is right now',
-          fix: 'node scripts/index-embed.mjs',
+          fix: 'node scripts/refresh-index.mjs',
         });
       }
       const missing = index.coverage?.missing ?? 0;
@@ -80,10 +81,24 @@ export function assessTiers({ ollama = {}, index = {} } = {}) {
           channel: 'index',
           state: `${missing} chunk(s) not yet embedded`,
           buys: 'complete semantic coverage of the pages already indexed',
-          fix: 'node scripts/index-embed.mjs',
+          fix: 'node scripts/refresh-index.mjs',
         });
       }
     }
+  }
+
+  // Shown with Ollama down too, after its gap: the rebuild needs Ollama, but an index that cannot be trusted stays
+  // worth knowing about. Like the missing model, the honest tier is lexical. Only --health and --setup report it: a
+  // query loads the vectors to rank with them but does not run the pass over every number that finds damage.
+  if (index.damaged) {
+    indexOk = false;
+    gaps.push({
+      channel: 'index',
+      state: `damaged: ${index.damaged}`,
+      buys: 'semantic ranking that can be trusted',
+      fix: 'node scripts/refresh-index.mjs --rebuild',
+      misreports: true,
+    });
   }
 
   const tier = ollamaOk && indexOk ? 'hybrid' : 'lexical';

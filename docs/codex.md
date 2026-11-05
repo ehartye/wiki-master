@@ -49,7 +49,9 @@ for diagnostics use the matching [setup procedure](../skills/wiki-setup/SKILL.md
 ## Runtime and workflows
 
 - Native app actions require Obsidian and its CLI on the same machine. Filesystem
-  retrieval and editing use the known vault root without a running app.
+  retrieval and editing use the known vault root without a running app, but
+  finishing an authoring task with `refresh-index.mjs` needs the
+  [README's requirements](../README.md#requirements), including Obsidian, Obsidian Git and Ollama.
 - Provide Node.js 20.8+ and the vault environment variables documented in the
   [README](../README.md#configuration-environment-variables) to the Codex process.
   Allow access to your vault directory when the chosen execution permissions
@@ -62,7 +64,7 @@ for diagnostics use the matching [setup procedure](../skills/wiki-setup/SKILL.md
   a workflow means the accompanying user request.
 - The optional session-start health hook remains disabled by default. Invoke
   `wiki-setup` in health-reporting mode explicitly to check the vault.
-- Semantic search and drift detection use your Ollama instance when configured.
+- Semantic search and drift detection use your Ollama instance.
   Confluence clipping additionally needs the separate authenticated
   `confluencer` plugin. Set `WIKI_MASTER_CONFLUENCER_SCRIPTS` to its absolute
   `scripts` directory for a Codex installation; automatic discovery currently

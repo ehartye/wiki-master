@@ -1,0 +1,782 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { main } from '../scripts/setup-obsidian-git.mjs';
+import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
+import { commandLines, vaultEnvFor } from '../scripts/lib/vault.mjs';
+
+// Setup installs and configures the one plugin that handles git for the vault. The stubbed app below behaves as the
+// real one was read to behave: its CLI exits 0 and prints "Error: ..." or "Vault not found." on failure, and a plugin's
+// enabled state reaches community-plugins.json a moment after the command returns.
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SCRIPT = join(ROOT, 'scripts', 'setup-obsidian-git.mjs');
+const PLUGIN = '.obsidian/plugins/obsidian-git';
+const MET = JSON.stringify(REQUIRED_SETTINGS);
+
+function world(t, files = {}) {
+  const path = mkdtempSync(join(tmpdir(), 'wm-setup-git-'));
+  t.after(() => rmSync(path, { recursive: true, force: true }));
+  for (const [file, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(path, file)), { recursive: true });
+    writeFileSync(join(path, file), text);
+  }
+  return { path, name: 'scratch' };
+}
+
+const INSTALLED = { [`${PLUGIN}/manifest.json`]: JSON.stringify({ id: 'obsidian-git' }) };
+const ENABLED = { ...INSTALLED, '.obsidian/community-plugins.json': JSON.stringify(['obsidian-git']) };
+const dataOf = (vault) => join(vault.path, PLUGIN, 'data.json');
+
+function snapshot(root, base = root, acc = {}) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = join(root, entry.name);
+    if (entry.isDirectory()) snapshot(full, base, acc);
+    else acc[full.slice(base.length)] = readFileSync(full, 'latin1');
+  }
+  return acc;
+}
+
+// `app` overrides how one command answers; the default answers succeed and change the vault's files as the real app does.
+function hooks(vault, app = {}) {
+  const calls = [];
+  const lines = [];
+  const installed = () => {
+    mkdirSync(join(vault.path, PLUGIN), { recursive: true });
+    writeFileSync(join(vault.path, PLUGIN, 'manifest.json'), JSON.stringify({ id: 'obsidian-git' }));
+    return 'Installed: obsidian-git v2.39.0';
+  };
+  const enabled = () => {
+    mkdirSync(join(vault.path, '.obsidian'), { recursive: true });
+    writeFileSync(join(vault.path, '.obsidian/community-plugins.json'), JSON.stringify(['obsidian-git']));
+    return 'Enabled: obsidian-git';
+  };
+  const answers = {
+    vault: () => vault.path,
+    'plugins:restrict': () => 'off',
+    'plugin:install': installed,
+    'plugin:enable': enabled,
+    'plugin:reload': () => 'Reloaded: obsidian-git',
+    ...app,
+  };
+  return {
+    vault,
+    session: app.session ?? (() => 'this-session'),
+    delay: async () => {},
+    cli: (args, options) => {
+      calls.push({ args, options, dataWas: existsSync(dataOf(vault)) ? readFileSync(dataOf(vault), 'utf8') : null });
+      const answer = answers[args[0]];
+      if (!answer) throw new Error(`the stub has no answer for ${args[0]}`);
+      return answer(args);
+    },
+    out: (line) => lines.push(line),
+    err: (line) => lines.push(line),
+    calls,
+    lines,
+    text: () => lines.join('\n'),
+    sent: () => calls.map((call) => call.args[0]),
+  };
+}
+
+// ---- --check ----
+
+test('--check: everything met exits 0, reports each setting and calls no CLI', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const h = hooks(vault);
+  assert.equal(await main(['--check'], h), 0, h.text());
+  assert.deepEqual(h.calls, []);
+  for (const key of Object.keys(REQUIRED_SETTINGS)) assert.match(h.text(), new RegExp(`met: ${key}\\b`));
+  assert.doesNotMatch(h.text(), /differs:|missing:/);
+});
+
+test('--check is the default', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const h = hooks(vault);
+  assert.equal(await main([], h), 0, h.text());
+  assert.match(h.text(), /met: autoSaveInterval/);
+  assert.deepEqual(h.calls, []);
+});
+
+test('--check: met, missing and differing settings are told apart, and nothing is written', async (t) => {
+  const data = JSON.stringify({ autoSaveInterval: 10, syncMethod: 'merge', mergeStrategy: 'none', autoPushInterval: 0 });
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: data });
+  const before = snapshot(vault.path);
+  const h = hooks(vault);
+  assert.equal(await main(['--check'], h), 1);
+  const text = h.text();
+  assert.match(text, /met: autoSaveInterval = 10/);
+  assert.match(text, /met: autoPushInterval = 0/);
+  assert.match(text, /differs: syncMethod is "merge", required "rebase"/);
+  assert.match(text, /differs: mergeStrategy is "none", required "theirs"/);
+  assert.match(text, /missing: autoPullOnBoot, required true/);
+  assert.match(text, /missing: autoPullInterval, required 0/);
+  assert.deepEqual(snapshot(vault.path), before);
+  assert.deepEqual(h.calls, []);
+});
+
+test('--check: no plugin, and a plugin that is not enabled, are each named', async (t) => {
+  const none = hooks(world(t));
+  assert.equal(await main(['--check'], none), 1);
+  assert.match(none.text(), /Obsidian Git: not installed/);
+  assert.match(none.text(), /missing: autoSaveInterval, required 10/);
+  const off = hooks(world(t, { ...INSTALLED, [`${PLUGIN}/data.json`]: MET }));
+  assert.equal(await main(['--check'], off), 1);
+  assert.match(off.text(), /Obsidian Git: installed, not enabled/);
+});
+
+test('--check: a settings file that cannot be read is reported and left alone', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: '{ not json' });
+  const h = hooks(vault);
+  assert.equal(await main(['--check'], h), 1);
+  assert.match(h.text(), /data\.json cannot be read/);
+  assert.equal(readFileSync(dataOf(vault), 'utf8'), '{ not json');
+});
+
+// ---- --apply on a fresh vault ----
+
+test('--apply: installs without enabling, writes the settings, then enables, in that order', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  const order = h.sent().filter((c) => c.startsWith('plugin:'));
+  assert.deepEqual(order, ['plugin:install', 'plugin:enable']);
+  const install = h.calls.find((c) => c.args[0] === 'plugin:install');
+  assert.deepEqual(install.args, ['plugin:install', 'id=obsidian-git'], 'never with enable, so the first load sees the settings');
+  assert.equal(install.dataWas, null, 'no settings before the install');
+  const enable = h.calls.find((c) => c.args[0] === 'plugin:enable');
+  assert.deepEqual(enable.args, ['plugin:enable', 'id=obsidian-git']);
+  assert.deepEqual(JSON.parse(enable.dataWas), REQUIRED_SETTINGS, 'the settings are there when the plugin first loads');
+  assert.deepEqual(JSON.parse(readFileSync(dataOf(vault), 'utf8')), REQUIRED_SETTINGS);
+  assert.match(h.text(), /Obsidian Git: installed and enabled/);
+  assert.match(h.text(), /met: autoSaveInterval = 10/);
+});
+
+test('--apply: the settings are exactly the required ones, which match the decision', () => {
+  assert.deepEqual(REQUIRED_SETTINGS, { autoSaveInterval: 10, syncMethod: 'rebase', mergeStrategy: 'theirs', autoPullOnBoot: true, autoPushInterval: 0, autoPullInterval: 0 });
+});
+
+test('--apply: gives the download longer than a plain read gets', async (t) => {
+  const h = hooks(world(t));
+  await main(['--apply'], h);
+  assert.ok(h.calls.find((c) => c.args[0] === 'plugin:install').options.timeout > 30_000);
+});
+
+test('--apply: waits for the enabled state to reach the disk, since the app saves it a moment later', async (t) => {
+  const vault = world(t);
+  let waits = 0;
+  const h = hooks(vault, { 'plugin:enable': () => 'Enabled: obsidian-git' });
+  h.delay = async () => {
+    if (++waits === 3) {
+      mkdirSync(join(vault.path, '.obsidian'), { recursive: true });
+      writeFileSync(join(vault.path, '.obsidian/community-plugins.json'), JSON.stringify(['obsidian-git']));
+    }
+  };
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.equal(waits, 3);
+});
+
+test('--apply: what the plugin writes on first load is what gets reported', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, {
+    'plugin:enable': () => {
+      mkdirSync(join(vault.path, '.obsidian'), { recursive: true });
+      writeFileSync(join(vault.path, '.obsidian/community-plugins.json'), JSON.stringify(['obsidian-git']));
+      writeFileSync(dataOf(vault), JSON.stringify({ ...REQUIRED_SETTINGS, autoSaveInterval: 0 }));
+      return 'Enabled: obsidian-git';
+    },
+  });
+  assert.equal(await main(['--apply'], h), 1, 'a first load that dropped the timer is not success');
+  assert.match(h.text(), /differs: autoSaveInterval is 0, required 10/);
+});
+
+// ---- --apply never overwrites ----
+
+test('--apply: an existing settings file stays byte-identical and its differences are reported', async (t) => {
+  const bytes = '{\r\n  "autoSaveInterval": 5,\r\n  "mergeStrategy": "none",\r\n  "extra": [1, 2]\r\n}\r\n';
+  const vault = world(t, { ...INSTALLED, [`${PLUGIN}/data.json`]: bytes });
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 1, 'installed and enabled, but the settings differ');
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), ['plugin:enable']);
+  assert.equal(readFileSync(dataOf(vault), 'latin1'), bytes);
+  assert.match(h.text(), /differs: autoSaveInterval is 5, required 10/);
+  assert.match(h.text(), /differs: mergeStrategy is "none", required "theirs"/);
+  assert.match(h.text(), /missing: syncMethod, required "rebase"/);
+  assert.match(h.text(), /never overwrites/);
+});
+
+test('--apply: a file that cannot be read is kept too', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: '{ not json' });
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 1);
+  assert.equal(readFileSync(dataOf(vault), 'utf8'), '{ not json');
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), [], 'nothing left to do to the plugin');
+});
+
+test('--apply: a settings file that appears during the install is kept, not replaced', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, {
+    'plugin:install': () => {
+      mkdirSync(join(vault.path, PLUGIN), { recursive: true });
+      writeFileSync(join(vault.path, PLUGIN, 'manifest.json'), JSON.stringify({ id: 'obsidian-git' }));
+      writeFileSync(dataOf(vault), '{"autoSaveInterval":3}');
+      return 'Installed: obsidian-git v2.39.0';
+    },
+  });
+  assert.equal(await main(['--apply'], h), 1);
+  assert.equal(readFileSync(dataOf(vault), 'utf8'), '{"autoSaveInterval":3}');
+});
+
+// ---- --apply when part of the work is already done ----
+
+test('--apply: with everything in place it changes nothing, and only asks the app two questions', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.deepEqual(h.sent(), ['vault', 'plugins:restrict']);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+test('--apply: a vault that looks finished on disk but is restricted is not reported as done', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
+  const h = hooks(vault, { 'plugins:restrict': () => 'on' });
+  assert.equal(await main(['--apply'], h), 1, h.text());
+  assert.match(h.text(), /[Rr]estricted mode is on/);
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), []);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+test('--apply: an installed plugin is not installed again', async (t) => {
+  const vault = world(t, INSTALLED);
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), ['plugin:enable']);
+  assert.deepEqual(JSON.parse(readFileSync(dataOf(vault), 'utf8')), REQUIRED_SETTINGS);
+});
+
+test('--apply: a plugin already running without settings is reloaded, since it read none when it started', async (t) => {
+  const vault = world(t, ENABLED);
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), ['plugin:reload']);
+  assert.deepEqual(JSON.parse(h.calls.find((c) => c.args[0] === 'plugin:reload').dataWas), REQUIRED_SETTINGS);
+});
+
+// A reload leaves nothing on disk to check, and the CLI exits 0 whatever it prints, so only its text can tell.
+for (const answer of ['Vault not found.', 'TypeError: Cannot read properties of undefined', 'Error: Failed to reload: obsidian-git', '']) {
+  test(`--apply: a reload answering "${answer.slice(0, 20)}" is not reported as done`, async (t) => {
+    const vault = world(t, ENABLED);
+    const h = hooks(vault, { 'plugin:reload': () => answer });
+    assert.equal(await main(['--apply'], h), 1, h.text());
+    assert.match(h.text(), /plugin:reload did not finish/);
+    assert.match(h.text(), /Manual steps/);
+  });
+}
+
+test('--apply: listed as enabled but missing from disk is installed and reloaded, because enabling would refuse', async (t) => {
+  const vault = world(t, { '.obsidian/community-plugins.json': JSON.stringify(['obsidian-git']) });
+  const h = hooks(vault);
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.deepEqual(h.sent().filter((c) => c.startsWith('plugin:')), ['plugin:install', 'plugin:reload']);
+});
+
+// ---- blocks: each stops, writes nothing it should not, and gives the manual steps ----
+
+function assertManualSteps(text) {
+  assert.match(text, /Manual steps/);
+  assert.match(text, /Restricted mode/);
+  assert.match(text, /obsidian-git/);
+  assert.match(text, /autoSaveInterval: 10/);
+  assert.match(text, /mergeStrategy: theirs/);
+  // Every new vault starts restricted, so this is the usual path: a rerun does the install. By hand is the fallback.
+  const steps = text.slice(text.indexOf('Manual steps'));
+  const off = steps.search(/turn off Restricted mode/);
+  const rerun = steps.search(/--apply again/);
+  const byHand = steps.search(/If that still fails/);
+  assert.ok(off >= 0 && off < rerun && rerun < byHand, steps);
+  assert.ok(steps.search(/install it/) > byHand, 'installing by hand comes only as the fallback');
+}
+
+async function blocked(t, app, pattern) {
+  const vault = world(t);
+  const before = snapshot(vault.path);
+  const h = hooks(vault, app);
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), pattern);
+  assertManualSteps(h.text());
+  assert.deepEqual(h.sent().filter((c) => c === 'plugin:enable'), []);
+  assert.deepEqual(snapshot(vault.path), before, 'nothing written');
+  return h;
+}
+
+async function blockedBeforeInstall(t, app, pattern) {
+  const h = await blocked(t, app, pattern);
+  assert.deepEqual(h.sent().filter((c) => c === 'plugin:install'), []);
+  return h;
+}
+
+test('--apply: restricted mode is reported and left on', async (t) => {
+  const h = await blockedBeforeInstall(t, { 'plugins:restrict': () => 'on' }, /[Rr]estricted mode is on/);
+  assert.deepEqual(h.calls.find((c) => c.args[0] === 'plugins:restrict').args, ['plugins:restrict'], 'asked, never switched');
+});
+
+test('--apply: the app not knowing the vault stops it, although the CLI exits 0 for that', async (t) => {
+  const h = await blockedBeforeInstall(t, { vault: () => 'Vault not found.' }, /answered unexpectedly: "Vault not found\."/);
+  assert.doesNotMatch(h.text(), /reaches the vault at/);
+});
+
+test('--apply: no answer at all reads as the vault not being open', async (t) => {
+  await blockedBeforeInstall(t, { vault: () => '' }, /has not opened this vault/);
+});
+
+test('--apply: the manual steps cover turning the command line on, since a CLI that is off stops it too', async (t) => {
+  const h = await blockedBeforeInstall(t, { vault: () => 'Command line interface is not enabled. Please turn it on in Settings > General > Advanced.' }, /answered unexpectedly: "Command line interface is not enabled/);
+  assert.doesNotMatch(h.text(), /has not opened this vault/);
+  assert.match(h.text().slice(h.text().indexOf('Manual steps')), /command line interface on \(Settings > General > Advanced\)/);
+});
+
+test('--apply: a same-named vault elsewhere is not touched', async (t) => {
+  const h = await blockedBeforeInstall(t, { vault: () => join(tmpdir(), 'some-other-folder') }, /some-other-folder/);
+  assert.deepEqual(h.sent(), ['vault']);
+});
+
+test('--apply: the CLI turned off stops it', async (t) => {
+  await blockedBeforeInstall(t, { vault: () => 'Command line interface is not enabled. Please turn it on in Settings > General > Advanced.' }, /Command line interface is not enabled/);
+});
+
+test('--apply: the CLI failing, or its gate being busy, stops it', async (t) => {
+  await blockedBeforeInstall(t, { vault: () => { throw Object.assign(new Error('CLI busy after waiting 10000ms; request not sent.'), { code: 'CLI_BUSY' }); } }, /CLI busy/);
+});
+
+test('--apply: Obsidian not running stops it before any CLI call, which could start the app', async (t) => {
+  const h = await blockedBeforeInstall(t, { session: () => 'none' }, /Obsidian is not running/);
+  assert.deepEqual(h.calls, []);
+});
+
+// Over SSH the app cannot be reached, and a rerun from there can never pass.
+test('--apply from another session on a finished vault exits 0, and says what it could not see', async (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const before = snapshot(vault.path);
+  const h = hooks(vault, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], h), 0, h.text());
+  assert.deepEqual(h.calls, []);
+  assert.match(h.text(), /[Nn]othing needed doing/);
+  assert.match(h.text(), /[Rr]estricted mode cannot be seen from this session/);
+  assert.match(h.text(), /--check/);
+  assert.doesNotMatch(h.text(), /not finished|Manual steps/);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+for (const [label, files] of [
+  ['nothing installed', {}],
+  ['a plugin not enabled', { ...INSTALLED, [`${PLUGIN}/data.json`]: MET }],
+  ['a setting that differs', { ...ENABLED, [`${PLUGIN}/data.json`]: JSON.stringify({ ...REQUIRED_SETTINGS, autoSaveInterval: 5 }) }],
+  ['no settings file', ENABLED],
+]) {
+  test(`--apply from another session with ${label} sends it to the desktop session, not to a rerun from here`, async (t) => {
+    const vault = world(t, files);
+    const before = snapshot(vault.path);
+    const h = hooks(vault, { session: () => 'other-session' });
+    assert.equal(await main(['--apply'], h), 1, h.text());
+    assert.deepEqual(h.calls, [], 'no CLI call');
+    assert.match(h.text(), /cannot finish from this session/);
+    assert.match(h.text(), /desktop session/);
+    assert.match(h.text(), /--check/);
+    assert.doesNotMatch(h.text(), /--apply again|once more|Manual steps/);
+    assert.deepEqual(snapshot(vault.path), before);
+  });
+}
+
+// Each of these gives commands by itself, so an agent that lands here without initialization.md still names the vault.
+test('every setup reference that gives commands says how to name a non-default vault', () => {
+  for (const name of readdirSync(join(SKILL_DIR, 'references')).filter((file) => file !== 'initialization.md')) {
+    const text = reference(name);
+    if (!text.includes('<absolute-plugin-root>')) continue;
+    const heading = text.search(/^## /m); // a short reference may have no sections
+    const opening = heading < 0 ? text.split('\n\n').slice(0, 2).join('\n\n') : text.slice(0, heading);
+    assert.match(opening, /\(initialization\.md#name-the-vault\)/, name);
+  }
+});
+
+test('the health check initialization sends an agent to carries the vault', () => {
+  const text = reference('initialization.md');
+  const stepTwo = text.slice(atOrFail(text, /^2\. Run `init\.mjs`/m), atOrFail(text, /^3\. The owner/m));
+  assert.match(stepTwo, /health check\]\(checks\.md#health-and-ingest-backlog\),?\s+in\s+the\s+named\s+form/);
+});
+
+// Run bare, a rerun reads the default vault, which can be healthy, and exits 0: a false all-clear for this vault.
+const assertCarriesVault = (text, vault, args) => {
+  for (const label of ['PowerShell', 'POSIX shell']) {
+    const line = text.split('\n').find((l) => l.trimStart().startsWith(`${label}:`) && l.includes('setup-obsidian-git.mjs') && l.includes(args));
+    assert.ok(line, `no ${label} line for ${args}:\n${text}`);
+    assert.ok(line.includes('WIKI_MASTER_VAULT='), line);
+    assert.ok(line.includes(vault.path), line);
+  }
+};
+
+test('--apply: the rerun advice in the manual steps shows the command carrying this vault', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { 'plugins:restrict': () => 'on' });
+  assert.equal(await main(['--apply'], h), 1);
+  assertCarriesVault(h.text(), vault, '--apply');
+});
+
+test('--apply from another session: both pieces of advice show the command carrying this vault', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], h), 1);
+  assertCarriesVault(h.text(), vault, '--apply');
+  assertCarriesVault(h.text(), vault, '--check');
+  const finished = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const done = hooks(finished, { session: () => 'other-session' });
+  assert.equal(await main(['--apply'], done), 0);
+  assertCarriesVault(done.text(), finished, '--check');
+});
+
+test('a command for the default vault is bare, and only a set variable or another folder gets named', () => {
+  const home = join(homedir(), '.wiki-master-vault');
+  assert.deepEqual(vaultEnvFor(home, {}), {});
+  assert.deepEqual(vaultEnvFor('/elsewhere', {}), { WIKI_MASTER_VAULT: '/elsewhere' });
+  assert.deepEqual(vaultEnvFor(home, { WIKI_MASTER_VAULT: home }), { WIKI_MASTER_VAULT: home });
+  assert.deepEqual(vaultEnvFor('/v', { WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' }), { WIKI_MASTER_VAULT: '/v', WIKI_MASTER_VAULT_NAME: 'n' });
+  assert.deepEqual(commandLines('/p/x.mjs', ' --check', {}), ['node "/p/x.mjs" --check']);
+  assert.deepEqual(commandLines('/p/x.mjs', ' --check', { WIKI_MASTER_VAULT: '/v' }), [
+    "PowerShell: if ($env:WIKI_MASTER_VAULT='/v') { node '/p/x.mjs' --check }",
+    "POSIX shell: WIKI_MASTER_VAULT='/v' node '/p/x.mjs' --check",
+  ]);
+});
+
+test('every --check report names the vault it read, and says when that is only the default', (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const named = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault.path } });
+  assert.equal(named.status, 0, named.stderr);
+  assert.ok(named.stdout.includes(`vault checked: ${vault.path}`), named.stdout);
+  assert.doesNotMatch(named.stdout, /the default vault/);
+
+  const home = mkdtempSync(join(tmpdir(), 'wm-setup-home-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const healthy = join(home, '.wiki-master-vault');
+  for (const [file, text] of Object.entries({ ...ENABLED, [`${PLUGIN}/data.json`]: MET })) {
+    mkdirSync(dirname(join(healthy, file)), { recursive: true });
+    writeFileSync(join(healthy, file), text);
+  }
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.WIKI_MASTER_VAULT;
+  const bare = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8', env });
+  assert.equal(bare.status, 0, bare.stderr);
+  assert.ok(bare.stdout.includes(`vault checked: ${healthy}`), bare.stdout);
+  assert.match(bare.stdout, /the default vault; set WIKI_MASTER_VAULT to check another/);
+});
+
+test('recovery says what another session can and cannot do', () => {
+  const text = reference('operation-recovery.md');
+  const bullet = text.slice(atOrFail(text, /^- \*\*Obsidian is in another session\.\*\*/m)).split(/\n(?=- |\n)/)[0];
+  assert.match(bullet, /desktop session/);
+  assert.match(bullet, /--check/);
+  assert.match(bullet, /restricted\s+mode/i);
+  assert.doesNotMatch(bullet, /manual\s+steps/i);
+});
+
+test('--apply: a failed process list stops it', async (t) => {
+  await blockedBeforeInstall(t, { session: () => { throw new Error('tasklist failed'); } }, /tasklist failed/);
+});
+
+test('--apply: an install that reports an error stops before the settings and the enable', async (t) => {
+  await blocked(t, { 'plugin:install': () => 'Error: Plugin "obsidian-git" version 2.39.0 is not permitted by your organization\'s policy.' }, /not permitted/);
+});
+
+test('--apply: an install that claims success with no plugin on disk stops', async (t) => {
+  await blocked(t, { 'plugin:install': () => 'Installed: obsidian-git v2.39.0' }, /not.*on disk/i);
+});
+
+test('--apply: an install that times out says its outcome is unknown', async (t) => {
+  await blocked(t, { 'plugin:install': () => { throw new Error('obsidian plugin:install timed out after 120000ms; command outcome may be unknown'); } }, /outcome may be unknown/);
+});
+
+test('--apply: an enable that reports an error keeps what was done and says so', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { 'plugin:enable': () => 'Error: Failed to enable: obsidian-git' });
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), /Failed to enable/);
+  assertManualSteps(h.text());
+  assert.ok(existsSync(dataOf(vault)), 'the settings stay, ready for the plugin\'s first load');
+});
+
+test('--apply: an enable that never reaches the disk is not reported as done', async (t) => {
+  const vault = world(t);
+  const h = hooks(vault, { 'plugin:enable': () => 'Enabled: obsidian-git' });
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), /community-plugins\.json/);
+  assert.doesNotMatch(h.text(), /installed and enabled/);
+});
+
+test('a settings file that cannot be written stops before the enable', async (t) => {
+  const h = hooks(world(t));
+  h.writeSettings = () => { throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }); };
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), /EACCES/);
+  assert.deepEqual(h.sent().filter((c) => c === 'plugin:enable'), []);
+});
+
+// ---- the command line ----
+
+test('an unknown option, or both modes at once, exits 2 and does nothing', async (t) => {
+  const vault = world(t);
+  const before = snapshot(vault.path);
+  for (const argv of [['--bogus'], ['--check', '--apply']]) {
+    const h = hooks(vault);
+    assert.equal(await main(argv, h), 2, argv.join(' '));
+    assert.deepEqual(h.calls, []);
+  }
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+test('--help prints usage and touches nothing', (t) => {
+  const vault = world(t);
+  const before = snapshot(vault.path);
+  const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault.path } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /usage: node scripts\/setup-obsidian-git\.mjs \[--check \| --apply\]/);
+  assert.deepEqual(snapshot(vault.path), before);
+});
+
+test('--check from the command line reads the vault it is given, and needs no app', (t) => {
+  const vault = world(t, { ...ENABLED, [`${PLUGIN}/data.json`]: MET });
+  const r = spawnSync(process.execPath, [SCRIPT, '--check'], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: vault.path } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /met: autoSaveInterval = 10/);
+  assert.ok(statSync(dataOf(vault)).isFile());
+});
+
+// ---- the wiki-setup skill ----
+
+const SKILL_DIR = join(ROOT, 'skills', 'wiki-setup');
+const SENTENCE = 'Obsidian Git handles all git operations.';
+const reference = (name) => readFileSync(join(SKILL_DIR, 'references', name), 'utf8');
+const skill = () => readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
+const body = () => skill().replace(/^---\n[\s\S]*?\n---\n/, '');
+const description = () => /^description: (.*)$/m.exec(skill())[1];
+
+function atOrFail(text, pattern, from = 0) {
+  const at = text.slice(from).search(pattern);
+  assert.ok(at >= 0, `not found after ${from}: ${pattern}`);
+  return at + from;
+}
+
+test('the standard sentence comes before the first workflow step', () => {
+  const text = body();
+  const sentence = text.indexOf(SENTENCE);
+  assert.ok(sentence >= 0, 'the sentence is missing');
+  assert.ok(sentence < atOrFail(text, /^\d+\. /m), 'before the first numbered step');
+  assert.ok(sentence < atOrFail(text, /^## Workflow/m), 'before the workflow heading');
+  assert.ok(sentence < atOrFail(text, /^## /m), 'before every section');
+});
+
+test('the offer follows the sentence, also before the first step, and existing settings are never overwritten', () => {
+  const text = body();
+  const firstStep = atOrFail(text, /^\d+\. /m);
+  const intro = text.slice(text.indexOf(SENTENCE), firstStep);
+  assert.match(intro, /offer to install, enable and configure/i);
+  assert.match(intro, /setup-obsidian-git\.mjs/);
+  assert.match(intro, /reported,?\s+never\s+overwritten/i);
+});
+
+test('the first-run order is the decided one, ending with the refresh', () => {
+  const text = body();
+  let at = atOrFail(text, /^## First run/m);
+  const start = at;
+  for (const step of [/prerequisite/i, /init\.mjs/, /git repository and upstream/i, /[Oo]pen the vault in Obsidian/, /setup-obsidian-git\.mjs/, /refresh-index\.mjs/]) at = atOrFail(text, step, at);
+  assert.match(text.slice(start), /does not create|creates? no/i);
+});
+
+function assertDeclinedPath(text, where) {
+  const section = text.slice(atOrFail(text, /declines?\b/i));
+  assert.match(section, /read\s+and\s+search/i, where);
+  assert.match(section, /authoring\s+cannot\s+complete/i, where);
+  assert.match(section, /rerun\s+setup\s+later/i, where);
+  assert.match(section, /`refresh-index\.mjs`\s+is\s+not\s+run/i, where);
+}
+
+test('initialization names the declined path, and so does the skill', () => {
+  assertDeclinedPath(reference('initialization.md'), 'initialization.md');
+  assertDeclinedPath(body(), 'SKILL.md');
+});
+
+test('the open-vault step asks the owner to turn restricted mode off, because every new vault starts with it on', () => {
+  const step = (text, from, to) => text.slice(atOrFail(text, from), atOrFail(text, to));
+  for (const [where, text] of [
+    ['SKILL.md', step(body(), /^4\. Have the owner open the vault/m, /^5\. Offer the install/m)],
+    ['initialization.md', step(reference('initialization.md'), /^4\. Have the owner open the vault/m, /^5\. Offer to install/m)],
+  ]) {
+    assert.match(text, /restricted\s+mode/i, where);
+    assert.match(text, /trust/i, where);
+  }
+  assert.match(reference('initialization.md'), /starts?\s+with\s+restricted\s+mode\s+on|starts?\s+restricted/i);
+});
+
+test('--check says it cannot see restricted mode, so a clean result is not read as proof', () => {
+  const text = reference('initialization.md');
+  const section = text.slice(atOrFail(text, /^## Install Obsidian Git/m));
+  assert.match(section, /cannot\s+see\s+restricted\s+mode/);
+});
+
+test('initialization claims of each check only what it covers', () => {
+  const text = reference('initialization.md');
+  const stepOne = text.slice(atOrFail(text, /^1\. State the prerequisites/m), atOrFail(text, /^2\. Run/m));
+  assert.doesNotMatch(stepOne, /refresh-index`\s+reports them/, 'doctor printed "ready" on a folder that is not a repository');
+  assert.match(stepOne, /does\s+not\s+check\s+the\s+repository/);
+  assert.match(stepOne, /setup-obsidian-git\.mjs --check/);
+  assert.match(stepOne, /--status`\s+reports\s+only/, 'it checks no prerequisite');
+  assert.match(stepOne, /only\s+`refresh-index\.mjs`\s+itself\s+checks/i);
+});
+
+test('initialization still creates no repository, and ends with the refresh', () => {
+  const text = reference('initialization.md');
+  assert.match(text, /[Nn]ever\s+initialize a guessed directory or create a Git repository/);
+  assert.match(text, /[Oo]wner sets up the git repository and upstream/i);
+  const steps = [...text.matchAll(/^\d+\. .*$/gm)].map((m) => m[0]);
+  assert.match(steps.at(-1), /refresh-index\.mjs/);
+});
+
+test('the description still fires for setup and for a genuine setup failure, without operations', () => {
+  const text = description();
+  assert.ok(text.length <= 1024, `${text.length} characters`);
+  for (const trigger of [/initialize a wiki vault/, /Obsidian Git/, /check prerequisites/, /recover/i, /setup/i, /not refreshed/, /conflict-files-obsidian-git\.md/, /search\/index\/app access failures/]) assert.match(text, trigger);
+  assert.doesNotMatch(text, /operation/i);
+  assert.match(text, /read-only/);
+});
+
+test('recovery is about what is written but not refreshed, Obsidian Git errors and its conflict file', () => {
+  const text = reference('operation-recovery.md');
+  assert.doesNotMatch(text.split('\n')[0], /operation/i, 'the title is renamed; the file name stays for its links');
+  assert.match(text, /^## Written but not refreshed/m);
+  assert.match(text, /^## Obsidian Git reports an error/m);
+  assert.match(text, /^## `conflict-files-obsidian-git\.md`/m);
+  assert.match(text, /^## Interrupted purge/m, 'other skills link this anchor');
+  assert.match(text, /tell the owner/i);
+  assert.doesNotMatch(text, /\bfetch\b/);
+  assert.doesNotMatch(text, /\block\b/i, 'no lock language of any kind');
+});
+
+test('a refresh stopped by another active vault is explained where an agent looks', () => {
+  for (const text of [reference('operation-recovery.md'), reference('app-access.md')]) {
+    assert.match(text, /active vault/);
+    assert.match(text, /no `vault=`/);
+  }
+});
+
+test('recovery names restricted mode among the reasons nothing publishes, and what cannot see it', () => {
+  const text = reference('operation-recovery.md');
+  assert.match(text, /^\| Restricted mode is on \|.*owner.*\|$/m);
+  const section = text.slice(atOrFail(text, /^## Nothing is publishing/m), atOrFail(text, /^## Obsidian Git reports an error/m));
+  assert.match(section, /[Rr]estricted mode/);
+  assert.match(section, /local storage/);
+  assert.match(section, /another session/, 'a refresh over SSH passes without being able to ask');
+  assert.match(section, /--check/, 'it reads files, so it cannot see this either');
+});
+
+test('search diagnostics name the refresh, not the commands it replaced', () => {
+  const text = reference('search-diagnostics.md');
+  assert.match(text, /refresh-index\.mjs/);
+  assert.match(text, /refresh-index\.mjs --rebuild/);
+});
+
+test('validation describes the hand-written path list that stays', () => {
+  const text = reference('validation.md');
+  assert.match(text, /--paths-file/);
+  assert.match(text, /JSON array/);
+  assert.match(text, /by hand/);
+});
+
+const OWNED = () => [
+  ...readdirSync(join(SKILL_DIR, 'references')).map((name) => [`references/${name}`, reference(name)]),
+  ['SKILL.md', skill()],
+  ['vault-schema.md', readFileSync(join(ROOT, 'templates', 'vault-schema.md'), 'utf8')],
+  ['init.mjs', readFileSync(join(ROOT, 'scripts', 'init.mjs'), 'utf8')],
+  ['doctor-table.mjs', readFileSync(join(ROOT, 'scripts', 'lib', 'doctor-table.mjs'), 'utf8')],
+  ['setup-obsidian-git.mjs', readFileSync(SCRIPT, 'utf8')],
+];
+
+// A paired run of the old and new skill found these. Each left a first-time agent guessing.
+test('a decline given up front is covered, and says what search still does', () => {
+  for (const text of [body(), reference('initialization.md')]) {
+    assert.match(text, /up\s+front/);
+    assert.match(text, /keyword/i);
+  }
+});
+
+test('the step that ends a content change does not contradict the declined path', () => {
+  const stepFour = body().slice(atOrFail(body(), /^4\. Before an authorized change/m), atOrFail(body(), /^## First run/m));
+  assert.match(stepFour, /refresh-index\.mjs/);
+  assert.match(stepFour, /declined/);
+});
+
+// Scoping the vault to init alone sent every later command to the default vault, where a refresh writes catalogs. A form
+// for one shell only did the same from the other shell, so each file names both forms once and its steps refer to them.
+const POWERSHELL_FORM = "- PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { node \"<absolute-plugin-root>/scripts/<script>.mjs\" <args> }`";
+const POSIX_FORM = "- POSIX shell: `WIKI_MASTER_VAULT='<root>' node \"<absolute-plugin-root>/scripts/<script>.mjs\" <args>`";
+function assertNamesBothFormsOnce(text, where) {
+  const commands = [...text.matchAll(/^.*node "<absolute-plugin-root>\/scripts\/.*$/gm)].map((m) => m[0].trim());
+  assert.deepEqual(commands, [POWERSHELL_FORM, POSIX_FORM], `${where}: the two forms, once each, and no command written out elsewhere`);
+}
+
+test('initialization names the two forms once, and its steps refer to them', () => {
+  const text = reference('initialization.md');
+  assertNamesBothFormsOnce(text, 'initialization.md');
+  assert.doesNotMatch(text, /for that command only/);
+  assert.match(text, /every command/i);
+  assert.match(text, /WIKI_MASTER_VAULT_NAME/);
+  const steps = text.slice(atOrFail(text, /^## Initialize and verify/m));
+  for (const script of ['doctor.mjs', 'init.mjs', 'log-entry.mjs', 'obsidian.mjs', 'refresh-index.mjs', 'setup-obsidian-git.mjs']) {
+    assert.match(steps, new RegExp(`\`${script.replace('.', '\.')}`), script);
+  }
+  assert.match(steps, /named form/);
+  assert.match(text, /^## Name the vault$/m);
+});
+
+test('the skill names the two forms once, and its first run refers to them', () => {
+  assertNamesBothFormsOnce(body(), 'SKILL.md');
+  const firstRun = body().slice(atOrFail(body(), /^## First run/m), atOrFail(body(), /^## Procedures/m));
+  for (const script of ['init.mjs', 'setup-obsidian-git.mjs', 'refresh-index.mjs']) assert.match(firstRun, new RegExp(`\`${script.replace('.', '\.')}`), script);
+  assert.match(firstRun, /every command/i);
+  assert.match(firstRun, /named form/);
+  const stepOne = body().slice(atOrFail(body(), /^1\. Resolve the vault/m), atOrFail(body(), /^2\. Select/m));
+  assert.match(stepOne, /every command/i, 'short names in the procedures rely on this');
+});
+
+test('an owner told about a conflict file is told how it gets finished, and an agent still does not pick a side', () => {
+  const text = reference('operation-recovery.md');
+  const section = text.slice(atOrFail(text, /^## `conflict-files-obsidian-git\.md`/m), atOrFail(text, /^## Interrupted write/m));
+  assert.match(section, /source control view/);
+  assert.match(section, /which\s+side\s+wins/);
+  assert.match(text.slice(atOrFail(text, /\*\*Done only when\*\*/)), /once nothing blocks|when nothing blocks/i);
+});
+
+test('every setup file reads as the new contract', () => {
+  for (const [name, text] of OWNED()) {
+    assert.doesNotMatch(text, /no operation|owner's operation|owned transaction|operation state|the operation\b|an operation\b|completes? the operation/i, name);
+  }
+});
+
+test('every relative link in the setup skill reaches a file, and links inside it reach a heading', () => {
+  const slug = (heading) => heading.toLowerCase().replace(/[`*]/g, '').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
+  const files = [['SKILL.md', SKILL_DIR], ...readdirSync(join(SKILL_DIR, 'references')).map((name) => [join('references', name), join(SKILL_DIR, 'references')])];
+  for (const [name, dir] of files) {
+    const text = readFileSync(join(SKILL_DIR, name), 'utf8').replace(/```[\s\S]*?```/g, '');
+    for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/g)) {
+      if (/^https?:/.test(target)) continue;
+      const [file, anchor] = target.split('#');
+      const full = file ? join(dir, file) : join(SKILL_DIR, name);
+      assert.ok(existsSync(full), `${name}: ${target}`);
+      if (anchor && full.startsWith(SKILL_DIR)) {
+        const headings = [...readFileSync(full, 'utf8').matchAll(/^#+ (.*)$/gm)].map((m) => slug(m[1]));
+        assert.ok(headings.includes(anchor), `${name}: no heading for ${target}`);
+      }
+    }
+  }
+});

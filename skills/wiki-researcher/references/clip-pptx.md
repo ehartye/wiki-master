@@ -1,6 +1,6 @@
-Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [operations](../../wiki-maintainer/references/operations.md).
+Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this task: [completion](../../wiki-maintainer/references/operations.md).
 Load the rest only when this run reaches it — [evidence](../../wiki-maintainer/references/evidence.md) before a quote or figure from this capture lands on a wiki page, or when reporting a fidelity limit.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Reuse existing session authorization for the first write.
 
 # Clipping a PowerPoint deck into the wiki
 
@@ -38,7 +38,7 @@ extraction (empty or near-empty deck) so it is not retried blindly.
 
 1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#powerpoint) for this format. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/` for PowerPoint decks):
-   `node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
+   `node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<path/to/file.pptx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin. Omit for a purely local file and the file
      path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -70,12 +70,9 @@ extraction (empty or near-empty deck) so it is not retried blindly.
 
 ## Completion
 
-For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
-remote publication through the shared operations contract. During discovery,
-use the enclosing operation and report the results to its owner for completion.
-Pass `--since <saved-token>` to the clipping helper so every written path enters
-that operation's ledger. Capture-only requests end after this completion and
-create no derived source or concept pages.
+Verify the paths the clipper printed and its extraction diagnostics, then
+[finish the capture](capture.md#finish-capture-and-report). During discovery, report the
+results to the enclosing task, which logs once. Capture-only requests create no derived
+source or concept pages.
 Capturing evidence does not by itself authorize ingestion; reuse explicit
 discover-and-ingest authorization when it is already present.

@@ -1,21 +1,17 @@
 # Validate exactly the task paths
 
-Before committing, check exactly the pages the task wrote:
+Before the log entry, check exactly the pages the task wrote:
 `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`,
-with the vault set through [access](../../wiki-maintainer/references/access.md).
-This procedure is read-only. A validation-only request opens no operation and makes
-no edits, logs or catalog refreshes. For supplied paths, place a JSON ledger outside
-the vault; an existing authoring operation may use its recorded ledger.
+with the vault set through [access](../../wiki-maintainer/references/access.md). For a vault
+other than the default, name it as in [name the vault](initialization.md#name-the-vault).
+This procedure is read-only. A validation-only request makes no edits, logs or catalog
+refreshes. For supplied paths, place the ledger outside the vault.
 
-**The ledger** is the file `op-commit.mjs --paths-file` takes: a non-empty JSON array
-of vault-relative paths with `/` separators (no drive prefix, backslash, empty segment,
-`.` or `..`), for example `["wiki/authored/demo/guides/user.md","wiki/authored/demo/roadmap.md"]`.
-Record each page you wrote with `op-ledger.mjs add --since <token> <path>...` (the log and
-catalog scripts record theirs when given `--since`), then
-`node "<absolute-plugin-root>/scripts/op-ledger.mjs" show --since <token> --out <ledger>`
-writes this file and lists on stderr what the close would get wrong (a path that was already
-dirty before `op-begin`, a path that is not dirty now, a changed path nobody recorded). Writing
-it by hand with your file tool still works. Keep it under `.wiki-master/` or outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
+**The ledger** is a non-empty JSON array of vault-relative paths with `/` separators
+(no drive prefix, backslash, empty segment, `.` or `..`), for example
+`["wiki/authored/demo/guides/user.md","wiki/authored/demo/roadmap.md"]`. Write it by hand
+with your file tool, listing each page you wrote, and keep it under `.wiki-master/` or
+outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
 does not exist, or one whose letter case or Unicode form differs from the file on disk,
 because a case-insensitive disk would otherwise drop that page's link checks without a word.
 

@@ -1,7 +1,7 @@
 # Correct factual claims and record reviewed findings
 
 Read [access](access.md), [evidence](evidence.md), [identity](efficacy.md) and
-[operation completion](operations.md). This procedure owns authorized corrections
+[completion](operations.md). This procedure owns authorized corrections
 and persisted dispositions. A report-only request uses [setup lint reporting](../../wiki-setup/references/checks.md#content-lint-report) and writes nothing.
 
 1. Establish relevant findings through the direct [health check](../../wiki-setup/references/checks.md#health-and-ingest-backlog),
@@ -19,10 +19,8 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    claims unsourced when support is absent; never invent evidence or edit raw
    text to agree with the summary. Route structural repairs to [repair](repair.md)
    within the authorized scope. Propose unresolved changes without applying them.
-4. Before the first authorized edit or persisted disposition, open or reuse a
-   **lint** operation and record exact owned paths. Set `updated` on edited pages;
-   set `reviewed` only for claims actually checked against evidence or project
-   behavior. Mechanical links, aliases and formatting preserve factual dates.
+4. Keep your edits to what your task needs. Set `updated` on edited pages; set
+   `reviewed` only for claims actually checked against evidence or project behavior. Mechanical links, aliases and formatting preserve factual dates.
    For original authored documentation, use [project authoring](../../wiki-project/references/authoring.md).
 5. Persist reviewed dispositions when requested, so the same finding is not
    repeatedly presented as new. Obtain IDs through the linked lint procedure,
@@ -35,14 +33,12 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    Select the actual verdict: `own-wording`, `mention`, `title`, `markup` or
    `accepted`; use `fixed` only for a quote actually corrected. The supported
    scope choices are `--page=<path>`, `--paths-file=<ledger>` or `--whole-vault`;
-   select only the authorized scope. Add `lint-dispositions.jsonl` to the operation
-   ledger. A changed quote or replaced clipping is a new finding and needs a new
+   select only the authorized scope. A changed quote or replaced clipping is a new finding and needs a new
    reading; a finding still present after `fixed` is listed again.
-6. Recheck the affected findings and [validate owned paths](../../wiki-setup/references/validation.md).
-   Refresh affected owned catalogs and complete one lint log, scoped commit,
-   sync and remote verification through [operations](operations.md). If no edit
-   or disposition was applied, return the report with no operation/log/commit.
+6. Recheck the affected findings, then follow [completion](operations.md) with
+   `--op lint`. If no edit or disposition was applied, return the report with no log
+   or refresh.
 
 **Done:** applied corrections are supported and verified, reviewed dispositions
 match actual inspection, untouched raw evidence and factual dates are preserved,
-and the owned operation is published or its hold/local-only/blocker is explicit.
+and the work is logged and refreshed, or reported as written but not refreshed.

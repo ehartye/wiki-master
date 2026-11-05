@@ -9,7 +9,6 @@ import { resolveVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
-import { commitPaths, isGitRepo, uncommittedElsewhere } from './lib/git.mjs';
 import { main as searchMain } from './search.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -99,8 +98,8 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
     // place: mkdirSync runs first, so a failure here is never a half-made
     // destination directory. Isolating the failure per entry is what turns
     // "one locked file in a 100-file purge" into a reportable retry instead of
-    // an uncaught throw that aborts the whole batch mid-loop, uncommitted —
-    // the exact stranded state this feature exists to prevent.
+    // an uncaught throw that aborts the whole batch mid-loop — the exact
+    // stranded state this feature exists to prevent.
     try {
       moveInto(vaultPath, e.from, to);
     } catch (err) {
@@ -108,12 +107,23 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
       continue;
     }
     moved += 1;
-    // Both sides of every move, so the caller can stage exactly what changed.
-    // The destination is only known here, so returning it is what lets the CLI
-    // avoid `git add -A` and its habit of sweeping up the user's own work.
+    // Both sides of every move, so the caller can report exactly what changed.
+    // The destination is only known here, and a diverted one is not the slot the
+    // manifest would suggest.
     touched.push(e.from, to);
   }
   return { moved, touched, failed };
+}
+
+// Whether the file at an entry's path is the content the manifest recorded. An
+// entry with no hash cannot show that, and neither can a path that cannot be read.
+function alreadyRestored(vaultPath, entry) {
+  if (!entry.sha256) return false;
+  try {
+    return sha256(readFileSync(join(vaultPath, entry.from), 'utf8')) === entry.sha256;
+  } catch {
+    return false;
+  }
 }
 
 // The inverse. A file that exists at the original path is NEVER overwritten —
@@ -124,6 +134,7 @@ export function applyRestore(vaultPath, manifest) {
   const skipped = [];
   const missing = [];
   const touched = [];
+  const failed = [];
   for (const e of manifest.entries) {
     let from = binPathFor(manifest.id, e.from);
     if (!existsSync(join(vaultPath, from))) {
@@ -138,7 +149,9 @@ export function applyRestore(vaultPath, manifest) {
         n += 1;
       }
       if (!latest) {
-        missing.push(e.from);
+        // The purged content already back at its path is a rerun finishing the
+        // job, not a gap. A different page there means that content is lost.
+        if (!alreadyRestored(vaultPath, e)) missing.push(e.from);
         continue;
       }
       from = latest;
@@ -147,15 +160,21 @@ export function applyRestore(vaultPath, manifest) {
       skipped.push(e.from);
       continue;
     }
-    moveInto(vaultPath, from, e.from);
+    // Isolated per entry, for the reason applyPurge gives: one locked file must
+    // be a reportable retry, not a throw that strands the batch unlogged.
+    try {
+      moveInto(vaultPath, from, e.from);
+    } catch (err) {
+      failed.push({ from: e.from, reason: err.message });
+      continue;
+    }
     restored += 1;
-    // Same reasoning as applyPurge.touched: the CLI stages exactly what a
-    // restore touched, never `git add -A`. Only entries actually moved are
+    // Same reasoning as applyPurge.touched. Only entries actually moved are
     // included — a skipped entry's original path is the user's own newer
-    // work and must never be staged under a "restore:" commit message.
+    // work and must never be reported as restored.
     touched.push(from, e.from);
   }
-  return { restored, skipped, missing, touched };
+  return { restored, skipped, missing, touched, failed };
 }
 
 // Sorted, for the same reason planPurge sorts its pages. planReconcile shares
@@ -258,6 +277,18 @@ export async function collectSeeds(topic, options) {
   return (await searchSeeds(topic, options)).seeds;
 }
 
+// touched lists both sides of each move in order: from, to, from, to.
+function movePairs(touched) {
+  const pairs = [];
+  for (let i = 0; i < touched.length; i += 2) pairs.push({ from: touched[i], to: touched[i + 1] });
+  return pairs;
+}
+
+// A titled list of paths for a log entry, or nothing when there are none.
+function pathList(title, paths) {
+  return paths.length ? `\n${title}\n${paths.map((p) => `- \`${p}\``).join('\n')}\n` : '';
+}
+
 function report(plan) {
   const layer = (p) => (p.startsWith('raw/') ? 'raw' : 'wiki');
   console.log(`\nPURGE PLAN — ${plan.purge.length} files\n`);
@@ -345,23 +376,37 @@ export async function main(argv, {
     // primary slot nor any resurrected-N/. Never silent — an unqualified
     // "restored N" over an unrecoverable gap is the failure this reports.
     for (const p of r.missing) console.error(`  MISSING from the bin, not restored: ${p}`);
-    if (r.missing.length) process.exitCode = 1;
+    for (const x of r.failed) console.error(`  could not be restored: ${x.from} — ${x.reason}`);
+    if (r.failed.length) console.error('Close whatever holds them open, then run --restore again.');
+    if (r.missing.length || r.failed.length) process.exitCode = 1;
     // The inverse of the decline this purge itself recorded on the way out —
     // without this, a restored source's URL stays declined for up to 180
     // days and wiki-researcher discovery silently keeps skipping it. Scoped to exactly
     // this purge's own reason tag (see removeDecline's own comment): a
     // decline the user made independently, on the same URL, must survive.
+    // Held back while any move failed, so discovery does not re-clip a source
+    // that is still in the bin; the rerun clears it.
     let clearedDeclines = 0;
-    for (const url of manifest.declines ?? []) {
-      clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
+    if (!r.failed.length) {
+      for (const url of manifest.declines ?? []) {
+        clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
+      }
     }
     if (clearedDeclines) console.log(`cleared ${clearedDeclines} decline(s) this purge recorded`);
-    // A restore that is not committed is a working-tree-only change — the exact
-    // state that caused the bug this feature exists to fix.
-    if (r.touched.length && isGitRepo(vaultPath)) {
-      const c = commitPaths(vaultPath, r.touched, `restore: ${manifest.topic ?? manifest.id} (${manifest.id})`);
-      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
-    }
+    // Nothing moved means no log, the same rule as --apply. A restore that moved
+    // nothing has already said on the console what it skipped or could not find.
+    if (!r.restored) return;
+    writeLogEntry({
+      vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
+      body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
+            pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
+            pathList('Skipped, newer work sits at the path:', r.skipped) +
+            pathList('Missing from the bin, not restored:', r.missing) +
+            pathList('Could not be restored:', r.failed.map((x) => x.from)) +
+            (clearedDeclines ? `\nCleared ${clearedDeclines} decline(s) this purge recorded.\n` : ''),
+    });
+    console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
+    if (!r.failed.length) console.log('NEXT: run node scripts/refresh-index.mjs');
     return;
   }
 
@@ -370,11 +415,10 @@ export async function main(argv, {
     for (const u of unreadable) console.error(`purge: UNREADABLE manifest ${u} — its files will never re-bin and its declines will never replay`);
     const pages = buildGraph(vaultPath).pages;
     const plan = planReconcile({ manifests, pages, declines: loadDeclines(vaultPath).map((d) => d.url) });
-    // reconcile IS the recovery path a stalled --apply is told to run, so its
-    // moves must land in a commit like any other — collect what every
-    // applyPurge call actually touched, the same way --apply does.
-    const touched = [];
-    const ids = new Set();
+    // reconcile IS the recovery path a stalled --apply is told to run, so a file
+    // that still will not move has to say so rather than read as re-binned.
+    const moved = [];
+    const failed = [];
     for (const r of plan.rebin) {
       // Only a HASH match needs forcing: a re-clip has a new filename, so it
       // never collides and would otherwise land at the bin's top level as though
@@ -384,23 +428,33 @@ export async function main(argv, {
       // FREE slot is recovery after a purge crashed partway.
       const res = applyPurge(vaultPath, { id: r.id, entries: [{ from: r.from }] },
                               { asResurrection: r.reason === 'source-hash' });
-      touched.push(...res.touched);
-      ids.add(r.id);
-      console.log(`re-binned ${r.from} (matched by ${r.reason})`);
+      moved.push(...movePairs(res.touched));
+      failed.push(...res.failed);
+      if (res.moved) console.log(`re-binned ${r.from} (matched by ${r.reason})`);
     }
     for (const url of plan.replayDeclines) recordDecline(vaultPath, url, 'purge-manifest-replay');
-    console.log(`reconcile: ${plan.rebin.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`);
-    if (touched.length && isGitRepo(vaultPath)) {
-      // The crash reconcile recovers from is "writeManifest ran but the
-      // process died before ever committing" — so manifest.json is exactly
-      // as uncommitted as the files it describes. Stage it alongside the
-      // moves for every id touched, or a "successful" reconcile still leaves
-      // it stray on disk, untracked. Harmless to include when it was already
-      // committed by a prior, unrelated purge: git stages no-op unchanged.
-      const manifestPaths = [...ids].map((id) => `${BIN_DIR}/${id}/manifest.json`);
-      const paths = [...new Set([...touched, ...manifestPaths])];
-      const c = commitPaths(vaultPath, paths, `purge: reconcile re-binned ${plan.rebin.length} file(s)`);
-      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    const counts = `${moved.length} re-binned, ${plan.replayDeclines.length} decline(s) replayed`;
+    console.log(`reconcile: ${counts}${failed.length ? `, ${failed.length} could not be moved` : ''}`);
+    if (failed.length) {
+      for (const x of failed) console.error(`purge: could not re-bin ${x.from} — ${x.reason}`);
+      console.error('Close whatever holds them open, then run --reconcile again.');
+      process.exitCode = 1;
+    }
+    // A reconcile that changed nothing leaves no trace: it runs on any machine at
+    // any time, and most runs find the vault already in agreement.
+    if (!moved.length && !plan.replayDeclines.length) return;
+    writeLogEntry({
+      vaultPath, op: 'reconcile', title: counts,
+      body: `Reconcile: ${counts}.\n` +
+            (moved.length ? `\nRe-binned:\n${moved.map((m) => `- \`${m.from}\` to \`${m.to}\``).join('\n')}\n` : '') +
+            pathList('Could not be moved:', failed.map((x) => x.from)) +
+            pathList('Declines replayed:', plan.replayDeclines),
+    });
+    if (moved.length) {
+      console.log('\nThe re-binned files are on disk. Obsidian Git publishes them on its next run.');
+      console.log('NEXT: run node scripts/refresh-index.mjs');
+    } else {
+      console.log('\nThe replayed declines stay on this machine. Obsidian Git publishes the log entry on its next run.');
     }
     return;
   }
@@ -470,9 +524,9 @@ export async function main(argv, {
   // known.has(p) check, so an empty purge set with nonempty seedPaths is a
   // real, reachable outcome — not hypothetical. Stop here, before
   // nextFreePurgeId: a manifest with zero entries is not a purge, and
-  // writing one anyway commits a no-op under a "purge:" message while
-  // whatever ACTUALLY needed attention (a real half-finished purge, if
-  // that's why this ran) stays uncommitted and unmentioned.
+  // writing one anyway logs a no-op under a "purge" entry while whatever
+  // ACTUALLY needed attention (a real half-finished purge, if that's why
+  // this ran) stays unmentioned.
   if (!plan.purge.length) {
     console.log('\npurge: the closure is empty — nothing to move. Not writing a manifest.');
     return;
@@ -491,67 +545,49 @@ export async function main(argv, {
   const { moved, touched, failed } = applyPurgeFn(vaultPath, manifest);
 
   console.log(`\nmoved ${moved} file(s) to .recycle/${id}/`);
+  // Whatever moved is a change Obsidian Git will publish, so it is logged even
+  // when the purge stopped short. Failure reasons stay out of the entry: a system
+  // error can quote a local path, and logs sync between machines. A run that moved
+  // nothing changed nothing, and leaves no entry.
+  if (moved) {
+    writeLogEntry({
+      vaultPath, op: 'purge', title: arg,
+      body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n` +
+            pathList('Moved:', movePairs(touched).map((m) => m.from)) +
+            pathList('Could not be moved:', failed.map((x) => x.from)) +
+            (manifest.collateral.length ? `\nCollateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
+    });
+  }
   // Windows locks a file against rename whenever any process holds a
   // FILE_SHARE_READ handle — antivirus mid-scan, the Search indexer, a sync
-  // client. Measured, not theoretical. Report and stop here, before either
-  // declines or the log entry below are written: both describe a move that,
-  // for a failed entry, never actually happened.
+  // client. Measured, not theoretical. Report and stop here, before the declines
+  // below are recorded: they describe a removal that, for a failed entry, never
+  // actually happened. --reconcile replays them from the manifest once it has.
   if (failed.length) {
     console.error(`\n${failed.length} file(s) could not be moved:`);
-    for (const f of failed) console.error(`  ${f.from} — ${f.reason}`);
+    for (const x of failed) console.error(`  ${x.from} — ${x.reason}`);
     console.error('Close whatever holds them open, then run --reconcile to finish this purge');
-    console.error(`in place — it re-bins the stragglers into .recycle/${id}/ and commits.`);
+    console.error(`in place — it re-bins the stragglers into .recycle/${id}/.`);
     console.error('Do NOT re-run --apply: it starts a SECOND purge under a new id and');
     console.error('fragments this one across two manifests, so neither restores correctly.');
+    if (moved) console.log(`\nThe ${moved} moved file(s) are on disk. Obsidian Git publishes them on its next run.`);
     process.exitCode = 1;
     return;
   }
 
-  // Declines and the log entry are consequences of files having actually
-  // moved, so they are recorded only once applyPurge reports zero failures.
-  // The manifest (written above, before any of this) already carries the
-  // declines for --reconcile to replay if a later crash strands things
-  // anyway — nothing below is load-bearing for recovery.
+  // Declines are a consequence of files having actually moved, so they are
+  // recorded only once applyPurge reports zero failures. The manifest (written
+  // above, before any of this) already carries them for --reconcile to replay if
+  // a later crash strands things anyway — nothing below is load-bearing for
+  // recovery.
   for (const url of manifest.declines) recordDecline(vaultPath, url, `purged:${id}`);
-  const logPath = writeLogEntry({
-    vaultPath, op: 'purge', title: arg,
-    body: `Purged ${moved} file(s) to \`.recycle/${id}/\`.\n\n` +
-          (manifest.collateral.length ? `Collateral needing reference repair:\n${manifest.collateral.map((c) => `- [[${c}]]`).join('\n')}\n` : ''),
-  });
 
-  if (manifest.collateral.length) {
-    console.log('NEXT: repair references on the collateral pages, then run node scripts/index-gen.mjs');
-  }
-  if (isGitRepo(vaultPath)) {
-    // Exactly what this purge touched, and nothing else. index.md is listed
-    // even though index-gen.mjs (the skill's job, not this script's) only
-    // regenerates it AFTER this commit — it is byte-identical to what's
-    // already committed at the moment this runs, so including it now is a
-    // no-op that saves a second commit once it later changes, not evidence
-    // this script keeps it in sync itself. The log entry is the audit record
-    // of this purge. `.wiki-master/declined.json` is deliberately absent —
-    // it is gitignored and does not sync, which is precisely why the
-    // manifest carries declines for reconcile to replay.
-    const paths = [...new Set([...touched, `${BIN_DIR}/${id}/manifest.json`, 'index.md', logPath])];
-    const c = commitPaths(vaultPath, paths, `purge: ${arg} (${id})`);
-    console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
-    // .wiki-master/ is where this very purge just wrote declined.json (and
-    // where the search embedding cache lives) — gitignored on a vault that
-    // has a .gitignore entry for it, but not every vault does. Filtered
-    // explicitly rather than trusted to .gitignore, or a vault without one
-    // has purge report its own just-written declined.json back to the user
-    // as "your work."
-    const others = uncommittedElsewhere(vaultPath).filter((o) => !o.startsWith('.wiki-master/'));
-    if (others.length) {
-      console.log(`\n${others.length} other file(s) in the vault have uncommitted changes. Purge did NOT`);
-      console.log('commit them — they are your work, not part of this purge:');
-      for (const o of others.slice(0, 10)) console.log(`  ${o}`);
-      if (others.length > 10) console.log(`  … and ${others.length - 10} more`);
-    }
-    console.log('\nRun `git push` from the vault (or ask the skill to) to make this purge visible to your other machines.');
-  } else {
-    console.log('WARNING: this vault is not a git repository — the purge is local to this machine only.');
-  }
+  // Purge does not run the refresh itself: the skill does, once the references
+  // are repaired.
+  console.log('\nThe removal is on disk. Obsidian Git publishes it on its next run.');
+  console.log(manifest.collateral.length
+    ? 'NEXT: repair references on the collateral pages, then run node scripts/refresh-index.mjs'
+    : 'NEXT: run node scripts/refresh-index.mjs');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -67,9 +67,9 @@ test('--apply renames the files, repoints the citations and the graph resolves t
   assert.ok(advisory.includes('[[raw/clippings/stringify advisory.md|the advisory]]'));
   assert.deepEqual(rules(root), [], 'no integrity defect once the names are safe');
   assert.equal(read(root, `${GH}/dot-gitignore.md`), clipping('.gitignore'), 'clipping content is untouched');
-  assert.deepEqual(r.paths, [...new Set(r.paths)].sort(), 'ledger is unique and sorted');
+  assert.deepEqual(r.paths, [...new Set(r.paths)].sort(), 'the changed paths are unique and sorted');
   for (const p of [`${GH}/.gitignore.md`, `${GH}/dot-gitignore.md`, 'wiki/sources/Repo Summary.md', 'wiki/sources/Advisory.md', 'raw/clippings/`stringify` advisory.md', 'raw/clippings/stringify advisory.md']) {
-    assert.ok(r.paths.includes(p), `ledger lists ${p}`);
+    assert.ok(r.paths.includes(p), `the changed paths list ${p}`);
   }
 });
 

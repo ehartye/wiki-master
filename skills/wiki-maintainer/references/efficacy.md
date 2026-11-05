@@ -8,7 +8,7 @@ Before creating a concept, search its intended title, common alternative wording
 
 Use `aliases: ["equivalent phrase"]` and a one-sentence `scope:` on concept pages. Aliases name the same concept; broader, narrower and complementary concepts remain separate pages. Use full-path wikilinks for ambiguous names. A source page and a concept may legitimately share a basename; a warning is a review queue, not permission to rename everything.
 
-Two rules decide a bare name before it counts as ambiguous. A file whose own name equals the link outranks files that only share that name as a `title:` or alias (a site that serves a case's syllabus and opinion under one title gives two clippings one title; the clipping named for the link is the one Obsidian opens). And in navigation a project's generated hub MOC (`moc/<project>.md`) yields to a page of the same name, so a bare `[[<project>]]` reaches the entity page; the MOC is still reached by `[[moc/<project>]]`. Two files with the same name stay ambiguous. After a refresh scoped to one project, the result's `staleCatalogs` names other projects' generated catalogs whose bare link your new pages made ambiguous; refresh each named project.
+Two rules decide a bare name before it counts as ambiguous. A file whose own name equals the link outranks files that only share that name as a `title:` or alias (a site that serves a case's syllabus and opinion under one title gives two clippings one title; the clipping named for the link is the one Obsidian opens). And in navigation a project's generated hub MOC (`moc/<project>.md`) yields to a page of the same name, so a bare `[[<project>]]` reaches the entity page; the MOC is still reached by `[[moc/<project>]]`. Two files with the same name stay ambiguous.
 
 ## Relationships and citations
 
@@ -27,7 +27,7 @@ Discovery starts with an unanswered question and bounded search of the existing 
 ## Verification obligations
 
 Each ingest or substantive edit verifies identity and citation paths, updates the
-affected task map, and completes the operation. `reviewed` means factual claims
+affected task map, and finishes through [completion](operations.md). `reviewed` means factual claims
 were checked; `updated` means edited; index freshness is a file-version match.
 None substitutes for another. Mechanical edits preserve `reviewed`.
 Use [checks and cadence](../../wiki-setup/references/checks.md#verification-cadence)

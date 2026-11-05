@@ -1,10 +1,11 @@
 # Report health, freshness and content findings
 
 Resolve the known vault and absolute helpers through
-[access](../../wiki-maintainer/references/access.md). Read-only reports open no
-operation and write no log, disposition, catalog or cache. Follow
+[access](../../wiki-maintainer/references/access.md). Read-only reports write no
+log, disposition, catalog or cache. Follow
 [evidence](../../wiki-maintainer/references/evidence.md) when reviewing claims;
-structural checks cannot establish truth.
+structural checks cannot establish truth. For a vault other than the default, name it on
+every command below, as in [name the vault](initialization.md#name-the-vault).
 
 ## Health and ingest backlog
 
@@ -114,15 +115,15 @@ skipped and failed counts, document/chunk sampling and backend failures. Cosine
 drift measures topical change, never truth or contradiction. A page evaluated
 through sampled chunks has not received an exhaustive factual review.
 
-Open the content owner's operation only before an authorized tracked edit.
+Edit tracked content only with authorization.
 Do not run full lint on an unchanged wiki; use scoped checks and inspect actual
 claims rather than optimizing a graph score. Validate changed paths through
-[scoped validation](validation.md), then complete the owner's operation.
+[scoped validation](validation.md), then log once and run `refresh-index.mjs`.
 
 ## Verification cadence
 
 - Each ingest or substantive edit checks identity and citation paths, updates
-  affected task maps and completes the operation; factual dates follow evidence.
+  affected task maps and ends with `refresh-index.mjs`; factual dates follow evidence.
 - Each requested maintenance pass combines structural defects with bounded
   changed/high-use claim review, reporting evaluated/skipped/failed coverage.
 - While actively growing, a weekly review of up to ten relationship candidates,
@@ -151,4 +152,4 @@ also attributes unresolved links to their source pages; app access is not requir
 for the filesystem check.
 
 This diagnostic procedure never applies, restores or reconciles a purge. Those
-mutations and publication approvals belong to the [purge workflow](../../wiki-purge/references/purge.md).
+changes and their approval belong to the [purge workflow](../../wiki-purge/references/purge.md).

@@ -7,7 +7,8 @@ changes, captures, re-clips or ingestion. Report what is unavailable and its
 effect on coverage; never substitute invented evidence. Before an authorized
 capture or repair writes, follow [operations](../../wiki-maintainer/references/operations.md).
 The [evidence policy](../../wiki-maintainer/references/evidence.md) owns restrictions,
-raw immutability and the obligations for using captured material.
+raw immutability and the obligations for using captured material. For a vault other than the
+default, name it on every command below, as in [name the vault](initialization.md#name-the-vault).
 
 ## HTML and supplied pages
 
