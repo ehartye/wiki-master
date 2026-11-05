@@ -52,7 +52,9 @@ overwrite mode.
 3. The owner sets up the git repository and upstream. This skill does not create either,
    and a vault without them cannot complete a refresh. Ask them to, and wait for the answer.
 4. Have the owner open the vault in Obsidian: "Open folder as vault". The CLI cannot do this
-   for a folder Obsidian has not registered. Verify with
+   for a folder Obsidian has not registered. Ask them, at this step, to trust the vault and turn
+   off restricted mode under Settings > Community plugins: every new vault starts with
+   restricted mode on, and the install in the next step stops until it is off. Verify with
    `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/obsidian.mjs" vaults`, and use
    [app access](app-access.md) if that fails. Filesystem health does not prove the native
    CLI reaches the app. Relay the optional step of importing
@@ -78,7 +80,8 @@ There is no other mode to fall back to.
 
 ## Install Obsidian Git
 
-`--check` reads files and needs no app:
+`--check` reads files and needs no app, so it cannot see restricted mode, which lives in the
+app. A clean result does not prove the plugin is running:
 
 ```sh
 WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --check

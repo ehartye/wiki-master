@@ -292,6 +292,13 @@ function assertManualSteps(text) {
   assert.match(text, /obsidian-git/);
   assert.match(text, /autoSaveInterval: 10/);
   assert.match(text, /mergeStrategy: theirs/);
+  // Every new vault starts restricted, so this is the usual path: a rerun does the install. By hand is the fallback.
+  const steps = text.slice(text.indexOf('Manual steps'));
+  const off = steps.search(/turn off Restricted mode/);
+  const rerun = steps.search(/--apply again/);
+  const byHand = steps.search(/If that still fails/);
+  assert.ok(off >= 0 && off < rerun && rerun < byHand, steps);
+  assert.ok(steps.search(/install it/) > byHand, 'installing by hand comes only as the fallback');
 }
 
 async function blocked(t, app, pattern) {
@@ -467,6 +474,24 @@ function assertDeclinedPath(text, where) {
 test('initialization names the declined path, and so does the skill', () => {
   assertDeclinedPath(reference('initialization.md'), 'initialization.md');
   assertDeclinedPath(body(), 'SKILL.md');
+});
+
+test('the open-vault step asks the owner to turn restricted mode off, because every new vault starts with it on', () => {
+  const step = (text, from, to) => text.slice(atOrFail(text, from), atOrFail(text, to));
+  for (const [where, text] of [
+    ['SKILL.md', step(body(), /^4\. Have the owner open the vault/m, /^5\. Offer the install/m)],
+    ['initialization.md', step(reference('initialization.md'), /^4\. Have the owner open the vault/m, /^5\. Offer to install/m)],
+  ]) {
+    assert.match(text, /restricted\s+mode/i, where);
+    assert.match(text, /trust/i, where);
+  }
+  assert.match(reference('initialization.md'), /starts?\s+with\s+restricted\s+mode\s+on|starts?\s+restricted/i);
+});
+
+test('--check says it cannot see restricted mode, so a clean result is not read as proof', () => {
+  const text = reference('initialization.md');
+  const section = text.slice(atOrFail(text, /^## Install Obsidian Git/m));
+  assert.match(section, /cannot\s+see\s+restricted\s+mode/);
 });
 
 test('initialization still creates no repository, and ends with the refresh', () => {

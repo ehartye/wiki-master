@@ -52,8 +52,9 @@ passes inspection.
 manual steps. Rerun `--apply` once the cause is gone: it skips what is already done, and it
 never rewrites an existing settings file.
 
-- **Restricted mode is on.** The owner turns it off under Settings > Community plugins.
-  Do not switch it from the command line.
+- **Restricted mode is on.** Every new vault starts this way. The owner turns it off under
+  Settings > Community plugins, and `--apply` then does the install on a rerun. Do not switch
+  it from the command line.
 - **Obsidian has not opened this vault.** The owner opens the folder as a vault in Obsidian.
   The CLI cannot do this, and it exits 0 while answering `Vault not found.`
 - **The vault name reaches a different folder.** The CLI matches a vault by folder name,

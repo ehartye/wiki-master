@@ -52,7 +52,8 @@ for the default vault.
    Ollama with the embedding model, and a git repository with an upstream.
 2. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/init.mjs"`.
 3. The owner sets up the git repository and upstream. This skill does not create either.
-4. Have the owner open the vault in Obsidian.
+4. Have the owner open the vault in Obsidian, trust it, and turn off restricted mode
+   under Settings > Community plugins. Every new vault starts with it on.
 5. Offer the install. On a yes, run
    `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/setup-obsidian-git.mjs" --apply`.
 6. Run `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/refresh-index.mjs"` last.

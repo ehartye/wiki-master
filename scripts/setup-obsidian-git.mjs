@@ -45,11 +45,11 @@ function report(vaultPath, { out }) {
 
 function manualSteps(vaultPath, { out }) {
   out('Manual steps:');
-  out(`  1. Open ${vaultPath} as a vault in Obsidian. Any prompt about trusting the vault's plugins is the owner's to answer.`);
-  out('  2. Settings > Community plugins: turn off Restricted mode.');
-  out(`  3. Browse community plugins, find "Git" by Vinzent (${OBSIDIAN_GIT_ID}) and install it. Do not enable it yet.`);
-  out(`  4. Run ${NAME}.mjs --apply again: it writes the settings and enables the plugin.`);
-  out(`     Or enable the plugin yourself and set these in its settings: ${settingsList}.`);
+  out(`  1. Open ${vaultPath} as a vault in Obsidian.`);
+  out('  2. Settings > Community plugins: turn off Restricted mode, which every new vault starts with. Any prompt about trusting the vault is the owner\'s to answer.');
+  out(`  3. Run ${NAME}.mjs --apply again for this vault: it installs the plugin, writes the settings and enables it.`);
+  out(`  If that still fails, by hand: browse community plugins, find "Git" by Vinzent (${OBSIDIAN_GIT_ID}) and install it without enabling it, then run --apply once more.`);
+  out(`  Or enable the plugin yourself and set these in its settings: ${settingsList}.`);
 }
 
 // Whether the app in this session has this vault open and allows plugins. Returns the reason it cannot go on, or null.
