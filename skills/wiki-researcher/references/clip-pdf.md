@@ -1,6 +1,6 @@
-Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [operations](../../wiki-maintainer/references/operations.md).
+Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this task: [completion](../../wiki-maintainer/references/operations.md).
 Load the rest only when this run reaches it — [evidence](../../wiki-maintainer/references/evidence.md) before a quote or figure from this capture lands on a wiki page, or when reporting a fidelity limit.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Reuse existing session authorization for the first write.
 
 # Clipping a PDF into the wiki
 
@@ -92,7 +92,7 @@ Extraction is tuned for academic PDFs:
 
 1. **Preflight:** run the direct [prerequisite and diagnostic procedure](../../wiki-setup/references/capture-prerequisites.md#pdf) for this format. In corrected source, read `ocrRaster` and `figureRaster` separately from the legacy dependency summary and unchanged OCR version gate. A successful synthetic render does not verify recognition, table rows or automatic figure selection. Older installed releases only test presence. The diagnostic bounds launched native converters and traceable timeout descendants; it is not OS containment for deliberately daemonizing programs. Missing tools or access never authorize invented evidence or automatic installation.
 2. **Clip** (this is the only writer to `raw/`):
-   `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>" --since <token>`
+   `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<path/to/file.pdf>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin (the paper's DOI/URL). Omit for a purely
      local PDF and the file path is recorded as the source.
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
@@ -136,8 +136,8 @@ vault's figure convention.
 
 ```bash
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --source="<url>" --figures            # auto
-node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=all --figures-max=60 --since <token>
-node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=3,5-7 --since <token>
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=all --figures-max=60
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures=3,5-7
 # figures for a clipping that already exists, from a PDF you supply:
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only --clipping raw/clippings/<name>.md
 ```
@@ -174,8 +174,8 @@ node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<file.pdf>" --figures-only -
   refused (`--allow-pdf-mismatch` overrides); a clipping with no `source-hash` or one
   made by OCR cannot be checked and only warns.
 - **Tools.** Check figure-tool availability through [PDF prerequisites](../../wiki-setup/references/capture-prerequisites.md#pdf). Report missing probes and actual selection coverage.
-- **Operation bracket.** Figure PNG/sidecars and the clipping's frontmatter edit are
-  ordinary vault writes inside the clip's operation. Pass `--since <token>` and inspect the exact ledger for PNGs, sidecars and changed clipping metadata before scoped close. `health.mjs` treats
+- **Vault writes.** Figure PNG/sidecars and the clipping's frontmatter edit are ordinary
+  vault writes: inspect the PNGs, sidecars and changed clipping metadata. `health.mjs` treats
   `raw/figures/` as assets, not clippings, so they never count toward the ingest backlog
   or as missing a `source-hash`.
 - A render is a faithful page, not an interpretation. Describe what a figure shows only
@@ -215,12 +215,9 @@ The direct [reading-mode comparison procedure](../../wiki-setup/references/captu
 
 ## Completion
 
-For a standalone clip, open an operation before the clipping helper writes, verify
-its returned paths and extraction diagnostics, [validate affected derived paths](../../wiki-setup/references/validation.md) when any were written, log once, commit, push and verify
-remote publication through the shared operations contract. During discovery,
-use the enclosing operation and report the results to its owner for completion.
-Pass `--since <saved-token>` to the clipping helper so every written path enters
-that operation's ledger. Capture-only requests end after this completion and
-create no derived source or concept pages.
+Verify the paths the clipper printed and its extraction diagnostics, then
+[finish the capture](capture.md#finish-capture-and-report). During discovery, report the
+results to the enclosing task, which logs once. Capture-only requests create no derived
+source or concept pages.
 Capturing evidence does not by itself authorize ingestion; reuse explicit
 discover-and-ingest authorization when it is already present.

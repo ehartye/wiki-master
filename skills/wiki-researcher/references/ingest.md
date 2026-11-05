@@ -9,11 +9,11 @@ Lexical search works without a semantic index. Report unavailable channels;
 reading the pages you just wrote does not replace the requested retrieval step.
 Ordinary ingestion alone does not require this additional answer workflow.
 
-Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this operation: [evidence](../../wiki-maintainer/references/evidence.md).
+Read [access and host commands](../../wiki-maintainer/references/access.md) before touching the vault. Also read for this task: [evidence](../../wiki-maintainer/references/evidence.md).
 Load the rest only when this run reaches it — [efficacy](../../wiki-maintainer/references/efficacy.md) before creating or merging a concept, alias or relationship; [maintenance](../../wiki-maintainer/references/maintenance.md) when you compute the backlog with the content-hash join, or hit a structural repair.
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Reuse existing session authorization for the first write.
 
-## Select eligible work before opening an operation
+## Select eligible work before writing
 
 For an explicit request to process new/un-ingested clippings without a filename,
 run `node "<absolute-plugin-root>/scripts/health.mjs" --backlog` through the direct
@@ -40,31 +40,24 @@ not automatically the count of eligible work.
 
 If the backlog is zero, every named source is already summarized, or no eligible
 source remains, stop and report the actual result and any exclusions. Do not
-create pages, open operations, log, commit or refresh indexes. For work that
-remains, retain the exact eligible set and initial hash-join membership. See
+create pages, log or refresh. For work that remains, retain the exact eligible set and initial hash-join membership. See
 [backlog semantics](../../wiki-maintainer/references/maintenance.md) for migration
 and repair cases; structural repair still needs its own authorized scope.
 
 ## Ingest and complete the selected set
 
-Read [operation completion](../../wiki-maintainer/references/operations.md)
-before the first authorized write.
+Read [completion](../../wiki-maintainer/references/operations.md)
+before the first authorized write. An ingest ends the way it says.
 
-**Open the operation first:** `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op ingest`
-This records what was already uncommitted, so the commit at the end contains your
-work and not the user's in-progress writing. Close it in step 6.
-
-**Keep the ledger as you go.** Record each page you write (`wiki/sources/...`, a concept
-or synthesis you create or change) with
-`node "<absolute-plugin-root>/scripts/op-ledger.mjs" add --since <token> <path>...`, and give
-`--since <token>` to `index-gen.mjs` and `log-entry.mjs`. When this ingest follows a discover
-run, take the clipping set from that run's ledger file (its `raw/clippings/...` entries), not
-from `git show`. Delegated writers get the parent token in their brief and run the same `add`
-for the pages they write; they never close the operation (see the operations reference).
+**Note each page you write** (`wiki/sources/...`, a concept or synthesis you create or
+change): that list is the validation ledger. When this ingest follows a capture, take the
+clipping set from the paths the clippers printed. Delegated writers report the paths they
+wrote; the enclosing task validates, logs and refreshes.
 
 Prefer a named clipping set; two concurrent ingests can overwrite shared concept
-pages, so coordinate overlapping targets rather than processing the global backlog
-in parallel. Update only pages substantively changed by the evidence.
+pages and nothing isolates them, so coordinate overlapping targets rather than processing
+the global backlog in parallel. Keep your edits to what your task needs, and update only
+pages substantively changed by the evidence.
 
 Apply the [Reddit and Medium evidence policy](../../wiki-maintainer/references/evidence.md#reddit-and-medium)
 to every page you write: Reddit-derived content belongs under
@@ -72,7 +65,7 @@ to every page you write: Reddit-derived content belongs under
 `## Medium articles`, including when updating a mixed-source page.
 
 For each eligible source, perform steps 1–3 and preserve raw body bytes. After
-the selected batch, perform steps 4–6 once so the operation has one log and commit:
+the selected batch, perform steps 4–6 once so the task has one log and one refresh:
 1. Read the exact clipping through the guarded CLI or filesystem. Write derived
    Markdown through exact-path filesystem edits, never a whole CLI `content=` payload. Discuss
    the key takeaways with the user.
@@ -116,38 +109,21 @@ the selected batch, perform steps 4–6 once so the operation has one log and co
    and the relevant prose. Relatedness does not establish support. Update the
    task map the new knowledge helps answer. Preserve `reviewed` on pages that
    received only metadata/link edits; stamp it only after factual verification.
-4. Regenerate the catalog: `node "<absolute-plugin-root>/scripts/index-gen.mjs"`
-   (never hand-edit index.md's generated fence). With another writer in the vault,
-   add `--paths-file <ledger>` (the JSON array of pages this ingest wrote, from
-   `op-ledger.mjs show --since <token> --out <ledger>`) so their
-   uncommitted pages stay out of the catalog and their lines already in it stay in. Write the log entry by piping the
-   narrative to `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<title>" --since <token>`
+4. **Validate.** Never edit anything under `raw/`. Inspect the derived pages' exact
+   citation targets, source hashes, frontmatter and supported claims, then follow the
+   direct [scoped validation procedure](../../wiki-setup/references/validation.md):
+   `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`.
+   The ledger must list every source/concept/synthesis page this ingestion wrote; never
+   add another writer's paths. Require validator exit 0 before step 5; on a nonzero exit,
+   resolve the reported issue and rerun. Retain checked/skipped/defect counts. Health,
+   lint and backlog reports do not replace this check. If content changes afterward,
+   validate again. Rerun `node "<absolute-plugin-root>/scripts/health.mjs" --backlog` and
+   compare the actual hash-join membership with the initial set. Eligible sources just
+   summarized should leave that set; restricted captures do not become ingested by
+   exclusion. Confirm already summarized sources and raw bodies remain unchanged.
+5. **Log once** by piping the narrative to
+   `node "<absolute-plugin-root>/scripts/log-entry.mjs" --op ingest --title "<what you ingested>"`
    (creates `log/<timestamp>-ingest-<slug>.md` in the resolved vault).
-5. **Validate before closing.** Never edit anything under `raw/`. Inspect the
-   derived pages' exact citation targets, source hashes, frontmatter and supported
-   claims, then follow the direct [scoped validation procedure](../../wiki-setup/references/validation.md):
-
-   ```sh
-   node "<absolute-plugin-root>/scripts/op-ledger.mjs" show --since <saved-token> --out <ledger>
-   node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>
-   ```
-
-   After `show`, read the actual ledger and its unclaimed-path report before
-   validating. It must include every source/concept/synthesis page this ingestion
-   wrote and its owned catalogs/log; record any omitted owned path with
-   `op-ledger.mjs add --since <saved-token> <path>...` and export again. Never add
-   foreign paths to make the report empty. Require validator exit 0 before step 6;
-   on a nonzero exit, resolve the reported issue and rerun instead of closing or
-   syncing. Retain checked/skipped/defect counts. Health, lint and backlog reports
-   do not replace this check. If content or catalogs change afterward, validate
-   the updated ledger again. Rerun
-   `node "<absolute-plugin-root>/scripts/health.mjs" --backlog` and compare the actual
-   hash-join membership with the initial set. Eligible sources just summarized
-   should leave that set; restricted captures do not become ingested by exclusion.
-   Confirm already summarized sources and raw bodies remain unchanged.
-6. **Close the operation:**
-   Run `op-ledger.mjs show --since <saved-token> --out <ledger>` and read what it lists as
-   unclaimed (another writer's pages, or one of yours you did not record), then
-   `node "<absolute-plugin-root>/scripts/op-commit.mjs" --op ingest --title "<what you ingested>" --since <saved-token> --paths-file <ledger>`
-   Commits exactly the pages this ingest touched, as one revertable unit, and
-   reports anything it deliberately left alone. Without `--paths-file` the close is refused while another operation is open. Then follow the shared completion contract to push your updates (`wiki-sync.mjs`, or `wiki-sync.mjs --op <saved-token> --paths-file <ledger> --title "<what you ingested>"` to close and push in one command) and verify remote publication. If the sync is refused because uncommitted edits overlap incoming changes (exit 3), follow the direct [operation recovery](../../wiki-setup/references/operation-recovery.md): never reset, check out, stash or delete a file you did not write.
+6. **Run `node "<absolute-plugin-root>/scripts/refresh-index.mjs"`** once, and report as
+   [completion](../../wiki-maintainer/references/operations.md) describes. It regenerates the
+   catalogs, so never hand-edit `index.md`'s generated fence.

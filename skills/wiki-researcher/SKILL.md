@@ -18,29 +18,33 @@ unspecified request to use this role does not authorize processing the backlog.
 2. Follow the corresponding direct procedure below. Discovery requires separate
    read-only finders and independent selection when delegation is available;
    retain that selection before capture. Named sources skip broad discovery.
-   Ingestion determines eligibility before opening any operation.
+   Ingestion determines eligibility before writing anything.
 3. Read [evidence](../wiki-maintainer/references/evidence.md) before judging
    fidelity or synthesizing. Preserve raw bodies, exact hashes and paths,
    restricted-source exclusions and separate Reddit/Medium sections. Before an
-   authorized write, read [operation completion](../wiki-maintainer/references/operations.md),
-   open or reuse its token, and record every written path.
-4. Capture with the matching helper; pass the same research topic and `--since`
-   token throughout a run. Ingest only the authorized eligible set, reuse
-   canonical pages and explain useful relationships under the
+   authorized write, read [completion](../wiki-maintainer/references/operations.md)
+   and keep your edits to what your task needs.
+4. Capture with the matching helper, passing the same research topic throughout a
+   run. Ingest only the authorized eligible set, reuse canonical pages and explain
+   useful relationships under the
    [identity contract](../wiki-maintainer/references/efficacy.md).
-5. Verify capture fidelity or derived claims, refresh affected owned catalogs and
-   log once. Before closing any ingestion, export and inspect its actual owned-path
-   ledger, then run `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`
-   using the direct [scoped validation procedure](../wiki-setup/references/validation.md).
-   Require exit 0 before commit/sync; a health, lint or backlog report does not
-   replace this validation. Then complete scoped publication unless held.
-6. If the request continues with a search or answer, load
-   [wiki-search](../wiki-search/SKILL.md) and actually run retrieval against the
-   updated vault, opening its returned passages. Use
-   [advanced retrieval](../wiki-search/references/advanced.md) or
-   [cited answers](../wiki-search/references/answers.md) as needed. Memory of pages
-   just written is not retrieval; lexical-only availability is disclosed, not a
-   reason to skip this step. The answer stays read-only unless filing is authorized.
+5. Verify capture fidelity or derived claims. For any wiki page written, run
+   `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`
+   using the direct [scoped validation procedure](../wiki-setup/references/validation.md)
+   and require exit 0; a health, lint or backlog report does not replace it. Log once.
+6. If the task wrote a wiki page, run `refresh-index.mjs` once, as
+   [completion](../wiki-maintainer/references/operations.md) describes. A capture that
+   wrote no wiki page needs no refresh: clippings and log entries enter neither the
+   catalogs nor the search index. Report actual results and blockers: the work is on
+   disk and Obsidian Git publishes it on its next run.
+
+If the request continues with a search or answer, load
+[wiki-search](../wiki-search/SKILL.md) and actually run retrieval against the
+updated vault, opening its returned passages. Use
+[advanced retrieval](../wiki-search/references/advanced.md) or
+[cited answers](../wiki-search/references/answers.md) as needed. Memory of pages
+just written is not retrieval; lexical-only availability is disclosed, not a
+reason to skip this. The answer stays read-only unless filing is authorized.
 
 ## Modes and examples
 
@@ -52,14 +56,14 @@ unspecified request to use this role does not authorize processing the backlog.
 - **Named URL or saved page:** read [capture](references/capture.md).
   Request: “Capture this saved article.” Action: use `clip.mjs --from-file` for
   the named URL, preserving dedup, declines and provenance. Result: a verified
-  raw clipping and completed operation; no source summary unless ingestion was requested.
+  raw clipping and one log entry; no source summary unless ingestion was requested.
 - **Format or service capture:** read the matching complete route:
   [PDF](references/clip-pdf.md), [Word](references/clip-docx.md),
   [PowerPoint](references/clip-pptx.md), [spreadsheets](references/clip-xlsx.md),
   [GitHub repository](references/clip-gh.md), or [Confluence](references/clip-confluence.md).
   Request: “Clip this PDF with its figures.” Action: run its linked prerequisite
-  check, then `clip-pdf.mjs --figures` inside the owned operation and inspect the
-  returned text/images. Result: citable capture paths with actual fidelity limits.
+  check, then `clip-pdf.mjs --figures` and inspect the returned text/images.
+  Result: citable capture paths with actual fidelity limits.
   Other formats use their named helper, never an improvised raw file.
 - **Named ingestion:** read [ingestion](references/ingest.md).
   Request: “Ingest these two clippings.” Action: read exactly those sources,
@@ -71,11 +75,11 @@ unspecified request to use this role does not authorize processing the backlog.
   [backlog report](../wiki-setup/references/checks.md#health-and-ingest-backlog), then
   inspect eligibility. Result: only eligible sources are ingested; already summarized
   sources stay unchanged and restricted sources are reported separately. If none
-  remain, make no pages, operation, log, commit or index refresh.
+  remain, make no pages, log or refresh.
 
 ## Best practices
 
-Prefer named source sets and coordinate shared concept/catalog edits. A capture's
+Prefer named source sets and coordinate shared concept edits. A capture's
 fidelity and its author's credibility are different judgments. Do not invent
 text when tools or authenticated access are unavailable. Source count is not a
 quality target. Do not treat a backlog count as ingestion authorization.
@@ -83,14 +87,15 @@ quality target. Do not treat a backlog count as ingestion authorization.
 ## Advanced references
 
 Load the exact [capture prerequisite section](../wiki-setup/references/capture-prerequisites.md)
-the selected format requires. Tool trouble uses that same section; operation
-failure uses [recovery](../wiki-setup/references/operation-recovery.md). Concept
-identity, evidence and transaction rules remain in the directly linked shared
-contracts; original project documentation belongs to [wiki-project](../wiki-project/SKILL.md).
+the selected format requires. Tool trouble uses that same section; a refresh that
+cannot finish uses [recovery](../wiki-setup/references/operation-recovery.md). Concept
+identity and evidence rules remain in the directly linked shared contracts; original
+project documentation belongs to [wiki-project](../wiki-project/SKILL.md).
 
 ## Done
 
 The requested candidates, captures or eligible ingestion set are accounted for,
-fidelity/exclusions/coverage are honest, and all authorized mutations have exact
-ledgers and verified completion. A requested retrieval handoff actually ran.
+fidelity/exclusions/coverage are honest, and every wiki page written is validated,
+logged and refreshed, or reported as written but not refreshed; a capture with no
+wiki page is verified and logged. A requested retrieval handoff actually ran.
 Candidates-only and zero-eligible ingestion leave the vault unchanged.

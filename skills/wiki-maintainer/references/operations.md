@@ -45,6 +45,9 @@ don't apply it unasked, and report the task as
 
 ## Tasks with their own steps
 
+- **Capture only.** A capture that wrote no wiki page verifies its paths, logs once and needs
+  no refresh, because clippings and log entries enter neither the catalogs nor the search index.
+  See [finish the capture](../../wiki-researcher/references/capture.md#finish-capture-and-report).
 - **Purge.** `purge.mjs` writes its own log entry; [its skill](../../wiki-purge/SKILL.md) keeps
   the plan and approval, and still ends with the refresh.
 - **Re-clipping.** `apply-reclips.mjs` takes an exact target list and returns the paths it

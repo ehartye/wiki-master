@@ -151,6 +151,22 @@ test('a second run rewrites no file and embeds nothing: every modification time 
   assert.deepEqual(snapshot(root), before);
 });
 
+// Why a capture that wrote no wiki page needs no refresh: there is nothing here for one to do.
+test('a clipping and a log entry change neither the catalogs nor the search index', async (t) => {
+  const root = vault(t);
+  assert.equal((await run(root)).code, 0);
+  mkdirSync(join(root, 'raw/clippings'), { recursive: true });
+  mkdirSync(join(root, 'log'), { recursive: true });
+  writeFileSync(join(root, 'raw/clippings/a-page.md'), '---\nsource: "https://example.test/a"\ntags: [clippings]\nsource-hash: abc\n---\nCaptured text.\n');
+  writeFileSync(join(root, 'log/2026-01-01-000000-discover-a-page.md'), '---\ndate: 2026-01-01\nop: discover\ntitle: "a page"\n---\n## [2026-01-01] discover | a page\n\nOne clipped.\n');
+  const before = snapshot(root);
+  await delay(20);
+  const again = await run(root);
+  assert.equal(again.code, 0, again.output);
+  assert.deepEqual(again.embedCalls, []);
+  assert.deepEqual(snapshot(root), before);
+});
+
 test('a run right after an edit picks up the edit, and the run after that rewrites nothing', async (t) => {
   const root = vault(t);
   await run(root);

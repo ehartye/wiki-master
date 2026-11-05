@@ -1,5 +1,5 @@
-Read directly for this operation: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [efficacy](../../wiki-maintainer/references/efficacy.md), [operations](../../wiki-maintainer/references/operations.md).
-Before the first authorized write, follow the shared operations completion contract; reuse existing session authorization.
+Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [efficacy](../../wiki-maintainer/references/efficacy.md), [completion](../../wiki-maintainer/references/operations.md).
+Reuse existing session authorization for the first write.
 
 # Discover sources on a topic
 
@@ -18,7 +18,7 @@ The orchestrator may select their returned candidates, or a separate reviewer
 may select them. A finder must not grade its own finds. A small or controlled
 source corpus does not remove this separation.
 
-Before opening an operation or calling a clipper, retain the returned candidate
+Before calling a clipper, retain the returned candidate
 lists and the independent selection with its credibility reasons. If delegation
 is unavailable, use the documented sequential lenses and disclose that limit;
 do not claim an independent pass that did not run. Named-source capture skips
@@ -84,12 +84,7 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    group them under `## Reddit discussion (anecdotal)` and `## Medium articles`
    respectively, and carry those sections into ingestion per the
    [Reddit and Medium evidence policy](../../wiki-maintainer/references/evidence.md#reddit-and-medium).
-4. **Only when capture is authorized, before the first decline or clip write**, open a discover operation with
-   `node "<absolute-plugin-root>/scripts/op-begin.mjs" --op discover` and retain its
-   token using the host-specific completion example. Reuse that operation below, and
-   pass its token as `--since <token>` on every clip: each clipper then records the exact
-   path of every file it writes in the operation's ledger.
-   **Record every reject** so it is never re-litigated:
+4. **Only when capture is authorized, record every reject** so it is never re-litigated:
    `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<one-line reason>"`.
    "Seen, considered, declined" must have a representation — an unrecorded reject
    is indistinguishable from "never seen" and comes back every run. Declines

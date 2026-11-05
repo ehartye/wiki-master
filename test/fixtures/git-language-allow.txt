@@ -23,6 +23,11 @@ scripts/lib/github-selection.mjs | resolved commit | clip-gh errors about the so
 scripts/lib/github-selection.mjs | 'commit' | GitHub tree entry type for a submodule.
 scripts/lib/github-selection.mjs | github-commit: | Provenance field on a captured source.
 scripts/lib/html-extract.mjs | 'latest commit' | GitHub page chrome stripped from a capture.
+skills/wiki-researcher/references/clip-gh.md | full-commit-sha | The source repository's SHA that --ref takes.
+skills/wiki-researcher/references/clip-gh.md | immutable commit | clip-gh reads the source repository at one SHA.
+skills/wiki-researcher/references/clip-gh.md | commit-pinned blob | A source file's GitHub URL at its SHA.
+skills/wiki-researcher/references/clip-gh.md | source commit/path | A clipping's identity includes its source SHA.
+skills/wiki-researcher/references/clip-gh.md | exact commit clipped | A source file's GitHub URL at its SHA.
 
 # Other meanings of the words.
 scripts/clip.mjs | `published: | A source's publication date in clipping frontmatter.

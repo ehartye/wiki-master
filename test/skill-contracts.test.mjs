@@ -265,6 +265,57 @@ test('wiki-maintainer says a filesystem edit needs no app but the refresh does',
   assert.match(read('skills/wiki-maintainer/references/access.md').replace(/\s+/g, ' '), /refresh-index\.mjs[^.]*needs? (?:Obsidian|the app)/);
 });
 
+// wiki-researcher: an ingest is an authoring workflow and ends with the contract. A capture that wrote no wiki page logs
+// once and stops, because clippings and log entries enter neither the catalogs nor the search index, which
+// refresh-index.test.mjs pins.
+const researcherRefs = readdirSync(join(root, 'skills/wiki-researcher/references')).map(ref => 'skills/wiki-researcher/references/' + ref);
+const flatten = text => text.replace(/\s+/g, ' ');
+
+test('wiki-researcher keeps no concept of an operation beyond the log entry', () => {
+  for (const file of [entry('wiki-researcher'), ...researcherRefs]) {
+    const words = flatten(read(file).replace(/\]\([^)]*\)/g, ']'));
+    assert.deepEqual(words.match(/\boperations?\b|\bowned[ -](?:path|catalog)s?\b|<saved-token>/gi), null, file);
+  }
+});
+
+test('wiki-researcher ingestion validates, logs and then refreshes, as its last step', () => {
+  const heading = 'Ingest and complete the selected set';
+  const ingest = read('skills/wiki-researcher/references/ingest.md');
+  assert.match(finalStep(ingest, heading), /refresh-index\.mjs/);
+  const section = ingest.slice(ingest.indexOf('## ' + heading));
+  const steps = ['validate-authored.mjs', 'log-entry.mjs', 'refresh-index.mjs'].map(helper => section.indexOf(helper));
+  assert.ok(steps.every(at => at >= 0) && steps[0] < steps[1] && steps[1] < steps[2], 'validate, then log, then refresh');
+  assert.ok(localLinks(section).includes('../../wiki-maintainer/references/operations.md'));
+});
+
+test('a capture that wrote no wiki page logs once and needs no refresh, and says why', () => {
+  const noRefresh = /capture that wrote no wiki page[^.]*no refresh/i;
+  for (const file of [entry('wiki-researcher'), 'skills/wiki-researcher/references/capture.md', 'skills/wiki-maintainer/references/operations.md']) {
+    assert.match(flatten(read(file)), noRefresh, file);
+  }
+  const finish = read('skills/wiki-researcher/references/capture.md').split('## Finish capture and report')[1].split(/^## /m)[0];
+  assert.match(flatten(finish), /log-entry\.mjs[^.]*--op discover/);
+  assert.match(flatten(finish), /enter neither the catalogs nor the search index/);
+  assert.match(flatten(finish), /refresh-index\.mjs/, 'a capture that also wrote wiki pages still refreshes');
+});
+
+test('every clip route finishes through the capture procedure, not a copy of it', () => {
+  for (const file of researcherRefs.filter(file => /\/clip-[a-z]+\.md$/.test(file))) {
+    const completion = read(file).split(/^## Completion$/m)[1];
+    assert.ok(completion, file + ': no Completion section');
+    assert.ok(localLinks(completion).includes('capture.md#finish-capture-and-report'), file);
+    assert.doesNotMatch(completion, /log-entry|refresh-index/, file);
+  }
+});
+
+test('the wiki-researcher search handoff follows the numbered list and is not a step', () => {
+  const skill = read(entry('wiki-researcher'));
+  assert.doesNotMatch(finalStep(skill, 'Workflow'), /wiki-search/);
+  const workflow = skill.split(/^## Workflow$/m)[1].split(/^## /m)[0];
+  const afterList = workflow.slice(workflow.indexOf(finalStep(skill, 'Workflow')));
+  assert.ok(localLinks(afterList).includes('../wiki-search/SKILL.md'));
+});
+
 test('wiki-search is read-only and does not gain the refresh step', () => {
   const references = readdirSync(join(root, 'skills/wiki-search/references')).map(ref => 'skills/wiki-search/references/' + ref);
   for (const file of [entry('wiki-search'), ...references]) assert.doesNotMatch(read(file), /refresh-index\.mjs/, file);
