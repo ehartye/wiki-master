@@ -108,9 +108,9 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
       continue;
     }
     moved += 1;
-    // Both sides of every move, so the caller can stage exactly what changed.
-    // The destination is only known here, so returning it is what lets the CLI
-    // avoid `git add -A` and its habit of sweeping up the user's own work.
+    // Both sides of every move, so the caller can report exactly what changed.
+    // The destination is only known here, and a diverted one is not the slot the
+    // manifest would suggest.
     touched.push(e.from, to);
   }
   return { moved, touched, failed };
@@ -149,10 +149,9 @@ export function applyRestore(vaultPath, manifest) {
     }
     moveInto(vaultPath, from, e.from);
     restored += 1;
-    // Same reasoning as applyPurge.touched: the CLI stages exactly what a
-    // restore touched, never `git add -A`. Only entries actually moved are
+    // Same reasoning as applyPurge.touched. Only entries actually moved are
     // included — a skipped entry's original path is the user's own newer
-    // work and must never be staged under a "restore:" commit message.
+    // work and must never be reported as restored.
     touched.push(from, e.from);
   }
   return { restored, skipped, missing, touched };
@@ -258,6 +257,18 @@ export async function collectSeeds(topic, options) {
   return (await searchSeeds(topic, options)).seeds;
 }
 
+// touched lists both sides of each move in order: from, to, from, to.
+function movePairs(touched) {
+  const pairs = [];
+  for (let i = 0; i < touched.length; i += 2) pairs.push({ from: touched[i], to: touched[i + 1] });
+  return pairs;
+}
+
+// A titled list of paths for a log entry, or nothing when there are none.
+function pathList(title, paths) {
+  return paths.length ? `\n${title}\n${paths.map((p) => `- \`${p}\``).join('\n')}\n` : '';
+}
+
 function report(plan) {
   const layer = (p) => (p.startsWith('raw/') ? 'raw' : 'wiki');
   console.log(`\nPURGE PLAN — ${plan.purge.length} files\n`);
@@ -356,11 +367,20 @@ export async function main(argv, {
       clearedDeclines += removeDecline(vaultPath, url, `purged:${manifest.id}`);
     }
     if (clearedDeclines) console.log(`cleared ${clearedDeclines} decline(s) this purge recorded`);
-    // A restore that is not committed is a working-tree-only change — the exact
-    // state that caused the bug this feature exists to fix.
-    if (r.touched.length && isGitRepo(vaultPath)) {
-      const c = commitPaths(vaultPath, r.touched, `restore: ${manifest.topic ?? manifest.id} (${manifest.id})`);
-      console.log(c.committed ? `committed ${c.sha.slice(0, 7)}` : `not committed: ${c.reason}`);
+    // Every restore that found its manifest is logged, even one that brought
+    // nothing back: the entry is the record of what it skipped and why.
+    writeLogEntry({
+      vaultPath, op: 'restore', title: manifest.topic ?? manifest.id,
+      body: `Restored ${r.restored} file(s) from \`${BIN_DIR}/${manifest.id}/\`.\n` +
+            pathList('Restored:', movePairs(r.touched).map((m) => m.to)) +
+            pathList('Skipped, newer work sits at the path:', r.skipped) +
+            pathList('Missing from the bin, not restored:', r.missing),
+    });
+    if (r.restored) {
+      console.log('\nThe restored files are on disk. Obsidian Git publishes them on its next run.');
+      console.log('NEXT: run node scripts/refresh-index.mjs');
+    } else {
+      console.log('\nNothing was restored. Obsidian Git publishes the log entry on its next run.');
     }
     return;
   }

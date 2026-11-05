@@ -813,6 +813,87 @@ test('--restore does not clear a same-url decline recorded for a different reaso
   }
 });
 
+// AC11: --restore leaves one log entry and no new commit.
+test('--restore leaves one log entry and no new commit, and says what is on disk', async () => {
+  const v = tempVault();
+  try {
+    gitInit(v);
+    commitAll(v, 'initial');
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    const logsBefore = logEntries(v);
+    const before = gitState(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, undefined);
+    assert.equal(existsSync(join(v, 'wiki', 'concepts', 'Foo.md')), true, 'the restore ran');
+    assert.deepEqual(gitState(v), before);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    assert.match(added[0], /-restore-foo\.md$/);
+    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
+    assert.match(entry, /Restored 2 file\(s\) from `\.recycle\//);
+    assert.ok(entry.includes('`wiki/concepts/Foo.md`'), entry);
+    const output = r.logs.join('\n');
+    assert.doesNotMatch(output, /\bcommit|git push/i);
+    assert.match(output, /The restored files are on disk\. Obsidian Git publishes them on its next run\./);
+    assert.equal(r.logs.at(-1), 'NEXT: run node scripts/refresh-index.mjs');
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+// A restore that brought nothing back still ran, and the log is the record of
+// why. Its closing lines must not claim restored files or ask for a refresh.
+test('a --restore that skips everything still logs what it skipped and claims no restored files', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--apply', 'Foo'], { searchImpl: fooSearch });
+    const manifest = readManifests(v).manifests[0];
+    writeFileSync(join(v, 'wiki', 'concepts', 'Foo.md'), 'newer work\n');
+    writeFileSync(join(v, 'raw', 'clippings', 'Src-abc1234.md'), 'newer capture\n');
+    const logsBefore = logEntries(v);
+
+    const r = await runMain(v, ['--restore', manifest.id]);
+
+    assert.equal(r.exitCode, undefined);
+    const added = logEntries(v).filter((e) => !logsBefore.includes(e));
+    assert.equal(added.length, 1);
+    const entry = readFileSync(join(v, 'log', added[0]), 'utf8');
+    assert.match(entry, /Restored 0 file\(s\)/);
+    assert.match(entry, /Skipped, newer work sits at the path:\n- `raw\/clippings\/Src-abc1234\.md`\n- `wiki\/concepts\/Foo\.md`/);
+    assert.equal(r.logs.at(-1).trim(), 'Nothing was restored. Obsidian Git publishes the log entry on its next run.');
+    assert.doesNotMatch(r.logs.join('\n'), /refresh-index/);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('a --restore with entries missing from the bin logs them and still exits 1', async () => {
+  const v = tempVault();
+  try {
+    writeManifest(v, { id: 'gap', topic: 'gap', declines: [], entries: [{ from: 'wiki/concepts/Gone.md' }] });
+    const r = await runMain(v, ['--restore', 'gap']);
+    assert.equal(r.exitCode, 1);
+    assert.ok(r.errs.some((l) => l.includes('MISSING from the bin')));
+    const [entry] = logEntries(v);
+    assert.match(readFileSync(join(v, 'log', entry), 'utf8'), /Missing from the bin, not restored:\n- `wiki\/concepts\/Gone\.md`/);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test('--restore with an unknown id writes no log', async () => {
+  const v = tempVault();
+  try {
+    await runMain(v, ['--restore', 'nonexistent-id']);
+    assert.deepEqual(logEntries(v), []);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
 // I3: an empty search result is only evidence of "nothing to plan" when the keyword scan of wiki/
 // actually ran. search.mjs reports that in result.channels, so purge reads the result itself
 // instead of probing the Obsidian app (search no longer uses it). Both --plan and --apply reach
