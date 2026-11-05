@@ -161,6 +161,18 @@ export const CLI_SPECS = {
   },
   triage: { options: ['remote'] },
   init: { options: [] },
+  'setup-obsidian-git': {
+    options: ['check', 'apply'],
+    usage: [
+      'usage: node scripts/setup-obsidian-git.mjs [--check | --apply]',
+      '',
+      'Obsidian Git handles all git operations, and this checks or sets up that plugin in the vault.',
+      '--check (the default) reports whether it is installed and enabled, and which required settings are met, missing or differing. It reads files only and needs no app.',
+      '--apply needs the vault open in Obsidian. It installs the plugin without enabling it, writes its settings only if it has none, then enables it. An existing settings file stays byte-identical and its differences are reported. If restricted mode or anything else blocks a step, it stops and prints the manual steps.',
+      'Exit 0: the plugin is enabled and every setting matches. Exit 1: something is missing, differs or blocked. Exit 2: bad input.',
+      VAULT,
+    ],
+  },
   lint: { options: ['json', 'full', 'near', 'tier', 'page', 'paths-file', 'updated-since', 'ids', 'include-reviewed'] },
   'lint-disposition': {
     options: ['ids', 'disposition', 'reviewer', 'note', 'page', 'paths-file', 'whole-vault', 'apply'],

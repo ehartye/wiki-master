@@ -78,7 +78,7 @@ export function gitState(vaultPath, { exec = run } = {}) {
   }
 }
 
-function canonical(path) {
+export function canonical(path) {
   let real = resolve(path);
   try { real = realpathSync.native(real); } catch { /* a missing folder has only its given spelling */ }
   return process.platform === 'win32' ? real.toLowerCase() : real;
