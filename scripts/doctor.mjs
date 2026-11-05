@@ -11,10 +11,14 @@ import { extractionRuntime } from './lib/html-extract.mjs';
 import { loadChromium, findBrowser } from './lib/render.mjs';
 import { pickPython, PYTHON_CANDIDATES } from './clip-pptx.mjs';
 import { findConfluencerScripts } from './clip-confluence.mjs';
+import { EMBED_MODEL } from './lib/embed.mjs';
+import { checkObsidianGit, checkOllama, liveOllamaProbes } from './lib/prerequisites.mjs';
+import { resolveVault } from './lib/vault.mjs';
 
 // A read-only report of what each command of the plugin needs from this machine, and what it found. It starts each
-// program once with its version flag (never the Obsidian CLI, which talks to the running app), imports no vault,
-// resolves no vault and writes nothing. The table it reads is scripts/lib/doctor-table.mjs.
+// program once with its version flag (never the Obsidian CLI, which talks to the running app), asks Ollama over HTTP
+// (starting its program can start the app), reads only Obsidian Git's own files from the vault and writes nothing. The
+// table it reads is scripts/lib/doctor-table.mjs.
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const firstLine = (text) => String(text ?? '').split(/\r?\n/).map((l) => l.trim()).find(Boolean)?.slice(0, 100) ?? null;
@@ -53,6 +57,17 @@ function realPackageVersions() {
   return out;
 }
 
+// A vault that cannot be chosen is a finding on this row, not a reason to stop reporting the others.
+function realObsidianGit() {
+  let vault;
+  try {
+    vault = resolveVault(process.env, { onRefuse: () => {} }).path;
+  } catch (error) {
+    return { vault: null, failures: [{ problem: error.message }] };
+  }
+  return { vault, failures: checkObsidianGit(vault) };
+}
+
 export function realDeps() {
   const run = realRun;
   return {
@@ -64,6 +79,8 @@ export function realDeps() {
     playwright: async () => { try { await loadChromium(); return { ok: true }; } catch (error) { return { ok: false, message: error.message }; } },
     browser: () => findBrowser(),
     confluencer: () => findConfluencerScripts(),
+    ollama: () => checkOllama(liveOllamaProbes()),
+    obsidianGit: realObsidianGit,
     packageVersions: realPackageVersions,
     nodeVersion: process.version,
   };
@@ -100,6 +117,11 @@ export async function gather(deps = realDeps()) {
   out.browser = browser ? { ok: true, path: browser } : { ok: false, hint: HINTS.browser };
   const confluencer = deps.confluencer();
   out.confluencer = confluencer ? { ok: true, path: confluencer } : { ok: false, hint: HINTS.confluencer };
+  const problems = (failures) => failures.map((failure) => failure.problem).join(' ');
+  const ollama = await deps.ollama();
+  out.ollama = ollama.length ? { ok: false, hint: HINTS.ollama, detail: problems(ollama) } : { ok: true, detail: `embedding model ${EMBED_MODEL}` };
+  const git = deps.obsidianGit();
+  out['obsidian-git'] = git.failures.length ? { ok: false, hint: HINTS['obsidian-git'], detail: problems(git.failures) } : { ok: true, detail: `in ${git.vault}` };
   return out;
 }
 
@@ -164,7 +186,7 @@ const USAGE = [
   '',
   'Reports, for each command of the plugin, the programs and packages it needs from this machine, the path and',
   'version found, and how to fix what is missing. It starts each program once with its version flag, never the',
-  'Obsidian CLI, and it writes nothing and uses no vault.',
+  'Obsidian CLI, asks Ollama over HTTP and reads only Obsidian Git\'s files from the vault. It writes nothing.',
   'Name commands to ask about them (' + Object.keys(CLIPPERS).join(', ') + '): the exit status is 1 when a',
   'required entry of one of them is missing. With no names it reports everything and exits 0.',
   '--json prints one object: this copy and the installed version, every requirement, every command, and the exit code.',

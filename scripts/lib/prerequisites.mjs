@@ -86,7 +86,14 @@ export function canonical(path) {
 
 const failure = (id, problem, fix) => ({ id, problem, fix });
 
-async function checkOllama({ ollamaUp, modelPulled, model, host }) {
+export const liveOllamaProbes = () => ({
+  model: EMBED_MODEL,
+  host: OLLAMA_HOST,
+  ollamaUp: () => isAvailable(),
+  modelPulled: () => modelPresent(),
+});
+
+export async function checkOllama({ ollamaUp, modelPulled, model, host }) {
   if (!(await ollamaUp())) return [failure('ollama', `Ollama is not reachable at ${host}.`, 'Offer to start Ollama.')];
   if (!(await modelPulled())) return [failure('ollama-model', `The embedding model ${model} is not pulled.`, `Offer to pull it: ollama pull ${model}.`)];
   return [];
@@ -119,7 +126,7 @@ function checkObsidian(vault, { session, cli }, notes) {
   return [];
 }
 
-function checkObsidianGit(vaultPath) {
+export function checkObsidianGit(vaultPath) {
   const state = obsidianGitPrerequisite(vaultPath);
   const found = [];
   if (!state.installed || !state.enabled) {
@@ -146,10 +153,7 @@ function checkGit(vaultPath, { git }) {
 // `vault` is { path, name }. `probes` replaces any real check, for a test or a caller that already knows the answer.
 export async function checkPrerequisites({ vault, probes = {} }) {
   const live = {
-    model: EMBED_MODEL,
-    host: OLLAMA_HOST,
-    ollamaUp: () => isAvailable(),
-    modelPulled: () => modelPresent(),
+    ...liveOllamaProbes(),
     session: () => obsidianSession(),
     cli: (args) => obsidianActive(args, { execFileSyncImpl: probes.execFileSyncImpl }),
     git: (path) => gitState(path),
