@@ -172,13 +172,14 @@ function metadataRefreshManifest(manifest) {
     entry.metadataVersion === METADATA_VERSION ? entry : { ...entry, mtimeMs: NaN }]));
 }
 
+// `damaged` says why the vector store cannot be trusted, or is null; a plain refresh stops for the same reason.
 export function statusReport({ vaultPath, dir }) {
   const manifest = readManifestFile(dir);
-  const vectors = readVectorStore(dir);
+  const { vectors, damaged } = inspectVectorStore(dir);
   const files = walkVault(vaultPath);
   const plan = planRefresh(metadataRefreshManifest(manifest), files);
   const cov = coverage(manifest, Object.keys(vectors));
-  return { ...cov, filesChanged: plan.changed.length, filesRemoved: plan.removed.length };
+  return { ...cov, filesChanged: plan.changed.length, filesRemoved: plan.removed.length, damaged };
 }
 
 // refreshIndex: the core orchestration. Pre-flight (Ollama reachable AND the

@@ -420,6 +420,35 @@ test('--status exits 0 with everything down, runs no prerequisite, embeds nothin
   assert.deepEqual(snapshot(root), before);
 });
 
+const cutVectors = (root, size) => {
+  const bin = join(root, '.wiki-master', 'vectors.bin');
+  writeFileSync(bin, readFileSync(bin).subarray(0, size(statSync(bin).size)));
+};
+const DAMAGED_STORES = {
+  'an empty vectors.bin': (root) => cutVectors(root, () => 0),
+  'a half-truncated vectors.bin': (root) => cutVectors(root, (size) => Math.floor(size / 2)),
+  'a vectors.bin cut mid-number': (root) => cutVectors(root, (size) => size - 1),
+  'an unreadable vectors.idx.json': (root) => writeFileSync(join(root, '.wiki-master', 'vectors.idx.json'), '{ nope'),
+};
+
+for (const [label, harm] of Object.entries(DAMAGED_STORES)) {
+  test(`--status on ${label} says damaged, names --rebuild, runs no check, writes nothing and exits 0`, async (t) => {
+    const root = vault(t);
+    assert.equal((await run(root)).code, 0);
+    harm(root);
+    const before = snapshot(root);
+    const r = await run(root, ['--status'], { probes: { ollamaUp: throwing, modelPulled: throwing, session: throwing, cli: throwing, git: throwing }, embedFn: throwing });
+    assert.equal(r.code, 0);
+    assert.match(r.output, /--status: damaged/);
+    assert.match(r.output, /refresh-index\.mjs --rebuild/);
+    assert.doesNotMatch(r.output, /--status: current/);
+    assert.deepEqual(snapshot(root), before);
+    const plain = await run(root);
+    assert.equal(plain.code, 1, 'a plain run agrees with --status');
+    assert.match(plain.output, /refresh-index\.mjs --rebuild/);
+  });
+}
+
 test('--status reports stale after an edit and current after a refresh', async (t) => {
   const root = vault(t);
   await run(root);

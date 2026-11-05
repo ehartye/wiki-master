@@ -20,8 +20,9 @@ function reportStatus(hooks, { out }) {
     // A vault that cannot be chosen or read is a thing to report here, never a failure.
     const { path } = hooks.vault ?? resolveVault(process.env, { onRefuse: () => {} });
     const r = statusReport({ vaultPath: path, dir: dirOf(path) });
-    const state = r.files === 0 && r.filesChanged > 0 ? 'not built' : r.filesChanged || r.filesRemoved || r.missing ? 'stale' : 'current';
-    out(`${NAME} --status: ${state} -- ${r.files} file(s), ${r.chunks} chunk(s) (${r.embedded} embedded, ${r.missing} missing), ` +
+    const state = r.damaged ? 'damaged' : r.files === 0 && r.filesChanged > 0 ? 'not built' : r.filesChanged || r.filesRemoved || r.missing ? 'stale' : 'current';
+    const repair = r.damaged ? ` (${r.damaged}): run refresh-index.mjs --rebuild` : '';
+    out(`${NAME} --status: ${state}${repair} -- ${r.files} file(s), ${r.chunks} chunk(s) (${r.embedded} embedded, ${r.missing} missing), ` +
       `${r.filesChanged} file(s) changed and ${r.filesRemoved} removed since the last refresh`);
   } catch (error) {
     out(`${NAME} --status: unavailable -- ${error.message}. If the index files are damaged, refresh-index.mjs --rebuild replaces them.`);
