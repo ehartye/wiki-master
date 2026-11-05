@@ -15,8 +15,14 @@ means the form for your shell, with `<script>` and `<args>` filled in:
 - PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { node "<absolute-plugin-root>/scripts/<script>.mjs" <args> }`
 - POSIX shell: `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/<script>.mjs" <args>`
 
-Neither runs `node` if pasted into the other shell. Inside the quotes, double an apostrophe in
-PowerShell and write it as `'\''` in a POSIX shell. If the app knows the vault by a name other
+A command that reads stdin takes a piped form, with `node ...` as above. In PowerShell the pipe
+has to go inside the braces:
+
+- Piped input, PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { 'body' | node ... }`
+- Piped input, POSIX shell: `printf 'body\n' | WIKI_MASTER_VAULT='<root>' node ...`
+
+Neither form runs `node` if pasted into the other shell. Inside the quotes, double an apostrophe,
+straight or typographic, in PowerShell, and write a straight one as `'\''` in a POSIX shell. If the app knows the vault by a name other
 than its folder's, set `WIKI_MASTER_VAULT_NAME` the same way on every command. The default vault
 needs only the `node` part. `init.mjs` prints its next steps in both forms.
 
@@ -62,7 +68,7 @@ overwrite mode.
    vault, so report scan scope instead of claiming factual health. Validate any authored
    pages this task also created using [scoped validation](validation.md), then write one
    log entry, with its body on stdin: `log-entry.mjs --op relink --title "Initialize vault"`, in
-   the named form.
+   the piped form.
 3. The owner sets up the git repository and upstream. This skill does not create either,
    and a vault without them cannot complete a refresh. Ask them to, and wait for the answer.
 4. Have the owner open the vault in Obsidian: "Open folder as vault". The CLI cannot do this

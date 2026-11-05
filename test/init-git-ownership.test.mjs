@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -220,6 +220,41 @@ test('a path holding every PowerShell quote character reaches the named vault', 
   const status = runIn(SHELLS.PowerShell, line, home);
   assert.equal(status.status, 0, `${status.stdout}${status.stderr}`);
   assert.match(status.stdout, /not built/, 'only this vault has a page and no index');
+});
+
+// The forms as initialization.md writes them, filled in and run: `'body' | if (...)` is a parse error in PowerShell.
+const initializationDoc = () => readFileSync(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url), 'utf8');
+function documentedPipe(label) {
+  const line = initializationDoc().split('\n').find((l) => l.startsWith(`- Piped input, ${label}: `));
+  assert.ok(line, `initialization.md gives no piped form for ${label}`);
+  return /`(.*)`/.exec(line)[1];
+}
+
+for (const [label, shell] of Object.entries(SHELLS)) {
+  test(`the documented way to pipe a log body works in ${label}, on the named vault`, { skip: shell.name ? false : `${label} is not on this machine` }, (t) => {
+    const parent = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+    const vault = join(parent, 'piped vault');
+    const home = decoyHome();
+    t.after(() => { rmSync(parent, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); });
+    assert.equal(runInit(vault, home).status, 0);
+    const quoted = (value) => (label === 'PowerShell' ? value.replaceAll("'", "''") : value.replaceAll("'", String.raw`'\''`));
+    const line = documentedPipe(label)
+      .replace('<root>', quoted(vault))
+      .replace('node ...', `node '${quoted(join(ROOT_SCRIPTS, 'log-entry.mjs'))}' --op relink --title 'Initialize vault'`);
+    const r = runIn(shell, line, home);
+    assert.equal(r.status, 0, `${line}\n${r.stdout}${r.stderr}`);
+    const written = readdirSync(join(vault, 'log')).filter((name) => name.endsWith('.md'));
+    assert.equal(written.length, 1, r.stdout);
+    assert.match(readFileSync(join(vault, 'log', written[0]), 'utf8'), /body/);
+    assert.equal(existsSync(join(home, '.wiki-master-vault', 'log')), false, 'the default vault is left alone');
+  });
+}
+
+test('the log step points at the piped forms', () => {
+  const text = initializationDoc();
+  const step = text.slice(text.search(/^2\. Run `init\.mjs`/m), text.search(/^3\. The owner/m));
+  assert.match(step, /log-entry\.mjs/);
+  assert.match(step, /piped\s+form/);
 });
 
 test('a vault name set for the app is carried in both forms', () => {
