@@ -5,9 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { validateProject } from './lib/catalog-options.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
-import { findProject, parseStatePage, buildBrief, formatBrief } from './lib/session-brief.mjs';
+import { findProject, parseStatePage, buildBrief, formatBrief, validateProject } from './lib/session-brief.mjs';
 
 // Read-only: finds the wiki project the current repository belongs to and prints its state. Nothing is written and no
 // semantic index is touched.

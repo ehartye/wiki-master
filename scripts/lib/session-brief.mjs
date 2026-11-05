@@ -21,6 +21,15 @@ export function normalizeRepoRef(value) {
 
 const AUTHORED = 'wiki/authored';
 
+// A project maps to a vault-relative directory (including nested project tiers).
+export function validateProject(project) {
+  if (project === undefined) return;
+  if (typeof project !== 'string' || !project || project.includes('\\') || project.includes(':') ||
+      project.includes('\0') || project.split('/').some(p => !p || p === '.' || p === '..' || p.startsWith('.'))) {
+    throw new Error('project must be a nonempty vault-relative project slug');
+  }
+}
+
 // The overview pages that carry a `repo:` key, as { project, path, refs }. Overview pages sit at most three
 // folders under wiki/authored (a project tier may be nested), so the walk stops there.
 function overviewPages(vaultPath) {

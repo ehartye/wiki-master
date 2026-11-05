@@ -37,7 +37,7 @@ function reportFailures(failures, { err }) {
 }
 
 function runCatalogs(vaultPath, { out, err }) {
-  const { changed, unrecognized } = refreshCatalogs(vaultPath, { apply: true });
+  const { changed, unrecognized } = refreshCatalogs(vaultPath);
   if (unrecognized) err(`${unrecognized.length} backlog item(s) have a status outside the vocabulary and are listed under "Unrecognized status": ${unrecognized.join(', ')}`);
   out(`${NAME}: catalogs: ${changed.length} file(s) changed`);
 }

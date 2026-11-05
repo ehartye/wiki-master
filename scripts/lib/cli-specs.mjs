@@ -132,9 +132,6 @@ export const CLI_SPECS = {
   },
   // Scripts whose own parser refuses an unknown option (test/cli-guard.test.mjs checks that): the guard only
   // answers `--help` for them, so the accepted options are not repeated here.
-  'backlog-gen': {
-    usage: ['usage: node scripts/backlog-gen.mjs [--apply] [--project <slug>]', '', 'Regenerates the fenced backlog catalog of each project\'s roadmap.md from its backlog items.', DRY, 'It takes neither --diff nor --paths-file; refresh-catalogs.mjs does.', VAULT],
-  },
   'backlog-list': {
     usage: ['usage: node scripts/backlog-list.mjs [--project <slug>] [--backlog-status <list>] [--startable] [--json]', '', 'Lists backlog items by lifecycle status, one row per item (project, status, path, title, what it waits on). --startable lists the planned items whose prerequisites are all closed; --backlog-status takes in-progress, planned, blocked, shipped, dropped or unrecognized, comma separated.', 'Read-only.', VAULT],
   },
@@ -152,12 +149,6 @@ export const CLI_SPECS = {
   },
   'identity-audit': {
     usage: ['usage: node scripts/identity-audit.mjs [--vault <dir>] [--limit <n>] [--json]', '', 'Reports identity findings for review (pages that may name the same thing). A finding is never permission to merge or rename a page.', 'Read-only.', VAULT],
-  },
-  'moc-authored-gen': {
-    usage: ['usage: node scripts/moc-authored-gen.mjs [--apply] [--project <slug>]', '', 'Regenerates the fenced project map moc/<project>.md from the project\'s pages.', DRY, 'It takes neither --diff nor --paths-file; refresh-catalogs.mjs does.', VAULT],
-  },
-  'refresh-catalogs': {
-    usage: ['usage: node scripts/refresh-catalogs.mjs [--project <slug>] [--project-only] [--apply] [--paths-file <ledger>] [--diff] [--since <token>]', '', 'Regenerates a project\'s roadmap catalog, project map and the global index from one vault graph.', '--project-only requires --project <slug> and omits the global index in both dry runs and applies; only the selected project catalogs are generated.', 'The default is a dry run whose "changed" list is what an apply would change; --diff adds the lines each file would lose and gain on stderr. --paths-file is the operation\'s ownership ledger: foreign committed pages use pinned HEAD content, owned pages use working files, and foreign new pages stay out. The JSON snapshot field reports the policy and commit. With --apply, --since records the changed paths in the operation\'s written-paths ledger (op-ledger.mjs show prints it).', VAULT],
   },
   relationships: {
     usage: ['usage: node scripts/relationships.mjs [--vault <dir>] [--limit <n>] [--seed <page>] [--since <date>] [--semantic] [--json]', '', 'Proposes relationship candidates between pages from shared sources and neighbors. A candidate is a reason to inspect two pages, never proof of a relationship.', 'Read-only.', VAULT],
@@ -185,5 +176,4 @@ export const CLI_SPECS = {
     ],
   },
   stale: { options: [] },
-  'index-embed': { options: ['rebuild', 'status', 'concurrency'] },
 };

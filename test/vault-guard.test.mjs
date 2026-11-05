@@ -40,7 +40,7 @@ test('strict mode makes a real script exit 2 with one line and touch nothing', (
   const env = { ...process.env, HOME: home, USERPROFILE: home, WIKI_MASTER_REQUIRE_VAULT: '1' };
   delete env.WIKI_MASTER_VAULT;
   delete env.NODE_TEST_CONTEXT;
-  for (const [script, ...args] of [['health.mjs'], ['lint.mjs'], ['index-gen.mjs'], ['log-entry.mjs', '--op', 'x', '--title', 'y']]) {
+  for (const [script, ...args] of [['health.mjs'], ['lint.mjs'], ['refresh-index.mjs'], ['log-entry.mjs', '--op', 'x', '--title', 'y']]) {
     const r = spawnSync(process.execPath, [join(ROOT, 'scripts', script), ...args], { env, encoding: 'utf8', timeout: 30000, input: '' });
     assert.equal(r.status, 2, `${script} exited ${r.status}: ${r.stderr}`);
     assert.equal(r.stderr.trim().split('\n').length, 1, `${script} printed more than one line: ${r.stderr}`);

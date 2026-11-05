@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPTS = readdirSync(join(ROOT, 'scripts')).filter((f) => f.endsWith('.mjs')).sort();
-const FIXED = ['index-gen.mjs', 'index-embed.mjs', 'triage.mjs', 'init.mjs', 'lint.mjs', 'stale.mjs'];
+const FIXED = ['refresh-index.mjs', 'triage.mjs', 'init.mjs', 'lint.mjs', 'stale.mjs'];
 
 function snapshot(dir, base = dir, acc = {}) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
