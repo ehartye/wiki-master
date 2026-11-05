@@ -434,10 +434,18 @@ export function refreshCatalogs(vaultPath, { project, projectOnly = false, apply
   let snapshot = { policy: 'working-tree', head: null };
   if (ownedPaths !== undefined) ({ graph, excluded, snapshot } = scopeGraph(vaultPath, graph, ownedPaths));
   const graphMs = performance.now() - started;
-  const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply, graph, now, excluded });
-  updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
-  const moc = regenerateAuthoredMocs(vaultPath, { project, apply, graph, excluded });
-  updateSnapshot(graph, moc.outputs.filter(o => moc.changed.includes(o.path)));
+  const phases = (write) => {
+    const backlog = regenerateBacklogRoadmaps(vaultPath, { project, apply: write, graph, now, excluded });
+    updateSnapshot(graph, backlog.outputs.filter(o => backlog.changed.includes(o.path)));
+    const moc = regenerateAuthoredMocs(vaultPath, { project, apply: write, graph, excluded });
+    updateSnapshot(graph, moc.outputs.filter(o => moc.changed.includes(o.path)));
+    return { backlog, moc };
+  };
+  // A catalog this run creates can share its file name with a page, which makes that name ambiguous and changes the
+  // links of any catalog rendered before it existed. A first pass that writes nothing puts every new catalog in the
+  // graph. Which catalogs exist does not depend on their links, so the second pass renders the final text.
+  phases(false);
+  const { backlog, moc } = phases(apply);
   const index = projectOnly ? null : regenerateIndex(vaultPath, { graph, apply, excluded });
   const stale = staleCatalogLinks(vaultPath, graph.pages, { project, ownedPaths });
   const changedOutputs = [

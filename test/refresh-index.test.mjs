@@ -151,6 +151,44 @@ test('--rebuild re-chunks every page, reuses vectors by chunk hash, and has noth
   assert.deepEqual(snapshot(root), before);
 });
 
+// A catalog created in a run can share its file name with a page, which makes that name ambiguous and changes the
+// links of any catalog rendered before it existed. All of that has to settle in one run.
+const item = (project) => page(project, 'backlog-item', 'backlog-status: planned\n');
+for (const [label, files] of [
+  ['a backlog item named after its project', { 'wiki/authored/alpha/backlog/alpha.md': item('alpha') }],
+  ['a project page named after its project', { 'wiki/authored/beta/beta.md': page('beta', 'note') }],
+  ['a backlog item named roadmap', { 'wiki/authored/gamma/backlog/roadmap.md': item('gamma'), 'wiki/authored/gamma/overview.md': page('gamma', 'overview') }],
+  ['a page elsewhere named roadmap', { 'wiki/concepts/roadmap.md': '---\ntype: concept\nsources: []\n---\n# Roadmap\n\nA concept.\n' }],
+  ['an item in one project named after another', { 'wiki/authored/alpha/backlog/beta.md': item('alpha') }],
+]) {
+  test(`${label}: the first run converges, so a second rewrites nothing`, async (t) => {
+    const root = vault(t, files);
+    assert.equal((await run(root)).code, 0);
+    const before = snapshot(root);
+    await delay(20);
+    const again = await run(root);
+    assert.equal(again.code, 0, again.output);
+    assert.deepEqual(snapshot(root), before);
+    assert.match(again.output, /catalogs: 0 file\(s\) changed/);
+  });
+}
+
+test('a project added later settles in its own run too, including the older catalogs its name affects', async (t) => {
+  const root = vault(t, { 'wiki/authored/alpha/backlog/delta.md': item('alpha') });
+  await run(root);
+  for (const name of ['overview', 'guide']) {
+    const path = join(root, `wiki/authored/delta/${name}.md`);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, page('delta', name));
+  }
+  await run(root);
+  const before = snapshot(root);
+  await delay(20);
+  await run(root);
+  assert.deepEqual(snapshot(root), before);
+  assert.match(read(root, 'wiki/authored/alpha/roadmap.md'), /backlog\/delta\|delta/);
+});
+
 const framed = (begin) => `---\ntype: moc\n---\n# Hand-written\n\nAbove.\n\n${begin}\n- [[stale]]\n${END_MARK}\n\nBelow.\n`;
 
 for (const [path, begin] of [
