@@ -1,5 +1,6 @@
 import { appendFileSync, closeSync, lstatSync, openSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
+import { redactSecrets } from './url-safety.mjs';
 
 // The clip ledger: with `--ledger <file>`, clip.mjs appends one JSON line for every address it handled, so a long run can be read
 // back without parsing what the clipper printed. Every row has every field; one that does not apply to an outcome is null.
@@ -13,16 +14,10 @@ export function ledgerRow(result) {
   return row;
 }
 
-// An address as the ledger may hold it: the same address without a username or password, or null when the text is not an address.
-// A credential must not be kept anywhere a later reader will find it.
-export function redactAddress(text) {
-  try {
-    const u = new URL(String(text ?? ''));
-    u.username = '';
-    u.password = '';
-    return u.href;
-  } catch { return null; }
-}
+// An address as the ledger may hold it: the same address without a username or password and with the value of each secret query
+// parameter replaced by `redacted` (lib/url-safety.mjs), or null when the text is not an address. A secret must not be kept
+// anywhere a later reader will find it.
+export const redactAddress = redactSecrets;
 
 // Where a path really lands: the real path of the nearest part of it that exists (every link in it followed, by the operating system,
 // so a ".." after a link means what the system makes of it) with the part that does not exist yet put back on the end. A link that
