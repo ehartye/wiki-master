@@ -75,6 +75,22 @@ test('the redirect guard runs before extraction, so a wrong page is never parsed
   assert.ok(!seen.some((c) => c.includes('extract-page.mjs')), 'extraction must not be attempted');
 });
 
+test('a failed re-extraction does not put the command, and the final address inside it, into the reason', () => {
+  // The extraction command carries the rendered page's final address as a base64 payload. A redirect to an address with a
+  // secret must not reach the reason by way of the "Command failed: ..." text.
+  const finalUrl = 'https://ampcode.com/?access_token=SECRETPW99';
+  const payload = Buffer.from(JSON.stringify({ source: 'x.html', sourceUrl: finalUrl })).toString('base64url');
+  const run = (cmd) => {
+    if (cmd.includes('render-page')) return okMeta({ finalUrl });
+    throw Object.assign(new Error(`Command failed: node extract-page.mjs --payload ${payload} --lang en`), { status: 1 });
+  };
+  const out = renderAttempt('https://ampcode.com/', { run });
+  assert.equal(out.ok, false);
+  assert.match(out.reason, /rendered, but extraction failed/);
+  assert.doesNotMatch(out.reason, /SECRETPW99/);
+  assert.ok(!out.reason.includes(payload), 'the base64 payload is gone from the reason');
+});
+
 test('a missing browser is reported as setup, never as the page failing, and npx is left alone', () => {
   // Otherwise every URL in a batch run is filed as "the site blocked us" when
   // the truth is that the rung never ran once. The user would triage 60 sources

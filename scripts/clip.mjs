@@ -504,7 +504,9 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
     const coverage = meta.expansion ? { ...meta.expansion, tables: data.pageCounts?.tables ?? 0, code: data.pageCounts?.code ?? 0 } : undefined;
     return { ok: true, data, finalUrl: meta.finalUrl, ...(coverage ? { coverage } : {}) };
   } catch (e) {
-    return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${String(e.message || e).split('\n')[0]}` };
+    // The command text carries the page's final address as a base64 payload, so it never goes into the reason.
+    const message = String(e.message || e).split('\n')[0].replace(/--payload\s+\S+/g, '--payload …');
+    return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${redactReasonText(message)}` };
   } finally {
     rmSync(htmlFile, { force: true });
   }
