@@ -247,7 +247,7 @@ function pageSignals(document, url) {
   const groups = tabGroups(region);
   // Only a tab whose panel is missing or empty is unread: extraction keeps the panels the HTML holds. A hidden block
   // that is no tab panel isn't one of them, so a tab naming one is unread too.
-  const hidden = (node) => !!node.closest('[hidden], [aria-hidden="true"]') || /displays*:s*none/i.test(node.getAttribute('style') ?? '');
+  const hidden = (node) => !!node.closest('[hidden], [aria-hidden="true"]') || /display\s*:\s*none/i.test(node.getAttribute('style') ?? '');
   const tabControls = [...region.querySelectorAll('[role="tab"]')].filter(outsideChrome).filter((tab) => {
     const { panel, absent } = panelOfTab(tab, document, groups.find((group) => group.tabs.includes(tab)));
     return absent || (panel && (isEmptyPanel(panel) || (panel.getAttribute('role') !== 'tabpanel' && hidden(panel))));
