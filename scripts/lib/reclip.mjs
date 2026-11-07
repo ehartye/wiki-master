@@ -35,7 +35,7 @@ function metadata(text, values) {
 export function mergeReclip(original, clip) {
   // The page fields are undefined for a PDF clip (so nothing is added or removed); for a page they follow what
   // clip.mjs writes: the checks counted, the page chrome set aside only when there was some.
-  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
+  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'extraction-retry':clip.extractionRetry, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
   return updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`;
 }
 export function extractForReclip(path, meta, {mode='auto', plan=planExtraction, readPdf=pdfToText, readOcr=pdfToTextOcr, canOcr=ocrReachable} = {}) {

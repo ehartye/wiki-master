@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { extractHtml, extractionRuntime } from '../scripts/lib/html-extract.mjs';
 import { main } from '../scripts/clip.mjs';
 import { openIssues, loadIssueLog } from '../scripts/lib/triage.mjs';
+import { mergeReclip } from '../scripts/lib/reclip.mjs';
+import { readPageForReclip } from '../scripts/lib/reclip-html.mjs';
+import { extractSource } from '../scripts/extract-page.mjs';
 
 // An extraction that keeps far less text than the page shows is read again (lib/html-extract.mjs). The loss is Defuddle's,
 // so the fixtures go through the real extractor; only the retry rules that the real one can't produce use a stub.
@@ -228,4 +231,40 @@ test('a page that lost nothing prints no note and carries only its word counts',
   assert.doesNotMatch(lines, /^note:/m);
   assert.doesNotMatch(v.text(result), /^extraction-retry:/m);
   assert.deepEqual([result.extractionRetry, result.visibleWords, result.extractedWords], [undefined, data.visibleWords, words(data.contentMarkdown)]);
+});
+
+// Re-clips set or clear the field from the new read. The clipping's old retry says nothing about today's page.
+const CLIPPING = (extra = '') => `---\ntitle: "Guide"\nsource: "${URL_A}"\ncreated: 2026-01-01\ntags: [clippings]\nquality: medium\n${extra}source-hash: abc\n---\n\nold body\n`;
+const NEW_READ = { md: 'new body', hash: 'def', fidelity: 'high', fidelityChecks: 3, fidelityIgnored: 0 };
+
+test('a re-clip sets the retry its read needed and clears one it no longer needs', () => {
+  assert.match(mergeReclip(CLIPPING(), { ...NEW_READ, extractionRetry: 'remove-images' }), /^extraction-retry: remove-images$/m);
+  assert.match(mergeReclip(CLIPPING('extraction-retry: unwrap-inline\n'), { ...NEW_READ, extractionRetry: 'remove-images' }), /^extraction-retry: remove-images$/m);
+  const cleared = mergeReclip(CLIPPING('extraction-retry: unwrap-inline\n'), NEW_READ);
+  assert.doesNotMatch(cleared, /extraction-retry/);
+  assert.match(cleared, /^source-hash: def$/m);
+});
+
+test('reading a page for a re-clip reports the retry its extraction kept', async () => {
+  const kept = await readPageForReclip(URL_A, { extract: () => extract(wrapped('span', 600)) });
+  assert.equal(kept.extractionRetry, 'unwrap-inline');
+  const plain = await readPageForReclip(URL_A, { extract: () => extract(KEPT[0][1]) });
+  assert.equal(plain.extractionRetry, undefined);
+});
+
+// The bot retry swaps in raw Markdown, and the spread of the bot's extraction would carry the page measures of HTML that
+// no longer describes the text.
+test('the bot retry drops the retry fields when it swaps in raw Markdown, and keeps them when it keeps the bot\'s HTML', async () => {
+  const transport = (botHtml, rawMarkdown) => ({ fetch: {
+    getInitialUA: () => 'default', BOT_UA: 'bot', cleanMarkdownContent: (text) => text, extractRawMarkdown: () => rawMarkdown,
+    fetchPage: async (_url, agent) => (agent === 'bot' ? botHtml : page('<main></main>')),
+  } });
+  for (const [name, html] of [['a kept retry', wrapped('span', 600)], ['a shortfall', THREAD_PAGE]]) {
+    const html_ = await extractSource({ source: URL_A }, undefined, { runtime: transport(html, null) });
+    assert.ok(html_.extractionRetry || html_.shortfall, `${name} comes through the bot's HTML`);
+    assert.equal(typeof html_.visibleWords, 'number');
+    const raw = await extractSource({ source: URL_A }, undefined, { runtime: transport(html, `# Guide\n\n${prose(40)}`) });
+    assert.match(raw.contentMarkdown, /^# Guide/);
+    for (const field of ['extractionRetry', 'visibleWords', 'shortfall']) assert.equal(field in raw, false, `${name}: ${field}`);
+  }
 });
