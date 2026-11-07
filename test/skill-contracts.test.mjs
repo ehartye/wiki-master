@@ -111,7 +111,7 @@ for (const [name, routes] of Object.entries(capabilities)) {
 }
 
 test('all six capture routes are discoverable and synthesis filing stays direct', () => {
-  const clips = readdirSync(join(root, 'scripts')).filter(file => /^clip-.*\.mjs$/.test(file) && file !== 'clip-and-repoint.mjs');
+  const clips = readdirSync(join(root, 'scripts')).filter(file => /^clip-.*\.mjs$/.test(file));
   assert.deepEqual(clips.sort(), Object.values(capabilities['wiki-researcher']).filter(file => /^clip-/.test(file)).sort());
   for (const format of ['PDF', 'Word', 'PowerPoint', 'spreadsheet', 'GitHub', 'Confluence'])
     assert.ok(description('wiki-researcher').includes(format), 'capture discovery metadata: ' + format);

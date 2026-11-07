@@ -92,17 +92,6 @@ test('repair-ambiguous-links: --project, --exclude and --mapping with a space be
   assert.deepEqual(json(['--mapping', mapping]), json([`--mapping=${mapping}`]));
 });
 
-test('clip-and-repoint: --from and --limit with a space behave as the equals spelling', (t) => {
-  const dir = vault(t);
-  const from = join(dir, 'binaries');
-  mkdirSync(from);
-  const equals = run('clip-and-repoint.mjs', dir, [`--from=${from}`, '--limit=1']);
-  const space = run('clip-and-repoint.mjs', dir, ['--from', from, '--limit', '1']);
-  assert.equal(equals.status, 0, equals.stderr);
-  assert.equal(space.status, 0, space.stderr);
-  assert.equal(space.stdout, equals.stdout);
-});
-
 test('contract: no script reads an option value with the equals-only pattern', () => {
   const offenders = [];
   const walk = (dir) => {

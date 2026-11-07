@@ -97,7 +97,6 @@ const BASE = {
   'log-entry': ['--op', 'relink', '--title', 't'],
   purge: ['--plan', 'topic'],
   'render-page': ['not-a-url', 'out.html'],
-  'clip-and-repoint': ['--from=/no/such/dir'],
   'resolve-evidence': ['wiki/x.md'],
 };
 
