@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/clip.mjs';
-import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
+import { clippingHash, clipperText } from '../scripts/lib/clipping-hash.mjs';
 
 // Hand-clipped files joining the pipeline. A stamp is only worth having when it is the hash a clipper computes for the same
 // text: recapture, re-clip and dedupe all join on it. So most tests close the loop through a real recapture.
@@ -266,4 +266,12 @@ test('--help says a file saved with CRLF line breaks is stamped with the hash of
   const v = vault(t);
   const r = script('adopt-clipping.mjs', ['--help'], v.root);
   assert.match(`${r.out}${r.err}`, /CRLF/);
+});
+
+test('the helper strips the one line break the writer appends, and not a carriage return that belongs to the Markdown', () => {
+  const stored = (md) => `---\ntitle: "T"\n---\n\n${md}\n`;
+  assert.equal(clipperText(stored('Ends with a return\r')), 'Ends with a return\r');
+  assert.equal(clippingHash(stored('Ends with a return\r')), sha('Ends with a return\r'));
+  assert.equal(clipperText(stored('Plain')), 'Plain');
+  assert.equal(clipperText(stored('Two\n')), 'Two\n');
 });
