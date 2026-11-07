@@ -4,6 +4,7 @@ import { homedir, platform } from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { expandPage } from './expand.mjs';
+import { redactReasonText } from './url-safety.mjs';
 
 // The last rung of the clip ladder: run the page in a real browser, then hand
 // the rendered HTML back to Defuddle. Two failure classes need it, and the
@@ -120,13 +121,13 @@ export function classifyRenderOutcome({ requestedUrl, finalUrl, status, title, w
       return {
         ok: false,
         kind: gone ? 'gone' : 'blocked',
-        reason: `redirected to an error page (${finalUrl}) — served as HTTP ${status}`,
+        reason: `redirected to an error page (${redactReasonText(finalUrl)}) — served as HTTP ${status}`,
       };
     }
     return {
       ok: false,
       kind: 'failed',
-      reason: `redirect landed on a different page (${finalUrl}) — the requested page has moved or been retired`,
+      reason: `redirect landed on a different page (${redactReasonText(finalUrl)}) — the requested page has moved or been retired`,
     };
   }
 

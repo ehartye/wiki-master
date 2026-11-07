@@ -13,7 +13,7 @@ import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, knownUrlIndex, urlKey, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
-import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
+import { urlCarriesSecret, secretRefusal, redactReasonText } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
 import { looksLikePlainTextUrl, fetchPlainText, fetchTwinText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -482,7 +482,7 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
       ok: false,
       kind: 'failed',
       unavailable: payload ? payload.unavailable === true : throughNpx,
-      reason: payload?.error || (throughNpx ? `render did not finish through npx: ${npmError || firstLine}` : `render failed: ${firstLine}`),
+      reason: redactReasonText(payload?.error || (throughNpx ? `render did not finish through npx: ${npmError || firstLine}` : `render failed: ${firstLine}`)),
     };
   }
 
@@ -674,7 +674,12 @@ function clipUrl(url, argv, deps) {
   return { url, ...(topic && { topic }), requested: true, ...outcome };
 }
 
-function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render, runtimeAvailable }) {
+function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }) {
+  // A reason from the browser can quote an address the page sent it to. It is made safe here, once, before anything prints or stores it.
+  const render = (target, options) => {
+    const r = renderPage(target, options);
+    return typeof r?.reason === 'string' ? { ...r, reason: redactReasonText(r.reason) } : r;
+  };
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // One flag feeds both topic carriers: frontmatter on the clip path below,

@@ -54,6 +54,32 @@ export function redactSecrets(address) {
   return u.href;
 }
 
+// Does the address hold a secret in its fragment (`#access_token=...`, how an implicit sign-in hands one back)?
+const fragmentCarriesSecret = (address) => {
+  try { return new URL(address).hash.slice(1).split('&').some((piece) => piece && secretQueryName(piece)); } catch { return false; }
+};
+
+// redactSecrets, and the value of each secret piece of the fragment replaced by `redacted` too.
+function redactAddressFully(address) {
+  const safe = redactSecrets(address);
+  if (safe === null) return null;
+  const u = new URL(safe);
+  if (u.hash) u.hash = '#' + u.hash.slice(1).split('&').map((piece) => (piece && secretQueryName(piece) ? `${rawNameOf(piece)}=redacted` : piece)).join('&');
+  return u.href;
+}
+
+// Text that came from a page or a browser (a reason, a message) with every address in it that carries a secret replaced by its
+// redacted form. An address with no secret keeps the spelling it had, and text with no address comes back as it was. Anything
+// a page can name in a message goes through this before it is printed, queued, declined or recorded.
+export function redactReasonText(text) {
+  return String(text ?? '').replace(/https?:\/\/[^\s"'<>)\]]+/gi, (found) => {
+    const tail = /[.,;:!?]+$/.exec(found)?.[0] ?? '';
+    const address = tail ? found.slice(0, found.length - tail.length) : found;
+    if (!urlCarriesSecret(address) && !fragmentCarriesSecret(address)) return found;
+    return (redactAddressFully(address) ?? address) + tail;
+  });
+}
+
 // The refusal every clipper prints, without the address or any value. `hint` says what to do instead.
 // With no address the secret is taken to be a username or password.
 export function secretRefusal(address, hint = '') {
