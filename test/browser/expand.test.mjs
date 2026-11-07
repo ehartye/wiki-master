@@ -38,7 +38,7 @@ async function serve(t) {
 test('tiers whose panels are absent until clicked are all stored, under their labels', { skip: laneSkip }, async (t) => {
   const server = await serve(t);
   const { text } = await clip(t, server.url('/expand-pricing.html'));
-  for (const [tier, rate] of [['Batch', 'batch-rate'], ['Flex', 'flex-rate'], ['Priority', 'priority-rate'], ['Contributor', 'contributor-rate']]) {
+  for (const [tier, rate] of [['Alpha', 'alpha-rate'], ['Beta', 'beta-rate'], ['Gamma', 'gamma-rate'], ['Delta', 'delta-rate']]) {
     once(text, rate);
     assert.match(text, new RegExp(`^#{2,6} ${tier}$`, 'm'));
     assert.ok(text.search(new RegExp(`^#{2,6} ${tier}$`, 'm')) < text.indexOf(rate), text);

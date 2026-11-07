@@ -5,7 +5,7 @@
 <div id="stage"></div>
 </main><script>
 // Each tab's panel does not exist until it is clicked, arrives late, and replaces the one before it.
-const tiers = { Batch: 'batch-rate', Flex: 'flex-rate', Priority: 'priority-rate', Contributor: 'contributor-rate' };
+const tiers = { Alpha: 'alpha-rate', Beta: 'beta-rate', Gamma: 'gamma-rate', Delta: 'delta-rate' };
 const list = document.getElementById('tiers'), stage = document.getElementById('stage');
 for (const [name, rate] of Object.entries(tiers)) {
   const tab = document.createElement('button');

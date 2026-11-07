@@ -19,14 +19,14 @@ const md = async (markup, url = URL_A) => (await extractHtml(page(markup), url))
 
 const tabs = (...labels) => `<div role="tablist">${labels.map((label, i) => `<button role="tab" aria-controls="p${i}" aria-selected="${i === 0}">${label}</button>`).join('')}</div>`;
 const panel = (i, content, attrs = i ? 'hidden' : '') => `<div role="tabpanel" id="p${i}" ${attrs}>${content}</div>`;
-const TWO = tabs('Batch', 'Flex') + panel(0, table('batch-tier', 'one-dollar')) + panel(1, table('flex-tier', 'two-dollars'));
+const TWO = tabs('Alpha', 'Beta') + panel(0, table('alpha-tier', 'one-dollar')) + panel(1, table('beta-tier', 'two-dollars'));
 
 function assertBothPanels(text) {
-  const batch = text.search(/^#{2,6} Batch$/m), flex = text.search(/^#{2,6} Flex$/m);
-  assert.ok(batch >= 0 && flex > batch, `each panel is under its tab's label, in order:\n${text}`);
-  assert.ok(text.indexOf('batch-tier') > batch && text.indexOf('batch-tier') < flex, `the first table is under the first label:\n${text}`);
-  assert.ok(text.indexOf('flex-tier') > flex, `the hidden panel's table is under its label:\n${text}`);
-  assert.equal(text.match(/\bBatch\b/g).length, 1, `the tab list is gone:\n${text}`);
+  const alpha = text.search(/^#{2,6} Alpha$/m), beta = text.search(/^#{2,6} Beta$/m);
+  assert.ok(alpha >= 0 && beta > alpha, `each panel is under its tab's label, in order:\n${text}`);
+  assert.ok(text.indexOf('alpha-tier') > alpha && text.indexOf('alpha-tier') < beta, `the first table is under the first label:\n${text}`);
+  assert.ok(text.indexOf('beta-tier') > beta, `the hidden panel's table is under its label:\n${text}`);
+  assert.equal(text.match(/\bAlpha\b/g).length, 1, `the tab list is gone:\n${text}`);
 }
 
 // Defuddle deleted the panels of the first five `tabs-` shapes outright; the others lost only their hidden panels.
@@ -37,7 +37,7 @@ const WRAPPERS = [
   ['a mantine-Tabs-root class', `<div class="mantine-Tabs-root">${TWO}</div>`],
   ['data-testid="tabs-root"', `<div data-testid="tabs-root">${TWO}</div>`],
   ['an id with tabs-', `<div id="tabs-1"><section>${TWO}</section></div>`],
-  ['div.tabs-body inside the panel', tabs('Batch', 'Flex') + panel(0, `<div class="tabs-body">${table('batch-tier', 'one-dollar')}</div>`) + panel(1, `<div class="tabs-body"><div data-qa="tabs-inner">${table('flex-tier', 'two-dollars')}</div></div>`)],
+  ['div.tabs-body inside the panel', tabs('Alpha', 'Beta') + panel(0, `<div class="tabs-body">${table('alpha-tier', 'one-dollar')}</div>`) + panel(1, `<div class="tabs-body"><div data-qa="tabs-inner">${table('beta-tier', 'two-dollars')}</div></div>`)],
   ['tab-content', `<div class="tab-content">${TWO}</div>`],
   ['tabContent', `<div class="tabContent">${TWO}</div>`],
   ['tabs_container', `<div class="tabs_container">${TWO}</div>`],
@@ -53,8 +53,8 @@ test('a callout, which switches on the documentation handling, keeps every panel
 });
 
 test('a wrapper-matching table is unwrapped by its attribute, not by losing its structure', async () => {
-  const text = await md(tabs('Batch', 'Flex') + panel(0, `<table class="tabs-table"><thead><tr><th>Tier</th></tr></thead><tbody><tr><td>batch-tier</td></tr></tbody></table>`) + panel(1, table('flex-tier', 'two-dollars')));
-  assert.match(text, /\|\s*batch-tier\s*\|/);
+  const text = await md(tabs('Alpha', 'Beta') + panel(0, `<table class="tabs-table"><thead><tr><th>Tier</th></tr></thead><tbody><tr><td>alpha-tier</td></tr></tbody></table>`) + panel(1, table('beta-tier', 'two-dollars')));
+  assert.match(text, /\|\s*alpha-tier\s*\|/);
 });
 
 test('labels come from aria-controls, then aria-labelledby, then position, and a panel with none is still kept', async () => {
@@ -115,9 +115,9 @@ test('identical panels in a group appear once; panels differing only in a link d
 });
 
 test('a heading lost from a formerly hidden panel gives a fidelity warning', async () => {
-  const html = page(tabs('Batch', 'Flex') + panel(0, table('batch-tier', '1')) + panel(1, `<h3>Flex quota limits</h3><p>Limits for the flexible tier.</p>`));
-  const data = await extractHtml(html, URL_A, { extractImpl: () => ({ title: 'Guide', contentMarkdown: 'Guide Pricing Batch Flex batch-tier' }) });
-  assert.ok(data.fidelityWarnings.some((w) => w.kind === 'heading' && /Flex quota limits/.test(w.label)), JSON.stringify(data.fidelityWarnings));
+  const html = page(tabs('Alpha', 'Beta') + panel(0, table('alpha-tier', '1')) + panel(1, `<h3>Beta quota limits</h3><p>Limits for the second tier.</p>`));
+  const data = await extractHtml(html, URL_A, { extractImpl: () => ({ title: 'Guide', contentMarkdown: 'Guide Pricing Alpha Beta alpha-tier' }) });
+  assert.ok(data.fidelityWarnings.some((w) => w.kind === 'heading' && /Beta quota limits/.test(w.label)), JSON.stringify(data.fidelityWarnings));
 });
 
 // main, with the real extractor's result supplied: main is synchronous and the extractor isn't.
@@ -143,7 +143,7 @@ const clipHtml = async (markup, argv = []) => {
   return clip([URL_A, ...argv], { extract: () => data });
 };
 
-const EMPTY = tabs('Batch', 'Flex', 'Priority') + panel(0, '') + panel(1, '') + panel(2, '  ');
+const EMPTY = tabs('Alpha', 'Beta', 'Gamma') + panel(0, '') + panel(1, '') + panel(2, '  ');
 const NOTE = /^note: page has 3 tab controls this clip did not open; use --recapture --expand$/m;
 
 test('a tab list with empty panels stays out of the text, and the clip says what it did not open', async (t) => {
@@ -153,7 +153,7 @@ test('a tab list with empty panels stays out of the text, and the clip says what
   assert.equal(result.unexpandedTabs, 3);
   assert.match(lines.join('\n'), NOTE);
   const body = readFileSync(join(v.clippings, `${result.slug}.md`), 'utf8');
-  assert.doesNotMatch(body, /Batch|Flex|Priority/);
+  assert.doesNotMatch(body, /Alpha|Beta|Gamma/);
 });
 
 for (const [name, markup] of [
