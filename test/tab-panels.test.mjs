@@ -204,7 +204,7 @@ test('a tab controlling a populated hidden block that is no tab panel is reporte
   assert.doesNotMatch(data.contentMarkdown, /hidden-block-text/);
   const { result, lines } = clip([URL_A], { extract: () => data });
   assert.equal(result.unexpandedTabs, 1);
-  assert.match(lines.join('\n'), /^note: page has 1 tab controls this clip did not open; use --recapture --expand$/m);
+  assert.match(lines.join('\n'), /^note: page has 1 tab control this clip did not open; use --recapture --expand$/m);
 });
 
 test('a block hidden by an inline style is reported however the style is spaced', async () => {

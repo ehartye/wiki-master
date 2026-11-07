@@ -264,6 +264,16 @@ test('the references show every note: line as clip.mjs prints it', () => {
   assert.deepEqual(whole.filter(note => !setup.includes('`' + note)), [], 'capture-prerequisites.md');
 });
 
+// One tab is "1 tab control", not "1 tab controls": the references show the wording for N and say how one reads.
+test('the unopened-tabs note is singular for one tab and the references say so', () => {
+  assert.equal(unopenedTabsNote(1), 'note: page has 1 tab control this clip did not open; use --recapture --expand');
+  assert.equal(unopenedTabsNote(2), 'note: page has 2 tab controls this clip did not open; use --recapture --expand');
+  const one = /page has (1 tab control) this/.exec(unopenedTabsNote(1))[1];
+  for (const file of [webRoute, 'skills/wiki-setup/references/capture-prerequisites.md', 'docs/clipping-fidelity.md']) {
+    assert.ok(flat(read(file)).includes('`' + one + '`'), file + ' shows the singular wording');
+  }
+});
+
 test('a thin-or-short diagnosis goes past "inspect": recapture with --expand, then a saved page; --find-twin needs a partial clipping', () => {
   const row = flat(read('skills/wiki-setup/references/capture-prerequisites.md')).match(/\| `note: extracted N of about M visible words` \|[^|]*\|[^|]*\|/)[0];
   assert.match(row, /--recapture --expand/);

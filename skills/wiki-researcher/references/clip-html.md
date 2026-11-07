@@ -69,7 +69,7 @@ Lines that come with a result and are not outcomes:
 
 | Line | Meaning |
 |---|---|
-| `note: page has N tab controls this clip did not open; use --recapture --expand` | The served HTML shows N tabs with no panel. See [tabs](#tabs-and-expansion). |
+| `note: page has N tab controls this clip did not open; use --recapture --expand` | The served HTML shows N tabs with no panel (one tab reads `1 tab control`). See [tabs](#tabs-and-expansion). |
 | `note: extraction retry kept (<value>): N of about M visible words` | The first read lost most of the page and a retry recovered it. |
 | `note: extracted N of about M visible words` | The first read kept under a fifth of the page and no retry helped. Nothing was flagged, so inspect the clipping against the page. If it is short, try `clip.mjs "<url>" --recapture --expand`, then a saved page with `--from-file`. |
 | `landing page: the document is at <url>; run clip-pdf.mjs "<url>"` | The clipping is a landing page. See [landing pages](#landing-pages). |
@@ -139,7 +139,7 @@ Other web frontmatter:
 **In the served HTML.** Every extraction keeps each tab panel that has content as a plain section headed by its tab's label, with
 hiding removed and the tab list deleted; identical panels in one group appear once. This covers fetched pages, renders and
 `--from-file` HTML. When a panel cannot be tied to a tab it is kept without a heading. A tab whose panel is missing or empty
-in the HTML is not stored, and the clip prints `note: page has N tab controls this clip did not open; use --recapture --expand`.
+in the HTML is not stored, and the clip prints `note: page has N tab controls this clip did not open; use --recapture --expand` (`1 tab control` for a single tab).
 That note counts only what the HTML shows; a page that builds its tabs by script reaches the clipper through the render instead.
 
 **`--expand`** reads the page in a browser and opens its hidden content:
