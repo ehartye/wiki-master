@@ -94,7 +94,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256, expandCoverage }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -116,6 +116,9 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // (Tesseract) instead of reading the PDF text layer; 'manual' when a person saved the page and supplied it
   // (--from-file). Omitted for the default.
   if (extraction && extraction !== 'text') lines.push(`extraction: ${extraction}`);
+  // The page lost most of its text on the first read and a changed copy of its markup gave it back (lib/html-extract.mjs).
+  // A separate key, so the `extraction:` values stay the closed set that triage matches exactly.
+  if (extractionRetry) lines.push(`extraction-retry: ${extractionRetry}`);
   // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
   if (fidelity && fidelity !== 'high') lines.push(`fidelity: ${fidelity}`);
@@ -752,16 +755,27 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
   // A tab this HTML shows no panel for. The extractor keeps every panel that is there, so only --expand can read these.
   const unopened = expand ? 0 : data.pageSignals?.tabControls ?? 0;
-  const noteUnopened = (result) => {
-    if (expandCoverage) return { ...result, expandCoverage };
-    if (unopened === 0) return result;
-    console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
-    return { ...result, unexpandedTabs: unopened };
+  // What the text kept of the page. Only a read that went through extractHtml has a visible-word count to compare with. A shortfall no
+  // retry fixed is a note and not a warning: a short article beside a long comment thread trips the same trigger.
+  const keptOfPage = () => {
+    if (!Number.isInteger(data.visibleWords)) return {};
+    const extracted = wordCount(md);
+    if (data.extractionRetry) console.log(`note: extraction retry kept (${data.extractionRetry}): ${extracted} of about ${data.visibleWords} visible words`);
+    else if (data.shortfall) console.log(`note: extracted ${extracted} of about ${data.visibleWords} visible words`);
+    return { ...(data.extractionRetry && { extractionRetry: data.extractionRetry }), visibleWords: data.visibleWords, extractedWords: extracted };
+  };
+  const withNotes = (result) => {
+    if (expandCoverage) result = { ...result, expandCoverage };
+    else if (unopened > 0) {
+      console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
+      result = { ...result, unexpandedTabs: unopened };
+    }
+    return { ...result, ...keptOfPage() };
   };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
-    return noteUnopened({ status: 'unchanged', existing: twin.name });
+    return withNotes({ status: 'unchanged', existing: twin.name });
   };
   const twin = sameText();
   if (twin) return unchanged(twin);
@@ -773,7 +787,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
     title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction, suppliedSha256: manual?.sha256,
+    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
   });
@@ -839,7 +853,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
   gate.finish();
-  return noteUnopened({ status: 'clipped', slug, file });
+  return withNotes({ status: 'clipped', slug, file });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

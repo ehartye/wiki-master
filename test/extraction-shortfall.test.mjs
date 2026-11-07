@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { extractHtml, extractionRuntime } from '../scripts/lib/html-extract.mjs';
+import { main } from '../scripts/clip.mjs';
+import { openIssues, loadIssueLog } from '../scripts/lib/triage.mjs';
 
 // An extraction that keeps far less text than the page shows is read again (lib/html-extract.mjs). The loss is Defuddle's,
 // so the fixtures go through the real extractor; only the retry rules that the real one can't produce use a stub.
@@ -169,4 +174,58 @@ test('removing images keeps an image equation, its text and the first parse\'s c
   assert.equal(data.fidelityAssessment.checked, baseline.fidelityAssessment.checked);
   assert.ok(baseline.fidelityAssessment.checked >= 2, 'the equation and the heading were expected');
   assert.deepEqual(data.fidelityWarnings, []);
+});
+
+// Through clip.mjs main, with the real extractor's result supplied: main is synchronous and the extractor isn't.
+function vault(t) {
+  const root = mkdtempSync(join(tmpdir(), 'wm-shortfall-'));
+  mkdirSync(join(root, 'raw', 'clippings'), { recursive: true });
+  const prior = process.env.WIKI_MASTER_VAULT;
+  process.env.WIKI_MASTER_VAULT = root;
+  t.after(() => { if (prior === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prior; rmSync(root, { recursive: true, force: true }); });
+  return { root, text: (result) => readFileSync(join(root, 'raw', 'clippings', `${result.slug}.md`), 'utf8'), triage: () => openIssues(loadIssueLog(root)) };
+}
+function clip(argv, extract) {
+  const lines = [];
+  const log = console.log, err = console.error;
+  console.log = (...a) => lines.push(a.join(' '));
+  console.error = (...a) => lines.push(a.join(' '));
+  try { return { result: main(argv, { today: () => '2026-11-06', render: () => assert.fail('no browser in this test'), extract }), lines: lines.join('\n') }; }
+  finally { console.log = log; console.error = err; }
+}
+const THREAD_PAGE = KEPT[2][1];
+
+test('a kept retry reaches the frontmatter, the printed note and the result, with no fidelity warning or triage row', async (t) => {
+  const v = vault(t);
+  const data = await extract(wrapped('span', 600));
+  const { result, lines } = clip([URL_A], () => data);
+  const n = words(data.contentMarkdown);
+  assert.equal(result.status, 'clipped');
+  assert.match(v.text(result), /^extraction-retry: unwrap-inline$/m);
+  assert.doesNotMatch(v.text(result), /^fidelity: /m);
+  assert.match(lines, new RegExp(`^note: extraction retry kept \\(unwrap-inline\\): ${n} of about 631 visible words$`, 'm'));
+  assert.deepEqual([result.extractionRetry, result.visibleWords, result.extractedWords], ['unwrap-inline', 631, n]);
+  assert.deepEqual(v.triage(), []);
+});
+
+test('a shortfall no retry fixes is noted and counted, and queues nothing', async (t) => {
+  const v = vault(t);
+  const data = await extract(THREAD_PAGE);
+  const { result, lines } = clip([URL_A], () => data);
+  const n = data.shortfall.extracted;
+  assert.equal(result.status, 'clipped');
+  assert.doesNotMatch(v.text(result), /^extraction-retry:|^fidelity: /m);
+  assert.match(lines, new RegExp(`^note: extracted ${n} of about ${data.visibleWords} visible words$`, 'm'));
+  assert.doesNotMatch(lines, /extraction retry kept/);
+  assert.deepEqual([result.extractionRetry, result.visibleWords, result.extractedWords], [undefined, data.visibleWords, n]);
+  assert.deepEqual(v.triage(), []);
+});
+
+test('a page that lost nothing prints no note and carries only its word counts', async (t) => {
+  const v = vault(t);
+  const data = await extract(KEPT[0][1]);
+  const { result, lines } = clip([URL_A], () => data);
+  assert.doesNotMatch(lines, /^note:/m);
+  assert.doesNotMatch(v.text(result), /^extraction-retry:/m);
+  assert.deepEqual([result.extractionRetry, result.visibleWords, result.extractedWords], [undefined, data.visibleWords, words(data.contentMarkdown)]);
 });
