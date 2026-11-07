@@ -3,6 +3,8 @@
 // rendered read loses, and it costs one request instead of a browser. This module finds such a twin and judges it; the
 // clipper decides when to ask (clip.mjs) and the fetch is injected, so nothing here reaches a network.
 
+import { urlCarriesSecret } from './url-safety.mjs';
+
 export const TWIN_MIN_WORDS = 100;
 
 // The only content types that make a reply a document of its own. A `text/html` page, JSON or a binary is something else
@@ -61,7 +63,8 @@ export function llmsEntry(llmsText, pageUrl) {
 export function findTwin({ url, signals, fetchTwin }) {
   const tried = new Set();
   const probe = (candidate) => {
-    if (!candidate || tried.has(candidate)) return null;
+    // A link or an llms.txt entry that carries a secret is never asked for: the twin's address is stored and printed.
+    if (!candidate || tried.has(candidate) || urlCarriesSecret(candidate)) return null;
     tried.add(candidate);
     const reply = fetchTwin(candidate);
     return qualifiesAsTwin(reply, candidate) ? { ok: true, url: candidate, text: reply.text } : null;

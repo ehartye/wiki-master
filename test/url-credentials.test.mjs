@@ -7,6 +7,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addressSecret, urlCarriesSecret, SECRET_QUERY_NAMES } from '../scripts/lib/url-safety.mjs';
 import { redactAddress } from '../scripts/lib/clip-ledger.mjs';
+import { extractHtml } from '../scripts/lib/html-extract.mjs';
+import { findTwin } from '../scripts/lib/twin.mjs';
+import { main as clipMain } from '../scripts/clip.mjs';
 
 // An address with a username, a password or a secret query parameter must never reach the triage log, declined.json, a
 // message, a ledger row or a clipping's source: line. Every clipper refuses it with exit 2 before it computes anything else,
@@ -162,4 +165,57 @@ test('an unlisted or look-alike parameter clips normally from a supplied page', 
   const files = readdirSync(join(root, 'raw', 'clippings'));
   assert.equal(files.length, 1);
   assert.match(readFileSync(join(root, 'raw', 'clippings', files[0]), 'utf8'), /^source: .*tokenizer=x/m);
+});
+
+// ---------------------------------------------------------------- a candidate found in a page
+
+const PAGE_URL = 'https://docs.example.test/guide/page.html';
+const PROSE = '<p>The guide explains how the service behaves in plain words so that the extractor has an article to keep.</p>';
+
+test('a PDF or Markdown link carrying a secret is not a candidate; a link with an unlisted parameter is', async () => {
+  const html = `<!doctype html><html><head><title>Guide</title></head><body><main>${PROSE}
+    <a href="/a.pdf?token=secretpw1">A</a><a href="/b.pdf?Sig=secretpw2">B</a><a href="/c.pdf?page=2">C</a>
+    <a href="/d.md?access_token=secretpw3" type="text/markdown">D</a><a href="/e.md?page=2" type="text/markdown">E</a></main></body></html>`;
+  const { pageSignals } = await extractHtml(html, PAGE_URL);
+  assert.deepEqual(pageSignals.pdfLinks, ['https://docs.example.test/c.pdf?page=2']);
+  assert.deepEqual(pageSignals.markdownLinks, ['https://docs.example.test/e.md?page=2']);
+});
+
+test('a twin link, or an llms.txt entry, carrying a secret is never fetched', () => {
+  const asked = [];
+  const fetchTwin = (url) => {
+    asked.push(url);
+    return url.endsWith('/llms.txt') ? { ok: true, text: '- [Page](https://docs.example.test/guide/page.md?api_key=secretpw1)\n' } : { ok: false };
+  };
+  const found = findTwin({ url: PAGE_URL, signals: { markdownLinks: ['https://docs.example.test/x.md?token=secretpw2'] }, fetchTwin });
+  assert.equal(found.ok, false);
+  assert.ok(!asked.join('\n').includes('secretpw'), asked.join('\n'));
+});
+
+function landing(t, ...pdfLinks) {
+  const root = vault(t);
+  const prior = process.env.WIKI_MASTER_VAULT;
+  process.env.WIKI_MASTER_VAULT = root;
+  t.after(() => { if (prior === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prior; });
+  const extract = () => ({ title: 'Guide', contentMarkdown: Array.from({ length: 150 }, (_, i) => `word${i % 50}`).join(' '), pageSignals: { tabControls: 0, pdfLinks, markdownLinks: [] } });
+  const lines = [];
+  const log = console.log, err = console.error, code = process.exitCode;
+  console.log = (...a) => lines.push(a.join(' '));
+  console.error = (...a) => lines.push(a.join(' '));
+  try {
+    const result = clipMain([PAGE_URL], { extract, fetchTwin: () => ({ ok: false }), render: () => ({ ok: false, unavailable: true, reason: 'No browser' }), today: () => '2026-11-07', runtimeAvailable: () => true, sleep: () => {} });
+    const everything = [lines.join('\n'), stateOf(root, 'triage.jsonl'), stateOf(root, 'declined.json'), ...readdirSync(join(root, 'raw', 'clippings')).map((n) => readFileSync(join(root, 'raw', 'clippings', n), 'utf8'))].join('\n');
+    return { result, everything };
+  } finally { console.log = log; console.error = err; process.exitCode = code; }
+}
+
+test('a landing page whose only PDF link carries a secret is an ordinary clipping; one clean link beside it is still the document', (t) => {
+  const secret = 'https://docs.example.test/files/private.pdf?x-amz-credential=secretpw1';
+  const alone = landing(t, secret);
+  assert.equal(alone.result.landing, undefined);
+  assert.ok(!alone.everything.includes('secretpw1'));
+  const clean = 'https://docs.example.test/files/guide.pdf?page=2';
+  const beside = landing(t, secret, clean);
+  assert.equal(beside.result.documentLink, clean);
+  assert.ok(!beside.everything.includes('secretpw1'));
 });

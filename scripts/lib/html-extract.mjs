@@ -243,7 +243,7 @@ function pageSignals(document, url) {
     // A link with a secret would become the landing row's address, which syncs; it is no candidate.
     if (/\.pdf$/i.test(target.pathname) && !urlCarriesSecret(target.href)) pdfLinks.add(target.href);
     const label = link.textContent.replace(/\s+/g, ' ').trim();
-    if (/^view (page in|as) markdown$/i.test(label) || link.getAttribute('type')?.toLowerCase() === 'text/markdown') markdownLinks.add(target.href);
+    if (!urlCarriesSecret(target.href) && (/^view (page in|as) markdown$/i.test(label) || link.getAttribute('type')?.toLowerCase() === 'text/markdown')) markdownLinks.add(target.href);
   }
   const { tabGroups, panelOfTab, isEmptyPanel } = tabDomRules();
   const groups = tabGroups(region);
