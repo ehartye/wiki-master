@@ -28,7 +28,8 @@ function vault(t) {
   return { root, clippings: () => readdirSync(join(root, 'raw', 'clippings')), store: () => JSON.parse(readFileSync(join(root, '.wiki-master', 'declined.json'), 'utf8')) };
 }
 const quiet = (fn) => { const log = console.log, err = console.error; console.log = () => {}; console.error = () => {}; try { return fn(); } finally { console.log = log; console.error = err; } };
-const clip = (args, extract = good) => quiet(() => main([URL1, ...args], { extract }));
+const noBrowser = () => ({ ok: false, kind: 'failed', unavailable: true, reason: 'no browser in this test' });
+const clip = (args, extract = good) => quiet(() => main([URL1, ...args], { extract, render: noBrowser }));
 
 test('without a flag an active decline still stops the clip, with the same message', (t) => {
   const v = vault(t);
@@ -80,8 +81,8 @@ test('a clip that does not happen leaves the decline in place (thin again, dupli
   const again = clip(['--supersede-decline=try again'], thin);
   assert.notEqual(again.status, 'clipped');
   assert.deepEqual(v.clippings(), []);
-  // Whether a thin result is recorded as a new decline depends on whether a browser render ran, which depends on the
-  // machine; either way the URL stays declined and nothing, now or in the history, was superseded.
+  // The render is unavailable here, so the thin result records no new decline: the URL stays declined by the original,
+  // and nothing, now or in the history, was superseded.
   assert.equal(isDeclined(URL1, loadDeclines(v.root)), true);
   const everything = v.store().flatMap((e) => [e, ...(e.history ?? [])]);
   assert.ok(everything.length >= 1);

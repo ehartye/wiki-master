@@ -7,6 +7,9 @@ on:
   # disable requires manufacturing a commit just to trigger the workflow.
   workflow_dispatch:
 
+# npm test never reaches a browser: that is the test-browser job's lane. With playwright-core installed, a test that
+# forgets to inject the render would launch one, so the npm test steps point WIKI_MASTER_BROWSER at a recording stub and
+# the step after them fails on any record. The stub is a shell script, so this says nothing about Windows.
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,6 +20,15 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+        env:
+          WIKI_MASTER_BROWSER: ${{ github.workspace }}/test/browser/recording-stub.sh
+          WIKI_MASTER_BROWSER_RECORD: ${{ runner.temp }}/browser-launches.txt
+      - name: Fail if a test launched a browser
+        run: |
+          if [ -s "$RUNNER_TEMP/browser-launches.txt" ]; then
+            cat "$RUNNER_TEMP/browser-launches.txt"
+            exit 1
+          fi
       # Hold orphan reaping in a disposable supervisor to expose parent/child
       # kill-order races even when the runner's PID 1 normally reaps promptly.
       - run: python3 scripts/test-pdf-cleanup-linux.py
@@ -34,3 +46,26 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+        env:
+          WIKI_MASTER_BROWSER: ${{ github.workspace }}/test/browser/recording-stub.sh
+          WIKI_MASTER_BROWSER_RECORD: ${{ runner.temp }}/browser-launches.txt
+      - name: Fail if a test launched a browser
+        run: |
+          if [ -s "$RUNNER_TEMP/browser-launches.txt" ]; then
+            cat "$RUNNER_TEMP/browser-launches.txt"
+            exit 1
+          fi
+
+  # Real-browser tests. A separate job that is not a required check, so a flake cannot block a merge; it can become
+  # required once it has been green for a while. The render is headful, so it needs a display.
+  test-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx --no -- playwright-core install --with-deps chromium
+      - run: echo "WIKI_MASTER_BROWSER=$(node -e "import('playwright-core').then((m) => console.log(m.chromium.executablePath()))")" >> "$GITHUB_ENV"
+      - run: WIKI_MASTER_BROWSER_TESTS=1 xvfb-run -a node --test "test/browser/*.test.mjs"
