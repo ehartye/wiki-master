@@ -79,11 +79,15 @@ test('the safety fixture really does post and leave when its controls are used w
   t.after(() => browser.close());
   const page = await browser.newPage();
   await page.goto(server.url('/expand-safety.html'));
-  await page.evaluate(() => document.getElementById('poster').click());
-  await page.waitForResponse((response) => response.url().endsWith('/track'));
+  // Each wait starts before its click: on a fast machine the local response can land before a wait that starts after.
+  await Promise.all([page.waitForResponse((response) => response.url().endsWith('/track')), page.evaluate(() => document.getElementById('poster').click())]);
   await Promise.all([page.waitForRequest((request) => request.url().endsWith('/submit-order')), page.evaluate(() => document.querySelector('button[form="order"]').click())]);
+  const deadline = Date.now() + 10_000;
   for (const path of ['/track', '/submit-order']) {
-    while (!server.requests.some((request) => request.method === 'POST' && request.path === path)) await new Promise((resolve) => setTimeout(resolve, 20));
+    while (!server.requests.some((request) => request.method === 'POST' && request.path === path)) {
+      assert.ok(Date.now() < deadline, `the fixture never sent a POST to ${path}`);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
   }
 });
 
