@@ -38,7 +38,7 @@ export async function main(argv) {
     // "this page timed out" is about one page. Collapsing them would train the
     // user to ignore a message that is telling them the rung never ran at all.
     const unavailable = err instanceof RenderUnavailable;
-    console.error(JSON.stringify({ unavailable, error: String(err.message || err).split('\n')[0] }));
+    console.error(JSON.stringify({ unavailable, missing: err.missing, error: String(err.message || err).split('\n')[0] }));
     process.exit(unavailable ? 3 : 1);
   }
 }

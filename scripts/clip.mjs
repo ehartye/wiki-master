@@ -353,6 +353,22 @@ export function runDefuddleJson(url, { run = execDefuddle, sourceUrl = url } = {
 }
 
 const RENDER_CLI = join(dirname(fileURLToPath(import.meta.url)), 'render-page.mjs');
+// Local first, then the pinned package through npx, as extractionLaunchers does. The pin must match package.json's.
+export function renderLaunchers() {
+  return [`node "${RENDER_CLI}"`,
+    `npx --yes --package=playwright-core@1.64.1 -- node "${RENDER_CLI}"`];
+}
+
+// npx and npm write to stderr too, sometimes after render-page's own line, so a whole-stream parse would lose it.
+function lastJsonObject(stderr) {
+  for (const line of String(stderr ?? '').split(/\r?\n/).reverse()) {
+    try {
+      const value = JSON.parse(line);
+      if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+    } catch { /* npx or npm chatter */ }
+  }
+  return null;
+}
 
 // Is this url a PDF? Judged from the url alone, deliberately: main() is
 // synchronous, and a content-type probe on every clip would spend a request on
@@ -413,21 +429,32 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
   // (lib/triage.mjs), and a shared filename would let one render overwrite
   // another's page and file the wrong article under the wrong url.
   const htmlFile = join(tmp, `wm-render-${createHash('sha1').update(url).digest('hex').slice(0, 16)}.html`);
+  const [local, pinned] = renderLaunchers();
+  const target = `"${url}" "${htmlFile}"`;
   let meta;
+  let throughNpx = false;
   try {
-    meta = JSON.parse(run(`node "${RENDER_CLI}" "${url}" "${htmlFile}"`));
+    try {
+      meta = JSON.parse(run(`${local} ${target}`));
+    } catch (e) {
+      if (lastJsonObject(e.stderr)?.missing !== 'playwright-core') throw e;
+      throughNpx = true;
+      meta = JSON.parse(run(`${pinned} ${target}`));
+    }
   } catch (e) {
     // render-page.mjs exits 3 with {unavailable:true} when the rung cannot run
     // at all — no playwright-core, no browser. That is a setup problem the user
     // fixes once for every future URL, and reporting it per-URL as "the site
     // blocked us" would send them off to triage 60 sources by hand instead.
-    let payload = {};
-    try { payload = JSON.parse(String(e.stderr || '')); } catch { /* not ours */ }
+    // An npx that dies before render-page starts, as it does offline, leaves no
+    // line of ours, and that says nothing about the page either.
+    const payload = lastJsonObject(e.stderr);
+    const firstLine = String(e.message || e).split('\n')[0];
     return {
       ok: false,
       kind: 'failed',
-      unavailable: payload.unavailable === true,
-      reason: payload.error || `render failed: ${String(e.message || e).split('\n')[0]}`,
+      unavailable: payload ? payload.unavailable === true : throughNpx,
+      reason: payload?.error || (throughNpx ? `playwright-core could not be fetched through npx: ${firstLine}` : `render failed: ${firstLine}`),
     };
   }
 

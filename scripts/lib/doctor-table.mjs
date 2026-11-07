@@ -22,7 +22,7 @@ export const OTHER = {
   python: 'a Python interpreter (python3, python or py)',
   'python-pptx': 'the python-pptx library in that interpreter',
   'html-runtime': 'the pinned npm packages for HTML extraction (defuddle, linkedom, turndown)',
-  'playwright-core': 'playwright-core, for the rendered-page fallback (npm i -g playwright-core)',
+  'playwright-core': 'playwright-core, for the rendered-page fallback: local, or fetched through npx on first use',
   browser: 'a Chromium-based browser for the rendered-page fallback',
   confluencer: 'the confluencer integration (its page.mjs)',
 };
@@ -33,7 +33,7 @@ export const HINTS = {
   python: 'install Python 3 and put it on PATH',
   'python-pptx': 'pip install python-pptx',
   'html-runtime': 'in a development checkout run `npm ci`; an installed copy runs through the pinned npm exec launcher',
-  'playwright-core': 'npm i -g playwright-core',
+  'playwright-core': 'install npm, so npx can fetch the pinned package on first use; in a development checkout run `npm ci`',
   browser: 'install Chrome or Edge, or set WIKI_MASTER_BROWSER to a browser executable',
   confluencer: 'install the confluencer plugin, or set WIKI_MASTER_CONFLUENCER_SCRIPTS',
 };

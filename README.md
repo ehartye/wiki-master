@@ -29,11 +29,11 @@ index built from your own Ollama instance and ranks chunks by cosine similarity.
   Required to finish authoring; it also powers semantic search and semantic-drift detection.
 - Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI gate).
 - npm/npx for the pinned HTML clipping runtime; dependencies are acquired automatically on first use. See [capture fidelity and limits](docs/clipping-fidelity.md).
-- Optional: `npm i -g playwright-core`, plus Chrome or Edge, for the
-  browser-render clip rung — clipping JavaScript-rendered pages that serve no
-  article text to a plain fetch. Degrades gracefully if absent; without it those
-  pages are queued for triage exactly as before. Set `WIKI_MASTER_BROWSER` to
-  point at a specific browser executable.
+- Optional: Chrome or Edge, for the browser-render clip rung — clipping
+  JavaScript-rendered pages that serve no article text to a plain fetch. Its
+  pinned `playwright-core` is acquired through npx on first use. Degrades
+  gracefully if absent; without it those pages are queued for triage exactly as
+  before. Set `WIKI_MASTER_BROWSER` to point at a specific browser executable.
 
 Every authoring task ends with `refresh-index.mjs`, which checks Obsidian Git, Obsidian, Ollama and the
 repository first: if any falls short it names each failure with its fix, writes nothing and exits 1.

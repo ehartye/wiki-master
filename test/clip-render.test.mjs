@@ -147,77 +147,105 @@ test('an error-page path only condemns a page that actually moved there', () => 
 });
 
 // ---------------------------------------------------------------------------
-// Locating playwright-core
+// Locating playwright-core, and looking for a browser before it
 // ---------------------------------------------------------------------------
-import { loadChromium, RenderUnavailable } from '../scripts/lib/render.mjs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { loadChromium, renderPage, RenderUnavailable } from '../scripts/lib/render.mjs';
 
-test('a globally installed playwright-core is found, because that is what we tell people to do', async () => {
-  // The unavailable-message says `npm i -g playwright-core`. A bare
-  // import('playwright-core') cannot see a global package -- verified:
-  // ERR_MODULE_NOT_FOUND with the package installed and `npm root -g` pointing
-  // straight at it. Without this fallback the advice we print does not work.
+const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
+const noLocalCopy = (real) => async (spec) => {
+  if (spec === 'playwright-core') throw new Error('no local copy');
+  return real(spec);
+};
+
+// What npx leaves behind: the package under node_modules, and a .bin folder on PATH beside it. The CommonJS entry
+// assigns through a variable, as the real one does, so under import() only the default export has `chromium`.
+function npxShapedInstall(t) {
+  const root = mkdtempSync(join(tmpdir(), 'wm-render-bin-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const pkg = join(root, 'node_modules', 'playwright-core');
+  mkdirSync(pkg, { recursive: true });
+  mkdirSync(join(root, 'node_modules', '.bin'));
+  writeFileSync(join(pkg, 'package.json'), JSON.stringify({ name: 'playwright-core', version: '0.0.0', exports: { '.': { import: './index.mjs', require: './index.js' } } }));
+  writeFileSync(join(pkg, 'index.js'), "const api = { chromium: { marker: 'through-bin' } };\nmodule.exports = api;\n");
+  return { modules: join(root, 'node_modules'), bin: join(root, 'node_modules', '.bin') };
+}
+
+test('a local install is used without looking anywhere else', async () => {
   const tried = [];
-  const importer = async (spec) => {
-    tried.push(spec);
-    if (spec === 'playwright-core') { const e = new Error('not found'); e.code = 'ERR_MODULE_NOT_FOUND'; throw e; }
-    return { chromium: { marker: 'global' } };
-  };
   const chromium = await loadChromium({
-    importer,
-    globalRoot: () => '/usr/lib/node_modules',
-    exists: () => true,
-  });
-  assert.equal(chromium.marker, 'global');
-  assert.equal(tried[0], 'playwright-core', 'a local install still wins');
-  assert.match(tried[1], /^file:/, 'the global path must be imported as a file url, not a bare specifier');
-});
-
-test('the package is entered through index.mjs, whose named export actually exists', async () => {
-  // playwright-core ships both entries and they do NOT behave alike under
-  // import(): index.mjs yields a real `chromium` named export, index.js (CJS)
-  // yields only `default.chromium`. Reading `.chromium` off the CJS entry gives
-  // undefined, which surfaces four layers away as "Cannot read properties of
-  // undefined (reading 'launch')" — observed exactly that way.
-  const tried = [];
-  const importer = async (spec) => {
-    tried.push(spec);
-    if (spec === 'playwright-core') throw new Error('no local copy');
-    if (spec.endsWith('index.mjs')) return { chromium: { marker: 'mjs' } };
-    return { default: { chromium: { marker: 'cjs' } } };
-  };
-  const chromium = await loadChromium({ importer, globalRoot: () => '/g', exists: () => true });
-  assert.equal(chromium.marker, 'mjs');
-});
-
-test('a package with only a CJS entry is still usable via its default export', async () => {
-  const importer = async (spec) => {
-    if (spec === 'playwright-core') throw new Error('no local copy');
-    return { default: { chromium: { marker: 'cjs' } } };
-  };
-  const chromium = await loadChromium({
-    importer,
-    globalRoot: () => '/g',
-    exists: (p) => p.endsWith('index.js'),
-  });
-  assert.equal(chromium.marker, 'cjs');
-});
-
-test('a local install is used without ever consulting the global root', async () => {
-  let consulted = false;
-  const chromium = await loadChromium({
-    importer: async () => ({ chromium: { marker: 'local' } }),
-    globalRoot: () => { consulted = true; return '/x'; },
+    importer: async (spec) => { tried.push(spec); return { chromium: { marker: 'local' } }; },
+    path: '/would/not/be/read/.bin',
   });
   assert.equal(chromium.marker, 'local');
-  assert.equal(consulted, false);
+  assert.deepEqual(tried, ['playwright-core']);
 });
 
-test('no playwright anywhere names the package instead of failing vaguely', async () => {
+test('the copy npx puts on PATH is found through its .bin folder and read from its default export', async (t) => {
+  const { bin } = npxShapedInstall(t);
+  const chromium = await loadChromium({ importer: noLocalCopy((s) => import(s)), path: ['/elsewhere', bin].join(delimiter) });
+  assert.equal(chromium.marker, 'through-bin');
+});
+
+test('a folder on PATH that is not a .bin folder is not searched', async (t) => {
+  const { modules } = npxShapedInstall(t);
   await assert.rejects(
-    () => loadChromium({
-      importer: async () => { throw new Error('nope'); },
-      globalRoot: () => null,
-    }),
-    (e) => e instanceof RenderUnavailable && /playwright-core/.test(e.message)
+    () => loadChromium({ importer: noLocalCopy((s) => import(s)), path: modules }),
+    (e) => e instanceof RenderUnavailable && e.missing === 'playwright-core'
   );
+});
+
+test('no copy anywhere names the package, says what is missing and gives no global install advice', async () => {
+  await assert.rejects(
+    () => loadChromium({ importer: async () => { throw new Error('nope'); }, path: '' }),
+    (e) => e instanceof RenderUnavailable && e.missing === 'playwright-core' && /playwright-core/.test(e.message) && !/npm i -g/.test(e.message)
+  );
+});
+
+test('with no browser the package is never looked for, so nothing can be downloaded for a render that cannot run', async (t) => {
+  const prior = process.env.WIKI_MASTER_BROWSER;
+  process.env.WIKI_MASTER_BROWSER = '/no/such/browser';
+  t.after(() => { if (prior === undefined) delete process.env.WIKI_MASTER_BROWSER; else process.env.WIKI_MASTER_BROWSER = prior; });
+  let looked = false;
+  await assert.rejects(
+    () => renderPage('https://example.test/', { load: async () => { looked = true; throw new Error('looked'); } }),
+    (e) => e instanceof RenderUnavailable && e.missing === 'browser'
+  );
+  assert.equal(looked, false);
+});
+
+test('render-page exits 3 and names a missing browser', () => {
+  const out = mkdtempSync(join(tmpdir(), 'wm-render-exit-'));
+  try {
+    const r = spawnSync(process.execPath, [join(SCRIPTS, 'render-page.mjs'), 'https://example.test/', join(out, 'x.html')], {
+      encoding: 'utf8', env: { ...process.env, WIKI_MASTER_BROWSER: '/no/such/browser' },
+    });
+    assert.equal(r.status, 3, r.stderr);
+    const payload = JSON.parse(r.stderr);
+    assert.equal(payload.unavailable, true);
+    assert.equal(payload.missing, 'browser');
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test('render-page exits 3 and names a missing package, from a copy outside any node_modules', () => {
+  // process.execPath only has to exist here: the package is looked for before anything is launched.
+  const root = mkdtempSync(join(tmpdir(), 'wm-render-copy-'));
+  try {
+    cpSync(SCRIPTS, join(root, 'scripts'), { recursive: true });
+    const r = spawnSync(process.execPath, [join(root, 'scripts', 'render-page.mjs'), 'https://example.test/', join(root, 'x.html')], {
+      encoding: 'utf8', env: { ...process.env, PATH: '', Path: '', WIKI_MASTER_BROWSER: process.execPath },
+    });
+    assert.equal(r.status, 3, r.stderr);
+    const payload = JSON.parse(r.stderr);
+    assert.equal(payload.unavailable, true);
+    assert.equal(payload.missing, 'playwright-core');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
