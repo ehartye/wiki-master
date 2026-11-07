@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
+import { existsSync, writeFileSync, readdirSync, readFileSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -528,11 +528,15 @@ export function extractionAvailable() {
 
 // `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own, and its own `render` in place of a browser.
 // `fetchTwin(url)` answers the plain-text twin probes with the same shape as `fetchText`, and is as offline as it when `extract` is injected.
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, fetchTwin, today: todayOf = today, render = renderAttempt } = {}) {
+// `sleep(ms)` is the wait between two requests to one host in a --list run; `runtimeAvailable()` says whether the extractor can run at all.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, fetchTwin, today: todayOf = today, render = renderAttempt, sleep = waitSync, runtimeAvailable = extractionAvailable } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
   const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchTwinText : () => ({ ok: false, reason: 'extraction is injected' }));
+  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable };
+  if (argv.slice(1).includes('--list')) return refuse('--list must be the first argument');
+  if (argv[0] === '--list') return runList(argv, deps);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
@@ -541,6 +545,81 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     console.error(credentialRefusal('save the page from a signed-in browser and record it with clip.mjs <url-without-credentials> --from-file <path>'));
     process.exit(2);
   }
+  const { exit, ...result } = clipUrl(url, argv, deps);
+  if (exit === 1) process.exit(1);
+  if (exit) process.exitCode = exit;
+  return result;
+}
+
+// A refusal of the whole command: one line, exit 2, nothing read.
+function refuse(error) {
+  console.error(error);
+  process.exitCode = 2;
+  return { status: 'error', error };
+}
+
+// A real wait that does not spin: the thread sleeps on a value that never changes until the time is up.
+function waitSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+// The options that name one page or lift a decline: each is refused with --list.
+const LIST_REFUSES = ['from-file', 'slug', 'decline', 'override-decline', 'supersede-decline'];
+// Statuses that mean no request went out, so the next address on that host needs no wait.
+const NO_REQUEST = new Set(['blocked', 'declined', 'duplicate', 'error']);
+const OUTCOME_ORDER = ['clipped', 'unchanged', 'duplicate', 'clash', 'declined', 'blocked', 'thin', 'failed', 'error'];
+
+// What is wrong with one line of a list, or null. A message never repeats the line: it may hold a password.
+function listLineProblem(line) {
+  if (urlCarriesCredentials(line)) return credentialRefusal();
+  try { if (/^https?:$/.test(new URL(line).protocol)) return null; } catch { /* not an address at all */ }
+  return 'not an http or https address';
+}
+
+// `clip.mjs --list <file> [options]`: each address of the file, in order and one at a time, clipped as `clip.mjs <url> [options]` would
+// be. Only a missing extraction runtime ends the run early (exit 1), because it affects every address; every other outcome, a bad line
+// among them, is counted and the run goes on.
+function runList(argv, deps) {
+  const file = argv[1];
+  if (!file || file.startsWith('--')) return refuse('--list needs a file: clip.mjs --list <file> [options]');
+  for (let i = 2; i < argv.length; i++) {
+    const name = argv[i].startsWith('--') ? argv[i].slice(2).split('=')[0] : null;
+    if (name === null) return refuse(`--list cannot be used with a URL on the command line: put the address in ${file}`);
+    if (LIST_REFUSES.includes(name)) return refuse(`--list cannot be used with --${name}`);
+  }
+  let text;
+  try { text = readFileSync(file, 'utf8'); } catch (e) { return refuse(`--list: cannot read ${file}: ${e.code ?? e.message}`); }
+  const lines = (text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text).split(/\r?\n/).map((line, i) => ({ n: i + 1, line: line.trim() })).filter(({ line }) => line && !line.startsWith('#'));
+  const counts = new Map();
+  const outcomes = [];
+  // Hosts a request went to since the last wait for them.
+  const awaiting = new Set();
+  let stopped = null;
+  for (const { n, line } of lines) {
+    const problem = listLineProblem(line);
+    let outcome;
+    if (problem) {
+      console.error(`line ${n}: ${problem}`);
+      outcome = { status: 'error', error: problem };
+    } else {
+      const host = new URL(line).host;
+      if (awaiting.delete(host)) deps.sleep(1000);
+      outcome = clipUrl(line, argv, deps);
+      if (outcome.exit === 1) { stopped = n; break; }
+      if (!NO_REQUEST.has(outcome.status)) awaiting.add(host);
+    }
+    const { exit, ...result } = outcome;
+    outcomes.push(result);
+    counts.set(result.status, (counts.get(result.status) ?? 0) + 1);
+  }
+  const order = [...counts.keys()].sort((a, b) => (OUTCOME_ORDER.indexOf(a) + 1 || 99) - (OUTCOME_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b));
+  const done = stopped ? `stopped at line ${stopped}, after ${outcomes.length} URLs` : `${outcomes.length} URLs`;
+  console.log(`list: ${done}${order.length ? `: ${order.map((k) => `${k} ${counts.get(k)}`).join(', ')}` : ''}`);
+  if (stopped) process.exitCode = 1;
+  return { status: stopped ? 'error' : 'list', counts: Object.fromEntries(order.map((k) => [k, counts.get(k)])), outcomes };
+}
+
+// One address, start to finish. It never exits and never sets the exit code: an outcome that should end the process says so in
+// `exit` (2 for a refused command, 1 for an extraction runtime that is missing) and the caller decides.
+function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render, runtimeAvailable }) {
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // One flag feeds both topic carriers: frontmatter on the clip path below,
@@ -555,20 +634,18 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (expand && (fromFile !== undefined || looksLikePdfUrl(url) || looksLikePlainTextUrl(url))) {
     const error = fromFile !== undefined ? '--expand cannot be used with --from-file' : `--expand opens a page in a browser, and this URL serves a PDF or a text file: ${url}`;
     console.error(error);
-    process.exitCode = 2;
-    return { status: 'error', error };
+    return { status: 'error', error, exit: 2 };
   }
   // --find-twin reads the clipping already in the vault and the live page; a supplied file or a browser read has neither.
   const findingTwin = argv.includes('--find-twin');
   if (findingTwin && (fromFile !== undefined || expand)) {
     const error = `--find-twin cannot be used with ${fromFile !== undefined ? '--from-file' : '--expand'}`;
     console.error(error);
-    process.exitCode = 2;
-    return { status: 'error', error };
+    return { status: 'error', error, exit: 2 };
   }
   if (fromFile !== undefined) {
     const problem = suppliedFileProblem(fromFile);
-    if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
+    if (problem) { console.error(`--from-file: ${problem}`); return { status: 'error', error: problem, exit: 2 }; }
   }
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
@@ -603,7 +680,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
 
   const gate = declineGate(vaultPath, url, argv);
   if (gate.blocked) {
-    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    if (gate.error) { console.error(gate.error); return { status: 'error', error: gate.error, exit: 2 }; }
     console.log(gate.message);
     return { status: 'declined' };
   }
@@ -638,8 +715,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     const supplied = readSuppliedFile(fromFile);
     if (supplied.missing) {
       console.error(`--from-file: ${fromFile}: ${supplied.reason}`);
-      process.exitCode = 2;
-      return { status: 'error', error: supplied.reason };
+      return { status: 'error', error: supplied.reason, exit: 2 };
     }
     if (supplied.refused) {
       recordIssue(vaultPath, { url, kind: 'attention', reason: `supplied file refused: ${supplied.reason}`, topic });
@@ -708,9 +784,10 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
-    if (!extractionAvailable()) {
-      console.error(`HTML extraction runtime unavailable. Ensure Node.js and npm/npx are available; the clipper installs its pinned extraction packages automatically.`);
-      process.exit(1);
+    if (!runtimeAvailable()) {
+      const error = 'HTML extraction runtime unavailable. Ensure Node.js and npm/npx are available; the clipper installs its pinned extraction packages automatically.';
+      console.error(error);
+      return { status: 'error', error, exit: 1 };
     }
     // A PDF is not a page this clipper can ever read, and rendering one only
     // buys a longer way to say so: arxiv.org/pdf/2404.03337 spent four Defuddle

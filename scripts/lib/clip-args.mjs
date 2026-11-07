@@ -17,6 +17,7 @@ export const CLIP_SPECS = {
     usage: [
       "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug <name>] [--recapture]",
       "                [--from-file <path>] [--expand] [--find-twin]",
+      "       clip.mjs --list <file> [--quality=...] [--topic=\"...\"] [--recapture] [--expand] [--find-twin]",
       "",
       "  A page that reads thin (or fails) is looked up as Markdown before the browser is tried: <page>.md.txt, <page>.md, a \"View page in",
       "           Markdown\" link, then the page's entry in the site's /llms.txt. A twin of at least 100 words is stored as it is, with",
@@ -27,6 +28,11 @@ export const CLIP_SPECS = {
       "  --expand opens the page's tabs and collapsed panels in a browser and stores them all. It skips the static read, and a page",
       "           the browser cannot read is queued, not declined. It sends no non-GET request and leaves no page. At most 200 clicks",
       "           and 60 seconds; hitting either marks the clip fidelity: partial. Not for --from-file, or a PDF or plain-text URL.",
+      "  --list   clip every address in <file>, one per line (blank lines and lines starting # are ignored), in order and one at a time,",
+      "           at least 1 second apart on one host. It must be the first argument; the other options apply to each address. A line that is",
+      "           not an http or https address, or carries a username or password, is an error outcome and the run goes on. A missing extraction",
+      "           runtime stops the run with exit 1. Otherwise it ends with a count per outcome and exits 0, even after thin or failed ones.",
+      "           Not with a URL, --from-file, --slug, --decline, --override-decline or --supersede-decline (exit 2).",
       "  --slug   the file name, without .md (--slug <name> or --slug=<name>). A name that is taken is a clash: nothing is written and nothing is suffixed.",
       "  --recapture  a URL that is already clipped is clipped again as a dated second capture, beside the first and linked to it by",
       "           recapture-of; the older clipping is never edited. Text identical to any capture of the URL writes nothing.",
@@ -38,7 +44,7 @@ export const CLIP_SPECS = {
     values: ["quality", "topic", "decline", "slug", "from-file"],
     flags: ["recapture", "expand", "find-twin"],
     spaced: ["from-file", "slug"],
-    lead: [],
+    lead: ["--list"],
   },
   "clip-pdf": {
     name: "clip-pdf.mjs",

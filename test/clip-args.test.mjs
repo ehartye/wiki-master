@@ -14,7 +14,7 @@ const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 // `--help` was read as the URL. Each clipper checks its arguments before any network or vault activity.
 
 const VALID = {
-  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name'], ['https://x.test/a', '--slug', 'name']],
+  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name'], ['https://x.test/a', '--slug', 'name'], ['--list', 'urls.txt', '--topic=T', '--quality=high']],
   'clip-pdf': [
     ['a.pdf', '--source=u', '--quality=low', '--mode=table', '--ocr', '--ocr-lang=eng', '--topic=t', '--decline=r', '--figures', '--figures=3,5-7', '--figures-max=4', '--title=T', '--slug=s'],
     ['a.pdf', '--figures-only', '--clipping', 'raw/clippings/x.md'],
@@ -60,6 +60,9 @@ test('a value option written without its value, and a spaced option missing its 
 test('a lead option such as --doctor is accepted first only where the clipper has one', () => {
   assert.deepEqual(checkClipArgs(['--doctor'], CLIP_SPECS['clip-gh']), { ok: true });
   assert.match(checkClipArgs(['--doctor'], CLIP_SPECS.clip).error, /unknown option --doctor/);
+  // --list names the file of addresses, so it leads; after an address it would be silently ignored.
+  assert.deepEqual(checkClipArgs(['--list', 'urls.txt'], CLIP_SPECS.clip), { ok: true });
+  assert.match(checkClipArgs(['https://x.test/a', '--list', 'urls.txt'], CLIP_SPECS.clip).error, /unknown option --list/);
 });
 
 test('extra words that are not options are left alone, as before', () => {
