@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -328,6 +328,39 @@ test('a ledger whose folder exists is created empty by the probe and then append
   const r = clip([PAGE, '--ledger', file]);
   assert.equal(r.exitCode, 0);
   assert.equal(readFileSync(file, 'utf8').split('\n').filter(Boolean).length, 1);
+});
+
+// A run that is refused for another reason must not leave the ledger the probe would have created behind.
+const REFUSED_LATER = [
+  ['--list names a file that is not there', (v) => ['--list', join(v.root, 'missing.txt')], /--list: cannot read/],
+  ['--list names no file', () => ['--list'], /--list needs a file/],
+  ['--list is given --slug', (v) => { const l = join(v.root, 'urls.txt'); writeFileSync(l, 'https://one.example.test/a\n'); return ['--list', l, '--slug=x']; }, /--list cannot be used with --slug/],
+];
+for (const [name, make, message] of REFUSED_LATER) {
+  test(`a refused run (${name}) leaves no new ledger behind`, (t) => {
+    const v = setup(t);
+    const args = make(v);
+    const r = clip([...args, '--ledger', v.ledger], { extract: () => assert.fail('nothing may be read') });
+    assert.equal(r.exitCode, 2, r.lines.join('\n'));
+    assert.match(r.lines.join('\n'), message);
+    assert.ok(!existsSync(v.ledger), 'no empty ledger was created');
+    assert.deepEqual(v.names(), []);
+  });
+}
+
+test('a refused run leaves a ledger that already existed with its content and its modification time', (t) => {
+  const v = setup(t);
+  const held = '{"url":"https://held.example.test/","status":"clipped"}\n';
+  writeFileSync(v.ledger, held);
+  const past = new Date('2026-01-02T03:04:05Z');
+  utimesSync(v.ledger, past, past);
+  const before = statSync(v.ledger).mtimeMs;
+  for (const [, make] of REFUSED_LATER) {
+    const r = clip([...make(v), '--ledger', v.ledger], { extract: () => assert.fail('nothing may be read') });
+    assert.equal(r.exitCode, 2);
+  }
+  assert.equal(readFileSync(v.ledger, 'utf8'), held);
+  assert.equal(statSync(v.ledger).mtimeMs, before);
 });
 
 // The ledger turns unwritable after the probe passed: the first extraction swaps the file for a directory.

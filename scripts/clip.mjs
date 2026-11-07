@@ -541,6 +541,11 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (ledger !== undefined) {
     const problem = ledgerFileProblem(ledger, resolveVault().path);
     if (problem) return refuse(problem);
+  }
+  // A list that cannot be run is refused before the ledger is probed, because the probe creates the file and a refused run must not leave one.
+  const list = argv[0] === '--list' ? readList(argv) : null;
+  if (list?.error) return refuse(list.error);
+  if (ledger !== undefined) {
     // A ledger that cannot be appended to is found now, not after the first clipping is written.
     const unwritable = ledgerAppendProblem(ledger);
     if (unwritable) return refuse(unwritable);
@@ -556,7 +561,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
   };
   const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
-  if (argv[0] === '--list') return runList(argv, deps);
+  if (list) return runList(argv, deps, list);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   // A refused address is recorded without its credentials, or not at all when it is not an address.
@@ -598,20 +603,23 @@ function listLineProblem(line) {
   return 'not an http or https address';
 }
 
-// `clip.mjs --list <file> [options]`: each address of the file, in order and one at a time, clipped as `clip.mjs <url> [options]` would
-// be. Only a missing extraction runtime ends the run early (exit 1), because it affects every address; every other outcome, a bad line
-// among them, is counted and the run goes on.
-function runList(argv, deps) {
+// The file of a `--list` run and its text, or the one-line refusal when the arguments or the file cannot be used. Nothing is created.
+function readList(argv) {
   const file = argv[1];
-  if (!file || file.startsWith('--')) return refuse('--list needs a file: clip.mjs --list <file> [options]');
+  if (!file || file.startsWith('--')) return { error: '--list needs a file: clip.mjs --list <file> [options]' };
   for (let i = 2; i < argv.length; i++) {
     const name = argv[i].startsWith('--') ? argv[i].slice(2).split('=')[0] : null;
     if (argv[i] === '--ledger') { i++; continue; }
-    if (name === null) return refuse(`--list cannot be used with a URL on the command line: put the address in ${file}`);
-    if (LIST_REFUSES.includes(name)) return refuse(`--list cannot be used with --${name}`);
+    if (name === null) return { error: `--list cannot be used with a URL on the command line: put the address in ${file}` };
+    if (LIST_REFUSES.includes(name)) return { error: `--list cannot be used with --${name}` };
   }
-  let text;
-  try { text = readFileSync(file, 'utf8'); } catch (e) { return refuse(`--list: cannot read ${file}: ${e.code ?? e.message}`); }
+  try { return { file, text: readFileSync(file, 'utf8') }; } catch (e) { return { error: `--list: cannot read ${file}: ${e.code ?? e.message}` }; }
+}
+
+// `clip.mjs --list <file> [options]`: each address of the file, in order and one at a time, clipped as `clip.mjs <url> [options]` would
+// be. Only a missing extraction runtime ends the run early (exit 1), because it affects every address; every other outcome, a bad line
+// among them, is counted and the run goes on.
+function runList(argv, deps, { text }) {
   const lines = (text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text).split(/\r?\n/).map((line, i) => ({ n: i + 1, line: line.trim() })).filter(({ line }) => line && !line.startsWith('#'));
   const counts = new Map();
   const outcomes = [];
