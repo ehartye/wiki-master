@@ -890,8 +890,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
   // exclusive create so a clip never overwrites a file another session just made. A name nobody can
   // take is a `clash`, never a `duplicate`: it is recorded and named so the document is not lost silently.
-  const slugArg = argv.find((a) => a.startsWith('--slug='));
-  const ownerSlug = slugArg && slugArg.slice('--slug='.length).trim() ? slugify(slugArg.slice('--slug='.length)) : null;
+  const slugArg = (optionValue(argv, 'slug') ?? '').trim();
+  const ownerSlug = slugArg ? slugify(slugArg) : null;
   // lowercase name -> the name as it is on disk, so a clash can name the file that is really there
   const names = new Map((existsSync(clippingsDir) ? readdirSync(clippingsDir) : []).filter((f) => f.toLowerCase().endsWith('.md')).map((f) => [f.slice(0, -3).toLowerCase(), f.slice(0, -3)]));
   const exists = (s) => names.has(s.toLowerCase());

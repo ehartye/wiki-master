@@ -15,7 +15,7 @@ export const CLIP_SPECS = {
   "clip": {
     name: "clip.mjs",
     usage: [
-      "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug=<name>] [--recapture]",
+      "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug <name>] [--recapture]",
       "                [--from-file <path>] [--expand] [--find-twin]",
       "",
       "  A page that reads thin (or fails) is looked up as Markdown before the browser is tried: <page>.md.txt, <page>.md, a \"View page in",
@@ -27,7 +27,7 @@ export const CLIP_SPECS = {
       "  --expand opens the page's tabs and collapsed panels in a browser and stores them all. It skips the static read, and a page",
       "           the browser cannot read is queued, not declined. It sends no non-GET request and leaves no page. At most 200 clicks",
       "           and 60 seconds; hitting either marks the clip fidelity: partial. Not for --from-file, or a PDF or plain-text URL.",
-      "  --slug   the file name, without .md. A name that is taken is a clash: nothing is written and nothing is suffixed.",
+      "  --slug   the file name, without .md (--slug <name> or --slug=<name>). A name that is taken is a clash: nothing is written and nothing is suffixed.",
       "  --recapture  a URL that is already clipped is clipped again as a dated second capture, beside the first and linked to it by",
       "           recapture-of; the older clipping is never edited. Text identical to any capture of the URL writes nothing.",
       "           A URL not clipped yet is clipped as usual. Without this flag a second clip of a URL is a duplicate.",
@@ -37,7 +37,7 @@ export const CLIP_SPECS = {
     ],
     values: ["quality", "topic", "decline", "slug", "from-file"],
     flags: ["recapture", "expand", "find-twin"],
-    spaced: ["from-file"],
+    spaced: ["from-file", "slug"],
     lead: [],
   },
   "clip-pdf": {
