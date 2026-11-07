@@ -184,6 +184,7 @@ test('no script runs a git or gh write', () => {
 // until someone reads it too, and one that goes away has to leave the list.
 const REVIEWED_DYNAMIC = {
   'scripts/clip-pdf.mjs cmd': 'present() is called with pdftoppm and tesseract only',
+  'scripts/clip-pdf.mjs tool': 'pdfinfo, resolved by name or path, asked for the document title only',
   'scripts/clip-pptx.mjs cmd': 'a Python interpreter chosen from a fixed list',
   'scripts/clip.mjs cmd': 'the extraction launchers: node or npx running this plugin\'s extractor',
   'scripts/doctor.mjs cmd': 'lib/doctor-table.mjs, checked below, and the Python candidates',
