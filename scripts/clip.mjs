@@ -20,6 +20,7 @@ import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 import { findTwin, twinPage } from './lib/twin.mjs';
+import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -95,7 +96,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage, twinUrl }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage, twinUrl, documentLink }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -131,6 +132,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   if (expandCoverage) lines.push(`expand-coverage: ${yaml(expandCoverage)}`);
   // Where the stored Markdown was served from, when it is the plain-text twin of `source` (extraction: plaintext-twin).
   if (twinUrl) lines.push(`twin-url: ${yaml(twinUrl)}`);
+  // A short page whose substance is one link to a PDF (lib/landing.mjs): it is not evidence for the document's contents.
+  if (documentLink) lines.push('landing-page: true', `document-link: ${yaml(documentLink)}`);
   // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
   if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
@@ -685,8 +688,9 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // here and name the tool that does handle it — the vault already holds
     // eight arxiv PDFs that clip-pdf extracted correctly.
     if (looksLikePdfUrl(url)) {
-      const reason = 'this url serves a PDF — clip it with clip-pdf (download the file, then: node scripts/clip-pdf.mjs <file.pdf> --source="<url>")';
-      recordIssue(vaultPath, { url, kind: 'attention', reason, topic });
+      const reason = `this url serves a PDF — clip it with: node scripts/clip-pdf.mjs "${url}"`;
+      // Retryable, like the landing row: a later row for this URL without the tag would clear it, and a clip-pdf run closes it.
+      recordIssue(vaultPath, { url, kind: 'attention', reason, topic, retryable: true });
       console.log(`clip failed — ${reason} (queued for triage): ${url}`);
       return { status: 'failed', reason };
     }
@@ -722,22 +726,27 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // read the page, and if not, why.
   let renderResult = extraction === 'rendered' ? { ok: true } : null;
   const isPlain = () => extraction === 'plaintext' || extraction === 'plaintext-twin';
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
+  // A short page whose substance is one PDF link is written as what it is, before the thin path can decline it. A page read by
+  // --expand is not checked: the owner asked for its tabs, not for a verdict on what it links to.
+  let landing = expand ? null : landingDocument(data.pageSignals, wordCount(md));
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     const twin = twinFor(data);
     if (twin?.result) return twin.result;
     if (twin) { data = twin.data; md = data.contentMarkdown; extraction = 'plaintext-twin'; }
   }
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     renderResult = render(url);
     const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
-    if (wordCount(rendered) >= THIN_WORD_FLOOR) {
+    const renderedLanding = renderResult.ok ? landingDocument(renderResult.data.pageSignals, wordCount(rendered)) : null;
+    if (wordCount(rendered) >= THIN_WORD_FLOOR || renderedLanding) {
       data = renderResult.data;
       md = rendered;
       extraction = 'rendered';
+      landing = renderedLanding;
     }
   }
 
-  if (wordCount(md) < THIN_WORD_FLOOR && !isPlain()) {
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !isPlain()) {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
     if (verdict.kind !== 'short_real_article' && manual) {
       // A file a person supplied is never declined and never re-fetched: the row says what to supply instead.
@@ -826,7 +835,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
       result = { ...result, unexpandedTabs: unopened };
     }
-    return { ...result, ...(twinUrl && { twinUrl }), ...keptOfPage() };
+    return { ...result, ...(twinUrl && { twinUrl }), ...(landing && { landing: true, documentLink: landing }), ...keptOfPage() };
   };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
@@ -843,7 +852,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
     title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, suppliedSha256: manual?.sha256,
+    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, documentLink: landing ?? undefined, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
   });
@@ -908,6 +917,10 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const ignored = data.fidelityAssessment?.ignored ?? [];
   if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
+  if (landing) {
+    console.log(landingLine(landing));
+    recordIssue(vaultPath, { url: landing, kind: 'attention', reason: landingReason(url, landing), topic, retryable: true });
+  }
   gate.finish();
   return withNotes({ status: 'clipped', slug, file });
 }

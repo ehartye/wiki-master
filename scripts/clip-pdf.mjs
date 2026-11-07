@@ -12,6 +12,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { closeIssuesResolvedByClip } from './lib/triage.mjs';
 import {
   parseFigureArgs, renderFigures, setClippingFigures, figureSummary,
   frontmatterOf, fmScalar,
@@ -443,7 +444,9 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
   return { status: 'figures', clipping: found.rel, verified, figures: r.figures || [], render: r };
 }
 
-export function main(argv) {
+// `toolchain` reports the external tools and `extractText(pdfPath)` reads the text layer; a test supplies both, so it needs no
+// pdftotext.
+export function main(argv, { toolchain = toolchainReport, extractText } = {}) {
   const pdfPath = argv[0];
   if (!pdfPath) {
     for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
@@ -467,7 +470,7 @@ export function main(argv) {
       return report;
     });
   }
-  const deps = toolchainReport();
+  const deps = toolchain();
   if (!deps.ok) {
     console.error('');
     console.error('=========================== clip-pdf toolchain ===========================');
@@ -507,6 +510,8 @@ export function main(argv) {
   }
 
   if (isDuplicateUrl(source, knownSourceUrls(vaultPath))) {
+    // A document already in the vault answers every row that waited for it (a landing page's link, a failed download).
+    closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`duplicate (already clipped): ${source}`); return { status: 'duplicate' };
   }
 
@@ -529,7 +534,7 @@ export function main(argv) {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
     // invisible downstream, so the choice cannot be a global default (#66).
-    const { tab, mode } = planExtraction(pdfPath, { override: readingMode });
+    const { tab, mode } = extractText ? { tab: null, mode: { args: [] } } : planExtraction(pdfPath, { override: readingMode });
     // A mode we cannot honor is refused outright: producing a clipping in the
     // OTHER mode while the operator believes they forced this one is exactly the
     // silent-wrongness this module refuses everywhere else.
@@ -542,7 +547,7 @@ export function main(argv) {
     }
 
     let text;
-    try { text = pdfToText(pdfPath, mode.args); }
+    try { text = extractText ? extractText(pdfPath) : pdfToText(pdfPath, mode.args); }
     catch {
       if (!pdftotextPresent()) {
         console.error('pdftotext not found. Install the Xpdf command-line tools (https://www.xpdfreader.com/download.html) or poppler (https://poppler.freedesktop.org/). Xpdf is preferred: only it provides the -table mode that reads tabular PDFs without destroying row pairings.');
@@ -577,6 +582,7 @@ export function main(argv) {
   // hash, which does not care where the binary lives.
   const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
   if (already) {
+    closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`exists (same content): ${already}`);
     if (fig.enabled) console.log(`figures not rendered for an existing clipping; to add them: clip-pdf.mjs "${pdfPath}" --figures-only --clipping "${already}"`);
     return { status: 'duplicate', file: already };
@@ -593,6 +599,8 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  // After the write, so a row is never closed by a clip that did not land.
+  closeIssuesResolvedByClip(vaultPath, source, 'clipped');
   const how = clip.extraction === 'ocr' ? 'OCR'
     : clip.extraction === 'table-aware' ? 'text, table-aware'
     : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'

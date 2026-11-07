@@ -21,6 +21,8 @@ export const CLIP_SPECS = {
       "  A page that reads thin (or fails) is looked up as Markdown before the browser is tried: <page>.md.txt, <page>.md, a \"View page in",
       "           Markdown\" link, then the page's entry in the site's /llms.txt. A twin of at least 100 words is stored as it is, with",
       "           twin-url and extraction: plaintext-twin. No file, --expand, plain-text URL or PDF URL probes, and a healthy page is not probed.",
+      "  A page under 300 words whose only PDF link is one document is written as a landing page (landing-page: true, document-link): it is",
+      "           not evidence for the document. It prints the clip-pdf.mjs command for the document, which clip.mjs never fetches itself.",
       "  --find-twin  for a page that clipped with a partial fidelity warning: print its plain-text twin, if any. Nothing is written.",
       "  --expand opens the page's tabs and collapsed panels in a browser and stores them all. It skips the static read, and a page",
       "           the browser cannot read is queued, not declined. It sends no non-GET request and leaves no page. At most 200 clicks",
