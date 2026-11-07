@@ -367,15 +367,50 @@ function assessSignalsDetailed(expected, markdown, title, url = '') {
   return { warnings, ignored };
 }
 
-export async function extractHtml(html, url, { extractImpl } = {}) {
-  const { Defuddle, parseHTML } = extractionRuntime();
-  const { document } = parseHTML(html);
+// A page whose extraction keeps far less text than the page shows is read again on a changed copy of its markup.
+// Measured against the first parse's page: the words a reader sees in the content region, leaving out what the page
+// repeats around its content and what it hides.
+const SHORTFALL_MIN_VISIBLE = 300;
+const NOT_VISIBLE = 'nav, header, footer, script, style, template, [hidden], [aria-hidden="true"]';
+const INLINE = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DEL', 'DFN', 'EM', 'FONT', 'I', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR']);
+const spaceWords = text => (String(text).match(/\S+/g) ?? []).length;
+function visibleText(node) {
+  if (node.nodeType === 3) return node.textContent;
+  if (node.nodeType !== 1 || node.matches(NOT_VISIBLE) || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(node.getAttribute('style') ?? '')) return '';
+  const inner = [...node.childNodes].map(visibleText).join('');
+  return INLINE.has(node.tagName) ? inner : ` ${inner} `;
+}
+const visibleWords = document => spaceWords(visibleText(contentRoot(document)));
+
+// The two retries, in the order they run. Defuddle drops a whole article that sits inside an inline wrapper (`span`,
+// `label`) holding a block or a custom element and an image; each transform removes one half of that and reports
+// whether it changed anything. Unwrapping comes first because with a `label` wrapper removing images alone gives nothing.
+// Other phrasing tags (`a`, `b`, `em`, `font`) never caused the loss, and unwrapping an `a` would drop its link.
+const WRAPPED_BLOCKS = 'p, div, ul, ol, li, table, pre, blockquote, section, article, aside, figure, h1, h2, h3, h4, h5, h6';
+const SHORTFALL_RETRIES = {
+  'unwrap-inline'(document) {
+    const wrappers = [...document.querySelectorAll('span, label')]
+      .filter(node => node.querySelector(WRAPPED_BLOCKS) || [...node.querySelectorAll('*')].some(child => child.tagName.includes('-')));
+    for (const node of wrappers) node.replaceWith(...node.childNodes);
+    return wrappers.length > 0;
+  },
+  'remove-images'(document) {
+    const equations = new Set(imageEquations(contentRoot(document)).map(({ node }) => node));
+    const images = [...document.querySelectorAll('img')].filter(node => !equations.has(node));
+    for (const node of images) node.remove();
+    return images.length > 0;
+  },
+};
+
+// One full read of a parsed page: tab panels flattened, image equations and callouts converted, then Defuddle, then the
+// fidelity check against `expected`. A retry passes the first read's `expected`, so every read is judged by the same
+// headings and equations.
+async function readPage(document, url, extractImpl, expected) {
+  const { Defuddle } = extractionRuntime();
   const root = contentRoot(document);
-  // In this order: signals read the untouched page, and fidelity then checks the headings of panels no longer hidden.
-  const page = pageSignals(document, url);
-  const counts = pageCounts(document);
+  // Fidelity checks the headings of panels no longer hidden, so it reads the page after they are flattened.
   flattenTabPanels(document, root);
-  const expected = signals(document);
+  expected ??= signals(document);
   // Preserve supplied mathematical alternatives as literal inline code. This
   // prevents Markdown from reinterpreting TeX escapes/operators; it is not OCR
   // or a claim that the supplied alternative is a complete/correct equation.
@@ -463,6 +498,33 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
     ...(documentation ? { contentSelector: '[data-wiki-content]', removeLowScoring: false, removeExactSelectors: false, removePartialSelectors: false, removeContentPatterns: false } : hasBlockCallout ? { contentSelector: '[data-wiki-content]' } : {}),
   });
   const markdown = data.contentMarkdown ?? '';
-  const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
-  return { ...data, pageSignals: page, pageCounts: counts, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
+  return { data, markdown, expected, ...assessSignalsDetailed(expected, markdown, data.title ?? '', url) };
+}
+
+export async function extractHtml(html, url, { extractImpl, shortfallGuard = true, shortfallRetries = Object.keys(SHORTFALL_RETRIES) } = {}) {
+  const { parseHTML } = extractionRuntime();
+  const { document } = parseHTML(html);
+  // Signals, counts and visible words read the untouched page.
+  const page = pageSignals(document, url);
+  const counts = pageCounts(document);
+  const visible = visibleWords(document);
+  let read = await readPage(document, url, extractImpl);
+  const extracted = spaceWords(read.markdown);
+  let extractionRetry, shortfall;
+  if (shortfallGuard && visible >= SHORTFALL_MIN_VISIBLE && extracted * 5 < visible) {
+    // Every retry that changes the page runs, each on a fresh parse; the one with the most words wins, an earlier one on a tie.
+    let best = null;
+    for (const name of Object.keys(SHORTFALL_RETRIES).filter(retry => shortfallRetries.includes(retry))) {
+      const { document: copy } = parseHTML(html);
+      if (!SHORTFALL_RETRIES[name](copy)) continue;
+      let retried;
+      try { retried = await readPage(copy, url, extractImpl, read.expected); } catch { continue; }
+      const words = spaceWords(retried.markdown);
+      if (words >= 2 * extracted && words > extracted && (!best || words > best.words)) best = { name, retried, words };
+    }
+    if (best) { extractionRetry = best.name; read = best.retried; } else shortfall = { extracted, visible };
+  }
+  const { data, expected, warnings: fidelityWarnings, ignored } = read;
+  return { ...data, pageSignals: page, pageCounts: counts, visibleWords: visible, ...(extractionRetry && { extractionRetry }), ...(shortfall && { shortfall }), fidelityWarnings,
+    fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
 }
