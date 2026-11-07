@@ -17,30 +17,40 @@ It uses the pinned extraction dependencies; a source checkout installs them with
 `npm ci`, while installed plugins acquire the pinned versions through npm exec
 when local dependencies are absent. Installation is a setup action, not a search
 or diagnostic side effect. See the [public extraction contract](../../../docs/clipping-fidelity.md)
-for extractor behavior, and [capture](../../wiki-researcher/references/capture.md)
-for the authorized write procedure.
+for extractor behavior, and [web capture](../../wiki-researcher/references/clip-html.md)
+for the authorized write procedure and every mechanism named below.
 
-The helper tries the served HTML first. It renders the page in a browser when
-that fetch fails or the text is under 100 words. A plain-text capture, a supplied
-file and a PDF URL whose fetch failed are not rendered. The render needs
-`playwright-core` and Chrome or Edge, or `WIKI_MASTER_BROWSER` naming a browser
-executable. To check them:
+The helper tries the served HTML first. When that fetch fails or the text is under
+100 words it asks the site for the page's Markdown twin (`<page>.md.txt`, `<page>.md`, a
+"View page in Markdown" link, then the site's `/llms.txt`), and only then renders the
+page in a browser. `--expand` goes straight to the browser. A plain-text capture, a
+supplied file and a PDF URL whose fetch failed are not rendered. To check what the
+render has:
 
 ```sh
 node "<absolute-plugin-root>/scripts/doctor.mjs"
 ```
 
-This only reads. It lists both under `clip` as optional, so a missing browser
-does not fail it: read the `clip` line and its `MISSING` entries. A rendered
-clipping shows as `extraction: rendered` in its frontmatter. Its `clipped:` line
-looks like any other.
+This only reads, and never downloads. Under `clip` it lists two optional rows, so a
+missing one does not fail doctor: read the `clip` line and its `MISSING` entries.
+
+| Row | Reports | If missing |
+|---|---|---|
+| `playwright-core` | `local`, or `on first use through npx` (npx is on `PATH` and will fetch the pinned version at the first render), or missing | Install npm so `npx` can fetch it; in a source checkout run `npm ci` |
+| `browser` | The Chrome or Edge executable found | Install Chrome or Edge, or set `WIKI_MASTER_BROWSER` to a browser executable |
+
+The first render through npx downloads `playwright-core`, so it needs network and npm. A render
+that cannot finish through npx, for example offline, is reported as `unavailable` with npm's first
+error line; with no browser the result is `unavailable` and npx is not tried. A rendered
+clipping shows as `extraction: rendered` in its frontmatter. Its `clipped:` line looks like any other.
 
 On a thin page, only a browser that read the page can justify a 180-day decline:
 
 | Render result | Clip outcome |
 |---|---|
 | `ok`, at least 100 words | Clipped with `extraction: rendered` |
-| `ok`, still thin | Declined and queued as `thin` or `wrong-node` |
+| `ok`, still thin, and a made-up address on the same site reads differently | Declined and queued as `thin` or `wrong-node` |
+| `ok`, still thin, and the site serves the same text for a made-up address | Queued as `thin` with a reason starting `unverified URL:`; not declined |
 | `unavailable` (no `playwright-core` or browser) | Queued as `thin` or `wrong-node`, not declined |
 | `blocked` or `failed` (a timeout is `failed`) | Queued as `thin` or `wrong-node` with the render's reason, not declined. The line ends `triage recorded; not declined — browser render did not read the page (<reason>)` |
 | `gone` | Queued as `gone`, not declined |
@@ -57,29 +67,22 @@ Interpret an actual result before choosing a recovery:
 | `thin content` or `possible extraction mismatch` with `decline + triage recorded` | A browser read the page and it is still thin, so later clips skip it for 180 days. A saved page can supply the content: use the capture route's `--from-file` with `--override-decline`. |
 | `thin content` or `possible extraction mismatch` with `not declined — browser render unavailable` | Nothing was learned about the page. Run doctor and report what is missing. Once the browser is present a retry can recover it; otherwise use a saved page. |
 | `thin content` or `possible extraction mismatch` with `not declined — browser render did not read the page (<reason>)` | The reason is about one attempt. Report it; a retry can still recover the page, or use a saved page. |
+| `thin content` with `not declined — unverified URL: the site serves this text for any address` | The site answers every address with this shell, so the read says nothing about this URL and no decline was recorded. Check the address spelling against the site; otherwise use a saved page. A later successful clip closes the row. |
+| `thin content` with `not declined — an --expand read` | The browser opened the page and it is still thin. Queued for a person, not declined. |
+| `landing page: the document is at <url>; run clip-pdf.mjs "<url>"` | The clipping is a short page that points at one PDF. Clip the document with `clip-pdf.mjs "<url>"` within capture scope; the landing clipping is not evidence for the document's contents. |
+| `note: page has N tab controls this clip did not open; use --recapture --expand` | The served HTML shows N tabs with no panel. A browser is needed: run `--recapture --expand` (doctor first). |
+| `note: extracted N of about M visible words` | The first read kept under a fifth of the page and no retry recovered it. It may be harmless (a short article beside a long comment thread). Compare the clipping with the page before relying on it; a saved page is the fallback. |
+| `note: extraction retry kept (<value>): ...` | The first read lost most of the page and a changed copy of the markup recovered it; the clipping carries `extraction-retry`. |
+| `refused: the address carries a username or password` or `... a secret in its query (<name>)` | Exit 2 with nothing written or queued. Remove the secret from the address; for a page behind it, save the page and use `--from-file` under the address without the secret. |
 | `login, consent or age-gate page` | Queued as `wrong-node`, not declined. A signed-in saved page can supply the actual content; do not call a wall a verdict on the source. |
 | `clip failed`, `failed` or `blocked` row (for example 403, network, timeout) | Queued, not declined. Report it; a retry needs capture scope and evidence that retrying is useful. If the line says the browser render is unavailable, run doctor. If the browser could not read the page, use a saved page. |
-| `clip failed — this url serves a PDF` | An `attention` row, not declined. Download the file and use the [PDF route](../../wiki-researcher/references/clip-pdf.md). |
+| `clip failed — this url serves a PDF` | An `attention` row, not declined. Run the [PDF route](../../wiki-researcher/references/clip-pdf.md) on the address: `clip-pdf.mjs "<url>"`. |
 | `page gone`, `gone` row | A dead/404/error-page source needs a replacement source or dropped claim; do not label it a retryable `failed` row. |
-| `clash` | Nothing was written; an attention row names the occupied path. Read that file's `source:` and choose a distinct `--slug=<name>` within capture scope, or leave it for triage. A clash is not a same-URL duplicate. |
+| `clash` | Nothing was written; an attention row names the occupied path. Read that file's `source:` and choose a distinct `--slug <name>` within capture scope, or leave it for triage. A clash is not a same-URL duplicate; a second same-day recapture is numbered, not a clash. |
 | `duplicate` / `unchanged` | No new content was written. A new dated capture of changed HTML uses `--recapture`; this flag does not exist on document, GitHub or Confluence clippers. |
-| Partial fidelity warning | Inspect the source items the checker says were lost; a clipping's length does not establish completeness. Its `quality` is credibility, not extraction fidelity. |
+| Partial fidelity warning | Inspect the source items the checker says were lost; a clipping's length does not establish completeness. Its `quality` is credibility, not extraction fidelity. With `expand-coverage`, a count such as `2 of 3 tables reached the text` names what an opened page showed and the text lacks, and `truncated=true` means the click or time limit stopped the expansion. |
 
-Within capture scope, two things can recover a thin documentation page before
-you ask for a saved one. The helper tries neither on its own.
-
-1. Clip the page's text twin. Some documentation sites serve one at
-   `<url>.md.txt` or `<url>.md` (drop a trailing `/` first). A 200 answer with a
-   text content type is captured whole in a code fence with
-   `extraction: plaintext`, and its `source` is the URL you gave, not the page's.
-   The page's own triage row and decline stay as they are. Any other answer takes
-   the ordinary route under the twin's URL and can leave its own row or decline;
-   report it.
-2. Render the page yourself with a browser tool your host provides, save the
-   result as `.html`, and record it with the capture route's `--from-file`. Its
-   `source` is the page's URL and it carries `extraction: manual`. The checks for
-   a supplied page below apply, and an automatic decline still needs
-   `--override-decline`.
+A hand-clipped file under `raw/clippings/` goes through `adopt-clipping.mjs` (see the capture route).
 
 For a supplied page, verify it is the intended page before capture. Accepted
 extensions are `.md`, `.markdown`, `.txt`, `.html` and `.htm`; an empty path,
@@ -94,8 +97,11 @@ so a successful run is not proof that a supplied file is the real page.
 An `extraction: manual` clipping is refused by `apply-reclips.mjs`, not counted
 as a failed repair. To refresh it, obtain the newly saved page and use the
 capture route's `--from-file <path> --recapture`. Never replace its supplied
-body with a fresh unauthenticated fetch. A raw text URL is handled as plaintext;
-HTML repair does not re-read plaintext clippings. See
+body with a fresh unauthenticated fetch. `apply-reclips.mjs` refuses a clipping
+with `expand-coverage` or `extraction: plaintext-twin` the same way, because its read
+would replace text a person or a better route produced: refresh them with
+`clip.mjs <url> --recapture --expand` and `clip.mjs <url> --recapture`. A raw text URL is
+handled as plaintext; HTML repair does not re-read plaintext clippings. See
 [re-clipping](../../../docs/reclipping.md) for the supported repair API.
 
 ## PDF
@@ -148,6 +154,14 @@ row pairings; poppler lacks it. Missing `pdftoppm` or Tesseract prevents OCR of
 scanned pages. An `ocr-unavailable` result means the PDF was not read and creates
 no decline; a `thin` result means extraction and available OCR could not recover
 useful content and records a decline. Do not treat those outcomes alike.
+
+A PDF clipped by address (`clip-pdf.mjs "<url>"`) can also end `download failed: ...`:
+the server answered an error status, the response did not start with `%PDF-` (often an HTML
+page), no data arrived for 60 seconds, the disk was full, or the fetch itself failed. It
+queues a `failed` row and records no decline. A retry needs capture scope; for a document
+behind a login, download the file with the user's own credentials and run `clip-pdf.mjs` on it.
+An address with a username, password or secret query parameter, or a scheme other than
+http or https, exits 2 before anything is written.
 
 Normal clipping invokes tools through Node's `execFileSync`; doctor uses bounded
 asynchronous subprocesses. Use the bundled helper
