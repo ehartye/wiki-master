@@ -76,12 +76,17 @@ const dropEmptyCopies = (block, name) => {
   const own = new RegExp(`^${name}:[ \t]*(.*?)[ \t]*\r?$`);
   const lines = block.split('\n');
   let dropped = 0;
+  let lastDropped = false;
   const out = lines.filter((l, i) => {
     const m = own.exec(l);
     if (!m || unquote(m[1]) || /^\s*-\s+/.test(lines[i + 1] ?? '')) return true;
     dropped++;
+    if (i === lines.length - 1) lastDropped = true;
     return false;
   });
+  // The block's last line carries no line break of its own: the closing fence brings it. When that line is the one dropped, the line
+  // before it becomes the last, and its CR (half of the CRLF that followed it) would double up with the fence's.
+  if (lastDropped && out.length) out[out.length - 1] = out[out.length - 1].replace(/\r$/, '');
   return { block: out.join('\n'), dropped };
 };
 

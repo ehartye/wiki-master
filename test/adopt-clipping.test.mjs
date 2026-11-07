@@ -258,6 +258,35 @@ for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
   }
 }
 
+// When the dropped empty copy is the last line of the frontmatter, the line before it is the new last line: it must not keep a CR of
+// its own, because the closing fence brings one. `...\r\r\n---` is a damaged fence that the pipeline parser reads as no metadata.
+for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
+  for (const key of ['quality', 'topic', 'source-hash']) {
+    test(`${shape}: an empty ${key} as the last frontmatter line is dropped byte for byte, with no stray carriage return`, (t) => {
+      const v = vault(t);
+      const body = handClip(text('Hand'));
+      const hash = clippingHash(eol(body));
+      const filled = { quality: 'quality: high', topic: 'topic: "Field notes"', 'source-hash': `source-hash: ${hash}` }[key];
+      const others = ['quality: high', 'topic: "Field notes"', `source-hash: ${hash}`].filter((l) => l !== filled);
+      const original = eol(body.replace('\n---\n\n', `\n${filled}\n${key}:\n---\n\n`));
+      assert.ok(original.includes(`${key}:${eol('\n')}---`), 'the empty copy is the last frontmatter line');
+      writeFileSync(v.path('Hand guide.md'), original);
+      const r = adopt(v, 'Hand guide.md');
+      assert.equal(r.code, 0, r.err);
+      const stamped = v.read('Hand guide.md');
+      assert.equal(stamped, original.replace(eol(`${filled}\n${key}:\n---`), eol(`${[filled, ...others].join('\n')}\n---`)), 'exact bytes');
+      assert.ok(!stamped.includes('\r\r'), 'no stray carriage return');
+      const meta = parseNote(stamped).metadata;
+      assert.equal(meta.quality, 'high');
+      assert.equal(meta.topic, 'Field notes');
+      assert.equal(meta['source-hash'], hash);
+      assert.equal(afterFrontmatter(stamped), afterFrontmatter(original), 'the body is byte-identical');
+      assert.equal(firstReport(adopt(v, 'Hand guide.md')).status, 'unchanged');
+      assert.equal(v.read('Hand guide.md'), stamped, 'a second run writes nothing');
+    });
+  }
+}
+
 test('a dry run reports the empty copy it would drop and writes nothing', (t) => {
   const v = vault(t);
   const original = handClip(text('Hand')).replace('tags:', 'quality: high\nquality:\ntags:');
