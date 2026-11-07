@@ -16,7 +16,7 @@ cliGuard(import.meta.url);
 // under raw/clippings, compared after normalizing the URL), so a URL this command calls new is one the clipper would
 // not call a duplicate. Every mode only reads: no file, folder or log row is created.
 //
-//   (no option)               the known source URLs, normalized, one per line
+//   (no option)               the known URLs (sources and twin-url: values), normalized, one per line
 //   --count                   how many there are
 //   --check <url>...          one line per URL, in the order given: new | clipped raw/clippings/<name>.md [(+N recapture)] | declined: <reason>
 //   --summary --topic <T>     what the topic holds: pages, quality tiers, open triage rows by kind
