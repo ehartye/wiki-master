@@ -166,3 +166,59 @@ test('a write that loses the race to a clip of the same address is a duplicate a
   assert.ok(r.out.includes('list: 2 URLs: clipped 1, duplicate 1'), r.out.join('\n'));
   assert.deepEqual(r.sleeps, [1000]);
 });
+
+// Offline, a render through npx with an empty cache took about 71 seconds a URL, and a list repeated that for every thin page. Once
+// a render says the package could not be fetched, the rest of that run does not ask again. A missing browser is quick, and a timeout
+// is about one page: neither turns renders off.
+const SHELL = { title: 'Stub', contentMarkdown: 'Back to top' };
+const NO_PACKAGE = { ok: false, kind: 'failed', unavailable: true, missing: 'playwright-core', reason: 'render did not finish through npx: npm error code ENOTFOUND' };
+const SKIP_LINE = /renders? .*skipp/i;
+const rowsOf = (v) => v.state('triage.jsonl').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.t === 'issue');
+
+test('once a render cannot fetch its package, later thin pages in the run do not render, and are queued and not declined', (t) => {
+  const v = setup(t, ['https://a.example.test/one', 'https://b.example.test/two', 'https://c.example.test/three']);
+  let renders = 0;
+  const r = run(['--list', v.listFile], { extract: () => SHELL, render: () => { renders++; return NO_PACKAGE; } });
+  assert.equal(renders, 1, 'only the first thin page asks the browser');
+  assert.ok(r.out.includes('list: 3 URLs: thin 3'), r.out.join('\n'));
+  assert.equal(r.exitCode, 0);
+  assert.equal(v.state('declined.json'), '');
+  const rows = rowsOf(v);
+  assert.deepEqual(rows.map((row) => [row.url, row.kind]), [['https://a.example.test/one', 'thin'], ['https://b.example.test/two', 'thin'], ['https://c.example.test/three', 'thin']]);
+  assert.equal(new Set(rows.map((row) => row.reason)).size, 1, 'every row carries the same reason');
+  assert.equal(r.err.filter((line) => SKIP_LINE.test(line)).length, 1, `one line about skipping: ${r.err.join('\n')}`);
+});
+
+test('a page whose static read failed is queued as failed, not rendered, once renders are skipped', (t) => {
+  const v = setup(t, ['https://a.example.test/one', 'https://b.example.test/two']);
+  let renders = 0;
+  const r = run(['--list', v.listFile], { extract: () => { throw new Error('403'); }, render: () => { renders++; return NO_PACKAGE; } });
+  assert.equal(renders, 1);
+  assert.ok(r.out.includes('list: 2 URLs: failed 2'), r.out.join('\n'));
+  assert.equal(v.state('declined.json'), '');
+  assert.deepEqual(rowsOf(v).map((row) => row.kind), ['failed', 'failed']);
+  assert.equal(r.err.filter((line) => SKIP_LINE.test(line)).length, 1);
+});
+
+test('a render that timed out, or found no browser, does not turn renders off', (t) => {
+  for (const answer of [
+    { ok: false, kind: 'failed', reason: 'render failed: page.goto: Timeout 45000ms exceeded' },
+    { ok: false, kind: 'failed', unavailable: true, missing: 'browser', reason: 'No Chromium-based browser found.' },
+  ]) {
+    const v = setup(t, ['https://a.example.test/one', 'https://b.example.test/two']);
+    let renders = 0;
+    const r = run(['--list', v.listFile], { extract: () => SHELL, render: () => { renders++; return answer; } });
+    assert.equal(renders, 2, answer.reason);
+    assert.ok(!r.err.some((line) => SKIP_LINE.test(line)), r.err.join('\n'));
+  }
+});
+
+test('renders are skipped for the rest of one run only', (t) => {
+  const v = setup(t, ['https://a.example.test/one', 'https://b.example.test/two']);
+  let renders = 0;
+  const render = () => { renders++; return NO_PACKAGE; };
+  run(['--list', v.listFile], { extract: () => SHELL, render });
+  assert.equal(renders, 1);
+  run(['--list', v.listFile], { extract: () => SHELL, render });
+  assert.equal(renders, 2, 'the next run asks again');
+});

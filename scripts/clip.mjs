@@ -478,10 +478,14 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
     const firstLine = String(e.message || e).split('\n')[0];
     // npm ends with a pointer to its log file, so its first error line is the one that names the cause.
     const npmError = String(e.stderr || '').split(/\r?\n/).find((line) => line.startsWith('npm error'));
+    const unavailable = payload ? payload.unavailable === true : throughNpx;
+    // Which part is missing, as render-page.mjs names it. An npx that died without a line of ours could not fetch the package.
+    const missing = unavailable ? (payload ? payload.missing : 'playwright-core') : undefined;
     return {
       ok: false,
       kind: 'failed',
-      unavailable: payload ? payload.unavailable === true : throughNpx,
+      unavailable,
+      ...(missing && { missing }),
       reason: redactReasonText(payload?.error || (throughNpx ? `render did not finish through npx: ${npmError || firstLine}` : `render failed: ${firstLine}`)),
     };
   }
@@ -628,10 +632,28 @@ function readList(argv) {
   try { return { file, text: readFileSync(file, 'utf8') }; } catch (e) { return { error: `--list: cannot read ${file}: ${e.code ?? e.message}` }; }
 }
 
+// A render that comes back unavailable because the package could not be fetched (an npx that cannot reach the registry took about
+// 71 seconds a URL offline) is not asked again for the rest of the run: every later render answers with the same result, and one line
+// says so. A missing browser is quick and a timeout is about one page, so neither counts. The state is this run's and no more.
+function skippingRenders(render) {
+  let fetchFailed = null;
+  let said = false;
+  return (url, options) => {
+    if (!fetchFailed) {
+      const r = render(url, options);
+      if (r?.unavailable === true && r.missing === 'playwright-core') fetchFailed = r;
+      return r;
+    }
+    if (!said) { said = true; console.error('renders are being skipped for the rest of this run: the render package could not be fetched (pages are queued, not declined)'); }
+    return { ...fetchFailed };
+  };
+}
+
 // `clip.mjs --list <file> [options]`: each address of the file, in order and one at a time, clipped as `clip.mjs <url> [options]` would
 // be. Only a missing extraction runtime ends the run early (exit 1), because it affects every address; every other outcome, a bad line
 // among them, is counted and the run goes on.
-function runList(argv, deps, { text }) {
+function runList(argv, rootDeps, { text }) {
+  const deps = { ...rootDeps, render: skippingRenders(rootDeps.render) };
   const lines = (text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text).split(/\r?\n/).map((line, i) => ({ n: i + 1, line: line.trim() })).filter(({ line }) => line && !line.startsWith('#'));
   const counts = new Map();
   const outcomes = [];

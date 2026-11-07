@@ -241,3 +241,14 @@ test('a thin verdict is NOT declined when the render rung never ran', () => {
   // TTL means they would not find out until long after they fixed the setup.
   assert.equal(shouldDeclineThin({ renderRan: false }), false);
 });
+
+test('an unavailable render says which part is missing: a package that could not be fetched, or a browser', () => {
+  const offline = (cmd) => {
+    throw cmd.startsWith('npx ') ? renderFailure(1, 'npm error code ENOTFOUND\n') : renderFailure(3, NO_PACKAGE);
+  };
+  assert.equal(renderAttempt('https://ampcode.com', { run: offline }).missing, 'playwright-core');
+  const noBrowser = () => { throw renderFailure(3, JSON.stringify({ unavailable: true, missing: 'browser', error: 'No Chromium-based browser found.' })); };
+  assert.equal(renderAttempt('https://ampcode.com', { run: noBrowser }).missing, 'browser');
+  const timeout = () => { throw renderFailure(1, JSON.stringify({ unavailable: false, error: 'Timeout 45000ms exceeded' })); };
+  assert.equal(renderAttempt('https://ampcode.com', { run: timeout }).missing, undefined);
+});
