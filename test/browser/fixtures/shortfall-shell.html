@@ -1,0 +1,11 @@
+<!doctype html><html><head><title>Sample guide</title></head><body><main id="app"></main><script>
+// The article exists only after the script runs, inside a span whose custom element holds a paragraph with a lazy image:
+// the structure that makes Defuddle keep a few words of a page the browser shows in full.
+const vocabulary = 'river lantern copper meadow signal harbor ledger orchard window thread granite compass velvet anchor marble quiet ember pillar canvas drift summit hollow beacon cobalt thimble current fable'.split(' ');
+const prose = (count, seed) => Array.from({ length: count }, (_, i) => vocabulary[(i * 7 + seed) % vocabulary.length] + (i % 12 === 11 || i === count - 1 ? '.' : '')).join(' ');
+document.getElementById('app').innerHTML = '<h1>Sample guide</h1>'
+  + '<span class="router-outlet-wrapper"><custom-element>'
+  + '<p><img loading="lazy" alt="" src="/lazy-image.png">' + prose(30, 0) + '</p>'
+  + Array.from({ length: 34 }, (_, i) => '<p>' + prose(60, i + 1) + '</p>').join('')
+  + '</custom-element></span>';
+</script></body></html>
