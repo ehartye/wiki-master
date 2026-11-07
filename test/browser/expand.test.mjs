@@ -132,3 +132,15 @@ test('the time limit ends expansion, reported the same way', { skip: laneSkip },
   assert.ok(expansion.tabs > 0 && expansion.tabs < 200, JSON.stringify(expansion));
   assert.ok(Date.now() - started < 30000);
 });
+
+test('a time limit that ends the wait for the last panel is reported as truncated', { skip: laneSkip }, async (t) => {
+  const server = await serve(t);
+  const { expansion } = await renderPage(server.url('/expand-stalled.html'), { expand: true, expandLimits: { maxMs: 300 } });
+  assert.deepEqual(expansion, { tabs: 1, panels: 0, details: 0, truncated: true });
+});
+
+test('a panel that stays empty without reaching a limit is not reported as truncated', { skip: laneSkip }, async (t) => {
+  const server = await serve(t);
+  const { expansion } = await renderPage(server.url('/expand-stalled.html'), { expand: true });
+  assert.deepEqual(expansion, { tabs: 1, panels: 0, details: 0, truncated: false });
+});

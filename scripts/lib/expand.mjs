@@ -153,7 +153,9 @@ export async function expandInPage({ rules, maxClicks, maxMs, quietMs, settleMs 
     observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true });
     const check = () => {
       const now = Date.now();
-      if ((now - changed >= quietMs && ready()) || now - started >= settleMs || now >= deadline) { observer.disconnect(); resolve(); } else setTimeout(check, 10);
+      const done = (now - changed >= quietMs && ready()) || now - started >= settleMs;
+      // Out of time while waiting is a limit hit even when no click follows to notice it.
+      if (done || now >= deadline) { if (!done) counts.truncated = true; observer.disconnect(); resolve(); } else setTimeout(check, 10);
     };
     setTimeout(check, 10);
   });
