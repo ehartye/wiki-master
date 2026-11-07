@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { main, classifyShortExtraction } from '../scripts/clip.mjs';
 import { openIssues, loadIssueLog } from '../scripts/lib/triage.mjs';
 
@@ -14,15 +13,8 @@ import { openIssues, loadIssueLog } from '../scripts/lib/triage.mjs';
 const URL_A = 'https://docs.example.test/app/page';
 const SHELL = 'Please enable JavaScript to view this page.';
 const SHELL_REASON = 'thin content (SPA/paywall shell)';
-const probeOf = (url, tail = '') => {
-  const u = new URL(url);
-  const parts = u.pathname.split('/');
-  const trailing = parts.length > 2 && parts.at(-1) === '';
-  if (trailing) parts.pop();
-  parts[parts.length - 1] = `wiki-master-probe-${createHash('sha256').update(url).digest('hex').slice(0, 8)}`;
-  if (trailing) parts.push('');
-  return `${u.origin}${parts.join('/')}${tail}`;
-};
+// The made-up address for URL_A, written out: the page address hashed, the last path segment replaced.
+const PROBE_A = 'https://docs.example.test/app/wiki-master-probe-4dd12d56';
 const read = (markdown) => ({ ok: true, data: { title: 'App page', contentMarkdown: markdown } });
 const article = () => read('The rendered article explains the page in plain words. '.repeat(30));
 const thinPage = () => ({ title: 'App page', contentMarkdown: SHELL });
@@ -58,7 +50,7 @@ test('a thin page that reads the same as a made-up address is queued as an unver
   const v = vault(t);
   const { result, lines, calls } = clip(thinPage, shellEverywhere());
   assert.equal(result.status, 'thin');
-  assert.deepEqual(calls, [URL_A, probeOf(URL_A)]);
+  assert.deepEqual(calls, [URL_A, PROBE_A]);
   assert.deepEqual(v.declines(), []);
   const rows = v.rows();
   assert.equal(rows.length, 1);
@@ -75,7 +67,7 @@ test('the same holds when the fetch failed and the browser read a thin page', (t
   const v = vault(t);
   const { result, calls } = clip(() => { throw new Error('fetch failed'); }, shellEverywhere());
   assert.equal(result.status, 'thin');
-  assert.deepEqual(calls, [URL_A, probeOf(URL_A)]);
+  assert.deepEqual(calls, [URL_A, PROBE_A]);
   assert.deepEqual(v.declines(), []);
   assert.ok(v.rows()[0].reason.startsWith('unverified URL:'));
 });
@@ -117,11 +109,16 @@ test('no made-up address is rendered for a wrong-node verdict, for a browser tha
   assert.equal(clips.calls.length, 1);
 });
 
-test('the made-up address keeps the page\'s origin and directory, drops the query and fragment, and is named by the page address', (t) => {
+test('the made-up address keeps the origin and directory of the page, drops the query and fragment, and is named by the page address', (t) => {
   const v = vault(t);
-  for (const url of ['https://docs.example.test/app/page?tab=2#top', 'https://docs.example.test/app/page/', 'https://docs.example.test/', 'https://docs.example.test:8443/a/b/c.html']) {
+  for (const [url, probe] of [
+    ['https://docs.example.test/app/page?tab=2#top', 'https://docs.example.test/app/wiki-master-probe-dd895a47'],
+    ['https://docs.example.test/app/page/', 'https://docs.example.test/app/wiki-master-probe-a252f93f/'],
+    ['https://docs.example.test/', 'https://docs.example.test/wiki-master-probe-9a40c0aa'],
+    ['https://docs.example.test:8443/a/b/c.html', 'https://docs.example.test:8443/a/b/wiki-master-probe-e63fdb5c'],
+  ]) {
     v.reset();
     const { calls } = clip(thinPage, () => read(SHELL), url);
-    assert.deepEqual(calls, [url, probeOf(url)], url);
+    assert.deepEqual(calls, [url, probe], url);
   }
 });
