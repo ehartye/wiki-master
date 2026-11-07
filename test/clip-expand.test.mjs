@@ -1,12 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { main, renderAttempt } from '../scripts/clip.mjs';
 import { checkClipArgs, CLIP_SPECS } from '../scripts/lib/clip-args.mjs';
 import { markdownCounts } from '../scripts/lib/expand.mjs';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
+import { runReclips } from '../scripts/lib/reclip.mjs';
+import { disposeIssue } from '../scripts/lib/triage.mjs';
+
+const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 
 // What --expand does around the browser. The render is injected: test/browser/expand.test.mjs owns the browser itself.
 
@@ -181,4 +187,37 @@ test('markdownCounts reads tables and fenced code, and takes neither from inside
     '---', '', 'Above is a rule.',
   ].join('\n');
   assert.deepEqual(markdownCounts(markdown), { tables: 3, code: 3 });
+});
+
+// ---------------------------------------------------------------- the repair tools leave an expanded clip alone
+const EXPANDED_BODY = Array.from({ length: 30 }, (_, i) => `Panel ${i} lists the plan details a reader compares before choosing one.`).join('\n\n');
+const expanded = (coverageLine) => `---\ntitle: "Pricing"\nsource: "${URL_A}"\ncreated: 2026-11-01\ntags: [clippings]\nquality: medium\nextraction: rendered\nfidelity: partial\nfidelity-checks: 4\n${coverageLine ? 'expand-coverage: "tabs=4 panels=4 details=0 tables=4 code=0 truncated=true"\n' : ''}source-hash: ${'a'.repeat(64)}\n---\n\n${EXPANDED_BODY}\n`;
+
+for (const coverageLine of [false, true]) {
+  test(`${coverageLine ? '' : 'control: '}a re-clip ${coverageLine ? 'refuses' : 'plans'} a requested page ${coverageLine ? 'with' : 'without'} expand-coverage`, async (t) => {
+    const v = vault(t);
+    const file = join(v.root, 'raw', 'clippings', 'Pricing.md');
+    writeFileSync(file, expanded(coverageLine));
+    disposeIssue(v.root, { url: URL_A, kind: 'fidelity', disposition: 'reclip' });
+    const readPage = () => assert.fail('nothing is read for an expanded clipping');
+    const report = await runReclips({ vaultPath: v.root, readPage });
+    if (!coverageLine) { assert.deepEqual(report.results.map((r) => r.status), ['planned']); return; }
+    assert.equal(report.selected, 0);
+    assert.equal(report.refused.length, 1);
+    assert.match(report.refused[0].reason, /--recapture --expand/);
+    const applied = await runReclips({ vaultPath: v.root, apply: true, readPage, obtain: readPage });
+    assert.equal(applied.reclipped, 0);
+    assert.equal(readFileSync(file, 'utf8'), expanded(true));
+  });
+}
+
+test('refresh-fidelity --apply keeps an expanded clip partial, and still clears a plain one', (t) => {
+  const v = vault(t);
+  const kept = join(v.root, 'raw', 'clippings', 'Pricing.md'), cleared = join(v.root, 'raw', 'clippings', 'Plain.md');
+  writeFileSync(kept, expanded(true));
+  writeFileSync(cleared, expanded(false).replace('title: "Pricing"', 'title: "Plain"'));
+  const r = spawnSync(process.execPath, [join(SCRIPTS, 'refresh-fidelity.mjs'), '--apply'], { env: { ...process.env, WIKI_MASTER_VAULT: v.root }, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readFileSync(kept, 'utf8'), expanded(true));
+  assert.doesNotMatch(readFileSync(cleared, 'utf8'), /^fidelity:/m);
 });

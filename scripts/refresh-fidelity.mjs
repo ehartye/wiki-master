@@ -31,9 +31,11 @@ cliGuard(import.meta.url);
 // characters says "healthy" and would delete the only record that nobody verified them.
 const EXTRACTION_DERIVED = new Set(['table-aware', 'table-flattened', 'ocr']);
 
+// An expanded clip's `partial` compares its text with the page it was read from, which the stored text no longer shows.
 export function fidelityIsExtractionDerived(frontmatter) {
-  const line = String(frontmatter).split('\n').map((l) => l.trim())
-    .find((l) => l.startsWith('extraction:'));
+  const lines = String(frontmatter).split('\n').map((l) => l.trim());
+  if (lines.some((l) => l.startsWith('expand-coverage:'))) return true;
+  const line = lines.find((l) => l.startsWith('extraction:'));
   if (!line) return false;
   return EXTRACTION_DERIVED.has(line.slice('extraction:'.length).trim().split('"').join(''));
 }
