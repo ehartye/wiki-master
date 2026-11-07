@@ -450,11 +450,12 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
     // line of ours, and that says nothing about the page either.
     const payload = lastJsonObject(e.stderr);
     const firstLine = String(e.message || e).split('\n')[0];
+    const lastStderrLine = String(e.stderr || '').trim().split(/\r?\n/).at(-1);
     return {
       ok: false,
       kind: 'failed',
       unavailable: payload ? payload.unavailable === true : throughNpx,
-      reason: payload?.error || (throughNpx ? `playwright-core could not be fetched through npx: ${firstLine}` : `render failed: ${firstLine}`),
+      reason: payload?.error || (throughNpx ? `render did not finish through npx: ${lastStderrLine || firstLine}` : `render failed: ${firstLine}`),
     };
   }
 

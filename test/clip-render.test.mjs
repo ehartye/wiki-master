@@ -149,7 +149,7 @@ test('an error-page path only condemns a page that actually moved there', () => 
 // ---------------------------------------------------------------------------
 // Locating playwright-core, and looking for a browser before it
 // ---------------------------------------------------------------------------
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -235,7 +235,8 @@ test('render-page exits 3 and names a missing browser', () => {
 
 test('render-page exits 3 and names a missing package, from a copy outside any node_modules', () => {
   // process.execPath only has to exist here: the package is looked for before anything is launched.
-  const root = mkdtempSync(join(tmpdir(), 'wm-render-copy-'));
+  // realpath: macOS's temp folder sits behind a symlink, and the script's main guard wouldn't fire through one.
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-render-copy-'));
   try {
     cpSync(SCRIPTS, join(root, 'scripts'), { recursive: true });
     const r = spawnSync(process.execPath, [join(root, 'scripts', 'render-page.mjs'), 'https://example.test/', join(root, 'x.html')], {

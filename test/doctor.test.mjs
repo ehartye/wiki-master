@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, realpathSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -139,7 +139,8 @@ test('the browser has its own row whatever the package route is', async () => {
 test('the real command, from a copy outside any node_modules: it finds npx on PATH and starts nothing there', () => {
   // The stand-in records being run, so a doctor that started npx, as a bare `--yes` probe would, fails here. A path
   // with no extension is what realWhich tries first, on every platform.
-  const root = mkdtempSync(join(tmpdir(), 'wm-doctor-copy-'));
+  // realpath: macOS's temp folder sits behind a symlink, and the script's main guard wouldn't fire through one.
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-doctor-copy-'));
   try {
     cpSync(dirname(SCRIPT), join(root, 'scripts'), { recursive: true });
     const bin = join(root, 'bin');

@@ -145,7 +145,8 @@ test('an npx that fails without a JSON line, such as offline, reports unavailabl
   const out = renderAttempt('https://ampcode.com', { run });
   assert.equal(out.ok, false);
   assert.equal(out.unavailable, true);
-  assert.match(out.reason, /npx/);
+  assert.match(out.reason, /did not finish through npx/);
+  assert.match(out.reason, /registry\.npmjs\.org failed/, 'the reason carries what npm said');
 });
 
 test('a local render that dies without a JSON line is that attempt failing, not a setup problem', () => {
