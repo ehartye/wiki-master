@@ -6,9 +6,9 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSyn
 import { hostname, tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { main } from '../scripts/clip.mjs';
+import { main, duplicateResult } from '../scripts/clip.mjs';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
-import { ledgerFileProblem } from '../scripts/lib/clip-ledger.mjs';
+import { ledgerFileProblem, ledgerRow } from '../scripts/lib/clip-ledger.mjs';
 
 // `--ledger <file>` appends one JSON line per address, with the same sixteen fields for every outcome `clip.mjs` can end in.
 // Fetching, extraction and the browser are injected.
@@ -142,10 +142,35 @@ test('clash: a --slug already taken', (t) => {
   assert.match(r.reason, /already exists/);
 });
 
-test('duplicate: the address is already clipped', (t) => {
+test('duplicate: the address is already clipped, and the row names the clipping that holds it', (t) => {
+  const v = setup(t);
+  seed(v, 'Held', PAGE, 'topic: "Docs"\nextraction: ocr\n');
+  const { row: r, result } = row(v, PAGE, []);
+  expectRow(r, { url: PAGE, status: 'duplicate', path: 'raw/clippings/Held.md', quality: 'medium', sourceHash: sha256('Held'), topic: 'Docs', extraction: 'ocr' });
+  assert.equal(result.existing, 'Held');
+});
+
+test('duplicate found through a twin: the row names the clipping that holds the twin', (t) => {
+  const v = setup(t);
+  const twin = `${PAGE}.md.txt`;
+  seed(v, 'Held twin', twin);
+  const { row: r } = row(v, PAGE, [], { extract: () => { throw new Error('fetch failed'); }, fetchTwin: (url) => (url === twin ? { ok: true, type: 'text/markdown', text: `# Setup\n\n${words(150)}\n`, finalUrl: url } : NO_TWIN()) });
+  expectRow(r, { url: PAGE, status: 'duplicate', path: 'raw/clippings/Held twin.md', quality: 'medium', sourceHash: sha256('Held twin') });
+});
+
+test('duplicate of a page recaptured since: the row names the newest capture', (t) => {
   const v = setup(t);
   seed(v, 'Held', PAGE);
-  expectRow(row(v, PAGE, []).row, { url: PAGE, status: 'duplicate' });
+  writeFileSync(join(v.clippings, 'Held (recaptured 2026-02-01).md'), readFileSync(join(v.clippings, 'Held.md'), 'utf8').replace('created: 2026-01-01', 'created: 2026-02-01').replace('quality: medium', 'quality: high'));
+  const { row: r } = row(v, PAGE, []);
+  assert.equal(r.path, 'raw/clippings/Held (recaptured 2026-02-01).md');
+  assert.equal(r.quality, 'high');
+});
+
+test('duplicate whose clipping cannot be found (a race): the row is still written, with nulls', () => {
+  const result = duplicateResult(null);
+  assert.equal(result.status, 'duplicate');
+  expectRow(ledgerRow({ url: PAGE, ...result }), { url: PAGE, status: 'duplicate' });
 });
 
 test('blocked: an unreliable domain', (t) => {

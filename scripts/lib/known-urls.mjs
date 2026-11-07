@@ -32,7 +32,7 @@ const scalar = (block, name) => {
 };
 
 // Every top-level clipping that has a `source:` line, in directory order:
-// { file, name, url, created, sourceHash, recaptureOf, twinUrl, fidelity } with null for a field the clipping does not carry.
+// { file, name, url, created, sourceHash, recaptureOf, twinUrl, fidelity, quality, topic, extraction } with null for a field the clipping does not carry.
 // `source` is found as it always was, the first `source:` line of the file, so a clipping the clippers could read
 // before is still read.
 export function readClippings(vaultPath) {
@@ -55,6 +55,9 @@ export function readClippings(vaultPath) {
       recaptureOf: scalar(block, 'recapture-of'),
       twinUrl: scalar(block, 'twin-url'),
       fidelity: scalar(block, 'fidelity'),
+      quality: scalar(block, 'quality'),
+      topic: scalar(block, 'topic'),
+      extraction: scalar(block, 'extraction'),
     });
   }
   return out;

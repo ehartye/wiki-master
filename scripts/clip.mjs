@@ -11,7 +11,7 @@ import { classifyRenderOutcome } from './lib/render.mjs';
 import { coverageWarnings, formatCoverage } from './lib/expand.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { knownSourceUrls, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
+import { knownSourceUrls, knownUrlIndex, urlKey, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
@@ -242,6 +242,17 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
 
 // Existing clipping source: URLs, for dedup. The reading lives in lib/known-urls.mjs, shared with the known-URL commands.
 export { knownSourceUrls };
+
+// The result of a duplicate (decision 14): the address is already clipped, so the ledger row carries the clipping that holds
+// it instead of nulls, for the next step to read. `held` is a known-URL index entry (lib/known-urls.mjs), the newest capture
+// when a page was recaptured; a clipping that is gone by now (a race) leaves the row with nulls.
+export function duplicateResult(held) {
+  if (!held) return { status: 'duplicate' };
+  return { status: 'duplicate', existing: held.name, path: `raw/clippings/${held.file}`, quality: held.quality, sourceHash: held.sourceHash, topic: held.topic, extraction: held.extraction };
+}
+// The clipping that holds an address, or null: one reading of the vault serves the duplicate check and the row. A twin
+// the clipping was stored from counts as its address (the index holds both).
+const heldClipping = (vaultPath, address) => newestCapture(knownUrlIndex(vaultPath).get(urlKey(address)) ?? []);
 
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
@@ -732,13 +743,14 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   // capture beside the first, or not written at all when the text has not changed. Only the flag skips the duplicate check.
   const recapture = argv.includes('--recapture');
   const capturesNow = () => (recapture ? clippingsForUrl(vaultPath, url) : []);
-  if (!recapture && isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+  const alreadyHeld = recapture ? null : heldClipping(vaultPath, url);
+  if (alreadyHeld) {
     // A url already in the vault closes any row that says it could not be
     // fetched — that row is describing a source sitting on disk. This is the
     // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
     // queue fills with entries nobody can action.
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
-    console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate', requested: false };
+    console.log(`duplicate (already clipped): ${url}`); return { ...duplicateResult(alreadyHeld), requested: false };
   }
   if (recapture && capturesNow().length === 0) console.log(`recapture: not clipped yet, clipping it normally: ${url}`);
 
@@ -800,10 +812,11 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     if (manual || expand || plain || looksLikePlainTextUrl(url) || looksLikePdfUrl(url)) return null;
     const found = findTwin({ url, signals: pageData?.pageSignals, fetchTwin: probeTwin });
     if (!found.ok) return null;
-    if (!recapture && isDuplicateUrl(found.url, knownSourceUrls(vaultPath))) {
+    const heldTwin = recapture ? null : heldClipping(vaultPath, found.url);
+    if (heldTwin) {
       closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
       console.log(`duplicate (already clipped): ${found.url} (the plain-text twin of ${url})`);
-      return { result: { status: 'duplicate' } };
+      return { result: duplicateResult(heldTwin) };
     }
     twinUrl = found.url;
     return { data: { ...(pageData?.author && { author: pageData.author }), ...(pageData?.published && { published: pageData.published }), ...twinPage({ twin: found, pageTitle: pageData?.title, name: plainTextPage(url, '').title }) } };
@@ -1049,6 +1062,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   };
   let slug = null;
   let clashWith = null;
+  let lostTo = null;
   for (let lost = 0; ;) {
     const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title: build(1).title, heading, url, exists });
     if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
@@ -1059,9 +1073,9 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
       // The winner may be a capture of this very text: then there is nothing new to write.
       const winner = sameText();
       if (winner) return unchanged(winner);
-    } else if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+    } else if ((lostTo = heldClipping(vaultPath, url))) {
       closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
-      console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
+      console.log(`duplicate (already clipped): ${url}`); return duplicateResult(lostTo);
     }
     if (++lost >= MAX_WRITE_ATTEMPTS) { clashWith = names.get(pick.slug.toLowerCase()) ?? pick.slug; break; }
   }
