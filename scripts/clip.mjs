@@ -493,6 +493,10 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
   }
 }
 
+// landingDocument over the page's PDF links without any that carries a username or password: an extractor that was handed one
+// (a test, a browser route) must not turn it into the landing row's address.
+const landingOf = (signals, words) => landingDocument(signals && { ...signals, pdfLinks: (signals.pdfLinks ?? []).filter((link) => !urlCarriesCredentials(link)) }, words);
+
 // An address on the page's own site that no page should answer: its origin and directory, the last path segment replaced by a name
 // taken from the page's address, and no query.
 export function probeUrl(url) {
@@ -757,7 +761,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const isPlain = () => extraction === 'plaintext' || extraction === 'plaintext-twin';
   // A short page whose substance is one PDF link is written as what it is, before the thin path can decline it. A page read by
   // --expand is not checked: the owner asked for its tabs, not for a verdict on what it links to.
-  let landing = expand ? null : landingDocument(data.pageSignals, wordCount(md));
+  let landing = expand ? null : landingOf(data.pageSignals, wordCount(md));
   if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     const twin = twinFor(data);
     if (twin?.result) return twin.result;
@@ -767,7 +771,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     renderResult = render(url);
     const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
     if (renderResult.ok) renderedMd = rendered;
-    const renderedLanding = renderResult.ok ? landingDocument(renderResult.data.pageSignals, wordCount(rendered)) : null;
+    const renderedLanding = renderResult.ok ? landingOf(renderResult.data.pageSignals, wordCount(rendered)) : null;
     if (wordCount(rendered) >= THIN_WORD_FLOOR || renderedLanding) {
       data = renderResult.data;
       md = rendered;

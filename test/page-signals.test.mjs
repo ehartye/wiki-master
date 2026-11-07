@@ -129,3 +129,12 @@ test('pageSignals reach the clip through the bot retry HTML branch', async () =>
   assert.match(data.contentMarkdown, /plain words/);
   assert.deepEqual(data.pageSignals, SIGNALS);
 });
+
+test('a PDF link that carries a username or password is not a candidate', async () => {
+  const { pdfLinks } = await signalsOf(`<main>${PROSE}
+    <a href="https://reader:secretpw1@files.example.test/private.pdf">Private</a>
+    <a href="https://tok3n2@files.example.test/token.pdf">Token</a>
+    <a href="https://:secretpw3@files.example.test/pass.pdf">Password</a>
+    <a href="/public.pdf">Public</a></main>`);
+  assert.deepEqual(pdfLinks, ['https://docs.example.test/public.pdf']);
+});

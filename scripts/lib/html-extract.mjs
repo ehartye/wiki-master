@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, delimiter, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tabDomRules } from './expand.mjs';
+import { urlCarriesCredentials } from './url-safety.mjs';
 
 // What to tell whoever hit the missing runtime. A development checkout (it has a .git entry; an installed plugin copy
 // does not) holds its dependencies only after `npm ci`, which the message used to leave out, so a fresh worktree's
@@ -239,7 +240,8 @@ function pageSignals(document, url) {
   for (const link of [...region.querySelectorAll('a[href]')].filter(outsideChrome)) {
     const target = absolute(link);
     if (!target) continue;
-    if (/\.pdf$/i.test(target.pathname)) pdfLinks.add(target.href);
+    // A link with a username or password would become the landing row's address, which syncs; it is no candidate.
+    if (/\.pdf$/i.test(target.pathname) && !urlCarriesCredentials(target.href)) pdfLinks.add(target.href);
     const label = link.textContent.replace(/\s+/g, ' ').trim();
     if (/^view (page in|as) markdown$/i.test(label) || link.getAttribute('type')?.toLowerCase() === 'text/markdown') markdownLinks.add(target.href);
   }

@@ -152,3 +152,33 @@ test('clip-pdf.mjs closes the landing row when it clips the document, and when t
   assert.equal(again.result.status, 'duplicate');
   assert.equal(v.open(), 0, 'a duplicate closes it too');
 });
+
+// ---------------------------------------------------------------- a credentialed link is no landing document
+const SECRET_PDF = 'https://reader:secretpw1@files.example.test/private.pdf';
+const vaultText = (v) => [...v.names().map((n) => v.clipping(n.replace(/\.md$/, ''))), JSON.stringify(v.rows()), JSON.stringify(v.declines())].join('\n');
+
+test('a page whose only PDF link carries a username or password is an ordinary clipping: no label, no row, no credential anywhere', (t) => {
+  const v = vault(t);
+  const { result, lines } = clip([PAGE], page(150, SECRET_PDF));
+  assert.equal(result.status, 'clipped');
+  assert.equal(result.landing, undefined);
+  assert.doesNotMatch(v.clipping(result.slug), /landing-page|document-link/);
+  assert.deepEqual(v.rows(), []);
+  assert.ok(!(lines.join('\n') + vaultText(v)).includes('secretpw1'), 'the credential reached an output or the vault');
+});
+
+test('the credentialed link is dropped before the PDF links are counted, so one clean link is still the landing document', (t) => {
+  const v = vault(t);
+  const { result, lines } = clip([PAGE], page(150, SECRET_PDF, PDF));
+  assert.equal(result.documentLink, PDF);
+  assert.deepEqual(v.rows().map((r) => r.url), [PDF]);
+  assert.ok(!(lines.join('\n') + vaultText(v)).includes('secretpw1'));
+});
+
+test('the same holds for a landing page the browser reads', (t) => {
+  const v = vault(t);
+  const render = () => ({ ok: true, data: { title: 'Guide', contentMarkdown: words(20), pageSignals: signals(SECRET_PDF) } });
+  const { lines } = clip([PAGE], () => ({ title: 'Guide', contentMarkdown: 'Back to top' }), render);
+  assert.deepEqual(v.rows().filter((r) => r.kind === 'attention'), []);
+  assert.ok(!(lines.join('\n') + vaultText(v)).includes('secretpw1'));
+});
