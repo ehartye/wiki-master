@@ -724,10 +724,17 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.
   const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
+  // A tab this HTML shows no panel for. The extractor keeps every panel that is there, so only --expand can read these.
+  const unopened = data.pageSignals?.tabControls ?? 0;
+  const noteUnopened = (result) => {
+    if (unopened === 0) return result;
+    console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
+    return { ...result, unexpandedTabs: unopened };
+  };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
-    return { status: 'unchanged', existing: twin.name };
+    return noteUnopened({ status: 'unchanged', existing: twin.name });
   };
   const twin = sameText();
   if (twin) return unchanged(twin);
@@ -805,7 +812,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
   gate.finish();
-  return { status: 'clipped', slug, file };
+  return noteUnopened({ status: 'clipped', slug, file });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

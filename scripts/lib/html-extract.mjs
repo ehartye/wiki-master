@@ -261,6 +261,49 @@ function pageSignals(document, url) {
   return { tabControls, pdfLinks: [...pdfLinks], markdownLinks: [...markdownLinks] };
 }
 
+// Tab panels the HTML holds become plain sections, because Defuddle drops a hidden panel and everything in a wrapper it
+// takes for tab chrome. In place, not through innerHTML: a panel can hold another group, and nodes stay valid when moved.
+function flattenTabPanels(document, root) {
+  const { tabGroups, panelOfTab, isEmptyPanel, labelOfTab, panelKey, labelLevel, sectionFromPanel, applyWrapperRule } = tabDomRules();
+  const groups = tabGroups(root);
+  const groupOfPanel = new Map(groups.flatMap((group) => group.panels.map((panel) => [panel, group])));
+  const tabOfPanel = new Map();
+  for (const group of groups) {
+    const parent = group.tablist.parentElement?.closest('[role="tabpanel"]');
+    group.level = labelLevel(group.tablist, root, parent ? groupOfPanel.get(parent)?.level : 0);
+    for (const tab of group.tabs) {
+      const { panel } = panelOfTab(tab, document, group);
+      if (panel?.getAttribute('role') !== 'tabpanel') continue;
+      groupOfPanel.set(panel, group);
+      // Several tabs can share one panel, which then shows the selected tab.
+      if (!tabOfPanel.has(panel) || tab.getAttribute('aria-selected') === 'true') tabOfPanel.set(panel, tab);
+    }
+  }
+  const panels = [...root.querySelectorAll('[role="tabpanel"]')];
+  const seen = new Map();
+  const repeats = new Set(panels.filter((panel) => {
+    const group = groupOfPanel.get(panel);
+    if (!group || isEmptyPanel(panel)) return false;
+    const keys = seen.get(group) ?? seen.set(group, new Set()).get(group);
+    const key = panelKey(panel);
+    return keys.has(key) || !keys.add(key);
+  }));
+  const sections = [];
+  // Innermost first, and an outer panel is only judged empty once its inner panels have been.
+  for (const panel of panels.reverse()) {
+    if (repeats.has(panel) || isEmptyPanel(panel)) { panel.remove(); continue; }
+    const tab = tabOfPanel.get(panel);
+    const section = sectionFromPanel(document, panel, tab && labelOfTab(tab), groupOfPanel.get(panel)?.level);
+    panel.replaceWith(section);
+    sections.push(section);
+  }
+  for (const section of sections) applyWrapperRule(section, root);
+  // A list of tabs linked to nothing may be real page links, so it is left alone.
+  for (const { tablist, tabs, panels: held } of groups) {
+    if (held.length || tabs.some((tab) => tab.getAttribute('aria-controls'))) tablist.remove();
+  }
+}
+
 // The warnings only (site chrome the extractor removed on purpose is left out); the detailed form also
 // returns what was ignored and why, so nothing is dropped without a record.
 export function assessFidelity(html, markdown, title = '', url = '') {
@@ -269,6 +312,7 @@ export function assessFidelity(html, markdown, title = '', url = '') {
 export function assessFidelityDetailed(html, markdown, title = '', url = '') {
   const { parseHTML } = extractionRuntime();
   const { document } = parseHTML(html);
+  flattenTabPanels(document, contentRoot(document));
   return assessSignalsDetailed(signals(document), markdown, title, url);
 }
 function chromeReason(signal, context, plain) {
@@ -324,9 +368,11 @@ function assessSignalsDetailed(expected, markdown, title, url = '') {
 export async function extractHtml(html, url, { extractImpl } = {}) {
   const { Defuddle, parseHTML } = extractionRuntime();
   const { document } = parseHTML(html);
-  const page = pageSignals(document, url);
-  const expected = signals(document);
   const root = contentRoot(document);
+  // In this order: signals read the untouched page, and fidelity then checks the headings of panels no longer hidden.
+  const page = pageSignals(document, url);
+  flattenTabPanels(document, root);
+  const expected = signals(document);
   // Preserve supplied mathematical alternatives as literal inline code. This
   // prevents Markdown from reinterpreting TeX escapes/operators; it is not OCR
   // or a claim that the supplied alternative is a complete/correct equation.
