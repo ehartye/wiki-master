@@ -207,6 +207,14 @@ test('a tab controlling a populated hidden block that is no tab panel is reporte
   assert.match(lines.join('\n'), /^note: page has 1 tab controls this clip did not open; use --recapture --expand$/m);
 });
 
+test('a block hidden by an inline style is reported however the style is spaced', async () => {
+  for (const style of ['display:none', 'display: none', 'display : none', 'DISPLAY:  NONE']) {
+    const markup = `<div role="tablist"><button role="tab" aria-controls="more">More</button></div><div id="more" style="${style}"><p>hidden-block-text</p></div>`;
+    const data = await extractHtml(page(markup), URL_A);
+    assert.equal(data.pageSignals.tabControls, 1, style);
+  }
+});
+
 test('a tab controlling a visible block that is no tab panel is not reported', async () => {
   const data = await extractHtml(page(`<div role="tablist"><button role="tab" aria-controls="more">More</button></div><div id="more"><p>visible-block-text</p></div>`), URL_A);
   assert.equal(data.pageSignals.tabControls, 0);
