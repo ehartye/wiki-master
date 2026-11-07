@@ -22,6 +22,7 @@ import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 import { findTwin, twinPage } from './lib/twin.mjs';
 import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
+import { unopenedTabsNote, retryKeptNote, shortfallNote } from './lib/clip-notes.mjs';
 import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
 
 export const THIN_WORD_FLOOR = 100;
@@ -997,14 +998,14 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   const keptOfPage = () => {
     if (!Number.isInteger(data.visibleWords)) return {};
     const extracted = wordCount(md);
-    if (data.extractionRetry) console.log(`note: extraction retry kept (${data.extractionRetry}): ${extracted} of about ${data.visibleWords} visible words`);
-    else if (data.shortfall) console.log(`note: extracted ${extracted} of about ${data.visibleWords} visible words`);
+    if (data.extractionRetry) console.log(retryKeptNote(data.extractionRetry, extracted, data.visibleWords));
+    else if (data.shortfall) console.log(shortfallNote(extracted, data.visibleWords));
     return { ...(data.extractionRetry && { extractionRetry: data.extractionRetry }), visibleWords: data.visibleWords, extractedWords: extracted };
   };
   const withNotes = (result) => {
     if (expandCoverage) result = { ...result, expandCoverage };
     else if (unopened > 0) {
-      console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
+      console.log(unopenedTabsNote(unopened));
       result = { ...result, unexpandedTabs: unopened };
     }
     return { ...result, sourceHash: hash, extraction, ...(twinUrl && { twinUrl }), ...(landing && { landing: true, documentLink: landing }), ...keptOfPage() };
