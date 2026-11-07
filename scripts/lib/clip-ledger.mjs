@@ -54,14 +54,39 @@ function within(root, target) {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+// The device and inode of a folder, or null when there is none or the file system does not give a usable one (an inode of 0 is how
+// some file systems say "no identity"). Two spellings of one folder, such as C:\vault and \\localhost\C$\vault, share both.
+function identityOf(path, stat) {
+  try {
+    const s = stat(path, { bigint: true });
+    return s && s.ino !== 0n && s.ino !== 0 ? `${s.dev}:${s.ino}` : null;
+  } catch { return null; }
+}
+
+// True when the target, or any ancestor of it that exists, is the folder with this identity. Only existing ancestors are
+// stat-ed: a part that is not there yet cannot be the folder.
+function hasAncestorWithIdentity(identity, target, stat) {
+  for (let at = target, hops = 0; hops < 256; hops++) {
+    const id = identityOf(at, stat);
+    if (id !== null && id === identity) return true;
+    const parent = dirname(at);
+    if (parent === at) return false;
+    at = parent;
+  }
+  return false;
+}
+
 // Why this file may not be the ledger, or null. A ledger in raw/ would be taken for a clipping and one in wiki/ for a page. The path
-// is judged by where it lands (links, "..", letter case), not by how it is spelled.
-export function ledgerFileProblem(file, vaultPath) {
+// is judged by where it lands (links, "..", letter case), not by how it is spelled. Where the text of a path cannot say so (a UNC
+// spelling of a local folder), the folder's identity does: the device and inode of raw/ or wiki/ against those of every existing
+// ancestor of the target. `stat` is a test's own.
+export function ledgerFileProblem(file, vaultPath, { stat = statSync } = {}) {
   if (!file) return '--ledger needs a file: --ledger <file>';
   const real = landing(file);
   for (const zone of ['raw', 'wiki']) {
     const dir = join(vaultPath, zone);
-    if (within(landing(dir), real) || within(resolve(dir), resolve(file))) return `--ledger: ${file} is inside ${zone}/ of the vault; keep the ledger outside raw/ and wiki/`;
+    const own = identityOf(dir, stat);
+    if (within(landing(dir), real) || within(resolve(dir), resolve(file)) || (own !== null && hasAncestorWithIdentity(own, real, stat))) return `--ledger: ${file} is inside ${zone}/ of the vault; keep the ledger outside raw/ and wiki/`;
   }
   return null;
 }

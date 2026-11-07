@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { hostname, tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/clip.mjs';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
+import { ledgerFileProblem } from '../scripts/lib/clip-ledger.mjs';
 
 // `--ledger <file>` appends one JSON line per address, with the same sixteen fields for every outcome `clip.mjs` can end in.
 // Fetching, extraction and the browser are injected.
@@ -442,6 +443,80 @@ test('a ledger spelled in another case into raw/ exits 2 where the file system i
   mkdirSync(join(v.root, 'raw', 'sub'));
   refusedInside(v, join(v.root, 'raw', 'sub', 'e.jsonl').toUpperCase(), 'raw');
   refusedInside(v, join(v.root, 'RAW', 'Sub', 'new.jsonl'), 'raw');
+});
+
+// ---------------------------------------------------------------- a UNC spelling of the same folder is the same folder
+
+// On Windows the vault is also reachable as \\localhost\C$\..., which realpath keeps as a \\localhost\... string that never matches
+// C:\...; the folder is the same one, so its device and inode say so. Skipped where the machine has no administrative share.
+const WINDOWS_ONLY = process.platform === 'win32' ? false : 'UNC paths exist only on Windows';
+
+function uncSpellings(t, path) {
+  const rest = path.slice(3);
+  const share = `${path[0]}$`;
+  const spellings = [
+    ['localhost', `\\\\localhost\\${share}\\${rest}`],
+    ['127.0.0.1', `\\\\127.0.0.1\\${share}\\${rest}`],
+    ['the computer name', `\\\\${hostname()}\\${share}\\${rest}`],
+    ['the \\\\?\\UNC\\ form', `\\\\?\\UNC\\localhost\\${share}\\${rest}`],
+  ];
+  try { statSync(spellings[0][1]); } catch (e) { t.skip(`the administrative share ${share} is not reachable here (${e.code})`); return null; }
+  return spellings;
+}
+
+for (const zone of ['raw', 'wiki']) {
+  test(`a ledger in ${zone}/ spelled as a UNC path exits 2 and writes nothing`, { skip: WINDOWS_ONLY }, (t) => {
+    const v = setup(t);
+    mkdirSync(join(v.root, zone), { recursive: true });
+    const spellings = uncSpellings(t, join(v.root, zone));
+    if (!spellings) return;
+    for (const [name, unc] of spellings) {
+      refusedInside(v, `${unc}\\e.jsonl`, zone);
+      assert.deepEqual(readdirSync(join(v.root, zone)).filter((n) => n !== 'clippings'), [], name);
+    }
+  });
+}
+
+test('a ledger in a new folder of raw/ spelled as a UNC path exits 2', { skip: WINDOWS_ONLY }, (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'raw', 'sub'), { recursive: true });
+  const spellings = uncSpellings(t, join(v.root, 'raw', 'sub'));
+  if (!spellings) return;
+  for (const [, unc] of spellings) refusedInside(v, `${unc}\\deeper\\e.jsonl`, 'raw');
+});
+
+test('a ledger reached as a UNC path through a directory link into raw/ exits 2', { skip: WINDOWS_ONLY }, (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'raw'), { recursive: true });
+  const link = dirLink(t, join(v.root, 'raw'));
+  if (!link) return;
+  const spellings = uncSpellings(t, link);
+  if (!spellings) return;
+  for (const [, unc] of spellings) refusedInside(v, `${unc}\\e.jsonl`, 'raw');
+  assert.deepEqual(readdirSync(join(v.root, 'raw')).filter((n) => n !== 'clippings'), []);
+});
+
+test('a ledger in a folder that only shares the raw prefix is accepted, spelled locally or as a UNC path', (t) => {
+  const v = setup(t);
+  const notes = join(v.root, 'raw-notes');
+  mkdirSync(notes);
+  const file = join(notes, 'e.jsonl');
+  assert.equal(ledgerFileProblem(file, v.root), null);
+  assert.equal(clip([PAGE, '--ledger', file]).exitCode, 0);
+  assert.equal(readFileSync(file, 'utf8').split('\n').filter(Boolean).length, 1);
+  if (process.platform !== 'win32') return;
+  const spellings = uncSpellings(t, notes);
+  if (!spellings) return;
+  for (const [name, unc] of spellings) assert.equal(ledgerFileProblem(`${unc}\\other.jsonl`, v.root), null, name);
+});
+
+test('an inode of 0 says nothing about identity, so the identity check is skipped', (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'wiki'), { recursive: true });
+  const unreliable = () => ({ dev: 7n, ino: 0n });
+  assert.equal(ledgerFileProblem(join(v.root, 'out', 'e.jsonl'), v.root, { stat: unreliable }), null);
+  // The reliable answer is still refused, and the spelling in text still decides without any identity.
+  assert.match(ledgerFileProblem(join(v.root, 'wiki', 'e.jsonl'), v.root, { stat: unreliable }), /inside wiki\//);
 });
 
 test('a ledger outside raw/ and wiki/ through a link is accepted', (t) => {
