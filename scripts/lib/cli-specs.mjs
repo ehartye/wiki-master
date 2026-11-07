@@ -6,6 +6,17 @@ const DRY = 'Dry run: prints what it would change. Add --apply to write.';
 const VAULT = 'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).';
 
 export const CLI_SPECS = {
+  'adopt-clipping': {
+    options: ['apply', 'topic', 'quality'],
+    usage: [
+      'usage: node scripts/adopt-clipping.mjs <path>... [--topic=<t>] [--quality=high|medium|low] [--apply]',
+      '',
+      'Brings hand-clipped files into the pipeline. For each named file under raw/clippings/ it stamps the source-hash a clipper would have written for the same text, and fills quality and topic when the file has none. Only the frontmatter changes; the body stays byte-identical, and a second run changes nothing.',
+      'Refused with exit 2, before anything is written: a path outside raw/clippings/, a file with no frontmatter or no source: line, and a file with no quality when --quality is not given. A value the file already holds that differs from the one given is reported as a conflict and left alone.',
+      DRY,
+      VAULT,
+    ],
+  },
   'backfill-authored-metadata': {
     options: ['apply'],
     usage: ['usage: node scripts/backfill-authored-metadata.mjs [--apply]', '', 'One-time backfill of project:, kind: and decision-status: onto the existing wiki/authored/ pages.', DRY, VAULT],
