@@ -226,7 +226,7 @@ in one run would share a name (`LICENSE` and `LICENSE.md`), the second keeps the
    `node "<absolute-plugin-root>/scripts/clip-gh.mjs" <owner/repo | github-url> --quality=<tier> --topic="<topic>"`
    - Accepts a bare `owner/repo`, a full `https://github.com/owner/repo` URL
      (`.git` suffix optional), or a `git@github.com:owner/repo.git` remote —
-     all resolve to the same identity.
+     all resolve to the same identity. An address with a username, password or secret query parameter exits 2 and clips nothing ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
    - `--ref=<branch-or-tag>` clips a specific branch/tag instead of the
      repo's default branch.
    - `--max-files=N` raises the default 300-includable-file per-file-mode

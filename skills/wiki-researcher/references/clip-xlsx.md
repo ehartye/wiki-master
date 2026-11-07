@@ -42,6 +42,7 @@ Converter invocation and failed/tiny-workbook diagnosis are in the direct
    `node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<path/to/file.xlsx>" --source="<canonical-url-if-any>" --quality=<tier> --topic="<topic>"`
    - `--source` is the citable origin. Omit it for a purely local file and the
      file path is recorded as the source; never invent a URL to fill the field.
+   - An address with a username, password or secret query parameter in `--source` exits 2 and writes nothing ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
    - **`--topic` whenever this clip belongs to a research run** — pass the topic
      string researcher discovery was given, identical across every clip in the run,
      so maintainer triage can group the run's leftovers together. **Topic is recorded

@@ -35,7 +35,7 @@ the exact pages they named:
   changed, clip it with `--recapture` (see [web capture](clip-html.md#a-second-capture-of-a-page)).
   `declined: <reason>`: leave it, unless the user says the decline no longer holds; then
   `node "<absolute-plugin-root>/scripts/decline.mjs" supersede "<url>" --reason "<why>"`, or
-  `--supersede-decline="<why>"` on the clip.
+  `--supersede-decline="<why>"` on the clip. `decline.mjs show` and `supersede` refuse an address with a username, password or secret query parameter with exit 2 ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
 - Clip the new ones using the capture procedure below, with `--topic="<topic>"` (the topic as the user gave it)
   and `--quality=<tier>` on every clip.
 - A page the user rejects is recorded, not forgotten:
@@ -56,7 +56,7 @@ For each kept candidate:
 `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`
 
 For a long list of web addresses, use `clip.mjs --list <file> --ledger <file>` instead of a
-loop ([lists](clip-html.md#lists-and-the-ledger)).
+loop ([lists](clip-html.md#lists-and-the-ledger)). Every clipper refuses an address with a username, password or secret query parameter with exit 2 ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
 
 **Pass `--topic` on every clip in the run, and use the same string for all of
 them** — it is what lets maintainer triage group this run's leftovers together
@@ -133,7 +133,8 @@ were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
 maintainer triage and report their counts.
 
 **The clipping set is what the clippers printed,** exactly as printed (a name with an em
-dash included): keep those paths for an ingest that follows. Each `clipped:` result names
+dash included): keep those paths for an ingest that follows. For a `--list` run the written set is the
+ledger's `clipped` rows ([lists](clip-html.md#lists-and-the-ledger)). Each `clipped:` result names
 one clipping, except that `clip-gh` reports a file count and a folder, so list that folder.
 `clip-pdf --figures` also writes `raw/figures/` files, which are not clippings. Verify the
 paths and their fidelity.

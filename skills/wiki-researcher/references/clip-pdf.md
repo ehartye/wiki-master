@@ -95,17 +95,16 @@ Extraction is tuned for academic PDFs:
 `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<url>" --quality=<tier> --topic="<topic>"` clips a PDF from an http or https
 address, so a landing page's `document-link` or a `.pdf` URL needs no separate download step.
 
-- The dedup and decline checks run on the address before anything is downloaded; a PDF already in the vault is a `duplicate`
-  and nothing is fetched.
+- The dedup and decline checks run on the `source` (the address, or the `--source` when one is given) before anything is downloaded; a
+  PDF whose `source` is already in the vault is a `duplicate` and nothing is fetched.
 - The file goes to a temp folder, is clipped, and is removed on every exit. Redirects are followed. There is no size cap, as for a
   local file; instead the download stops when the first bytes are not `%PDF-` (the rest is never read), when no data has arrived
   for 60 seconds (a slow download that keeps moving finishes), or when the disk is full, which is named as its own error.
 - A failed download queues a `failed` row and records no decline: it is a fact about one attempt.
 - `source` is the address unless `--source` says otherwise. The title is `--title`, then the PDF's own title from `pdfinfo` when that
   optional tool is found, then the last part of the address without its query. It is never the temp file's name.
-- Any other scheme (`file:`, `ftp:`) exits 2. So does an address with a username or password or a secret query parameter (such as
-  `token` or `api_key`), and the same in `--source=`: nothing is written, queued or printed from it. Download the file with your
-  own credentials and run `clip-pdf.mjs` on the file.
+- Any other scheme (`file:`, `ftp:`) exits 2, and so does an address with a username, password or secret query parameter, in the address or in
+  `--source=`: nothing is written, queued or printed from it ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)). Download the file with your own credentials and run `clip-pdf.mjs` on the file.
 - `--figures-only` needs the local PDF file, so it exits 2 with an address. Download the file first, then use the
   `--figures-only` form under **Preserving figures**.
 - A clip, or a duplicate, of the document closes the `attention` row that [web capture](clip-html.md#landing-pages) queued for a landing page.

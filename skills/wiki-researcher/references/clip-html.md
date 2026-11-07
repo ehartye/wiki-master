@@ -11,8 +11,9 @@ clippings; a PDF, Word, PowerPoint, spreadsheet, GitHub or Confluence source has
 1. **Preflight:** run `node "<absolute-plugin-root>/scripts/doctor.mjs"` (read-only) and read its `clip` line, then use the direct
    [diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) for a missing runtime or browser.
 2. **Check the address:** `known-urls.mjs --check "<url>"` as in [capture](capture.md#named-sources).
-3. **Clip:** `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`, with the run's one topic string. An address that carries a username, password or secret query parameter is refused
-   ([below](#addresses-that-carry-a-secret)).
+3. **Clip:** `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`, with the run's one topic string. When the page is known to have tabs or collapsed panels, add `--expand` to this first clip: a plain
+   clip stores a partial capture, and the recapture that follows adds a second one ([tabs](#tabs-and-expansion)). An address that
+   carries a username, password or secret query parameter is refused ([below](#addresses-that-carry-a-secret)).
 4. **Read the printed result** against the tables below, verify the path it printed, and [finish the capture](capture.md#finish-capture-and-report).
 
 It blocks unreliable domains, skips duplicates, checks the decline log, extracts with Defuddle and writes
@@ -70,7 +71,7 @@ Lines that come with a result and are not outcomes:
 |---|---|
 | `note: page has N tab controls this clip did not open; use --recapture --expand` | The served HTML shows N tabs with no panel. See [tabs](#tabs-and-expansion). |
 | `note: extraction retry kept (<value>): N of about M visible words` | The first read lost most of the page and a retry recovered it. |
-| `note: extracted N of about M visible words` | The first read kept under a fifth of the page and no retry helped. Inspect the clipping; nothing was flagged. |
+| `note: extracted N of about M visible words` | The first read kept under a fifth of the page and no retry helped. Nothing was flagged, so inspect the clipping against the page. If it is short, try `clip.mjs "<url>" --recapture --expand`, then a saved page with `--from-file`. |
 | `landing page: the document is at <url>; run clip-pdf.mjs "<url>"` | The clipping is a landing page. See [landing pages](#landing-pages). |
 | `fidelity warning (queued for triage): ...` | The clip was saved as `fidelity: partial`. |
 
@@ -143,8 +144,9 @@ That note counts only what the HTML shows; a page that builds its tabs by script
 
 **`--expand`** reads the page in a browser and opens its hidden content:
 
-- It opens every `<details>`, clicks each tab, and clicks each `[aria-expanded="false"][aria-controls]` control outside `nav`,
-  `header`, `footer` and `form`. Each active panel is copied beside its tab list under the tab's label.
+- It opens the `<details>` elements, clicks the tabs that are not disabled (`disabled` or `aria-disabled="true"`), and clicks each
+  `[aria-expanded="false"][aria-controls]` control that is not a tab. Anything inside `nav`, `header`, `footer` or `form` is left
+  alone: its tabs, its toggles and its `<details>`. Each active panel is copied beside its tab list under the tab's label.
 - It sends no request except GET, aborts every top-level navigation, closes any window a click opens and uses no cookies or
   profile. A form or a link-styled tab cannot change the server or leave the page.
 - It stops at 200 clicks or 60 seconds. Hitting either, or losing a tab list, sets `fidelity: partial` and `truncated=true`.
@@ -189,7 +191,7 @@ and no file was supplied, the clipper probes in order until one qualifies, at mo
 3. The page's own entry in the origin's `/llms.txt`. The index is read only to find that entry and is never stored.
 
 A twin qualifies when it is `text/plain`, `text/markdown` or `text/x-markdown`, is not an HTML document, has at least 100 words, and its
-final address has the page's origin and path. Candidates found in the page are probed on the page's own origin only, and a redirect
+final address has the origin and path it was requested at (no redirect elsewhere). Candidates found in the page are probed on the page's own origin only, and a redirect
 to another origin is refused before any request goes there. A page after a failed fetch has no links, so only the suffixes and
 `/llms.txt` are tried.
 
@@ -199,8 +201,8 @@ clipping's `source` or `twin-url`; `known-urls.mjs --check "<twin>"` reports it 
 `--recapture` refreshes a twin clipping; `apply-reclips` refuses it. A healthy page, a supplied file and an `--expand` run are not probed.
 
 `--find-twin` is for a page that clipped with `fidelity: partial`: it reads the page again, probes, and prints
-`twin found (N words; nothing was written): <url>` or `no plain-text twin found`. For a URL with no such clipping it prints
-`no probe (...)`. It never writes. Clipping the twin's address directly stores it as its own fenced `plaintext` source. It is refused
+`twin found (N words; nothing was written): <url>` or `no plain-text twin found`. It answers `no probe (...)` unless the page's clipping has `fidelity: partial`,
+so a clipping that only printed a `note:` gets no probe. It never writes. Clipping the twin's address directly stores it as its own fenced `plaintext` source. It is refused
 with `--from-file` and `--expand`.
 
 ## Lists and the ledger
@@ -213,11 +215,13 @@ node "<absolute-plugin-root>/scripts/clip.mjs" --list urls.txt --quality=<tier> 
 The addresses run in order, one at a time, with at least one second between two requests to the same host. The other options apply to
 each address. A line that is not an http or https address, or that carries a secret, is an `error` outcome and the run goes on. A
 missing extraction runtime stops the run with exit 1. Otherwise the run ends with `list: N URLs: <outcome> <count>, ...` and exits 0,
-even after thin or failed outcomes. `--list` with a URL on the command line, `--from-file`, `--slug`, `--decline`, `--override-decline`
+even after thin or failed outcomes. A list of 40 rendered addresses can run past a tool's default two-minute timeout: run it in the
+background, or in chunks. `--list` with a URL on the command line, `--from-file`, `--slug`, `--decline`, `--override-decline`
 or `--supersede-decline` exits 2, so no decline can be lifted in bulk.
 
-`--ledger <file>` appends one JSON line per address, with or without `--list`. Read it instead of parsing printed lines. Every row has
-every field; `null` means the field does not apply.
+`--ledger <file>` appends one JSON line per address, with or without `--list`. A ledger is appended to, so use a fresh file for each
+run. Read it instead of parsing printed lines; only rows with `status: "clipped"` are files written (the `path` field is also filled
+for `unchanged`, `duplicate` and `clash`, which wrote nothing). Every row has every field; `null` means the field does not apply.
 
 | Field | Holds |
 |---|---|
@@ -227,7 +231,7 @@ every field; `null` means the field does not apply.
 | `sourceHash` | The text's SHA-256 for `clipped` and `unchanged`; the held clipping's for `duplicate` |
 | `quality` | The tier for `clipped`; the held clipping's for `duplicate` |
 | `topic` | The `--topic` given; the held clipping's for `duplicate` |
-| `extraction` | How the text was obtained, as in the table above (the held clipping's line for `duplicate`, `null` when it has none) |
+| `extraction` | How the text was obtained, as in the table above: `text` for a page read from the served HTML. A `duplicate` shows the held clipping's `extraction:` value, `null` when that clipping has none, as one read from the served HTML has none |
 | `fidelity` | `high` or `partial`, for `clipped` only |
 | `reason` | Why, for `declined`, `thin`, `failed`, `clash` and `error` |
 | `twinUrl` | The twin a `plaintext-twin` clip was stored from; the twin `--find-twin` found |
@@ -259,7 +263,8 @@ A page's title names its file. A document with no title and no heading is named 
 `.../skills/one/SKILL.md` is `one-SKILL.md` and `.../skills/two/SKILL.md` is `two-SKILL.md`; the bare last segment is used only after the
 folders. The frontmatter `title:` stays exactly what the extractor returned, so `title: ""` on such a clipping is not a defect. A new
 clipping never ends `.md.md`; an older one may, and its name is still valid. A title another clipping already holds gets the
-distinguishing URL part added, for example `Smith v. Jones (93-1260.ZO)`.
+distinguishing URL part added, for example `Smith v. Jones (93-1260.ZO)`. `--slug <name>` sets the name yourself (without `.md`); a taken
+name is a `clash` and is never suffixed.
 
 ## A page a person saved
 
