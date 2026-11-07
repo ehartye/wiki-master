@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { dirname, join, delimiter, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tabDomRules } from './expand.mjs';
 
 // What to tell whoever hit the missing runtime. A development checkout (it has a .git entry; an installed plugin copy
 // does not) holds its dependencies only after `npm ci`, which the message used to leave out, so a fresh worktree's
@@ -229,6 +230,37 @@ function signals(document) {
   }
   return candidates;
 }
+// What the page's own markup says, read before any cleaning. A page's <base> counts, as it does in a browser: it is
+// what a rendered page's relative links resolve against (lib/render.mjs).
+function pageSignals(document, url) {
+  const region = contentRoot(document);
+  const outsideChrome = (node) => !node.closest('nav, header, footer');
+  const href = document.querySelector('base[href]')?.getAttribute('href');
+  const absolute = (link) => {
+    try {
+      const target = new URL(link.getAttribute('href'), href ? new URL(href, url) : url);
+      target.hash = '';
+      return /^https?:$/.test(target.protocol) ? target : null;
+    } catch { return null; }
+  };
+  const pdfLinks = new Set(), markdownLinks = new Set();
+  for (const link of [...region.querySelectorAll('a[href]')].filter(outsideChrome)) {
+    const target = absolute(link);
+    if (!target) continue;
+    if (/\.pdf$/i.test(target.pathname)) pdfLinks.add(target.href);
+    const label = link.textContent.replace(/\s+/g, ' ').trim();
+    if (/^view (page in|as) markdown$/i.test(label) || link.getAttribute('type')?.toLowerCase() === 'text/markdown') markdownLinks.add(target.href);
+  }
+  const { tabGroups, panelOfTab, isEmptyPanel } = tabDomRules();
+  const groups = tabGroups(region);
+  // Only a tab whose panel is missing or empty is unread: extraction keeps the panels the HTML holds.
+  const tabControls = [...region.querySelectorAll('[role="tab"]')].filter(outsideChrome).filter((tab) => {
+    const { panel, absent } = panelOfTab(tab, document, groups.find((group) => group.tabs.includes(tab)));
+    return absent || (panel && isEmptyPanel(panel));
+  }).length;
+  return { tabControls, pdfLinks: [...pdfLinks], markdownLinks: [...markdownLinks] };
+}
+
 // The warnings only (site chrome the extractor removed on purpose is left out); the detailed form also
 // returns what was ignored and why, so nothing is dropped without a record.
 export function assessFidelity(html, markdown, title = '', url = '') {
@@ -292,6 +324,7 @@ function assessSignalsDetailed(expected, markdown, title, url = '') {
 export async function extractHtml(html, url, { extractImpl } = {}) {
   const { Defuddle, parseHTML } = extractionRuntime();
   const { document } = parseHTML(html);
+  const page = pageSignals(document, url);
   const expected = signals(document);
   const root = contentRoot(document);
   // Preserve supplied mathematical alternatives as literal inline code. This
@@ -382,5 +415,5 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   });
   const markdown = data.contentMarkdown ?? '';
   const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
-  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
+  return { ...data, pageSignals: page, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
 }
