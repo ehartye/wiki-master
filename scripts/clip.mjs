@@ -558,7 +558,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     process.exit(2);
   }
   const { exit, requested, ...result } = clipUrl(url, argv, deps);
-  if (exit !== 1) record(result);
+  // A missing extraction runtime is recorded like any outcome, then ends the command.
+  record(result);
   if (exit === 1) process.exit(1);
   if (exit) process.exitCode = exit;
   return result;
@@ -615,11 +616,12 @@ function runList(argv, deps) {
       const host = new URL(line).host;
       if (awaiting.delete(host)) deps.sleep(1000);
       outcome = clipUrl(line, argv, deps);
-      if (outcome.exit === 1) { stopped = n; break; }
       if (outcome.requested) awaiting.add(host);
     }
     const { exit, requested, ...result } = outcome;
     deps.record(result);
+    // The address that found the runtime missing has its row, but it is not counted among the URLs that were clipped or refused.
+    if (exit === 1) { stopped = n; break; }
     outcomes.push(result);
     counts.set(result.status, (counts.get(result.status) ?? 0) + 1);
   }

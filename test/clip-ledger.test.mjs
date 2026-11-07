@@ -249,3 +249,42 @@ test('a credentialed address with a ledger: exit 2, a redacted row, and the cred
   const everything = [r.stdout, r.stderr, readFileSync(v.ledger, 'utf8'), v.state('triage.jsonl'), v.state('declined.json')].join('\n');
   assert.ok(!everything.includes('s3cretpw') && !everything.includes('reader:'));
 });
+
+// ---------------------------------------------------------------- a missing extraction runtime
+
+// Like clip(), but process.exit throws so the exit code an unrecoverable outcome asks for is seen.
+function clipExiting(argv, deps = {}) {
+  const exit = process.exit;
+  process.exit = (c) => { throw Object.assign(new Error(`process.exit(${c})`), { exitCode: c }); };
+  try {
+    const run = clip(argv, deps);
+    return { ...run, exited: null };
+  } catch (e) {
+    if (e.exitCode === undefined) throw e;
+    return { result: null, lines: [], exitCode: e.exitCode, exited: e.exitCode };
+  } finally { process.exit = exit; }
+}
+const NO_RUNTIME = { extract: () => { throw new Error('no runtime'); }, runtimeAvailable: () => false };
+
+test('a missing extraction runtime leaves an error row naming it, then stops with exit 1', (t) => {
+  const v = setup(t);
+  const r = clipExiting([PAGE, '--ledger', v.ledger, '--topic=Docs'], NO_RUNTIME);
+  assert.equal(r.exited, 1);
+  const rows = v.rows();
+  assert.equal(rows.length, 1);
+  expectRow(rows[0], { url: PAGE, status: 'error', topic: 'Docs', reason: rows[0].reason });
+  assert.match(rows[0].reason, /extraction runtime unavailable/);
+  assert.deepEqual(v.names(), []);
+});
+
+test('--list: a missing extraction runtime records the address it stopped at, after the rows before it, and exits 1', (t) => {
+  const v = setup(t);
+  const list = join(v.root, 'urls.txt');
+  writeFileSync(list, ['https://one.example.test/a', 'https://two.example.test/b', 'https://three.example.test/c'].join('\n'));
+  const r = clip(['--list', list, '--ledger', v.ledger], { extract: (url) => { if (url.includes('two')) throw new Error('no runtime'); return article(); }, runtimeAvailable: () => false });
+  assert.equal(r.exitCode, 1);
+  const rows = v.rows();
+  assert.deepEqual(rows.map((x) => [x.status, x.url]), [['clipped', 'https://one.example.test/a'], ['error', 'https://two.example.test/b']]);
+  assert.match(rows[1].reason, /extraction runtime unavailable/);
+  for (const x of rows) assert.deepEqual(Object.keys(x), FIELDS);
+});
