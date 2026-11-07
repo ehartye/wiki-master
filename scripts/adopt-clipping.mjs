@@ -68,6 +68,23 @@ const fillEmpty = (block, name, line) => {
   return done ? out.join('\n') : null;
 };
 
+// The block without the key's empty lines, when another line of the key has a value: the pipeline's parser takes the LAST copy of a
+// repeated key, so an empty copy after a filled one would read the real value back as empty. An empty line that heads an indented
+// list is not an empty copy, and a block whose every copy is empty is left for fillEmpty.
+const dropEmptyCopies = (block, name) => {
+  if (scalar(block, name) === null) return { block, dropped: 0 };
+  const own = new RegExp(`^${name}:[ \t]*(.*?)[ \t]*\r?$`);
+  const lines = block.split('\n');
+  let dropped = 0;
+  const out = lines.filter((l, i) => {
+    const m = own.exec(l);
+    if (!m || unquote(m[1]) || /^\s*-\s+/.test(lines[i + 1] ?? '')) return true;
+    dropped++;
+    return false;
+  });
+  return { block: out.join('\n'), dropped };
+};
+
 function plan(arg) {
   // A relative path is the caller's own; one that only exists beside the vault root is that file.
   const abs = resolve(arg);
@@ -93,6 +110,11 @@ function plan(arg) {
   let edited = block;
   const appended = [];
   const added = [];
+  const removed = [];
+  for (const field of ['quality', 'topic', 'source-hash']) {
+    const tidy = dropEmptyCopies(edited, field);
+    if (tidy.dropped) { edited = tidy.block; removed.push(field); }
+  }
   const conflicts = [];
   const want = (field, value, held, render) => {
     if (held !== null) { if (held !== value) conflicts.push({ field, held, wanted: value }); return; }
@@ -105,8 +127,8 @@ function plan(arg) {
   if (topic !== null) want('topic', topic, normalizeTopic(scalar(block, 'topic') ?? ''), (v) => `topic: ${JSON.stringify(v)}`);
   want('source-hash', clippingHash(text), scalar(block, 'source-hash'), (v) => `source-hash: ${v}`);
 
-  const next = added.length ? fm[1] + edited + appended.map((l) => newline + l).join('') + fm[3] + text.slice(fm[0].length) : text;
-  return { path: file, arg, next, text, added, conflicts };
+  const next = added.length || removed.length ? fm[1] + edited + appended.map((l) => newline + l).join('') + fm[3] + text.slice(fm[0].length) : text;
+  return { path: file, arg, next, text, added, removed, conflicts };
 }
 
 // A file named twice (or spelled two ways) is one file: planned, written and reported once.
@@ -115,9 +137,10 @@ const plans = paths.map(plan).filter((p) => { const key = realpathSync.native(p.
 const files = plans.map((p) => {
   if (apply && p.next !== p.text) writeFileSync(p.path, p.next);
   const status = p.next !== p.text ? 'adopted' : 'unchanged';
-  return { path: p.arg, status, added: p.added, conflicts: p.conflicts };
+  return { path: p.arg, status, added: p.added, removed: p.removed, conflicts: p.conflicts };
 });
 
 console.log(JSON.stringify({ type: 'adopt-clipping', applied: apply, files }));
 for (const f of files) for (const c of f.conflicts) console.error(`conflict: ${f.path}: ${c.field} is ${c.held}, not ${c.wanted}; left as it is`);
+for (const f of files) if (f.removed.length) console.error(`tidy: ${f.path}: ${apply ? 'dropped' : 'would drop'} the empty copy of ${f.removed.join(', ')} that followed or preceded a filled one`);
 if (!apply && files.some((f) => f.status === 'adopted')) console.error('dry run — re-run with --apply to stamp');

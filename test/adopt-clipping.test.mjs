@@ -209,17 +209,74 @@ test('an empty quality with no --quality is refused rather than stamped empty', 
   }
 });
 
-test('a file an older run left with an empty and a filled copy of a key reads the filled one and adds nothing', (t) => {
+test('a file an older run left with an empty and a filled copy of a key keeps the filled one, drops the empty one and stamps only the hash', (t) => {
   const v = vault(t);
   writeFileSync(v.path('Twice.md'), handClip(text('Hand')).replace('tags:', 'topic:\nquality:\ntopic: "Field notes"\nquality: high\ntags:'));
   const r = adopt(v, 'Twice.md');
   assert.equal(r.code, 0, r.err);
   const after = v.read('Twice.md');
-  assert.equal(keyLines(after, 'topic').length, 2);
-  assert.equal(keyLines(after, 'quality').length, 2);
+  assert.deepEqual(keyLines(after, 'topic'), ['topic: "Field notes"']);
+  assert.deepEqual(keyLines(after, 'quality'), ['quality: high']);
   assert.deepEqual(firstReport(r).conflicts, []);
+  assert.deepEqual(firstReport(r).added, ['source-hash']);
   assert.equal(adopt(v, 'Twice.md').err, '');
   assert.equal(v.read('Twice.md'), after);
+});
+
+// A filled copy followed by an empty one: the pipeline parser takes the LAST copy, so the real value reads back as ''.
+for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
+  for (const [dup, key, kept] of [
+    ['quality: high\nquality:', 'quality', 'quality: high'],
+    ['quality: high\nquality: ""\nquality: \'\'', 'quality', 'quality: high'],
+    ['topic: "Field notes"\ntopic:', 'topic', 'topic: "Field notes"'],
+    ['quality: high\ntopic: "Field notes"\nquality:\ntopic: \'\'', 'quality', 'quality: high'],
+  ]) {
+    test(`${shape}: a filled line followed by an empty copy (${JSON.stringify(dup)}) loses the empty copy, is reported, and the pipeline reads the real value`, (t) => {
+      const v = vault(t);
+      const original = eol(handClip(text('Hand')).replace('tags:', `${dup}\ntags:`));
+      writeFileSync(v.path('Hand guide.md'), original);
+      assert.equal(parseNote(original).metadata[key], '', 'the pipeline reads the empty last copy as it stands');
+      const first = adopt(v, 'Hand guide.md');
+      assert.equal(first.code, 0, first.err);
+      const stamped = v.read('Hand guide.md');
+      assert.deepEqual(keyLines(stamped, key).map((l) => l.trimEnd()), [kept]);
+      const meta = parseNote(stamped).metadata;
+      assert.equal(meta.quality, 'high');
+      assert.equal(meta.topic, 'Field notes');
+      assert.equal(afterFrontmatter(stamped), afterFrontmatter(original), 'the body is byte-identical');
+      if (shape === 'CRLF') assert.ok(!/[^\r]\n/.test(stamped.slice(0, stamped.indexOf('\n---', 4) + 5)), 'the frontmatter keeps its CRLF line breaks');
+      const report = firstReport(first);
+      assert.equal(report.status, 'adopted');
+      assert.ok(report.removed.includes(key), JSON.stringify(report));
+      assert.deepEqual(report.conflicts, [], 'an empty copy is no conflict');
+      assert.match(first.err, new RegExp(key), 'the removal is reported on stderr too');
+      const second = adopt(v, 'Hand guide.md');
+      assert.equal(firstReport(second).status, 'unchanged');
+      assert.deepEqual(firstReport(second).removed, []);
+      assert.equal(v.read('Hand guide.md'), stamped, 'a second run writes nothing');
+    });
+  }
+}
+
+test('a dry run reports the empty copy it would drop and writes nothing', (t) => {
+  const v = vault(t);
+  const original = handClip(text('Hand')).replace('tags:', 'quality: high\nquality:\ntags:');
+  writeFileSync(v.path('Hand guide.md'), original);
+  const r = script('adopt-clipping.mjs', [v.path('Hand guide.md'), '--topic=Field notes'], v.root);
+  assert.equal(r.code, 0, r.err);
+  assert.equal(v.read('Hand guide.md'), original);
+  assert.deepEqual(JSON.parse(r.out.split('\n')[0]).files[0].removed, ['quality']);
+  assert.match(r.err, /would drop/);
+});
+
+test('an empty line that heads a list is not an empty copy and stays', (t) => {
+  const v = vault(t);
+  const original = handClip(text('Hand')).replace('tags:', 'quality: high\nquality:\n  - odd\ntags:');
+  writeFileSync(v.path('Hand guide.md'), original);
+  const r = adopt(v, 'Hand guide.md');
+  assert.equal(r.code, 0, r.err);
+  assert.deepEqual(keyLines(v.read('Hand guide.md'), 'quality'), ['quality: high', 'quality:']);
+  assert.deepEqual(firstReport(r).removed, []);
 });
 
 test('CRLF: the stamp is the hash of the CRLF body, and the body bytes are untouched', (t) => {
