@@ -486,6 +486,11 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
     process.exit(2);
   }
+  // A scheme other than http(s) is not a file name: ftp:, file: and the like are not fetched.
+  if (!isUrl && /^(?:[a-z][a-z0-9+.-]+:\/\/|file:)/i.test(arg)) {
+    console.error('only http and https addresses are fetched');
+    process.exit(2);
+  }
   // A credential in the address would be copied into the triage log (which syncs), the source: line and every message.
   if (isUrl && urlCarriesCredentials(arg)) {
     console.error('ERROR: the address carries a username or password, which clip-pdf.mjs does not accept (it would be written to the vault). Download the file with your own credentials, then run clip-pdf.mjs on the file.');

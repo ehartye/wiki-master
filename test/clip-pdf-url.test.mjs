@@ -273,3 +273,22 @@ test('a failed download names the failure once: one "download failed" prefix, no
   assert.equal((lines.join('\n').match(/download failed/gi) ?? []).length, 1, lines.join('\n'));
   assert.equal(v.rows()[0].reason, result.reason);
 });
+
+test('an address that is not http or https says so and exits 2, instead of "file not found"', (t) => {
+  const v = vault(t);
+  for (const target of ['ftp://files.example.test/doc.pdf', 'file:///tmp/doc.pdf', 'sftp://files.example.test/doc.pdf']) {
+    const r = runCli(v, [target]);
+    assert.equal(r.status, 2, `${target}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /only http and https addresses are fetched/, target);
+    assert.doesNotMatch(r.stderr, /file not found/);
+  }
+  assert.deepEqual(wmFiles(v), []);
+});
+
+test('a Windows drive path or a relative path is still a file, not an address', (t) => {
+  const v = vault(t);
+  for (const target of ['C:\no\such\doc.pdf', 'relative/no-such-doc.pdf']) {
+    const r = runCli(v, [target]);
+    assert.doesNotMatch(r.stderr, /only http and https/, target);
+  }
+});
