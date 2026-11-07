@@ -267,6 +267,26 @@ export async function expandInPage({ rules, maxClicks, maxMs, quietMs, settleMs 
   return counts;
 }
 
+// Keeps a click in the page it was made in. A popup's first request escapes the context's route, so nothing may open
+// one: window.open does nothing, and every target (a link's, an area's, a form's, a submit button's, a base element's)
+// is the page's own, where the route aborts a navigation. Runs in the page, so it uses nothing from this module.
+export function holdTargets() {
+  if (window.__wikiMasterHeld) return;
+  window.__wikiMasterHeld = true;
+  window.open = () => null;
+  const hold = () => {
+    for (const node of document.querySelectorAll('[target], [formtarget]')) {
+      if (node.hasAttribute('target')) node.setAttribute('target', '_self');
+      if (node.hasAttribute('formtarget')) node.setAttribute('formtarget', '_self');
+    }
+  };
+  document.addEventListener('click', hold, true);
+  document.addEventListener('submit', hold, true);
+  // submit() fires no event, so it is held before it runs.
+  const submit = HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit = function held() { hold(); return submit.call(this); };
+}
+
 // Blocks what a click could change on the server or leave the page for, then opens everything. On the context, not the
 // page, so a popup's requests are covered too. `render` blocks service workers for the same reason: a page's requests
 // through one don't reach this route.
@@ -279,7 +299,10 @@ export async function expandPage(page, { maxClicks = MAX_EXPAND_CLICKS, maxMs = 
     // 'aborted', because any other error makes Chrome commit its error page, which is a navigation.
     return (request.method() !== 'GET' || topLevel ? route.abort('aborted') : route.continue()).catch(() => {});
   });
+  // A window opened anyway is a backstop, closed as it appears. Frames to come get the hold as they load.
   context.on('page', (popup) => { popup.close().catch(() => {}); });
+  await context.addInitScript(holdTargets);
+  for (const frame of page.frames()) await frame.evaluate(holdTargets).catch(() => {});
   const rules = await page.evaluateHandle(tabDomRules);
   let timer;
   const hang = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`expansion did not finish within ${maxMs + HANG_MARGIN_MS} ms`)), maxMs + HANG_MARGIN_MS); });

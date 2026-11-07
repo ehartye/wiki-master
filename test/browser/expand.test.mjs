@@ -73,29 +73,42 @@ test('tables inside tab wrappers are stored once each', { skip: laneSkip }, asyn
   assert.equal(coverage(text), 'tabs=2 panels=2 details=0 tables=2 code=0 truncated=false');
 });
 
-test('the safety fixture really does post and leave when its controls are used without interception', { skip: laneSkip }, async (t) => {
+test('the safety fixture really does post, leave and open windows when its controls are used without interception', { skip: laneSkip }, async (t) => {
   const server = await serve(t);
   const browser = await (await loadChromium()).launch({ executablePath: findBrowser(), headless: false, args: ['--window-position=-32000,-32000'] });
   t.after(() => browser.close());
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   await page.goto(server.url('/expand-safety.html'));
   // Each wait starts before its click: on a fast machine the local response can land before a wait that starts after.
-  await Promise.all([page.waitForResponse((response) => response.url().endsWith('/track')), page.evaluate(() => document.getElementById('poster').click())]);
-  await Promise.all([page.waitForRequest((request) => request.url().endsWith('/submit-order')), page.evaluate(() => document.querySelector('button[form="order"]').click())]);
+  const requested = (suffix) => context.waitForEvent('request', (request) => new URL(request.url()).pathname === suffix);
+  const click = (selector) => page.evaluate((s) => document.querySelector(s).click(), selector);
+  await Promise.all([page.waitForResponse((response) => response.url().endsWith('/track')), click('#poster')]);
+  for (const [selector, suffix] of [
+    ['button[form="order"][formtarget]', '/submit-order'],
+    ['button[form="lookup"]', '/lookup-target.html'],
+    ['#opener', '/popup-target.html'],
+    ['#submitter', '/lookup-target.html'],
+    ['#blank-link', '/blank-target.html'],
+    ['a[href="/elsewhere.html"]', '/elsewhere.html'],
+  ]) {
+    const [popup] = await Promise.all([page.waitForEvent('popup'), requested(suffix), click(selector)]);
+    await popup.close();
+  }
   const deadline = Date.now() + 10_000;
-  for (const path of ['/track', '/submit-order']) {
-    while (!server.requests.some((request) => request.method === 'POST' && request.path === path)) {
-      assert.ok(Date.now() < deadline, `the fixture never sent a POST to ${path}`);
+  for (const [method, path] of [['POST', '/track'], ['POST', '/submit-order'], ['GET', '/lookup-target.html'], ['GET', '/popup-target.html'], ['GET', '/blank-target.html'], ['GET', '/elsewhere.html']]) {
+    while (!server.requests.some((request) => request.method === method && request.path === path)) {
+      assert.ok(Date.now() < deadline, `the fixture never sent a ${method} to ${path}`);
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
   }
 });
 
-test('expansion sends no non-GET request and never leaves the page', { skip: laneSkip }, async (t) => {
+test('expansion sends no non-GET request and never leaves the page, in a window of its own or not', { skip: laneSkip }, async (t) => {
   const server = await serve(t);
   const { text } = await clip(t, server.url('/expand-safety.html'));
   assert.deepEqual(server.requests.filter((request) => request.method !== 'GET'), []);
-  assert.deepEqual(server.requests.filter((request) => /elsewhere|submit-order/.test(request.path)), []);
+  assert.deepEqual(server.requests.filter((request) => !['/expand-safety.html', '/favicon.ico'].includes(request.path)), [], 'the page was the only request the server saw');
   assert.match(text, /real-panel-text/);
   assert.doesNotMatch(text, /elsewhere-page-text/);
   assert.doesNotMatch(text, /Place order|Order by tab/, 'nothing in the form was opened');
