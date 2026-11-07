@@ -493,6 +493,27 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
   }
 }
 
+// An address on the page's own site that no page should answer: its origin and directory, the last path segment replaced by a name
+// taken from the page's address, and no query.
+export function probeUrl(url) {
+  const u = new URL(url);
+  const parts = u.pathname.split('/');
+  const trailing = parts.length > 2 && parts.at(-1) === '';
+  if (trailing) parts.pop();
+  parts[parts.length - 1] = `wiki-master-probe-${createHash('sha256').update(url).digest('hex').slice(0, 8)}`;
+  if (trailing) parts.push('');
+  return `${u.origin}${parts.join('/')}`;
+}
+
+// True when the browser reads the same text at a made-up address as it did at the page: whitespace and case do not count. A
+// failed or differing read of the made-up address (a not-found page, a 404) is the site telling the two addresses apart.
+function servesOneShell(url, pageText, render) {
+  const probe = render(probeUrl(url));
+  if (!probe.ok) return false;
+  const same = (t) => String(t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return same(stripArchiveChrome(probe.data.contentMarkdown || probe.data.content || '')) === same(pageText);
+}
+
 export function extractionAvailable() {
   for (const launch of extractionLaunchers()) {
     const cmd = `${launch} --check-runtime`;
@@ -731,6 +752,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // just below. The verdict further down needs all of it: whether the browser
   // read the page, and if not, why.
   let renderResult = extraction === 'rendered' ? { ok: true } : null;
+  // The text the browser read, kept past the choice below because a thin one is judged against another address on the same site.
+  let renderedMd = extraction === 'rendered' ? md : null;
   const isPlain = () => extraction === 'plaintext' || extraction === 'plaintext-twin';
   // A short page whose substance is one PDF link is written as what it is, before the thin path can decline it. A page read by
   // --expand is not checked: the owner asked for its tabs, not for a verdict on what it links to.
@@ -743,6 +766,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     renderResult = render(url);
     const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
+    if (renderResult.ok) renderedMd = rendered;
     const renderedLanding = renderResult.ok ? landingDocument(renderResult.data.pageSignals, wordCount(rendered)) : null;
     if (wordCount(rendered) >= THIN_WORD_FLOOR || renderedLanding) {
       data = renderResult.data;
@@ -778,11 +802,15 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       // browser has read it, record it so the next run skips without re-fetching.
       // TTL re-litigates eventually.
       // An --expand read is asked for by name and its failures are queued; it leaves the verdict to a person.
-      const declined = !expand && shouldDeclineThin({ renderRan: renderResult.ok === true });
+      // A browser read the page and it is still a shell. If a made-up address on the same site reads the same, the site serves that
+      // shell for any address and the read says nothing about this URL: it is queued and not declined. Only that verdict, only a
+      // browser that read the page, and not an --expand read, which is never declined anyway.
+      const unverified = !expand && verdict.kind === 'empty_shell' && renderResult.ok === true && servesOneShell(url, renderedMd, render);
+      const declined = !expand && !unverified && shouldDeclineThin({ renderRan: renderResult.ok === true });
       if (declined) recordDecline(vaultPath, url, verdict.reason);
       // Also queue it: the decline stops the re-fetch, but the source was still
       // wanted and only a human can clip it manually.
-      const reason = unread ? `${verdict.reason}; ${notRead}` : verdict.reason;
+      const reason = unread ? `${verdict.reason}; ${notRead}` : unverified ? `unverified URL: this site serves the same text for an address that does not exist, so it says nothing about this one (${verdict.reason})` : verdict.reason;
       recordIssue(vaultPath, {
         url,
         kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin',
@@ -793,7 +821,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       const route = 'save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>';
       const recorded = declined
         ? 'decline + triage recorded'
-        : expand ? 'triage recorded; not declined — an --expand read' : 'triage recorded; not declined — browser render unavailable';
+        : expand ? 'triage recorded; not declined — an --expand read'
+        : unverified ? 'triage recorded; not declined — unverified URL: the site serves this text for any address' : 'triage recorded; not declined — browser render unavailable';
       console.log(unread
         ? `${label} (${route}): ${url}; triage recorded; not declined — ${notRead}`
         : `${label} (${route}; ${recorded}): ${url}`);
