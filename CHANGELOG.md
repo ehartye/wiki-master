@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.92.0 — 2026-11-06
+
+- **Breaking, removed command:** `clip-and-repoint.mjs`, an unused repair pass whose `--apply` edited wiki pages with no test, validation or log entry. Its shared helpers stay. A vault that still cites binaries directly can use the script from an earlier release.
+- `clip.mjs` declines a thin page only after a browser read it. A render that timed out, was blocked or hit a 404 now queues the page with the render's reason and records no decline, so a later retry can recover it. A 404 is queued as `gone`. Declines already recorded are not lifted: they expire on their own date, and `decline.mjs supersede` clears one on request.
+- The capture references describe the browser render: when it runs, what it needs, how it shows in a clipping and what each outcome means. They add two manual recipes for a thin documentation page, a plain-text twin and a page you render and supply.
+- Discovery runs `doctor.mjs` before a batch and explains that a missing browser queues JavaScript pages instead of clipping them. The `--topic` guidance links every document route, and the PDF reference says what `clip.mjs` really does with a PDF URL.
+- `main` in `clip.mjs` accepts an injected `render`, so tests cover each render outcome with no browser.
+
 ## 0.91.0 — 2026-11-05
 
 - **Breaking:** Obsidian Git now handles all git operations and the plugin runs no git writes. Agents write, validate, log once and run `refresh-index.mjs`; there is no fallback flow for a vault without Obsidian Git.
