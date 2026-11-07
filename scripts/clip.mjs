@@ -557,7 +557,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     refused(refusal);
     process.exit(2);
   }
-  const { exit, ...result } = clipUrl(url, argv, deps);
+  const { exit, requested, ...result } = clipUrl(url, argv, deps);
   if (exit !== 1) record(result);
   if (exit === 1) process.exit(1);
   if (exit) process.exitCode = exit;
@@ -576,8 +576,6 @@ function waitSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0
 
 // The options that name one page or lift a decline: each is refused with --list.
 const LIST_REFUSES = ['from-file', 'slug', 'decline', 'override-decline', 'supersede-decline'];
-// Statuses that mean no request went out, so the next address on that host needs no wait.
-const NO_REQUEST = new Set(['blocked', 'declined', 'duplicate', 'error']);
 const OUTCOME_ORDER = ['clipped', 'unchanged', 'duplicate', 'clash', 'declined', 'blocked', 'thin', 'failed', 'error'];
 
 // What is wrong with one line of a list, or null. A message never repeats the line: it may hold a password.
@@ -618,9 +616,9 @@ function runList(argv, deps) {
       if (awaiting.delete(host)) deps.sleep(1000);
       outcome = clipUrl(line, argv, deps);
       if (outcome.exit === 1) { stopped = n; break; }
-      if (!NO_REQUEST.has(outcome.status)) awaiting.add(host);
+      if (outcome.requested) awaiting.add(host);
     }
-    const { exit, ...result } = outcome;
+    const { exit, requested, ...result } = outcome;
     deps.record(result);
     outcomes.push(result);
     counts.set(result.status, (counts.get(result.status) ?? 0) + 1);
@@ -634,10 +632,12 @@ function runList(argv, deps) {
 
 // One address, start to finish. It never exits and never sets the exit code: an outcome that should end the process says so in
 // `exit` (2 for a refused command, 1 for an extraction runtime that is missing) and the caller decides.
+// `requested` says whether a request went out to the address's host (true unless an outcome says otherwise), which is what the wait
+// between two addresses on one host is owed for: a duplicate found after the plain-text twin probe or a lost write did request.
 function clipUrl(url, argv, deps) {
   const outcome = clipCore(url, argv, deps);
   const topic = parseTopicArg(argv);
-  return { url, ...(topic && { topic }), ...outcome };
+  return { url, ...(topic && { topic }), requested: true, ...outcome };
 }
 
 function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render, runtimeAvailable }) {
@@ -655,21 +655,21 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   if (expand && (fromFile !== undefined || looksLikePdfUrl(url) || looksLikePlainTextUrl(url))) {
     const error = fromFile !== undefined ? '--expand cannot be used with --from-file' : `--expand opens a page in a browser, and this URL serves a PDF or a text file: ${url}`;
     console.error(error);
-    return { status: 'error', error, exit: 2 };
+    return { status: 'error', error, exit: 2, requested: false };
   }
   // --find-twin reads the clipping already in the vault and the live page; a supplied file or a browser read has neither.
   const findingTwin = argv.includes('--find-twin');
   if (findingTwin && (fromFile !== undefined || expand)) {
     const error = `--find-twin cannot be used with ${fromFile !== undefined ? '--from-file' : '--expand'}`;
     console.error(error);
-    return { status: 'error', error, exit: 2 };
+    return { status: 'error', error, exit: 2, requested: false };
   }
   if (fromFile !== undefined) {
     const problem = suppliedFileProblem(fromFile);
-    if (problem) { console.error(`--from-file: ${problem}`); return { status: 'error', error: problem, exit: 2 }; }
+    if (problem) { console.error(`--from-file: ${problem}`); return { status: 'error', error: problem, exit: 2, requested: false }; }
   }
 
-  if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
+  if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked', requested: false }; }
 
   const { path: vaultPath } = resolveVault();
 
@@ -679,7 +679,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     if (held?.fidelity !== 'partial') {
       const reason = 'no clipping of it carries a partial fidelity warning';
       console.log(`no probe (${reason}): ${url}`);
-      return { status: 'skipped', reason };
+      return { status: 'skipped', reason, requested: false };
     }
     let signals;
     try { signals = extract(url).pageSignals; } catch { /* the suffix and index probes need no page */ }
@@ -696,14 +696,14 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     const reason = declineArg.slice('--decline='.length) || 'declined';
     recordDecline(vaultPath, url, reason);
     console.log(`declined (recorded): ${url} — ${reason}`);
-    return { status: 'declined', reason };
+    return { status: 'declined', reason, requested: false };
   }
 
   const gate = declineGate(vaultPath, url, argv);
   if (gate.blocked) {
-    if (gate.error) { console.error(gate.error); return { status: 'error', error: gate.error, exit: 2 }; }
+    if (gate.error) { console.error(gate.error); return { status: 'error', error: gate.error, exit: 2, requested: false }; }
     console.log(gate.message);
-    return { status: 'declined', reason: gate.message.split('\n')[0] };
+    return { status: 'declined', reason: gate.message.split('\n')[0], requested: false };
   }
 
   // --recapture: a URL that is already clipped is fetched, extracted and checked like any clip, then written as a dated second
@@ -716,7 +716,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
     // queue fills with entries nobody can action.
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
-    console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
+    console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate', requested: false };
   }
   if (recapture && capturesNow().length === 0) console.log(`recapture: not clipped yet, clipping it normally: ${url}`);
 
@@ -736,12 +736,12 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     const supplied = readSuppliedFile(fromFile);
     if (supplied.missing) {
       console.error(`--from-file: ${fromFile}: ${supplied.reason}`);
-      return { status: 'error', error: supplied.reason, exit: 2 };
+      return { status: 'error', error: supplied.reason, exit: 2, requested: false };
     }
     if (supplied.refused) {
       recordIssue(vaultPath, { url, kind: 'attention', reason: `supplied file refused: ${supplied.reason}`, topic });
       console.log(`not clipped (${supplied.reason}; triage recorded): ${url}`);
-      return { status: 'thin', reason: supplied.reason };
+      return { status: 'thin', reason: supplied.reason, requested: false };
     }
     manual = { kind: suppliedKind(fromFile), text: supplied.text, sha256: supplied.sha256 };
     extraction = 'manual';

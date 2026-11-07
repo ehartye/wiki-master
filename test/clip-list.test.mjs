@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { main } from '../scripts/clip.mjs';
+import { main, writeClippingExclusive } from '../scripts/clip.mjs';
 
 // `--list <file>` clips each address in turn through the same per-URL work as a single clip. Fetching, extraction, the browser
 // and the wait between requests are all injected: nothing here reaches the network.
@@ -137,4 +137,32 @@ test('a line with a username or password is an error outcome that repeats it now
   assert.match(r.err.join('\n'), /line 1: refused: the address carries a username or password/);
   const everything = [r.out, r.err, v.state('triage.jsonl'), v.state('declined.json'), v.clippings().map((n) => v.read(n))].flat().join('\n');
   assert.ok(!everything.includes('s3cretpw') && !everything.includes('reader:'), 'the credential was repeated');
+});
+
+// A duplicate that is found after a request went out (the plain-text twin probe, or the exclusive write that lost a race) still
+// owes the host its wait: only a duplicate found from the vault alone makes no request.
+test('a twin that is already held is a duplicate after a request, so the next address on that host waits', (t) => {
+  const v = setup(t, ['https://docs.example.test/guide/setup', 'https://docs.example.test/guide/next']);
+  const twin = 'https://docs.example.test/guide/setup.md.txt';
+  writeFileSync(join(v.root, 'raw', 'clippings', 'Held.md'), `---\ntitle: "Held"\nsource: "${twin}"\ncreated: 2026-10-01\ntags: [clippings]\nquality: medium\nsource-hash: abc\n---\n\n${words(150)}\n`);
+  const r = run(['--list', v.listFile], {
+    extract: (url) => (url.endsWith('/setup') ? { title: 'Setup', contentMarkdown: 'Back to top' } : article('Next page')),
+    fetchTwin: (url) => (url === twin ? { ok: true, type: 'text/markdown', text: `# T\n\n${words(150)}`, finalUrl: url } : NO_TWIN()),
+  });
+  assert.ok(r.out.includes('list: 2 URLs: clipped 1, duplicate 1'), r.out.join('\n'));
+  assert.deepEqual(r.sleeps, [1000]);
+});
+
+test('a write that loses the race to a clip of the same address is a duplicate after a request, so the next address on that host waits', (t) => {
+  const v = setup(t, ['https://a.example.test/1', 'https://a.example.test/2']);
+  const r = run(['--list', v.listFile], {
+    extract: (url) => article(`Title of ${url}`),
+    writeClipping: (dir, slug, text) => {
+      if (!text.includes('a.example.test/1')) return writeClippingExclusive(dir, slug, text);
+      writeFileSync(join(dir, `${slug}.md`), `---\ntitle: ""\nsource: "https://a.example.test/1"\n---\nwinner\n`);
+      return false;
+    },
+  });
+  assert.ok(r.out.includes('list: 2 URLs: clipped 1, duplicate 1'), r.out.join('\n'));
+  assert.deepEqual(r.sleeps, [1000]);
 });
