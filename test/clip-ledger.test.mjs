@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -287,4 +287,74 @@ test('--list: a missing extraction runtime records the address it stopped at, af
   assert.deepEqual(rows.map((x) => [x.status, x.url]), [['clipped', 'https://one.example.test/a'], ['error', 'https://two.example.test/b']]);
   assert.match(rows[1].reason, /extraction runtime unavailable/);
   for (const x of rows) assert.deepEqual(Object.keys(x), FIELDS);
+});
+
+// ---------------------------------------------------------------- a ledger that cannot be appended to
+
+// A mode bit stops nobody on a POSIX system when the tests run as root.
+const ENFORCES_MODES = process.platform === 'win32' || typeof process.getuid !== 'function' || process.getuid() !== 0;
+
+const UNWRITABLE = [
+  ['its parent is a file', (v) => { const f = join(v.root, 'afile'); writeFileSync(f, 'x'); return join(f, 'e.jsonl'); }, true],
+  ['the path is a directory', (v) => { const d = join(v.root, 'adir'); mkdirSync(d); return d; }, true],
+  ['its parent folder does not exist (no folder is created for it)', (v) => join(v.root, 'nope', 'e.jsonl'), true],
+  ['it is a read-only file', (v) => { const f = join(v.root, 'ro.jsonl'); writeFileSync(f, ''); chmodSync(f, 0o444); return f; }, ENFORCES_MODES],
+];
+for (const [name, make, enforced] of UNWRITABLE) {
+  test(`a ledger that cannot be appended to (${name}) exits 2 with one line before any clipping, alone or with --list`, { skip: enforced ? false : 'modes are not enforced for root' }, (t) => {
+    const v = setup(t);
+    const file = make(v);
+    t.after(() => { try { chmodSync(file, 0o666); } catch { /* not a file of ours any more */ } });
+    const list = join(v.root, 'urls.txt');
+    writeFileSync(list, 'https://one.example.test/a\n');
+    for (const argv of [[PAGE, '--ledger', file], ['--list', list, '--ledger', file]]) {
+      const r = clip(argv, { extract: () => assert.fail('nothing may be read') });
+      assert.equal(r.exitCode, 2, argv.join(' '));
+      assert.equal(r.result.status, 'error');
+      assert.equal(r.lines.length, 1, r.lines.join('\n'));
+      assert.match(r.lines[0], /^--ledger: .*cannot be appended to/);
+    }
+    assert.deepEqual(v.names(), []);
+    assert.ok(!existsSync(join(v.root, 'nope')));
+  });
+}
+
+test('a ledger whose folder exists is created empty by the probe and then appended to', (t) => {
+  const v = setup(t);
+  const dir = join(v.root, 'out');
+  mkdirSync(dir);
+  const file = join(dir, 'e.jsonl');
+  const r = clip([PAGE, '--ledger', file]);
+  assert.equal(r.exitCode, 0);
+  assert.equal(readFileSync(file, 'utf8').split('\n').filter(Boolean).length, 1);
+});
+
+// The ledger turns unwritable after the probe passed: the first extraction swaps the file for a directory.
+function breakLedgerOnce(v, then = () => article()) {
+  let broken = false;
+  return (url) => {
+    if (!broken) { broken = true; rmSync(v.ledger, { force: true }); mkdirSync(v.ledger); }
+    return then(url);
+  };
+}
+
+test('a ledger that fails to write after the clipping is reported once, the run carries on without rows, and the exit code is 2', (t) => {
+  const v = setup(t);
+  const list = join(v.root, 'urls.txt');
+  writeFileSync(list, ['https://one.example.test/a', 'https://two.example.test/b', 'https://three.example.test/c'].join('\n'));
+  const r = clip(['--list', list, '--ledger', v.ledger], { extract: breakLedgerOnce(v) });
+  assert.equal(r.exitCode, 2);
+  assert.equal(v.names().length, 3, 'every address was still clipped');
+  assert.equal(r.lines.filter((l) => /--ledger/.test(l)).length, 1, r.lines.join('\n'));
+  assert.ok(r.lines.some((l) => /^--ledger: .*cannot be appended to .*no more rows/.test(l)), r.lines.join('\n'));
+  assert.ok(r.lines.includes('list: 3 URLs: clipped 3'), r.lines.join('\n'));
+});
+
+test('a ledger that fails to write after a single clipping is reported, the clipping stays, and the exit code is 2', (t) => {
+  const v = setup(t);
+  const r = clip([PAGE, '--ledger', v.ledger], { extract: breakLedgerOnce(v) });
+  assert.equal(r.exitCode, 2);
+  assert.equal(r.result.status, 'clipped');
+  assert.equal(v.names().length, 1);
+  assert.equal(r.lines.filter((l) => /--ledger/.test(l)).length, 1, r.lines.join('\n'));
 });

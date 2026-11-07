@@ -22,7 +22,7 @@ import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 import { findTwin, twinPage } from './lib/twin.mjs';
 import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
-import { ledgerRow, redactAddress, ledgerFileProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
+import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -541,8 +541,20 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (ledger !== undefined) {
     const problem = ledgerFileProblem(ledger, resolveVault().path);
     if (problem) return refuse(problem);
+    // A ledger that cannot be appended to is found now, not after the first clipping is written.
+    const unwritable = ledgerAppendProblem(ledger);
+    if (unwritable) return refuse(unwritable);
   }
-  const record = (result) => { if (ledger !== undefined) appendLedgerRow(ledger, ledgerRow(result)); };
+  // A write that fails later is reported once; the run goes on without rows and ends with exit 2 (1 still wins for a missing runtime).
+  let ledgerWorks = ledger !== undefined;
+  const record = (result) => {
+    if (!ledgerWorks) return;
+    try { appendLedgerRow(ledger, ledgerRow(result)); } catch (e) {
+      ledgerWorks = false;
+      console.error(`--ledger: ${ledger} cannot be appended to (${e.code ?? e.message}); no more rows will be written and the run carries on`);
+      process.exitCode = 2;
+    }
+  };
   const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
   if (argv[0] === '--list') return runList(argv, deps);
   const url = argv[0];

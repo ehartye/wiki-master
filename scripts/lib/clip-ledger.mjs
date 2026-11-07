@@ -1,5 +1,5 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { appendFileSync, closeSync, openSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { isUnder } from './vault.mjs';
 
 // The clip ledger: with `--ledger <file>`, clip.mjs appends one JSON line for every address it handled, so a long run can be read
@@ -34,7 +34,13 @@ export function ledgerFileProblem(file, vaultPath) {
   return null;
 }
 
+// Why rows cannot be appended to this file, or null: it is opened for append and closed, which creates the file when its folder is
+// there. No folder is made for it, so a typo in the path is a refusal and not a new directory.
+export function ledgerAppendProblem(file) {
+  // Windows opens a directory for append without complaint, so a directory is refused by name.
+  try { if (statSync(file, { throwIfNoEntry: false })?.isDirectory()) return `--ledger: ${file} cannot be appended to (EISDIR); nothing was clipped`; closeSync(openSync(file, 'a')); return null; } catch (e) { return `--ledger: ${file} cannot be appended to (${e.code ?? e.message}); nothing was clipped`; }
+}
+
 export function appendLedgerRow(file, row) {
-  mkdirSync(dirname(file), { recursive: true });
   appendFileSync(file, `${JSON.stringify(row)}\n`);
 }
