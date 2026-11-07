@@ -140,3 +140,130 @@ test('an existing value that differs is reported as a conflict and left alone; t
   assert.match(v.read('Partial.md'), /^topic: "Field notes"$/m);
   assert.match(v.read('Partial.md'), new RegExp(`^source-hash: ${sha(body)}$`, 'm'));
 });
+
+// ---------------------------------------------------------------- frontmatter shapes a web clipper and a hand edit produce
+const crlf = (s) => s.replace(/\r?\n/g, '\r\n');
+const keyLines = (file, key) => file.split(/\r?\n/).filter((l) => l.startsWith(`${key}:`));
+const adopt = (v, name, extra = []) => script('adopt-clipping.mjs', [v.path(name), '--topic=Field notes', '--quality=high', ...extra, '--apply'], v.root);
+const firstReport = (r) => JSON.parse(r.out.split('\n')[0]).files[0];
+
+for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
+  for (const empty of ['topic:', 'quality:', 'quality: ""', "topic: ''", 'topic: ""', "quality: ''"]) {
+    test(`${shape}: an empty "${empty}" line is filled in place, once, and a second run changes nothing byte for byte`, (t) => {
+      const v = vault(t);
+      writeFileSync(v.path('Hand guide.md'), eol(handClip(text('Hand')).replace('tags:', `${empty}\ntags:`)));
+      const first = adopt(v, 'Hand guide.md');
+      assert.equal(first.code, 0, first.err);
+      const stamped = v.read('Hand guide.md');
+      assert.deepEqual(keyLines(stamped, 'topic').map((l) => l.trimEnd()), ['topic: "Field notes"']);
+      assert.deepEqual(keyLines(stamped, 'quality').map((l) => l.trimEnd()), ['quality: high']);
+      assert.equal(keyLines(stamped, 'source-hash').length, 1);
+      assert.deepEqual(firstReport(first).conflicts, [], 'an empty value is no conflict');
+      if (shape === 'CRLF') assert.ok(!/[^\r]\n/.test(stamped.slice(0, stamped.indexOf('\n---', 4) + 5)), 'the frontmatter keeps its CRLF line breaks');
+      const second = adopt(v, 'Hand guide.md');
+      assert.equal(second.code, 0, second.err);
+      assert.equal(firstReport(second).status, 'unchanged');
+      assert.equal(v.read('Hand guide.md'), stamped, 'a second run writes nothing');
+    });
+  }
+}
+
+test('an empty quality with no --quality is refused rather than stamped empty', (t) => {
+  const v = vault(t);
+  for (const empty of ['quality:', 'quality: ""', "quality: ''"]) {
+    const original = handClip(text('Hand')).replace('tags:', `${empty}\ntags:`);
+    writeFileSync(v.path('Empty.md'), original);
+    const r = script('adopt-clipping.mjs', [v.path('Empty.md'), '--apply'], v.root);
+    assert.equal(r.code, 2, `${empty}: ${r.out}${r.err}`);
+    assert.match(r.err, /--quality/);
+    assert.equal(v.read('Empty.md'), original, empty);
+  }
+});
+
+test('a file an older run left with an empty and a filled copy of a key reads the filled one and adds nothing', (t) => {
+  const v = vault(t);
+  writeFileSync(v.path('Twice.md'), handClip(text('Hand')).replace('tags:', 'topic:\nquality:\ntopic: "Field notes"\nquality: high\ntags:'));
+  const r = adopt(v, 'Twice.md');
+  assert.equal(r.code, 0, r.err);
+  const after = v.read('Twice.md');
+  assert.equal(keyLines(after, 'topic').length, 2);
+  assert.equal(keyLines(after, 'quality').length, 2);
+  assert.deepEqual(firstReport(r).conflicts, []);
+  assert.equal(adopt(v, 'Twice.md').err, '');
+  assert.equal(v.read('Twice.md'), after);
+});
+
+test('CRLF: the stamp is the hash of the CRLF body, and the body bytes are untouched', (t) => {
+  const v = vault(t);
+  const lf = `${text('Hand')}
+
+A second paragraph.`;
+  const original = crlf(handClip(lf));
+  writeFileSync(v.path('Crlf.md'), original);
+  assert.equal(adopt(v, 'Crlf.md').code, 0);
+  const after = v.read('Crlf.md');
+  const body = (s) => s.slice(s.indexOf('\r\n---\r\n') + 7);
+  assert.equal(body(after), body(original));
+  assert.equal(after.match(/^source-hash: (.*?)\r?$/m)[1], clippingHash(original));
+  assert.notEqual(clippingHash(original), sha(lf), 'the CRLF body hashes differently from an LF recapture, as decision 10 has it');
+});
+
+test('a file that starts with a byte-order mark is refused for that reason, and nothing is written', (t) => {
+  const v = vault(t);
+  const original = String.fromCharCode(0xFEFF) + handClip(text('Hand'));
+  writeFileSync(v.path('Bom.md'), original);
+  const r = script('adopt-clipping.mjs', [v.path('Bom.md'), '--quality=high', '--apply'], v.root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.err, /byte-order mark/);
+  assert.doesNotMatch(r.err, /no frontmatter/);
+  assert.equal(v.read('Bom.md'), original);
+});
+
+test('an empty source is refused as having no source', (t) => {
+  const v = vault(t);
+  for (const empty of ['source:', 'source: ""', "source: ''"]) {
+    const original = handClip(text('Hand')).replace(/^source: .*$/m, empty);
+    writeFileSync(v.path('Nosource.md'), original);
+    const r = script('adopt-clipping.mjs', [v.path('Nosource.md'), '--quality=high', '--apply'], v.root);
+    assert.equal(r.code, 2, `${empty}: ${r.out}${r.err}`);
+    assert.match(r.err, /no source/);
+    assert.equal(v.read('Nosource.md'), original);
+  }
+});
+
+test('a path named twice, spelled two ways, is planned and reported once', (t) => {
+  const v = vault(t);
+  mkdirSync(join(v.dir, 'sub'), { recursive: true });
+  writeFileSync(v.path('Hand guide.md'), handClip(text('Hand')));
+  const r = script('adopt-clipping.mjs', [v.path('Hand guide.md'), join(v.dir, 'sub', '..', 'Hand guide.md'), '--quality=high', '--apply'], v.root);
+  assert.equal(r.code, 0, r.err);
+  const report = JSON.parse(r.out.split('\n')[0]);
+  assert.equal(report.files.length, 1);
+  assert.equal(report.files[0].status, 'adopted');
+  assert.equal(keyLines(v.read('Hand guide.md'), 'source-hash').length, 1);
+});
+
+test('a "---" in the body, quoted values, a tags list and a file in a nested directory are all handled', (t) => {
+  const v = vault(t);
+  mkdirSync(join(v.dir, 'nested', 'deeper'), { recursive: true });
+  const body = `${text('Hand')}\n---\n\nA section after a rule.\n\n---\nkey: value\n---\n`;
+  const original = `---\ntitle: "Hand: \\"quoted\\" guide"\nsource: 'https://docs.example.test/guide/hand'\ncreated: 2026-10-01\ntags:\n  - clippings\n  - "second tag"\nquality: 'low'\n---\n\n${body}\n`;
+  const file = join('nested', 'deeper', 'Hand guide.md');
+  writeFileSync(v.path(file), original);
+  const r = script('adopt-clipping.mjs', [v.path(file), '--quality=low', '--topic=Field notes', '--apply'], v.root);
+  assert.equal(r.code, 0, r.err);
+  const after = v.read(file);
+  assert.equal(after.slice(after.indexOf('\n---\n\n') + 5), original.slice(original.indexOf('\n---\n\n') + 5), 'the body, rules included, is untouched');
+  assert.match(after, /^title: "Hand: \\"quoted\\" guide"$/m);
+  assert.match(after, /^tags:\n {2}- clippings\n {2}- "second tag"\nquality: 'low'\n/m, 'the tags list and the quoted quality stay as they were');
+  assert.deepEqual(keyLines(after, 'quality'), ["quality: 'low'"]);
+  assert.match(after, /^topic: "Field notes"$/m);
+  assert.match(after, new RegExp(`^source-hash: ${sha(`${body}\n`.slice(0, -1))}$`, 'm'));
+  assert.deepEqual(firstReport(r).conflicts, [], "'low' equals low");
+});
+
+test('--help says a file saved with CRLF line breaks is stamped with the hash of its CRLF body', (t) => {
+  const v = vault(t);
+  const r = script('adopt-clipping.mjs', ['--help'], v.root);
+  assert.match(`${r.out}${r.err}`, /CRLF/);
+});

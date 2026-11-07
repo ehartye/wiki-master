@@ -11,8 +11,8 @@ export const CLI_SPECS = {
     usage: [
       'usage: node scripts/adopt-clipping.mjs <path>... [--topic=<t>] [--quality=high|medium|low] [--apply]',
       '',
-      'Brings hand-clipped files into the pipeline. For each named file under raw/clippings/ it stamps the source-hash a clipper would have written for the same text, and fills quality and topic when the file has none. Only the frontmatter changes; the body stays byte-identical, and a second run changes nothing.',
-      'Refused with exit 2, before anything is written: a path outside raw/clippings/, a file with no frontmatter or no source: line, and a file with no quality when --quality is not given. A value the file already holds that differs from the one given is reported as a conflict and left alone.',
+      'Brings hand-clipped files into the pipeline. For each named file under raw/clippings/ it stamps the source-hash a clipper would have written for the same text, and fills quality and topic when the file has none. Only the frontmatter changes; the body stays byte-identical, and a second run changes nothing. A file saved with CRLF line breaks is stamped with the hash of its CRLF body, so a recapture of identical text with LF breaks is not reported as unchanged.',
+      'Refused with exit 2, before anything is written: a path outside raw/clippings/, a file that starts with a byte-order mark, a file with no frontmatter or no source: line, and a file with no quality when --quality is not given. A value the file already holds that differs from the one given is reported as a conflict and left alone.',
       DRY,
       VAULT,
     ],

@@ -36,12 +36,29 @@ if (topicArg !== undefined && !topic) refuse('--topic needs a value');
 const { path: vault } = resolveVault();
 const clippingsDir = join(vault, 'raw', 'clippings');
 
-// The unquoted value of a frontmatter line, or null when the key is absent or empty.
+// Every line of a key, in order. A web clipper emits `topic:` and `quality:` with nothing after them, and an older run may have
+// left a key twice, so a key can have several lines and some of them empty.
+const keyLines = (name) => new RegExp(`^${name}:[ 	]*(.*?)[ 	]*$`, 'gm');
+
+// The unquoted value of one such line; '' for an empty value, for `""` and for `''`, which all say the key is not filled in.
+const unquote = (raw) => {
+  let value = raw;
+  if (raw.startsWith('"')) { try { value = String(JSON.parse(raw)); } catch { /* fall through to the raw text */ } }
+  if (value === raw) value = raw.replace(/^'|'$/g, '');
+  return value.trim();
+};
+
+// The value of the first line of the key that has one, or null when the key is absent or every line of it is empty.
 const scalar = (block, name) => {
-  const m = block.match(new RegExp(`^${name}:[ \t]*(.*?)[ \t]*$`, 'm'));
-  if (!m || m[1] === '') return null;
-  if (m[1].startsWith('"')) { try { return String(JSON.parse(m[1])); } catch { /* fall through to the raw text */ } }
-  return m[1].replace(/^'|'$/g, '');
+  for (const m of block.matchAll(keyLines(name))) { const value = unquote(m[1]); if (value) return value; }
+  return null;
+};
+
+// Put `line` where the first empty line of the key is, so the key is never written twice; null when no line is empty.
+const fillEmpty = (block, name, line) => {
+  let done = false;
+  const out = block.replace(keyLines(name), (all, raw) => (!done && !unquote(raw) ? (done = true, line) : all));
+  return done ? out : null;
 };
 
 function plan(arg) {
@@ -55,6 +72,8 @@ function plan(arg) {
   if (!isUnder(realpathSync(file), clippingsDir)) refuse(`${arg}: only files under raw/clippings/ can be adopted`);
 
   const text = readFileSync(file, 'utf8');
+  // Read as UTF-8 a leading byte-order mark stays in the text and hides the opening ---; it is named, not tolerated.
+  if (text.charCodeAt(0) === 0xFEFF) refuse(`${arg}: the file starts with a byte-order mark (BOM), so its frontmatter cannot be read; save it as UTF-8 without one`);
   const fm = text.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
   if (!fm) refuse(`${arg}: no frontmatter, so there is nothing to stamp`);
   const block = fm[2];
@@ -63,21 +82,29 @@ function plan(arg) {
   if (heldQuality === null && quality === undefined) refuse(`${arg}: no quality in the file and no --quality given; pass --quality=${TIERS.join('|')}`);
 
   const newline = fm[1].endsWith('\r\n') ? '\r\n' : '\n';
-  const lines = [];
+  // A missing field takes the place of the key's empty line when the file has one, and is appended otherwise.
+  let edited = block;
+  const appended = [];
+  const added = [];
   const conflicts = [];
   const want = (field, value, held, render) => {
-    if (held === null) lines.push(render(value));
-    else if (held !== value) conflicts.push({ field, held, wanted: value });
+    if (held !== null) { if (held !== value) conflicts.push({ field, held, wanted: value }); return; }
+    const line = render(value);
+    const filled = fillEmpty(edited, field, line);
+    if (filled === null) appended.push(line); else edited = filled;
+    added.push(field);
   };
   if (quality !== undefined) want('quality', quality, heldQuality, (v) => `quality: ${v}`);
-  if (topic !== null) want('topic', topic, normalizeTopic(scalar(block, 'topic') ?? '') , (v) => `topic: ${JSON.stringify(v)}`);
+  if (topic !== null) want('topic', topic, normalizeTopic(scalar(block, 'topic') ?? ''), (v) => `topic: ${JSON.stringify(v)}`);
   want('source-hash', clippingHash(text), scalar(block, 'source-hash'), (v) => `source-hash: ${v}`);
 
-  const next = lines.length ? fm[1] + block + newline + lines.join(newline) + fm[3] + text.slice(fm[0].length) : text;
-  return { path: file, arg, next, text, added: lines.map((l) => l.slice(0, l.indexOf(':'))), conflicts };
+  const next = added.length ? fm[1] + edited + appended.map((l) => newline + l).join('') + fm[3] + text.slice(fm[0].length) : text;
+  return { path: file, arg, next, text, added, conflicts };
 }
 
-const plans = paths.map(plan);
+// A file named twice (or spelled two ways) is one file: planned, written and reported once.
+const seen = new Set();
+const plans = paths.map(plan).filter((p) => { const key = realpathSync.native(p.path); return !seen.has(key) && seen.add(key); });
 const files = plans.map((p) => {
   if (apply && p.next !== p.text) writeFileSync(p.path, p.next);
   const status = p.next !== p.text ? 'adopted' : 'unchanged';
