@@ -230,3 +230,29 @@ test('pdfinfoTitle reads the Title: line, and is null without the tool, without 
   assert.equal(pdfinfoTitle('x.pdf', { tool: null, run: () => assert.fail('no tool, no run') }), null);
   assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: () => { throw new Error('damaged'); } }), null);
 });
+
+// ---------------------------------------------------------------- review findings
+const runCli = (v, args) => spawnSync(process.execPath, [join(SCRIPTS, 'clip-pdf.mjs'), ...args], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: v.root } });
+const wmFiles = (v) => (existsSync(join(v.root, '.wiki-master')) ? readdirSync(join(v.root, '.wiki-master')) : []);
+
+test('an address that carries a username or password is refused with exit 2, and nothing is written, queued or echoed', (t) => {
+  const v = vault(t);
+  for (const url of ['http://u:p4ss@127.0.0.1:1/doc.pdf', 'https://token@127.0.0.1:1/doc.pdf']) {
+    const r = runCli(v, [url, '--topic=T']);
+    assert.equal(r.status, 2, `${url}: ${r.stderr}`);
+    assert.match(r.stderr, /username or password/);
+    assert.ok(!/p4ss|token@|u:p/.test(r.stdout + r.stderr), 'the credentials are not repeated in a message');
+  }
+  assert.deepEqual(wmFiles(v), [], 'no triage row, decline or log was written');
+  assert.deepEqual(v.names(), []);
+});
+
+test('the credential refusal comes before the decline gate and the duplicate check', (t) => {
+  const v = vault(t);
+  const url = 'http://u:p4ss@127.0.0.1:1/doc.pdf';
+  recordDecline(v.root, url, 'off topic');
+  const before = wmFiles(v).map((n) => [n, readFileSync(join(v.root, '.wiki-master', n), 'utf8')]);
+  const r = runCli(v, [url]);
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.deepEqual(wmFiles(v).map((n) => [n, readFileSync(join(v.root, '.wiki-master', n), 'utf8')]), before);
+});

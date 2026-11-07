@@ -474,12 +474,21 @@ export function main(argv, deps = {}) {
   finally { cleanup(); process.off('exit', cleanup); }
 }
 
+function urlCarriesCredentials(address) {
+  try { const u = new URL(address); return Boolean(u.username || u.password); } catch { return false; }
+}
+
 function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle } = {}, scratch) {
   const arg = argv[0];
   const isUrl = /^https?:\/\//i.test(arg ?? '');
   let pdfPath = arg;
   if (!pdfPath) {
     for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
+    process.exit(2);
+  }
+  // A credential in the address would be copied into the triage log (which syncs), the source: line and every message.
+  if (isUrl && urlCarriesCredentials(arg)) {
+    console.error('ERROR: the address carries a username or password, which clip-pdf.mjs does not accept (it would be written to the vault). Download the file with your own credentials, then run clip-pdf.mjs on the file.');
     process.exit(2);
   }
   let readingMode;
