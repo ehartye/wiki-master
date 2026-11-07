@@ -1,5 +1,5 @@
 // Fetches one URL and prints one line of JSON (see fetchPlainText in plain-text.mjs). Run as a child process so the synchronous
-// clipper can wait for it. Usage: node fetch-text-child.mjs <url> [--same-origin]
+// clipper can wait for it. Usage: node fetch-text-child.mjs <url> [--same-origin] [--timeout-ms=N]
 //
 // --same-origin is for an address the clipper guessed (a plain-text twin): redirects are followed one at a time, and one that leaves the
 // address's origin is refused before any request is made to it. Without it, the address the user typed follows redirects anywhere.
@@ -11,6 +11,7 @@ const out = (value) => { process.stdout.write(`${JSON.stringify(value)}\n`); };
 
 const sameOrigin = process.argv.includes('--same-origin');
 const MAX_HOPS = 5;
+const timeoutMs = Number(process.argv.find((a) => a.startsWith('--timeout-ms='))?.split('=')[1]) || 25000;
 
 // Fetch one hop at a time, so the Location can be judged before it is requested. The response keeps its `url` as the last address asked.
 async function fetchWithinOrigin(start, signal) {
@@ -30,7 +31,7 @@ async function fetchWithinOrigin(start, signal) {
 }
 
 try {
-  const signal = AbortSignal.timeout(25000);
+  const signal = AbortSignal.timeout(timeoutMs);
   const { response, url: finalUrl, refusal } = sameOrigin
     ? await fetchWithinOrigin(process.argv[2], signal)
     : { response: await fetch(process.argv[2], { signal, redirect: 'follow' }) };

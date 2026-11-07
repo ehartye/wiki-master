@@ -119,3 +119,21 @@ test('the fetch of a URL the user typed still follows a redirect to another orig
   assert.equal(reply.ok, true);
   assert.equal(reply.finalUrl, `${s.other}/stolen.md`);
 });
+
+test('a twin probe gives up after ten seconds, a plain-text fetch keeps its longer limit', async (t) => {
+  assert.equal(plainText.TWIN_FETCH_MS, 10000);
+  const seen = [];
+  const run = (cmd, args, options) => { seen.push({ args, options }); return JSON.stringify({ ok: false, reason: 'status 404' }); };
+  fetchTwinText('https://docs.example.test/a.md.txt', { run });
+  fetchPlainText('https://docs.example.test/a.txt', { run });
+  assert.ok(seen[0].options.timeout < 25000, `the twin probe's outer limit was ${seen[0].options.timeout}`);
+  assert.ok(seen[1].options.timeout >= 40000);
+  assert.ok(seen[0].args.some((a) => /10000/.test(a)), seen[0].args.join(' '));
+  assert.ok(!seen[1].args.some((a) => /same-origin|timeout/.test(a)), "the typed URL's fetch is unchanged");
+  // The child really stops: a server that never answers.
+  const s = await servers(t);
+  const started = Date.now();
+  const reply = fetchTwinText(`${s.site}/guide/slow.md.txt`, { timeoutMs: 600 });
+  assert.equal(reply.ok, false);
+  assert.ok(Date.now() - started < 8000);
+});
