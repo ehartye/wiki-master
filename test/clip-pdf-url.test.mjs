@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { main, pdfinfoTitle } from '../scripts/clip-pdf.mjs';
-import { downloadPdf, streamPdf } from '../scripts/lib/pdf-download.mjs';
+import * as pdfDownload from '../scripts/lib/pdf-download.mjs';
+const { downloadPdf, streamPdf } = pdfDownload;
+const openFile = (...a) => pdfDownload.openFile(...a);
 import { CLIP_SPECS, checkClipArgs } from '../scripts/lib/clip-args.mjs';
 import { recordDecline } from '../scripts/lib/decline.mjs';
 
@@ -291,4 +293,29 @@ test('a Windows drive path or a relative path is still a file, not an address', 
     const r = runCli(v, [target]);
     assert.doesNotMatch(r.stderr, /only http and https/, target);
   }
+});
+
+test('the file writer keeps writing until a chunk is whole when the disk takes it in pieces', async () => {
+  const written = [];
+  let closed = false;
+  const piecewise = async (_path, _flags) => ({
+    write: async (buffer, offset = 0, length = buffer.length - offset) => {
+      const n = Math.min(3, length);
+      written.push(Buffer.from(buffer.subarray(offset, offset + n)));
+      return { bytesWritten: n, buffer };
+    },
+    close: async () => { closed = true; },
+  });
+  const writer = await openFile('unused.pdf', piecewise);
+  await writer.write(Buffer.from('%PDF-1.4 a chunk longer than three bytes'));
+  await writer.write(Buffer.from('and a second one'));
+  await writer.close();
+  assert.equal(Buffer.concat(written).toString(), '%PDF-1.4 a chunk longer than three bytesand a second one');
+  assert.ok(closed);
+});
+
+test('a write that accepts nothing is an error, not an endless loop', async () => {
+  const stuck = async () => ({ write: async () => ({ bytesWritten: 0 }), close: async () => {} });
+  const writer = await openFile('unused.pdf', stuck);
+  await assert.rejects(() => writer.write(Buffer.from('abc')), /0 bytes/);
 });

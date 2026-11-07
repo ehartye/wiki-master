@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { open, rm } from 'node:fs/promises';
+import { open as fsOpen, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -11,10 +11,22 @@ export const STALL_MS = 60000;
 const MAGIC = Buffer.from('%PDF-');
 const NOT_PDF = 'not a PDF: the response does not start with %PDF-';
 
-// The default writer: a file opened for writing. A test supplies its own to make a write fail.
-async function openFile(path) {
+// The default writer: a file opened for writing. A test supplies its own to make a write fail, or `open` to make the disk take a chunk
+// in pieces. handle.write may accept fewer bytes than it was given, so a chunk is written until it is whole; one that accepts
+// nothing is an error rather than a loop.
+export async function openFile(path, open = fsOpen) {
   const handle = await open(path, 'w');
-  return { write: (chunk) => handle.write(chunk), close: () => handle.close() };
+  return {
+    async write(chunk) {
+      let done = 0;
+      while (done < chunk.length) {
+        const { bytesWritten } = await handle.write(chunk, done, chunk.length - done);
+        if (!bytesWritten) throw new Error('the disk accepted a write of 0 bytes');
+        done += bytesWritten;
+      }
+    },
+    close: () => handle.close(),
+  };
 }
 
 const fail = (code, reason) => ({ ok: false, code, reason });
