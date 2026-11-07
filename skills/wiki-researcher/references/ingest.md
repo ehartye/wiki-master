@@ -34,7 +34,12 @@ Inspect each selected clipping's metadata before treating it as support. Exclude
 `citation-status: quarantined`, `restricted` or `retired` evidence, preserving its
 raw bytes and restriction; report it separately rather than summarizing it as
 accepted support. A missing source hash is a repair issue, not permission to
-invent one. Binary originals and figure sidecars are not summary targets. The
+invent one; for a hand-clipped file the repair is [`adopt-clipping.mjs`](capture.md#files-a-person-clipped-by-hand), within capture scope. Binary originals and figure sidecars are not summary targets.
+
+A clipping with `landing-page: true` is a short page that points at one document (`document-link`); it is not
+evidence for the document's contents. Do not summarize the document from it: ingest the document's own clipping
+(made with `clip-pdf.mjs "<document-link>"`), and report the document as not captured when that clipping is missing.
+The landing clipping supports only what the page itself says. The
 helper's backlog can include restricted or defective captures, so its count is
 not automatically the count of eligible work.
 
