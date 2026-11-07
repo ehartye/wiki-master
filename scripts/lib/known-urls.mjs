@@ -24,7 +24,7 @@ const scalar = (block, name) => {
 };
 
 // Every top-level clipping that has a `source:` line, in directory order:
-// { file, name, url, created, sourceHash, recaptureOf } with null for a field the clipping does not carry.
+// { file, name, url, created, sourceHash, recaptureOf, twinUrl, fidelity } with null for a field the clipping does not carry.
 // `source` is found as it always was, the first `source:` line of the file, so a clipping the clippers could read
 // before is still read.
 export function readClippings(vaultPath) {
@@ -44,24 +44,30 @@ export function readClippings(vaultPath) {
       created: scalar(block, 'created'),
       sourceHash: scalar(block, 'source-hash'),
       recaptureOf: scalar(block, 'recapture-of'),
+      twinUrl: scalar(block, 'twin-url'),
+      fidelity: scalar(block, 'fidelity'),
     });
   }
   return out;
 }
 
-// Map of normalized URL -> the clippings that hold it.
-export function knownUrlIndex(vaultPath) {
+// Map of normalized URL -> the clippings that hold it. A clipping stored from a plain-text twin holds the twin's URL too,
+// so a later clip of the twin is known; `twins: false` leaves those keys out for a reader that counts or recaptures PAGES.
+export function knownUrlIndex(vaultPath, { twins = true } = {}) {
   const index = new Map();
-  for (const entry of readClippings(vaultPath)) {
-    const key = urlKey(entry.url);
+  const add = (key, entry) => {
     if (!index.has(key)) index.set(key, []);
     index.get(key).push(entry);
+  };
+  for (const entry of readClippings(vaultPath)) {
+    add(urlKey(entry.url), entry);
+    if (twins && entry.twinUrl && urlKey(entry.twinUrl) !== urlKey(entry.url)) add(urlKey(entry.twinUrl), entry);
   }
   return index;
 }
 
 export function clippingsForUrl(vaultPath, url) {
-  return knownUrlIndex(vaultPath).get(urlKey(url)) ?? [];
+  return knownUrlIndex(vaultPath, { twins: false }).get(urlKey(url)) ?? [];
 }
 
 // The latest capture of a URL: the greatest `created`, then the greatest name. Names are compared without `.md`, so
@@ -77,7 +83,8 @@ export function newestCapture(entries) {
   return best;
 }
 
-// The source URL of every clipping, as the clippers have always read them (one per file).
+// The URLs the vault already holds: the source of every clipping, as the clippers have always read them, and the twin a
+// clipping was stored from.
 export function knownSourceUrls(vaultPath) {
-  return readClippings(vaultPath).map((e) => e.url);
+  return readClippings(vaultPath).flatMap((e) => (e.twinUrl ? [e.url, e.twinUrl] : [e.url]));
 }

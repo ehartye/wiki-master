@@ -19,6 +19,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
+import { findTwin, twinPage } from './lib/twin.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -94,7 +95,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage, twinUrl }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -128,6 +129,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
   // What an --expand read opened and found, one line a person can read. Its presence also keeps the repair tools off it.
   if (expandCoverage) lines.push(`expand-coverage: ${yaml(expandCoverage)}`);
+  // Where the stored Markdown was served from, when it is the plain-text twin of `source` (extraction: plaintext-twin).
+  if (twinUrl) lines.push(`twin-url: ${yaml(twinUrl)}`);
   // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
   if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
@@ -495,10 +498,12 @@ export function extractionAvailable() {
 }
 
 // `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own, and its own `render` in place of a browser.
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today, render = renderAttempt } = {}) {
+// `fetchTwin(url)` answers the plain-text twin probes with the same shape as `fetchText`, and is as offline as it when `extract` is injected.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, fetchTwin, today: todayOf = today, render = renderAttempt } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
+  const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
@@ -519,6 +524,14 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     process.exitCode = 2;
     return { status: 'error', error };
   }
+  // --find-twin reads the clipping already in the vault and the live page; a supplied file or a browser read has neither.
+  const findingTwin = argv.includes('--find-twin');
+  if (findingTwin && (fromFile !== undefined || expand)) {
+    const error = `--find-twin cannot be used with ${fromFile !== undefined ? '--from-file' : '--expand'}`;
+    console.error(error);
+    process.exitCode = 2;
+    return { status: 'error', error };
+  }
   if (fromFile !== undefined) {
     const problem = suppliedFileProblem(fromFile);
     if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
@@ -527,6 +540,22 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
 
   const { path: vaultPath } = resolveVault();
+
+  // Only a page that already clipped with a partial warning is worth a probe, and nothing is written whatever it finds.
+  if (findingTwin) {
+    const held = newestCapture(clippingsForUrl(vaultPath, url));
+    if (held?.fidelity !== 'partial') {
+      const reason = 'no clipping of it carries a partial fidelity warning';
+      console.log(`no probe (${reason}): ${url}`);
+      return { status: 'skipped', reason };
+    }
+    let signals;
+    try { signals = extract(url).pageSignals; } catch { /* the suffix and index probes need no page */ }
+    const found = findTwin({ url, signals, fetchTwin: probeTwin });
+    if (!found.ok) { console.log(`no plain-text twin found: ${url}`); return { status: 'no-twin' }; }
+    console.log(`twin found (${wordCount(found.text)} words; nothing was written): ${found.url}`);
+    return { status: 'twin', twinUrl: found.url };
+  }
 
   // Explicit decline (Phase 2 reject): record the decision instead of clipping,
   // so the next discovery run does not re-litigate this URL.
@@ -610,6 +639,22 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     console.log(`clip failed — ${reason} (queued for triage): ${url}`);
     return { status: 'failed', reason };
   };
+  // The plain-text twin of a page that read thin or failed (lib/twin.mjs): Markdown a site serves beside the page, which keeps
+  // the code a rendered read loses and costs a request instead of a browser. Not for a supplied file, --expand, or a URL that
+  // is already text or a PDF. A twin the vault holds is a duplicate unless the clip is a recapture.
+  let twinUrl = null;
+  const twinFor = (pageData) => {
+    if (manual || expand || plain || looksLikePlainTextUrl(url) || looksLikePdfUrl(url)) return null;
+    const found = findTwin({ url, signals: pageData?.pageSignals, fetchTwin: probeTwin });
+    if (!found.ok) return null;
+    if (!recapture && isDuplicateUrl(found.url, knownSourceUrls(vaultPath))) {
+      closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
+      console.log(`duplicate (already clipped): ${found.url} (the plain-text twin of ${url})`);
+      return { result: { status: 'duplicate' } };
+    }
+    twinUrl = found.url;
+    return { data: { ...(pageData?.author && { author: pageData.author }), ...(pageData?.published && { published: pageData.published }), ...twinPage({ twin: found, pageTitle: pageData?.title, name: plainTextPage(url, '').title }) } };
+  };
   // What --expand opened and found. It reads the browser or nothing: static text in its place would look like the full page.
   let coverage = null;
   if (expand) {
@@ -650,17 +695,22 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // pages that HAVE no content until a browser builds it. Sampling 17 entries
     // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
     // recovered 8 of them outright and correctly re-diagnosed most of the rest.
-    const r = render(url);
-    if (!r.ok) return queueRenderFailure(r);
-    data = r.data;
-    extraction = 'rendered';
+    const twin = twinFor(null);
+    if (twin?.result) return twin.result;
+    if (twin) { data = twin.data; extraction = 'plaintext-twin'; }
+    else {
+      const r = render(url);
+      if (!r.ok) return queueRenderFailure(r);
+      data = r.data;
+      extraction = 'rendered';
+    }
   }
 
   // Stripped before anything measures or hashes it: the word floor below must
   // judge the article, not the archive's banner, and the source-hash must
   // describe what the vault will actually quote.
   // Supplied text is the page as the person saved it, so the archive banner is not stripped from it.
-  let md = manual?.kind === 'text' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
+  let md = manual?.kind === 'text' || extraction === 'plaintext-twin' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -671,7 +721,13 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // just below. The verdict further down needs all of it: whether the browser
   // read the page, and if not, why.
   let renderResult = extraction === 'rendered' ? { ok: true } : null;
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && extraction !== 'plaintext' && !manual) {
+  const isPlain = () => extraction === 'plaintext' || extraction === 'plaintext-twin';
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
+    const twin = twinFor(data);
+    if (twin?.result) return twin.result;
+    if (twin) { data = twin.data; md = data.contentMarkdown; extraction = 'plaintext-twin'; }
+  }
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     renderResult = render(url);
     const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
     if (wordCount(rendered) >= THIN_WORD_FLOOR) {
@@ -681,7 +737,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
   }
 
-  if (wordCount(md) < THIN_WORD_FLOOR && extraction !== 'plaintext') {
+  if (wordCount(md) < THIN_WORD_FLOOR && !isPlain()) {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
     if (verdict.kind !== 'short_real_article' && manual) {
       // A file a person supplied is never declined and never re-fetched: the row says what to supply instead.
@@ -734,7 +790,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A page with words enough to clear the floor can still be the gate and not the page: a login form, a consent wall, an age
   // check. Its own vocabulary, dense, with none of its title in the text, is the signal (lib/interstitial.mjs). It is queued
   // for a person and not declined: a wall is not a verdict on the source, and a signed-in browser can still clip it.
-  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
+  const shell = isPlain() ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
   if (shell) {
     recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
     console.log(manual
@@ -770,7 +826,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
       result = { ...result, unexpandedTabs: unopened };
     }
-    return { ...result, ...keptOfPage() };
+    return { ...result, ...(twinUrl && { twinUrl }), ...keptOfPage() };
   };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
@@ -787,7 +843,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
   const fm = buildFrontmatter({
     title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, suppliedSha256: manual?.sha256,
+    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
     fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
   });

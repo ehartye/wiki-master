@@ -23,7 +23,8 @@ try {
     const bytes = Buffer.concat(chunks);
     if (over) out({ ok: false, refused: true, reason: `larger than ${MAX} bytes` });
     else if (looksBinaryBytes(bytes)) out({ ok: false, refused: true, reason: 'binary content served as text' });
-    else out({ ok: true, type, text: bytes.toString('utf8') });
+    // finalUrl: where the redirects ended. A caller that guessed this address (a plain-text twin) must know it was not sent elsewhere.
+    else out({ ok: true, type, text: bytes.toString('utf8'), finalUrl: response.url });
   }
 } catch (error) {
   out({ ok: false, reason: `fetch failed: ${String(error.message ?? error).slice(0, 120)}` });
