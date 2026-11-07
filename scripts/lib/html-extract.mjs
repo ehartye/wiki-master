@@ -245,10 +245,12 @@ function pageSignals(document, url) {
   }
   const { tabGroups, panelOfTab, isEmptyPanel } = tabDomRules();
   const groups = tabGroups(region);
-  // Only a tab whose panel is missing or empty is unread: extraction keeps the panels the HTML holds.
+  // Only a tab whose panel is missing or empty is unread: extraction keeps the panels the HTML holds. A hidden block
+  // that is no tab panel isn't one of them, so a tab naming one is unread too.
+  const hidden = (node) => !!node.closest('[hidden], [aria-hidden="true"]') || /displays*:s*none/i.test(node.getAttribute('style') ?? '');
   const tabControls = [...region.querySelectorAll('[role="tab"]')].filter(outsideChrome).filter((tab) => {
     const { panel, absent } = panelOfTab(tab, document, groups.find((group) => group.tabs.includes(tab)));
-    return absent || (panel && isEmptyPanel(panel));
+    return absent || (panel && (isEmptyPanel(panel) || (panel.getAttribute('role') !== 'tabpanel' && hidden(panel))));
   }).length;
   return { tabControls, pdfLinks: [...pdfLinks], markdownLinks: [...markdownLinks] };
 }
@@ -274,6 +276,7 @@ function flattenTabPanels(document, root) {
     group.level = labelLevel(group.tablist, root, parent ? groupOfPanel.get(parent)?.level : 0);
     for (const tab of group.tabs) {
       const { panel } = panelOfTab(tab, document, group);
+      if (panel || tab.getAttribute('aria-controls')) group.linked = true;
       if (panel?.getAttribute('role') !== 'tabpanel') continue;
       groupOfPanel.set(panel, group);
       // Several tabs can share one panel, which then shows the selected tab.
@@ -299,10 +302,8 @@ function flattenTabPanels(document, root) {
     sections.push(section);
   }
   for (const section of sections) applyWrapperRule(section, root);
-  // A list of tabs linked to nothing may be real page links, so it is left alone.
-  for (const { tablist, tabs, panels: held } of groups) {
-    if (held.length || tabs.some((tab) => tab.getAttribute('aria-controls'))) tablist.remove();
-  }
+  // A list of tabs linked to nothing may be real page links, so it is left alone, whatever panels sit near it.
+  for (const { tablist, linked } of groups) if (linked) tablist.remove();
 }
 
 // The warnings only (site chrome the extractor removed on purpose is left out); the detailed form also

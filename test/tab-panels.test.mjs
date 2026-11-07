@@ -188,3 +188,26 @@ test('--from-file HTML keeps panels too', (t) => {
   assert.equal(result.status, 'clipped');
   assertBothPanels(readFileSync(join(v.clippings, `${result.slug}.md`), 'utf8'));
 });
+
+test('a tab list of plain links keeps its links when an unrelated tab panel follows it', async () => {
+  const links = ['guide', 'reference', 'changelog'].map((name) => `<li><a role="tab" href="/docs/${name}">Read the ${name}</a></li>`).join('');
+  const text = await md(`<ul role="tablist">${links}</ul><div role="tabpanel">${table('unrelated-tier', '1')}</div>`);
+  for (const name of ['guide', 'reference', 'changelog']) assert.match(text, new RegExp(`/docs/${name}`), `the ${name} link is kept:\n${text}`);
+  assert.match(text, /unrelated-tier/);
+});
+
+test('a tab controlling a populated hidden block that is no tab panel is reported as unopened, and the block is not flattened', async (t) => {
+  vault(t);
+  const markup = `<div role="tablist"><button role="tab" aria-controls="more">More</button></div><div id="more" hidden><p>hidden-block-text</p></div>`;
+  const data = await extractHtml(page(markup), URL_A);
+  assert.equal(data.pageSignals.tabControls, 1);
+  assert.doesNotMatch(data.contentMarkdown, /hidden-block-text/);
+  const { result, lines } = clip([URL_A], { extract: () => data });
+  assert.equal(result.unexpandedTabs, 1);
+  assert.match(lines.join('\n'), /^note: page has 1 tab controls this clip did not open; use --recapture --expand$/m);
+});
+
+test('a tab controlling a visible block that is no tab panel is not reported', async () => {
+  const data = await extractHtml(page(`<div role="tablist"><button role="tab" aria-controls="more">More</button></div><div id="more"><p>visible-block-text</p></div>`), URL_A);
+  assert.equal(data.pageSignals.tabControls, 0);
+});
