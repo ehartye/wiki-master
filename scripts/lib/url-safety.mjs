@@ -60,11 +60,3 @@ export function secretRefusal(address, hint = '') {
   const found = addressSecret(address);
   return `refused: the address carries a ${found?.text ?? 'username or password'}; remove it${hint ? ` (${hint})` : ''}`;
 }
-
-// The two older names, until each caller has moved to the ones above.
-export function urlCarriesCredentials(address) {
-  try { const u = new URL(String(address ?? '')); return Boolean(u.username || u.password); } catch { return false; }
-}
-export function credentialRefusal(hint = '') {
-  return `refused: the address carries a username or password; remove it${hint ? ` (${hint})` : ''}`;
-}

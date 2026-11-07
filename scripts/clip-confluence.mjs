@@ -12,7 +12,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
-import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
+import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 
 const THIN_WORD_FLOOR = 100;
 const THIN_PLACEHOLDER = /this page has no readable content/i;
@@ -96,9 +96,9 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
     for (const line of CLIP_SPECS['clip-confluence'].usage) console.error(line);
     process.exit(2);
   }
-  // A credential in the address would be echoed, queued or written to source:; confluencer holds the account's own.
-  if (urlCarriesCredentials(target)) {
-    console.error(credentialRefusal('confluencer signs in with its own configured account; give the page address without them'));
+  // A secret in the address would be echoed, queued or written to source:; confluencer holds the account's own.
+  if (urlCarriesSecret(target)) {
+    console.error(secretRefusal(target, 'confluencer signs in with its own configured account; give the page address without it'));
     process.exit(2);
   }
 

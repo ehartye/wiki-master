@@ -8,7 +8,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
-import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
+import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
@@ -488,11 +488,11 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     console.error('only http and https addresses are fetched');
     process.exit(2);
   }
-  // A credential in the address would be copied into the triage log (which syncs), declined.json, the source: line and every
+  // A secret in the address would be copied into the triage log (which syncs), declined.json, the source: line and every
   // message. It is refused wherever it arrives (the address or --source=) before anything else is computed or written.
   const sourceOption = argv.find((a) => a.startsWith('--source='))?.slice('--source='.length);
-  if ((isUrl && urlCarriesCredentials(arg)) || urlCarriesCredentials(sourceOption)) {
-    console.error(credentialRefusal('download the file with your own credentials, then run clip-pdf.mjs on the file'));
+  if ((isUrl && urlCarriesSecret(arg)) || urlCarriesSecret(sourceOption)) {
+    console.error(secretRefusal(isUrl && urlCarriesSecret(arg) ? arg : sourceOption, 'download the file with your own credentials, then run clip-pdf.mjs on the file'));
     process.exit(2);
   }
   let readingMode;

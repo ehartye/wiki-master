@@ -13,7 +13,7 @@ import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
-import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
+import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
 import { looksLikePlainTextUrl, fetchPlainText, fetchTwinText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -494,9 +494,9 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = 
   }
 }
 
-// landingDocument over the page's PDF links without any that carries a username or password: an extractor that was handed one
+// landingDocument over the page's PDF links without any that carries a secret: an extractor that was handed one
 // (a test, a browser route) must not turn it into the landing row's address.
-const landingOf = (signals, words) => landingDocument(signals && { ...signals, pdfLinks: (signals.pdfLinks ?? []).filter((link) => !urlCarriesCredentials(link)) }, words);
+const landingOf = (signals, words) => landingDocument(signals && { ...signals, pdfLinks: (signals.pdfLinks ?? []).filter((link) => !urlCarriesSecret(link)) }, words);
 
 // An address on the page's own site that no page should answer: its origin and directory, the last path segment replaced by a name
 // taken from the page's address, and no query.
@@ -564,12 +564,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (list) return runList(argv, deps, list);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
-  // A refused address is recorded without its credentials, or not at all when it is not an address.
+  // A refused address is recorded without its secrets, or not at all when it is not an address.
   const refused = (error) => record({ url: redactAddress(url), topic: parseTopicArg(argv), status: 'error', error });
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); refused('invalid url'); process.exit(2); }
-  // A credential in the address would be queued in the triage log (which syncs), recorded in declined.json or written as source:.
-  if (urlCarriesCredentials(url)) {
-    const refusal = credentialRefusal('save the page from a signed-in browser and record it with clip.mjs <url-without-credentials> --from-file <path>');
+  // A secret in the address would be queued in the triage log (which syncs), recorded in declined.json or written as source:.
+  if (urlCarriesSecret(url)) {
+    const refusal = secretRefusal(url, 'save the page from a signed-in browser and record it with clip.mjs <url-without-the-secret> --from-file <path>');
     console.error(refusal);
     refused(refusal);
     process.exit(2);
@@ -598,7 +598,7 @@ const OUTCOME_ORDER = ['clipped', 'unchanged', 'duplicate', 'clash', 'declined',
 
 // What is wrong with one line of a list, or null. A message never repeats the line: it may hold a password.
 function listLineProblem(line) {
-  if (urlCarriesCredentials(line)) return credentialRefusal();
+  if (urlCarriesSecret(line)) return secretRefusal(line);
   try { if (/^https?:$/.test(new URL(line).protocol)) return null; } catch { /* not an address at all */ }
   return 'not an http or https address';
 }
