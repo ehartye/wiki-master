@@ -232,7 +232,8 @@ test('a recapture still runs the thin check: a short page is not written and the
   const v = vault(t);
   clip(URL_A, page('Setup guide', text('One')), [], day('2026-10-01'));
   const before = v.snapshot();
-  const r = clip(URL_A, page('Setup guide', 'Too short to be a page.'), ['--recapture'], { ...day('2026-10-29'), writeClipping: () => assert.fail('nothing may be written') });
+  const noBrowser = () => ({ ok: false, kind: 'failed', unavailable: true, reason: 'no browser in this test' });
+  const r = clip(URL_A, page('Setup guide', 'Too short to be a page.'), ['--recapture'], { ...day('2026-10-29'), render: noBrowser, writeClipping: () => assert.fail('nothing may be written') });
   assert.equal(r.result.status, 'thin');
   assert.deepEqual(v.snapshot(), before);
 });

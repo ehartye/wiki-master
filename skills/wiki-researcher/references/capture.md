@@ -30,9 +30,10 @@ the exact pages they named:
   `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --decline="<one-line reason>"`.
 - [Finish the capture](#finish-capture-and-report) below. Ingest only when the exact source set
   is already authorized; a capture-only request ends after the verified capture is logged.
-- A page the clipper cannot read (a login, a consent wall, an age check, a thin
-  extraction) is saved by the user from a signed-in browser and supplied with
-  `--from-file` (below).
+- A saved page is the route when the browser could not read the page or is not
+  available (see **What the render decides** below), and for a login, a consent
+  wall or an age check: the user saves it from a signed-in browser and you supply
+  it with `--from-file` (below).
 
 ## Capture the selected sources
 Do prerequisite and duplicate checks first. When there is nothing to capture or
@@ -50,20 +51,22 @@ can land: the clipping's frontmatter when the clip succeeds, and the triage log
 when it fails, so you never have to know which happened.
 
 **"Every clip" includes the non-HTML ones.** A candidate that is a PDF, a Word
-file or a spreadsheet does not go through `clip.mjs` — it goes through
-`clip-pdf.mjs`, `clip-docx.mjs` or `clip-xlsx.mjs` (see [PDF capture](clip-pdf.md) and
-[Word capture](clip-docx.md)), and **every one of those takes `--topic` too**:
+file, a PowerPoint deck or a spreadsheet does not go through `clip.mjs` — it goes through
+`clip-pdf.mjs`, `clip-docx.mjs`, `clip-pptx.mjs` or `clip-xlsx.mjs` (see [PDF capture](clip-pdf.md),
+[Word capture](clip-docx.md), [PowerPoint capture](clip-pptx.md) and
+[spreadsheet capture](clip-xlsx.md)), and **every one of those takes `--topic` too**:
 
 ```bash
 node "<absolute-plugin-root>/scripts/clip-pdf.mjs"  "<file.pdf>"  --source="<url>" --quality=<tier> --topic="<topic>"
 node "<absolute-plugin-root>/scripts/clip-docx.mjs" "<file.docx>" --source="<url>" --quality=<tier> --topic="<topic>"
+node "<absolute-plugin-root>/scripts/clip-pptx.mjs" "<file.pptx>" --source="<url>" --quality=<tier> --topic="<topic>"
 node "<absolute-plugin-root>/scripts/clip-xlsx.mjs" "<file.xlsx>" --source="<url>" --quality=<tier> --topic="<topic>"
-# clip-pptx.mjs takes the same options; clip-pdf also renders figure files (--figures)
+# clip-pdf also renders figure files (--figures)
 ```
 
 **A Confluence Cloud URL is HTML but also does not go through `clip.mjs`** — it
-requires authentication `clip.mjs`'s anonymous fetch does not have, and reads
-as thin content / gets auto-declined. Route it to [Confluence capture](clip-confluence.md) instead
+requires authentication `clip.mjs` does not have, so it reads
+as thin content and can be declined. Route it to [Confluence capture](clip-confluence.md) instead
 (only applies if the `confluencer` plugin is installed — an optional runtime
 dependency this one clipper alone takes on; see that reference for why):
 
@@ -78,11 +81,30 @@ rather than inventing one.
 
 It blocks unreliable domains, skips dupes, extracts via Defuddle, and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags:[clippings]`, `quality`,
-`topic`, `source-hash`. Read the actual outcome: automatic thin declines differ
-from transient failures and wrong-node walls, which are queued rather than judged
+`topic`, `source-hash`. Read the actual outcome: a thin page declined after a browser read it
+differs from a failure or a login wall, which are queued rather than judged
 as sources. Use [HTML/supplied-page diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) for thin, wrong-node, transient, clash or supplied-file refusal recovery; do not retry blindly or fabricate a raw file.
 
-A raw text URL (for example a checksum manifest or pinned source file) is captured whole in a code fence with `extraction: plaintext`, without the ordinary thin-content test. Binary/oversized refusal diagnosis remains in the directly linked setup procedure.
+**When a browser renders the page.** `clip.mjs` tries the served HTML first. It renders the page in a browser when that fetch fails or the text is under 100 words. A plain-text capture, a supplied file and a PDF URL whose fetch failed are not rendered. The render needs `playwright-core` and Chrome or Edge; `node "<absolute-plugin-root>/scripts/doctor.mjs"` reports both as optional under `clip`, so a missing browser does not fail it. A rendered clipping shows as `extraction: rendered` in its frontmatter. Its `clipped:` line looks like any other.
+
+**What the render decides.** On a thin page, only a browser that read the page can justify a 180-day decline:
+
+| Render result | Clip outcome |
+|---|---|
+| `ok`, at least 100 words | Clipped with `extraction: rendered` |
+| `ok`, still thin | Declined and queued as `thin` or `wrong-node` |
+| `unavailable` (no `playwright-core` or browser) | Queued as `thin` or `wrong-node`, not declined |
+| `blocked` or `failed` (a timeout is `failed`) | Queued as `thin` or `wrong-node` with the render's reason, not declined. The line ends `triage recorded; not declined — browser render did not read the page (<reason>)` |
+| `gone` | Queued as `gone`, not declined |
+
+Text the clipper judges a short real article (an `<article>` or `<main>` of at least 50 words, or three headings over at least 20 words) still clips as a brief article. A failed fetch whose render also fails is printed as `clip failed` or `page gone` and queued, not declined.
+
+**A thin documentation page: two things to try by hand.** `clip.mjs` tries neither on its own.
+
+1. Clip the page's text twin. Some documentation sites serve one at `<url>.md.txt` or `<url>.md` (drop a trailing `/` first). Run `clip.mjs` on that URL; a 200 answer with a text content type becomes a plain-text capture, described below. Its `source` is the twin's URL, so the page's own triage row and decline stay as they are. Any other answer takes the ordinary route under the twin's URL and can leave its own row or decline; report it.
+2. Render the page yourself, with a browser tool your host provides, save the result as `.html`, and record it with `clip.mjs "<url>" --from-file <path>`. The clipping's `source` is the page's URL and it carries `extraction: manual`, as described under **A page a person saved**.
+
+A raw text URL (for example a checksum manifest or pinned source file) is captured whole in a code fence with `extraction: plaintext`, without the ordinary thin-content test. Its `source` is the URL you gave. Binary/oversized refusal diagnosis remains in the directly linked setup procedure.
 
 **What a clip result means.** `clip.mjs` prints one result per URL:
 
@@ -93,7 +115,7 @@ A raw text URL (for example a checksum manifest or pinned source file) is captur
 | `unchanged (same text as raw/clippings/<name>.md); nothing written` | `--recapture` found the page's text identical to a capture already held (exit 0) | nothing; the page has not changed |
 | `recapture: not clipped yet, clipping it normally: <url>` | `--recapture` on a URL that was not in the vault; the line is followed by the ordinary result | read the result that follows |
 | `clash: <url>: raw/clippings/<name>.md already exists ...` | the URL is new but every name it could have had was taken; **nothing was written** and one `attention` row is queued in triage | follow [clash diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages) or leave the row for maintainer triage |
-| `declined`, `blocked`, `thin content`, `failed` | no successful capture | use [outcome diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages); report the actual result |
+| `declined`, `blocked`, `thin content`, `possible extraction mismatch`, `login, consent or age-gate page`, `page gone`, `clip failed`, `not clipped` | no successful capture; the line says whether a decline was recorded | use [outcome diagnosis](../../wiki-setup/references/capture-prerequisites.md#html-and-supplied-pages); report the actual result |
 
 A taken file name is a `clash`, never a `duplicate`: a `duplicate` always means the same URL.
 
@@ -106,7 +128,7 @@ A taken file name is a `clash`, never a `duplicate`: a `duplicate` always means 
 An option a clipper does not know exits 2 with its usage and clips nothing; `--help` prints the usage and clips nothing.
 
 **Every unresolved link is queued for triage automatically.** `clip.mjs` records
-`failed`, `thin`, and `wrong-node` outcomes to `.wiki-master/triage.jsonl`, so a
+`failed`, `blocked`, `gone`, `thin`, `wrong-node` and `attention` outcomes to `.wiki-master/triage.jsonl`, so a
 link that needs a human survives the terminal scrollback. Do not rely on your
 completion report to carry them — point the user at [maintainer triage](../../wiki-maintainer/references/triage.md), where they can
 disposition each one (retry, decline, clipped-by-hand). Queue anything else that

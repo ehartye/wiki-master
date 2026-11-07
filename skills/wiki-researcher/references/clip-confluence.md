@@ -7,7 +7,7 @@ Reuse existing session authorization for the first write.
 The HTML clipper (`clip.mjs` → Defuddle) handles public **HTML** pages
 only, by an unauthenticated fetch. A Confluence Cloud page is also HTML, but
 sits behind Atlassian auth — Defuddle's anonymous request hits the login wall
-or an empty SPA shell, reads as thin content, and gets auto-declined. This
+or an empty SPA shell, reads as thin content, and can be declined. This
 skill is the Confluence path. **The canonical stored artifact is the Markdown
 the `confluence` skill's `page.mjs` already returns, never a PDF export and
 never a second fetch** — that keeps the vault greppable, diffable, and

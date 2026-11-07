@@ -389,6 +389,10 @@ export function looksLikePdfUrl(url) {
 // 180-day TTL on the strength of a package the user has simply not installed
 // yet, and they would not discover it until long after fixing the setup. The
 // URL still reaches triage either way; only the caching is withheld.
+//
+// A render that timed out, was blocked or hit a 404 collapses it the same way:
+// that is a fact about one attempt, not about the page's markup. So `renderRan`
+// is true only for a browser that actually read the page.
 export function shouldDeclineThin({ renderRan }) {
   return renderRan === true;
 }
@@ -454,8 +458,8 @@ export function extractionAvailable() {
   return false;
 }
 
-// `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own.
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today } = {}) {
+// `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own, and its own `render` in place of a browser.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today, render = renderAttempt } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
@@ -579,7 +583,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // pages that HAVE no content until a browser builds it. Sampling 17 entries
     // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
     // recovered 8 of them outright and correctly re-diagnosed most of the rest.
-    const r = renderAttempt(url);
+    const r = render(url);
     if (r.ok) {
       data = r.data;
       extraction = 'rendered';
@@ -610,16 +614,16 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
   // only way to tell "nothing there" apart from "nothing there yet". Skipped when
   // the render rung already supplied this text — it does not get a second turn.
-  // Whether the browser rung got to weigh in on this URL at all. It has already
-  // run (and succeeded) when extraction === 'rendered'; otherwise it is set by
-  // the thin-path attempt just below.
-  let renderRan = extraction === 'rendered';
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderRan && extraction !== 'plaintext' && !manual) {
-    const r = renderAttempt(url);
-    renderRan = !r.unavailable;
-    const rendered = r.ok ? stripArchiveChrome(r.data.contentMarkdown || r.data.content || '') : '';
+  // What the browser rung made of this URL. It has already run (and succeeded)
+  // when extraction === 'rendered'; otherwise it is set by the thin-path attempt
+  // just below. The verdict further down needs all of it: whether the browser
+  // read the page, and if not, why.
+  let renderResult = extraction === 'rendered' ? { ok: true } : null;
+  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && extraction !== 'plaintext' && !manual) {
+    renderResult = render(url);
+    const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
     if (wordCount(rendered) >= THIN_WORD_FLOOR) {
-      data = r.data;
+      data = renderResult.data;
       md = rendered;
       extraction = 'rendered';
     }
@@ -637,23 +641,39 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       return { status: 'thin', reason };
     }
     if (verdict.kind !== 'short_real_article') {
-      // Thin/wrong-node is deterministic given this page's current markup — record
-      // it so the next run skips without re-fetching. TTL re-litigates eventually.
-      if (shouldDeclineThin({ renderRan })) recordDecline(vaultPath, url, verdict.reason);
+      // The browser reached for the page and did not read it. Unlike `unavailable`,
+      // this attempt learned something, so the row and the line say what.
+      const unread = !renderResult.ok && !renderResult.unavailable;
+      const notRead = `browser render did not read the page (${renderResult.reason})`;
+      // A dead source is not a thin one, and advice to save it from a browser would be no use.
+      if (unread && renderResult.kind === 'gone') {
+        recordIssue(vaultPath, { url, kind: 'gone', reason: renderResult.reason, topic });
+        console.log(`page gone: ${url}; triage recorded; not declined — ${notRead}`);
+        return { status: 'failed', reason: renderResult.reason };
+      }
+      // Thin/wrong-node is deterministic given this page's current markup — once a
+      // browser has read it, record it so the next run skips without re-fetching.
+      // TTL re-litigates eventually.
+      const declined = shouldDeclineThin({ renderRan: renderResult.ok === true });
+      if (declined) recordDecline(vaultPath, url, verdict.reason);
       // Also queue it: the decline stops the re-fetch, but the source was still
       // wanted and only a human can clip it manually.
+      const reason = unread ? `${verdict.reason}; ${notRead}` : verdict.reason;
       recordIssue(vaultPath, {
         url,
         kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin',
-        reason: verdict.reason,
+        reason,
         topic,
       });
       const label = verdict.kind === 'wrong_node' ? 'possible extraction mismatch' : 'thin content';
-      const recorded = shouldDeclineThin({ renderRan })
+      const route = 'save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>';
+      const recorded = declined
         ? 'decline + triage recorded'
         : 'triage recorded; not declined — browser render unavailable';
-      console.log(`${label} (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; ${recorded}): ${url}`);
-      return { status: 'thin', reason: verdict.reason };
+      console.log(unread
+        ? `${label} (${route}): ${url}; triage recorded; not declined — ${notRead}`
+        : `${label} (${route}; ${recorded}): ${url}`);
+      return { status: 'thin', reason };
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
   }

@@ -24,7 +24,13 @@ is unavailable, use the documented sequential lenses and disclose that limit;
 do not claim an independent pass that did not run. Named-source capture skips
 topic discovery and uses [capture](capture.md) directly.
 
-## Phase 0 — dedup before searching
+## Phase 0 — check the browser, then dedup before searching
+Before a batch that will clip pages, run `node "<absolute-plugin-root>/scripts/doctor.mjs"`
+(read-only) and read its `clip` line. `clip.mjs` needs `playwright-core` and Chrome
+or Edge to read a JavaScript page. Without them it queues those pages for triage
+instead of clipping them, and doctor still exits 0 because both are optional. Tell
+the user what is missing before the batch; installing it is their decision.
+
 Gather what the wiki already has so the search hunts for *gaps*, not dupes:
 - Known source URLs: `node "<absolute-plugin-root>/scripts/known-urls.mjs"` prints
   them, one per line, normalized as the clipper normalizes them (`--count` prints

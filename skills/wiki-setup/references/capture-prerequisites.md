@@ -20,17 +20,66 @@ or diagnostic side effect. See the [public extraction contract](../../../docs/cl
 for extractor behavior, and [capture](../../wiki-researcher/references/capture.md)
 for the authorized write procedure.
 
+The helper tries the served HTML first. It renders the page in a browser when
+that fetch fails or the text is under 100 words. A plain-text capture, a supplied
+file and a PDF URL whose fetch failed are not rendered. The render needs
+`playwright-core` and Chrome or Edge, or `WIKI_MASTER_BROWSER` naming a browser
+executable. To check them:
+
+```sh
+node "<absolute-plugin-root>/scripts/doctor.mjs"
+```
+
+This only reads. It lists both under `clip` as optional, so a missing browser
+does not fail it: read the `clip` line and its `MISSING` entries. A rendered
+clipping shows as `extraction: rendered` in its frontmatter. Its `clipped:` line
+looks like any other.
+
+On a thin page, only a browser that read the page can justify a 180-day decline:
+
+| Render result | Clip outcome |
+|---|---|
+| `ok`, at least 100 words | Clipped with `extraction: rendered` |
+| `ok`, still thin | Declined and queued as `thin` or `wrong-node` |
+| `unavailable` (no `playwright-core` or browser) | Queued as `thin` or `wrong-node`, not declined |
+| `blocked` or `failed` (a timeout is `failed`) | Queued as `thin` or `wrong-node` with the render's reason, not declined. The line ends `triage recorded; not declined — browser render did not read the page (<reason>)` |
+| `gone` | Queued as `gone`, not declined |
+
+Text the helper judges a short real article (an `<article>` or `<main>` of at
+least 50 words, or three headings over at least 20 words) still clips as a brief
+article. A failed fetch whose render also fails is printed as `clip failed` or
+`page gone` and queued, not declined.
+
 Interpret an actual result before choosing a recovery:
 
 | Observation | Diagnosis and next action |
 |---|---|
-| Fetched `thin content` | The extraction may be a SPA or paywall; the automatic decline prevents blind retries. Have the user supply the saved page and use the capture route's `--from-file`, with `--override-decline` only for an automatic decline. |
-| `wrong-node` | Login, consent or age-gate content is queued, not declined. A signed-in saved page can supply the actual content; do not call a wall a verdict on the source. |
-| `failed` (for example 403/network) | Transient failure is queued, not auto-declined. Report it; a retry needs capture scope and evidence that retrying is useful. |
-| `gone` | A dead/404/error-page source needs a replacement source or dropped claim; do not label it a retryable `failed` row. |
+| `thin content` or `possible extraction mismatch` with `decline + triage recorded` | A browser read the page and it is still thin, so later clips skip it for 180 days. A saved page can supply the content: use the capture route's `--from-file` with `--override-decline`. |
+| `thin content` or `possible extraction mismatch` with `not declined — browser render unavailable` | Nothing was learned about the page. Run doctor and report what is missing. Once the browser is present a retry can recover it; otherwise use a saved page. |
+| `thin content` or `possible extraction mismatch` with `not declined — browser render did not read the page (<reason>)` | The reason is about one attempt. Report it; a retry can still recover the page, or use a saved page. |
+| `login, consent or age-gate page` | Queued as `wrong-node`, not declined. A signed-in saved page can supply the actual content; do not call a wall a verdict on the source. |
+| `clip failed`, `failed` or `blocked` row (for example 403, network, timeout) | Queued, not declined. Report it; a retry needs capture scope and evidence that retrying is useful. If the line says the browser render is unavailable, run doctor. If the browser could not read the page, use a saved page. |
+| `clip failed — this url serves a PDF` | An `attention` row, not declined. Download the file and use the [PDF route](../../wiki-researcher/references/clip-pdf.md). |
+| `page gone`, `gone` row | A dead/404/error-page source needs a replacement source or dropped claim; do not label it a retryable `failed` row. |
 | `clash` | Nothing was written; an attention row names the occupied path. Read that file's `source:` and choose a distinct `--slug=<name>` within capture scope, or leave it for triage. A clash is not a same-URL duplicate. |
 | `duplicate` / `unchanged` | No new content was written. A new dated capture of changed HTML uses `--recapture`; this flag does not exist on document, GitHub or Confluence clippers. |
 | Partial fidelity warning | Inspect the source items the checker says were lost; a clipping's length does not establish completeness. Its `quality` is credibility, not extraction fidelity. |
+
+Within capture scope, two things can recover a thin documentation page before
+you ask for a saved one. The helper tries neither on its own.
+
+1. Clip the page's text twin. Some documentation sites serve one at
+   `<url>.md.txt` or `<url>.md` (drop a trailing `/` first). A 200 answer with a
+   text content type is captured whole in a code fence with
+   `extraction: plaintext`, and its `source` is the URL you gave, not the page's.
+   The page's own triage row and decline stay as they are. Any other answer takes
+   the ordinary route under the twin's URL and can leave its own row or decline;
+   report it.
+2. Render the page yourself with a browser tool your host provides, save the
+   result as `.html`, and record it with the capture route's `--from-file`. Its
+   `source` is the page's URL and it carries `extraction: manual`. The checks for
+   a supplied page below apply, and an automatic decline still needs
+   `--override-decline`.
 
 For a supplied page, verify it is the intended page before capture. Accepted
 extensions are `.md`, `.markdown`, `.txt`, `.html` and `.htm`; an empty path,

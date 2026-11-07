@@ -18,10 +18,6 @@ export const CLI_SPECS = {
     options: ['vault', 'seed', 'per-category', 'out'],
     usage: ['usage: node scripts/build-keyword-eval.mjs [--vault <dir>] [--seed <n>] [--per-category <n>] [--out <file>]', '', 'Builds the keyword-engine evaluation question set from the vault: questions only a keyword channel can answer.'],
   },
-  'clip-and-repoint': {
-    options: ['from', 'apply', 'limit'],
-    usage: ['usage: node scripts/clip-and-repoint.mjs --from=<dir holding the binaries> [--apply] [--limit=N]', '', 'Repair pass: clips each binary a wiki/sources page cites into a .md clipping, in place from the directory given, then repoints the summary at the clipping and stamps its source-hashes.', DRY, VAULT],
-  },
   decline: {
     options: ['json', 'reason'],
     usage: [

@@ -61,4 +61,20 @@ The newest capture of a URL is the one with the latest `created`, then the later
 
 **Discovery's dedup set as a command: `scripts/known-urls.mjs`.** It reads the clippings as the clipper does (the first `source:` line of each `.md` file directly under `raw/clippings`, compared after normalizing the URL), so a URL it calls `new` is one the clipper would not call a duplicate. With no option it prints the known URLs, normalized and sorted, one per line; `--count` prints the number. `--check <url>...` prints one line per URL in the order given, without the URL: `new`, `clipped raw/clippings/<name>.md` (the first capture, with ` (+N recapture)` when N later captures name another clipping of the same URL in `recapture-of`) or `declined: <reason>`; a clipped URL is reported as clipped even when it also has a decline. `--summary --topic "<topic>"` prints the number of pages the topic holds (a URL once, under the topic and quality of its newest capture), the count per quality tier, the open triage rows for the topic by kind, and the line `Declines are not recorded per topic.` Every mode only reads. A missing or conflicting option exits 2.
 
-**Limits.** Recapture does not exist for `clip-pdf`, `clip-docx`, `clip-pptx`, `clip-xlsx`, `clip-confluence` or `clip-gh`. Stopping `clip.mjs` from declining on the thin heuristic is not part of this change. The clip lines for a thin or wrong-node page and for a login, consent or age-gate page, and the gate reason of the classifier, now point to `--from-file`. The browser-render challenge text (`scripts/lib/render.mjs`) and the corrupt-file messages of `clip-docx`, `clip-pptx` and `clip-xlsx` still say to clip manually: a saved page is the wrong route for a corrupt file, and the render message is left for a later change.
+**Limits.** Recapture does not exist for `clip-pdf`, `clip-docx`, `clip-pptx`, `clip-xlsx`, `clip-confluence` or `clip-gh`. Stopping `clip.mjs` from declining on the thin heuristic is not part of this change (0.92.0 narrows when it declines; see the rule below). The clip lines for a thin or wrong-node page and for a login, consent or age-gate page, and the gate reason of the classifier, now point to `--from-file`. The browser-render challenge text (`scripts/lib/render.mjs`) and the corrupt-file messages of `clip-docx`, `clip-pptx` and `clip-xlsx` still say to clip manually: a saved page is the wrong route for a corrupt file, and the render message is left for a later change.
+
+## The browser render and the decline rule (0.92.0)
+
+`clip.mjs` renders a page in a browser when the static fetch fails or the extracted text is under 100 words. A plain-text capture, a supplied file and a PDF URL whose fetch failed are not rendered. The render needs `playwright-core` and Chrome or Edge, which `doctor.mjs` reports as optional under `clip`. A rendered clipping carries `extraction: rendered` in its frontmatter; its `clipped:` line does not change.
+
+**A thin page is declined only after a browser read it.** A thin extraction from a page a browser read is a judgment about its markup, so it is cached for 180 days. A render that could not run, timed out, was blocked or hit a 404 is a fact about one attempt, so a later retry can still recover the page.
+
+| Render result | Clip outcome |
+|---|---|
+| `ok`, at least 100 words | Clipped with `extraction: rendered` |
+| `ok`, still thin | Declined and queued as `thin` or `wrong-node` |
+| `unavailable` | Queued as `thin` or `wrong-node`, not declined |
+| `blocked` or `failed` (a timeout is `failed`) | Queued as `thin` or `wrong-node`, not declined, with the render's reason in the row. The line ends `triage recorded; not declined — browser render did not read the page (<reason>)` |
+| `gone` | Queued as `gone`, not declined |
+
+A `short_real_article` verdict still clips as a brief article. A failed static fetch whose render also fails is queued under the render's kind (`failed` when the render is unavailable) and not declined. A page a browser read that is still thin is declined on that path too. No new triage kind is added. Declines recorded before this release are not lifted: they expire on their own date, and `decline.mjs supersede` clears one on request.
