@@ -63,7 +63,7 @@ const capabilities = {
   'wiki-search': { 'advanced.md': 'search.mjs', 'answers.md': 'resolve-evidence.mjs' },
   'wiki-project': { 'authoring.md': 'refresh-index.mjs', 'backlog.md': 'backlog-list.mjs', 'catalogs.md': 'refresh-index.mjs' },
   'wiki-researcher': { 'discover.md': 'known-urls.mjs', 'capture.md': 'clip.mjs', 'ingest.md': 'health.mjs',
-    'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
+    'clip-html.md': 'clip.mjs', 'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
     'clip-xlsx.md': 'clip-xlsx.mjs', 'clip-gh.md': 'clip-gh.mjs', 'clip-confluence.md': 'clip-confluence.mjs' },
   'wiki-maintainer': { 'lint.md': 'lint-disposition.mjs',
     'repair.md': 'health.mjs', 'relink.md': 'relationships.mjs', 'triage.md': 'triage.mjs', 'obsidian-cli.md': 'obsidian.mjs' },
@@ -118,14 +118,47 @@ test('all six capture routes are discoverable and synthesis filing stays direct'
   assert.ok(localLinks(read(entry('wiki-maintainer'))).includes('references/synthesis-filing.md'));
 });
 
-// The capture docs say what clip.mjs does with a JavaScript page. `scripts/doctor.mjs` is the plugin's own doctor: the
-// Confluence section of capture-prerequisites.md also names confluencer's, which says nothing about a browser.
+// The web route has its own reference, clip-html.md, and capture.md only routes. They say what clip.mjs does with a JavaScript
+// page. `scripts/doctor.mjs` is the plugin's own doctor: the Confluence section of capture-prerequisites.md also names
+// confluencer's, which says nothing about a browser.
+const researcherRefs = readdirSync(join(root, 'skills/wiki-researcher/references')).map(ref => 'skills/wiki-researcher/references/' + ref);
 const missingFrom = (file, wanted) => wanted.filter(text => !read(file).includes(text));
-for (const file of ['skills/wiki-researcher/references/capture.md', 'skills/wiki-setup/references/capture-prerequisites.md']) {
-  test(file + ' describes the browser render and the plain-text recipe', () => {
+const webRoute = 'skills/wiki-researcher/references/clip-html.md';
+for (const file of [webRoute, 'skills/wiki-setup/references/capture-prerequisites.md']) {
+  test(file + ' describes the browser render and the plain-text twin', () => {
     assert.deepEqual(missingFrom(file, ['extraction: rendered', 'scripts/doctor.mjs', '.md.txt']), []);
   });
 }
+
+test('clip-html.md is reachable from SKILL.md and names every web capture mechanism', () => {
+  assert.ok(localLinks(read(entry('wiki-researcher'))).includes('references/clip-html.md'), 'SKILL.md links the web route');
+  assert.deepEqual(missingFrom(webRoute, ['--expand', '--list', '--ledger', '--find-twin', 'extraction: plaintext-twin', 'extraction-retry']), []);
+});
+
+test('capture.md routes every format and names adopt-clipping.mjs for hand-clipped files', () => {
+  const capture = 'skills/wiki-researcher/references/capture.md';
+  assert.deepEqual(missingFrom(capture, ['adopt-clipping.mjs', 'repair-missing-hash.mjs']), []);
+  const linked = localLinks(read(capture));
+  for (const route of ['clip-html.md', 'clip-pdf.md', 'clip-docx.md', 'clip-pptx.md', 'clip-xlsx.md', 'clip-gh.md', 'clip-confluence.md'])
+    assert.ok(linked.includes(route), 'capture.md routes to ' + route);
+});
+
+// The commands now do what the earlier release's by-hand recipes did, so no changed reference may still teach the recipes.
+test('no changed reference still carries the by-hand recipes for a thin documentation page', () => {
+  const interim = /two things (?:to try by hand|can recover)|tries neither on its own|render the page yourself/i;
+  for (const file of [...researcherRefs, 'skills/wiki-setup/references/capture-prerequisites.md', 'skills/wiki-maintainer/references/evidence.md'])
+    assert.doesNotMatch(read(file), interim, file);
+});
+
+test('the other changed references and docs name what shipped', () => {
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/ingest.md', ['landing-page']), []);
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/clip-pdf.md', ['clip-pdf.mjs" "<url>"', '--figures-only']), []);
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['--list', '--ledger']), []);
+  assert.deepEqual(missingFrom('skills/wiki-setup/references/capture-prerequisites.md', ['unverified URL', 'npx', 'extraction-retry']), []);
+  assert.deepEqual(missingFrom('skills/wiki-maintainer/references/evidence.md', ['twin-url', 'expand-coverage', 'extraction-retry', 'landing-page']), []);
+  assert.deepEqual(missingFrom('docs/clipping-fidelity.md', ['--expand', 'extraction-retry']), []);
+  assert.deepEqual(missingFrom('docs/reclipping.md', ['expand-coverage', 'plaintext-twin', 'extraction-retry']), []);
+});
 
 test('discover.md checks for a browser with doctor.mjs before a batch', () => {
   assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['scripts/doctor.mjs']), []);
@@ -309,7 +342,6 @@ test('wiki-maintainer says a filesystem edit needs no app but the refresh does',
 // wiki-researcher: an ingest is an authoring workflow and ends with the contract. A capture that wrote no wiki page logs
 // once and stops, because clippings and log entries enter neither the catalogs nor the search index, which
 // refresh-index.test.mjs pins.
-const researcherRefs = readdirSync(join(root, 'skills/wiki-researcher/references')).map(ref => 'skills/wiki-researcher/references/' + ref);
 const flatten = text => text.replace(/\s+/g, ' ');
 
 test('wiki-researcher keeps no concept of an operation beyond the log entry', () => {
