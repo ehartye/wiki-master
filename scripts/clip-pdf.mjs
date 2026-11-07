@@ -8,6 +8,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
+import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
@@ -474,10 +475,6 @@ export function main(argv, deps = {}) {
   finally { cleanup(); process.off('exit', cleanup); }
 }
 
-function urlCarriesCredentials(address) {
-  try { const u = new URL(address); return Boolean(u.username || u.password); } catch { return false; }
-}
-
 function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle } = {}, scratch) {
   const arg = argv[0];
   const isUrl = /^https?:\/\//i.test(arg ?? '');
@@ -491,9 +488,11 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     console.error('only http and https addresses are fetched');
     process.exit(2);
   }
-  // A credential in the address would be copied into the triage log (which syncs), the source: line and every message.
-  if (isUrl && urlCarriesCredentials(arg)) {
-    console.error('ERROR: the address carries a username or password, which clip-pdf.mjs does not accept (it would be written to the vault). Download the file with your own credentials, then run clip-pdf.mjs on the file.');
+  // A credential in the address would be copied into the triage log (which syncs), declined.json, the source: line and every
+  // message. It is refused wherever it arrives (the address or --source=) before anything else is computed or written.
+  const sourceOption = argv.find((a) => a.startsWith('--source='))?.slice('--source='.length);
+  if ((isUrl && urlCarriesCredentials(arg)) || urlCarriesCredentials(sourceOption)) {
+    console.error(credentialRefusal('download the file with your own credentials, then run clip-pdf.mjs on the file'));
     process.exit(2);
   }
   let readingMode;

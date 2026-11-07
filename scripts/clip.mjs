@@ -13,6 +13,7 @@ import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
+import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
 import { looksLikePlainTextUrl, fetchPlainText, fetchTwinText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
@@ -510,6 +511,11 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
+  // A credential in the address would be queued in the triage log (which syncs), recorded in declined.json or written as source:.
+  if (urlCarriesCredentials(url)) {
+    console.error(credentialRefusal('save the page from a signed-in browser and record it with clip.mjs <url-without-credentials> --from-file <path>'));
+    process.exit(2);
+  }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // One flag feeds both topic carriers: frontmatter on the clip path below,

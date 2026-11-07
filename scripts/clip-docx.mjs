@@ -7,6 +7,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline, removeDecline } from './lib/decline.mjs';
+import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
@@ -100,6 +101,7 @@ export function main(argv, { toText = docxToText } = {}) {
   }
   const srcArg = argv.find((a) => a.startsWith('--source='));
   const source = srcArg ? srcArg.split('=').slice(1).join('=') : docxPath;
+  if (urlCarriesCredentials(source)) { console.error(credentialRefusal()); process.exit(2); }
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // Attribution is recorded at clip time or never: wiki-maintainer triage can only group a
