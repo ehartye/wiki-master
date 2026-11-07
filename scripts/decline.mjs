@@ -3,6 +3,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { normalizeUrl } from './lib/url.mjs';
 import { DECLINE_TTL_DAYS, readDeclineLog, declineExpiry, loadDeclines, isDeclined, supersedeDecline } from './lib/decline.mjs';
 import { CLI_SPECS } from './lib/cli-specs.mjs';
+import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { cliGuard, optionValues } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -87,6 +88,8 @@ export function main(argv, { vaultPath, out = console.log, err = console.error }
 
   if (urls.length !== 1) return fail(`${sub} needs exactly one URL (usage: decline.mjs ${sub} <url>${sub === 'supersede' ? ' --reason "<text>"' : ''})`);
   const [url] = urls;
+  // Both answers below repeat the address ("no decline recorded for <url>"), and a declined address is never one that carries a secret.
+  if (urlCarriesSecret(url)) return fail(secretRefusal(url, 'name the page without it'));
 
   if (sub === 'show') {
     const entry = entriesOf(vault).find((e) => key(e.url) === key(url));

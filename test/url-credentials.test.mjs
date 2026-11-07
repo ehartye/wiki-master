@@ -117,6 +117,24 @@ for (const script of ['clip-docx.mjs', 'clip-pptx.mjs', 'clip-xlsx.mjs']) {
   });
 }
 
+test('decline.mjs refuses a secret address before it looks anything up or echoes it; known-urls.mjs --check neither echoes nor stores one', (t) => {
+  const root = vault(t);
+  for (const [form, url, secret, kind] of DOC_FORMS) {
+    for (const args of [['show', url], ['supersede', url, '--reason', 'no longer applies']]) {
+      const r = run(root, 'decline.mjs', args);
+      assert.equal(r.status, 2, `${form} ${args[0]}: ${r.stdout}${r.stderr}`);
+      assert.ok(r.stderr.includes(`the address carries a ${kind}; remove it`), r.stderr);
+      assert.ok(!(r.stdout + r.stderr).includes(secret), `${form} ${args[0]}`);
+    }
+    // known-urls.mjs reads and answers "new", "clipped <file>" or "declined: <reason>": the address is neither printed nor kept.
+    const r = run(root, 'known-urls.mjs', ['--check', url]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), 'new');
+    assert.ok(!(r.stdout + r.stderr).includes(secret));
+  }
+  assert.equal(stateOf(root, 'declined.json') + stateOf(root, 'triage.jsonl'), '');
+});
+
 // ---------------------------------------------------------------- the ledger and --list
 
 test('clip.mjs --list turns a line with a secret into an error outcome, the run goes on, and nothing repeats the secret', (t) => {
