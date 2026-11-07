@@ -118,6 +118,19 @@ test('all six capture routes are discoverable and synthesis filing stays direct'
   assert.ok(localLinks(read(entry('wiki-maintainer'))).includes('references/synthesis-filing.md'));
 });
 
+// The capture docs say what clip.mjs does with a JavaScript page. `scripts/doctor.mjs` is the plugin's own doctor: the
+// Confluence section of capture-prerequisites.md also names confluencer's, which says nothing about a browser.
+const missingFrom = (file, wanted) => wanted.filter(text => !read(file).includes(text));
+for (const file of ['skills/wiki-researcher/references/capture.md', 'skills/wiki-setup/references/capture-prerequisites.md']) {
+  test(file + ' describes the browser render and the plain-text recipe', () => {
+    assert.deepEqual(missingFrom(file, ['extraction: rendered', 'scripts/doctor.mjs', '.md.txt']), []);
+  });
+}
+
+test('discover.md checks for a browser with doctor.mjs before a batch', () => {
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['scripts/doctor.mjs']), []);
+});
+
 test('every recursively reachable local file and Markdown heading exists', () => {
   const result = referenceProblems([...skills.map(entry), 'README.md', 'docs/codex.md',
     'docs/skill-migration.md', 'docs/skill-reliability.md', 'docs/wiki-integrity.md',

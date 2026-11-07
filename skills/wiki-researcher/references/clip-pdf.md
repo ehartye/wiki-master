@@ -4,8 +4,10 @@ Reuse existing session authorization for the first write.
 
 # Clipping a PDF into the wiki
 
-The HTML clipper (`clip.mjs` → Defuddle) handles **HTML** pages only; a
-PDF URL or local paper extracts as thin content and is skipped. This reference covers the
+The HTML clipper (`clip.mjs` → Defuddle) handles **HTML** pages only. Given a PDF
+URL (a path ending in `.pdf` or with a `/pdf/` segment) it cannot read, it queues
+an `attention` row and reports `clip failed`, so download the file and use
+`clip-pdf.mjs`. This reference covers the
 PDF path. **The canonical stored artifact is the extracted Markdown, never the
 binary PDF** — that keeps the vault greppable, diffable, and answerable, and makes
 `[[note]]` provenance resolve to a real Markdown clipping rather than to an opaque
