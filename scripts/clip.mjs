@@ -11,7 +11,7 @@ import { classifyRenderOutcome } from './lib/render.mjs';
 import { coverageWarnings, formatCoverage } from './lib/expand.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
+import { knownSourceUrls, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
@@ -850,18 +850,10 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   };
   const twin = sameText();
   if (twin) return unchanged(twin);
-  const previous = newestCapture(capturesNow());
-  const recapturing = previous !== null;
-  const suffix = recapturing ? ` (recaptured ${created})` : '';
-  // A title is an identity in this vault: a new clip does not take one another clipping already holds. A recapture's title is
-  // the page's title and the same suffix as its name, so it is never the first capture's title.
-  const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
-  const fm = buildFrontmatter({
-    title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, documentLink: landing ?? undefined, suppliedSha256: manual?.sha256,
-    fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
-    fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
-  });
+  const recapturing = newestCapture(capturesNow()) !== null;
+  // The Nth capture of one day is named and titled `(recaptured D)`, then `(recaptured D 2)`, `3`...: a second recapture the same day
+  // is a new capture, and only a name the owner chose with --slug is exact.
+  const suffixFor = (n) => (recapturing ? ` (recaptured ${created}${n > 1 ? ` ${n}` : ''})` : '');
   // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
   // exclusive create so a clip never overwrites a file another session just made. A name nobody can
   // take is a `clash`, never a `duplicate`: it is recorded and named so the document is not lost silently.
@@ -871,27 +863,43 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const names = new Map((existsSync(clippingsDir) ? readdirSync(clippingsDir) : []).filter((f) => f.toLowerCase().endsWith('.md')).map((f) => [f.slice(0, -3).toLowerCase(), f.slice(0, -3)]));
   const exists = (s) => names.has(s.toLowerCase());
   const heading = firstHeading(md);
-  const content = `${fm}\n\n${md}\n`;
-  // A recapture's name is the first capture's name and the dated suffix. A name another capture of this URL already holds
-  // (a second recapture the same day) is a clash; a name another document holds moves on to the next candidate.
+  // The title and the file for the capture numbered `n` of its day. A title is an identity in this vault: a new clip does not take one
+  // another clipping already holds, and a recapture's is the page's title with the same suffix as its name, so it is never the first
+  // capture's title. Built again for the name that is finally chosen, and `recapture-of` names the newest capture at that moment.
+  const build = (n) => {
+    const previous = newestCapture(capturesNow());
+    const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffixFor(n)}` : data.title, url, taken: clippingTitles(vaultPath) });
+    const fm = buildFrontmatter({
+      title, source: url, author: data.author, recaptureOf: previous ? `raw/clippings/${previous.file}` : undefined,
+      published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, documentLink: landing ?? undefined, suppliedSha256: manual?.sha256,
+      fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
+      fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
+    });
+    return { title, content: `${fm}\n\n${md}\n` };
+  };
+  // A recapture's name is the first capture's name and the dated suffix, with the day's next free sequence when this URL already
+  // holds that name; a name another document holds moves on to the next candidate.
   const pickRecapture = () => {
     const held = capturesNow();
     const mine = new Set(held.map((e) => e.name.toLowerCase()));
     const oldest = held.reduce((a, e) => (a === null || (e.created ?? '') < (a.created ?? '') || ((e.created ?? '') === (a.created ?? '') && e.name < a.name) ? e : a), null);
-    const stem = oldest.name.replace(/ \(recaptured \d{4}-\d{2}-\d{2}\)$/, '');
-    const wanted = [stem, ...clipSlugCandidates({ title: data.title, heading, url })].map((n) => `${n}${suffix}`);
-    for (const name of wanted) {
-      if (mine.has(name.toLowerCase())) return { clash: true, existing: name };
-      if (!exists(name)) return { slug: name };
+    const stem = oldest.name.replace(RECAPTURE_NAME, '');
+    for (const base of [stem, ...clipSlugCandidates({ title: data.title, heading, url })]) {
+      for (let n = 1; ; n++) {
+        const name = `${base}${suffixFor(n)}`;
+        if (mine.has(name.toLowerCase())) continue;
+        if (!exists(name)) return { slug: name, sequence: n };
+        break;
+      }
     }
-    return { clash: true, existing: wanted[0] };
+    return { clash: true, existing: `${stem}${suffixFor(1)}` };
   };
   let slug = null;
   let clashWith = null;
   for (let lost = 0; ;) {
-    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title, heading, url, exists });
+    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title: build(1).title, heading, url, exists });
     if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
-    if (writeClipping(clippingsDir, pick.slug, content)) { slug = pick.slug; break; }
+    if (writeClipping(clippingsDir, pick.slug, build(pick.sequence ?? 1).content)) { slug = pick.slug; break; }
     // Lost a race: the name was free when we looked and taken when we wrote.
     names.set(pick.slug.toLowerCase(), pick.slug);
     if (recapture) {

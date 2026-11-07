@@ -70,15 +70,30 @@ export function clippingsForUrl(vaultPath, url) {
   return knownUrlIndex(vaultPath, { twins: false }).get(urlKey(url)) ?? [];
 }
 
-// The latest capture of a URL: the greatest `created`, then the greatest name. Names are compared without `.md`, so
-// `Guide (recaptured ...)` follows `Guide` as it reads, not as the extension would sort it. null when there are none.
+// A recapture's name ends in ` (recaptured YYYY-MM-DD)`, or ` (recaptured YYYY-MM-DD 2)`, `3`... for the later ones of a day.
+export const RECAPTURE_NAME = / \(recaptured (\d{4}-\d{2}-\d{2})(?: (\d+))?\)$/;
+const sequenceOf = (name) => {
+  const m = RECAPTURE_NAME.exec(name);
+  return m ? Number(m[2] ?? 1) : null;
+};
+
+// The latest capture of a URL: the greatest `created`, then the later of two same-day names. Names are compared without `.md`,
+// so `Guide (recaptured ...)` follows `Guide` as it reads, not as the extension would sort it. Two same-day recapture names
+// are ordered by their sequence, because as text ` (recaptured D)` sorts after ` (recaptured D 2)` and `10` before `9`; any other
+// pair keeps plain name order, so a name chosen with --slug stays where it sorts. null when there are none.
+const laterName = (a, b) => {
+  const x = sequenceOf(a);
+  const y = sequenceOf(b);
+  if (x !== null && y !== null && x !== y) return x > y;
+  return a > b;
+};
 export function newestCapture(entries) {
   let best = null;
   for (const e of entries) {
     if (best === null) { best = e; continue; }
     const a = e.created ?? '';
     const b = best.created ?? '';
-    if (a > b || (a === b && e.name > best.name)) best = e;
+    if (a > b || (a === b && laterName(e.name, best.name))) best = e;
   }
   return best;
 }
