@@ -22,6 +22,7 @@ import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
 import { findTwin, twinPage } from './lib/twin.mjs';
 import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
+import { ledgerRow, redactAddress, ledgerFileProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -534,18 +535,30 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
   const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchTwinText : () => ({ ok: false, reason: 'extraction is injected' }));
-  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable };
   if (argv.slice(1).includes('--list')) return refuse('--list must be the first argument');
+  // --ledger is checked before anything is read, so a refused ledger leaves the vault as it was.
+  const ledger = optionValue(argv, 'ledger');
+  if (ledger !== undefined) {
+    const problem = ledgerFileProblem(ledger, resolveVault().path);
+    if (problem) return refuse(problem);
+  }
+  const record = (result) => { if (ledger !== undefined) appendLedgerRow(ledger, ledgerRow(result)); };
+  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
   if (argv[0] === '--list') return runList(argv, deps);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
-  try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
+  // A refused address is recorded without its credentials, or not at all when it is not an address.
+  const refused = (error) => record({ url: redactAddress(url), topic: parseTopicArg(argv), status: 'error', error });
+  try { new URL(url); } catch { console.error(`invalid url: ${url}`); refused('invalid url'); process.exit(2); }
   // A credential in the address would be queued in the triage log (which syncs), recorded in declined.json or written as source:.
   if (urlCarriesCredentials(url)) {
-    console.error(credentialRefusal('save the page from a signed-in browser and record it with clip.mjs <url-without-credentials> --from-file <path>'));
+    const refusal = credentialRefusal('save the page from a signed-in browser and record it with clip.mjs <url-without-credentials> --from-file <path>');
+    console.error(refusal);
+    refused(refusal);
     process.exit(2);
   }
   const { exit, ...result } = clipUrl(url, argv, deps);
+  if (exit !== 1) record(result);
   if (exit === 1) process.exit(1);
   if (exit) process.exitCode = exit;
   return result;
@@ -582,6 +595,7 @@ function runList(argv, deps) {
   if (!file || file.startsWith('--')) return refuse('--list needs a file: clip.mjs --list <file> [options]');
   for (let i = 2; i < argv.length; i++) {
     const name = argv[i].startsWith('--') ? argv[i].slice(2).split('=')[0] : null;
+    if (argv[i] === '--ledger') { i++; continue; }
     if (name === null) return refuse(`--list cannot be used with a URL on the command line: put the address in ${file}`);
     if (LIST_REFUSES.includes(name)) return refuse(`--list cannot be used with --${name}`);
   }
@@ -598,7 +612,7 @@ function runList(argv, deps) {
     let outcome;
     if (problem) {
       console.error(`line ${n}: ${problem}`);
-      outcome = { status: 'error', error: problem };
+      outcome = { url: redactAddress(line), topic: parseTopicArg(argv), status: 'error', error: problem };
     } else {
       const host = new URL(line).host;
       if (awaiting.delete(host)) deps.sleep(1000);
@@ -607,6 +621,7 @@ function runList(argv, deps) {
       if (!NO_REQUEST.has(outcome.status)) awaiting.add(host);
     }
     const { exit, ...result } = outcome;
+    deps.record(result);
     outcomes.push(result);
     counts.set(result.status, (counts.get(result.status) ?? 0) + 1);
   }
@@ -619,7 +634,13 @@ function runList(argv, deps) {
 
 // One address, start to finish. It never exits and never sets the exit code: an outcome that should end the process says so in
 // `exit` (2 for a refused command, 1 for an extraction runtime that is missing) and the caller decides.
-function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render, runtimeAvailable }) {
+function clipUrl(url, argv, deps) {
+  const outcome = clipCore(url, argv, deps);
+  const topic = parseTopicArg(argv);
+  return { url, ...(topic && { topic }), ...outcome };
+}
+
+function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render, runtimeAvailable }) {
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // One flag feeds both topic carriers: frontmatter on the clip path below,
@@ -675,14 +696,14 @@ function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, today
     const reason = declineArg.slice('--decline='.length) || 'declined';
     recordDecline(vaultPath, url, reason);
     console.log(`declined (recorded): ${url} — ${reason}`);
-    return { status: 'declined' };
+    return { status: 'declined', reason };
   }
 
   const gate = declineGate(vaultPath, url, argv);
   if (gate.blocked) {
     if (gate.error) { console.error(gate.error); return { status: 'error', error: gate.error, exit: 2 }; }
     console.log(gate.message);
-    return { status: 'declined' };
+    return { status: 'declined', reason: gate.message.split('\n')[0] };
   }
 
   // --recapture: a URL that is already clipped is fetched, extracted and checked like any clip, then written as a dated second
@@ -951,12 +972,12 @@ function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, today
       console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
       result = { ...result, unexpandedTabs: unopened };
     }
-    return { ...result, ...(twinUrl && { twinUrl }), ...(landing && { landing: true, documentLink: landing }), ...keptOfPage() };
+    return { ...result, sourceHash: hash, extraction, ...(twinUrl && { twinUrl }), ...(landing && { landing: true, documentLink: landing }), ...keptOfPage() };
   };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
-    return withNotes({ status: 'unchanged', existing: twin.name });
+    return withNotes({ status: 'unchanged', existing: twin.name, path: `raw/clippings/${twin.file}` });
   };
   const twin = sameText();
   if (twin) return unchanged(twin);
@@ -1026,7 +1047,7 @@ function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, today
     const reason = `raw/clippings/${clashWith}.md already exists and no alternative name could be written; nothing was written`;
     recordIssue(vaultPath, { url, kind: 'attention', reason, topic, source: `raw/clippings/${clashWith}.md`, retryable: 'clash' });
     console.log(`clash: ${url}: ${reason} (choose a name with --slug=<name>)`);
-    return { status: 'clash', existing: clashWith };
+    return { status: 'clash', existing: clashWith, path: `raw/clippings/${clashWith}.md`, reason };
   }
   const file = join(clippingsDir, `${slug}.md`);
   // Written first, closed second: a row must never be marked resolved by a clip
@@ -1046,7 +1067,7 @@ function clipUrl(url, argv, { extract, writeClipping, readText, probeTwin, today
     recordIssue(vaultPath, { url: landing, kind: 'attention', reason: landingReason(url, landing), topic, retryable: true });
   }
   gate.finish();
-  return withNotes({ status: 'clipped', slug, file });
+  return withNotes({ status: 'clipped', slug, file, path: `raw/clippings/${slug}.md`, quality, fidelity: data.fidelityWarnings?.length ? 'partial' : 'high' });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

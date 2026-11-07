@@ -14,7 +14,7 @@ const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 // `--help` was read as the URL. Each clipper checks its arguments before any network or vault activity.
 
 const VALID = {
-  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name'], ['https://x.test/a', '--slug', 'name'], ['--list', 'urls.txt', '--topic=T', '--quality=high']],
+  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name'], ['https://x.test/a', '--slug', 'name'], ['--list', 'urls.txt', '--topic=T', '--quality=high', '--ledger', 'out.jsonl'], ['https://x.test/a', '--ledger=out.jsonl']],
   'clip-pdf': [
     ['a.pdf', '--source=u', '--quality=low', '--mode=table', '--ocr', '--ocr-lang=eng', '--topic=t', '--decline=r', '--figures', '--figures=3,5-7', '--figures-max=4', '--title=T', '--slug=s'],
     ['a.pdf', '--figures-only', '--clipping', 'raw/clippings/x.md'],
