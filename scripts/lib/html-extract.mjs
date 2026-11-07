@@ -2,6 +2,8 @@ import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { dirname, join, delimiter, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tabDomRules } from './expand.mjs';
+import { urlCarriesSecret } from './url-safety.mjs';
 
 // What to tell whoever hit the missing runtime. A development checkout (it has a .git entry; an installed plugin copy
 // does not) holds its dependencies only after `npm ci`, which the message used to leave out, so a fresh worktree's
@@ -104,15 +106,7 @@ function textOf(node) {
   if (label && !normalize(inner).startsWith(normalize(label))) inner = `${label} ${inner}`;
   return BLOCK.test(node.tagName) ? ` ${inner} ` : inner;
 }
-function contentRoot(document) {
-  const description = document.querySelector('.class-description');
-  const main = document.querySelector('main, [role="main"]');
-  if (main) return main;
-  // An API introduction may be a sibling of its article, or of several sections.
-  // Never narrow the capture or audit to only the introduction's nearest section.
-  const article = document.querySelector('article');
-  return description ? (article?.contains(description) ? article : document.body) : (article ?? document.body);
-}
+const { contentRoot } = tabDomRules();
 
 // Site chrome that an extractor removes on purpose is not a loss, but "is this chrome" is a judgement that
 // can hide a real loss, so every rule here is narrow and every exemption is reported (see assessSignals):
@@ -229,6 +223,91 @@ function signals(document) {
   }
   return candidates;
 }
+// What the page's own markup says, read before any cleaning. A page's <base> counts, as it does in a browser: it is
+// what a rendered page's relative links resolve against (lib/render.mjs).
+function pageSignals(document, url) {
+  const region = contentRoot(document);
+  const outsideChrome = (node) => !node.closest('nav, header, footer');
+  const href = document.querySelector('base[href]')?.getAttribute('href');
+  const absolute = (link) => {
+    try {
+      const target = new URL(link.getAttribute('href'), href ? new URL(href, url) : url);
+      target.hash = '';
+      return /^https?:$/.test(target.protocol) ? target : null;
+    } catch { return null; }
+  };
+  const pdfLinks = new Set(), markdownLinks = new Set();
+  for (const link of [...region.querySelectorAll('a[href]')].filter(outsideChrome)) {
+    const target = absolute(link);
+    if (!target) continue;
+    // A link with a secret would become the landing row's address, which syncs; it is no candidate.
+    if (/\.pdf$/i.test(target.pathname) && !urlCarriesSecret(target.href)) pdfLinks.add(target.href);
+    const label = link.textContent.replace(/\s+/g, ' ').trim();
+    if (!urlCarriesSecret(target.href) && (/^view (page in|as) markdown$/i.test(label) || link.getAttribute('type')?.toLowerCase() === 'text/markdown')) markdownLinks.add(target.href);
+  }
+  const { tabGroups, panelOfTab, isEmptyPanel } = tabDomRules();
+  const groups = tabGroups(region);
+  // Only a tab whose panel is missing or empty is unread: extraction keeps the panels the HTML holds. A hidden block
+  // that is no tab panel isn't one of them, so a tab naming one is unread too.
+  const hidden = (node) => !!node.closest('[hidden], [aria-hidden="true"]') || /display\s*:\s*none/i.test(node.getAttribute('style') ?? '');
+  const tabControls = [...region.querySelectorAll('[role="tab"]')].filter(outsideChrome).filter((tab) => {
+    const { panel, absent } = panelOfTab(tab, document, groups.find((group) => group.tabs.includes(tab)));
+    return absent || (panel && (isEmptyPanel(panel) || (panel.getAttribute('role') !== 'tabpanel' && hidden(panel))));
+  }).length;
+  return { tabControls, pdfLinks: [...pdfLinks], markdownLinks: [...markdownLinks] };
+}
+
+// The tables and code blocks of the region pageSignals reads, for an expanded clip to compare its Markdown with. Hidden
+// ones aren't content, and a table holding a code block is that block's line numbers.
+function pageCounts(document) {
+  const region = contentRoot(document);
+  const content = (node) => !node.closest('nav, header, footer, [hidden], [aria-hidden="true"]');
+  const tables = [...region.querySelectorAll('table')].filter((table) => content(table) && !table.parentElement.closest('table') && !table.querySelector('pre'));
+  return { tables: tables.length, code: [...region.querySelectorAll('pre')].filter(content).length };
+}
+
+// Tab panels the HTML holds become plain sections, because Defuddle drops a hidden panel and everything in a wrapper it
+// takes for tab chrome. In place, not through innerHTML: a panel can hold another group, and nodes stay valid when moved.
+function flattenTabPanels(document, root) {
+  const { tabGroups, panelOfTab, isEmptyPanel, labelOfTab, panelKey, labelLevel, sectionFromPanel, applyWrapperRule } = tabDomRules();
+  const groups = tabGroups(root);
+  const groupOfPanel = new Map(groups.flatMap((group) => group.panels.map((panel) => [panel, group])));
+  const tabOfPanel = new Map();
+  for (const group of groups) {
+    const parent = group.tablist.parentElement?.closest('[role="tabpanel"]');
+    group.level = labelLevel(group.tablist, root, parent ? groupOfPanel.get(parent)?.level : 0);
+    for (const tab of group.tabs) {
+      const { panel } = panelOfTab(tab, document, group);
+      if (panel || tab.getAttribute('aria-controls')) group.linked = true;
+      if (panel?.getAttribute('role') !== 'tabpanel') continue;
+      groupOfPanel.set(panel, group);
+      // Several tabs can share one panel, which then shows the selected tab.
+      if (!tabOfPanel.has(panel) || tab.getAttribute('aria-selected') === 'true') tabOfPanel.set(panel, tab);
+    }
+  }
+  const panels = [...root.querySelectorAll('[role="tabpanel"]')];
+  const seen = new Map();
+  const repeats = new Set(panels.filter((panel) => {
+    const group = groupOfPanel.get(panel);
+    if (!group || isEmptyPanel(panel)) return false;
+    const keys = seen.get(group) ?? seen.set(group, new Set()).get(group);
+    const key = panelKey(panel);
+    return keys.has(key) || !keys.add(key);
+  }));
+  const sections = [];
+  // Innermost first, and an outer panel is only judged empty once its inner panels have been.
+  for (const panel of panels.reverse()) {
+    if (repeats.has(panel) || isEmptyPanel(panel)) { panel.remove(); continue; }
+    const tab = tabOfPanel.get(panel);
+    const section = sectionFromPanel(document, panel, tab && labelOfTab(tab), groupOfPanel.get(panel)?.level);
+    panel.replaceWith(section);
+    sections.push(section);
+  }
+  for (const section of sections) applyWrapperRule(section, root);
+  // A list of tabs linked to nothing may be real page links, so it is left alone, whatever panels sit near it.
+  for (const { tablist, linked } of groups) if (linked) tablist.remove();
+}
+
 // The warnings only (site chrome the extractor removed on purpose is left out); the detailed form also
 // returns what was ignored and why, so nothing is dropped without a record.
 export function assessFidelity(html, markdown, title = '', url = '') {
@@ -237,6 +316,7 @@ export function assessFidelity(html, markdown, title = '', url = '') {
 export function assessFidelityDetailed(html, markdown, title = '', url = '') {
   const { parseHTML } = extractionRuntime();
   const { document } = parseHTML(html);
+  flattenTabPanels(document, contentRoot(document));
   return assessSignalsDetailed(signals(document), markdown, title, url);
 }
 function chromeReason(signal, context, plain) {
@@ -289,11 +369,50 @@ function assessSignalsDetailed(expected, markdown, title, url = '') {
   return { warnings, ignored };
 }
 
-export async function extractHtml(html, url, { extractImpl } = {}) {
-  const { Defuddle, parseHTML } = extractionRuntime();
-  const { document } = parseHTML(html);
-  const expected = signals(document);
+// A page whose extraction keeps far less text than the page shows is read again on a changed copy of its markup.
+// Measured against the first parse's page: the words a reader sees in the content region, leaving out what the page
+// repeats around its content and what it hides.
+const SHORTFALL_MIN_VISIBLE = 300;
+const NOT_VISIBLE = 'nav, header, footer, script, style, template, [hidden], [aria-hidden="true"]';
+const INLINE = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DEL', 'DFN', 'EM', 'FONT', 'I', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR']);
+const spaceWords = text => (String(text).match(/\S+/g) ?? []).length;
+function visibleText(node) {
+  if (node.nodeType === 3) return node.textContent;
+  if (node.nodeType !== 1 || node.matches(NOT_VISIBLE) || /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(node.getAttribute('style') ?? '')) return '';
+  const inner = [...node.childNodes].map(visibleText).join('');
+  return INLINE.has(node.tagName) ? inner : ` ${inner} `;
+}
+const visibleWords = document => spaceWords(visibleText(contentRoot(document)));
+
+// The two retries, in the order they run. Defuddle drops a whole article that sits inside an inline wrapper (`span`,
+// `label`) holding a block or a custom element and an image; each transform removes one half of that and reports
+// whether it changed anything. Unwrapping comes first because with a `label` wrapper removing images alone gives nothing.
+// Other phrasing tags (`a`, `b`, `em`, `font`) never caused the loss, and unwrapping an `a` would drop its link.
+const WRAPPED_BLOCKS = 'p, div, ul, ol, li, table, pre, blockquote, section, article, aside, figure, h1, h2, h3, h4, h5, h6';
+const SHORTFALL_RETRIES = {
+  'unwrap-inline'(document) {
+    const wrappers = [...document.querySelectorAll('span, label')]
+      .filter(node => node.querySelector(WRAPPED_BLOCKS) || [...node.querySelectorAll('*')].some(child => child.tagName.includes('-')));
+    for (const node of wrappers) node.replaceWith(...node.childNodes);
+    return wrappers.length > 0;
+  },
+  'remove-images'(document) {
+    const equations = new Set(imageEquations(contentRoot(document)).map(({ node }) => node));
+    const images = [...document.querySelectorAll('img')].filter(node => !equations.has(node));
+    for (const node of images) node.remove();
+    return images.length > 0;
+  },
+};
+
+// One full read of a parsed page: tab panels flattened, image equations and callouts converted, then Defuddle, then the
+// fidelity check against `expected`. A retry passes the first read's `expected`, so every read is judged by the same
+// headings and equations.
+async function readPage(document, url, extractImpl, expected) {
+  const { Defuddle } = extractionRuntime();
   const root = contentRoot(document);
+  // Fidelity checks the headings of panels no longer hidden, so it reads the page after they are flattened.
+  flattenTabPanels(document, root);
+  expected ??= signals(document);
   // Preserve supplied mathematical alternatives as literal inline code. This
   // prevents Markdown from reinterpreting TeX escapes/operators; it is not OCR
   // or a claim that the supplied alternative is a complete/correct equation.
@@ -381,6 +500,33 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
     ...(documentation ? { contentSelector: '[data-wiki-content]', removeLowScoring: false, removeExactSelectors: false, removePartialSelectors: false, removeContentPatterns: false } : hasBlockCallout ? { contentSelector: '[data-wiki-content]' } : {}),
   });
   const markdown = data.contentMarkdown ?? '';
-  const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
-  return { ...data, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
+  return { data, markdown, expected, ...assessSignalsDetailed(expected, markdown, data.title ?? '', url) };
+}
+
+export async function extractHtml(html, url, { extractImpl, shortfallGuard = true, shortfallRetries = Object.keys(SHORTFALL_RETRIES) } = {}) {
+  const { parseHTML } = extractionRuntime();
+  const { document } = parseHTML(html);
+  // Signals, counts and visible words read the untouched page.
+  const page = pageSignals(document, url);
+  const counts = pageCounts(document);
+  const visible = visibleWords(document);
+  let read = await readPage(document, url, extractImpl);
+  const extracted = spaceWords(read.markdown);
+  let extractionRetry, shortfall;
+  if (shortfallGuard && visible >= SHORTFALL_MIN_VISIBLE && extracted * 5 < visible) {
+    // Every retry that changes the page runs, each on a fresh parse; the one with the most words wins, an earlier one on a tie.
+    let best = null;
+    for (const name of Object.keys(SHORTFALL_RETRIES).filter(retry => shortfallRetries.includes(retry))) {
+      const { document: copy } = parseHTML(html);
+      if (!SHORTFALL_RETRIES[name](copy)) continue;
+      let retried;
+      try { retried = await readPage(copy, url, extractImpl, read.expected); } catch { continue; }
+      const words = spaceWords(retried.markdown);
+      if (words >= 2 * extracted && words > extracted && (!best || words > best.words)) best = { name, retried, words };
+    }
+    if (best) { extractionRetry = best.name; read = best.retried; } else shortfall = { extracted, visible };
+  }
+  const { data, expected, warnings: fidelityWarnings, ignored } = read;
+  return { ...data, pageSignals: page, pageCounts: counts, visibleWords: visible, ...(extractionRetry && { extractionRetry }), ...(shortfall && { shortfall }), fidelityWarnings,
+    fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
 }

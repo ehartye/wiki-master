@@ -8,13 +8,16 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
+import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { closeIssuesResolvedByClip, recordIssue } from './lib/triage.mjs';
+import { downloadPdf } from './lib/pdf-download.mjs';
 import {
   parseFigureArgs, renderFigures, setClippingFigures, figureSummary,
-  frontmatterOf, fmScalar,
+  frontmatterOf, fmScalar, resolveTool,
 } from './lib/pdf-figures.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 import { diagnosePdf, formatPdfDoctor } from './lib/pdf-doctor.mjs';
@@ -443,10 +446,53 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
   return { status: 'figures', clipping: found.rel, verified, figures: r.figures || [], render: r };
 }
 
-export function main(argv) {
-  const pdfPath = argv[0];
+// The Title: line pdfinfo prints for a PDF, when that optional tool is installed; null otherwise, or when the PDF has none.
+export function pdfinfoTitle(pdfPath, { tool = resolveTool('pdfinfo'), run = execFileSync } = {}) {
+  if (!tool) return null;
+  try { return /^Title:[ \t]*(.+)$/m.exec(run(tool, [pdfPath], { encoding: 'utf8' }))?.[1].trim() || null; } catch { return null; }
+}
+
+// What an address says the document is called: its last path segment, without the query, as a file name would be.
+function titleFromUrl(url) {
+  const u = new URL(url);
+  const segment = u.pathname.split('/').filter(Boolean).pop();
+  let name = segment ?? u.hostname;
+  try { name = decodeURIComponent(name); } catch { /* keep the raw segment */ }
+  return titleFromPdf(name);
+}
+
+// A download needs a folder, and every way out of the run removes it, process.exit included.
+// `download(url, dest)` fetches the PDF, `toolchain` reports the external tools, `extractText(pdfPath)` reads the text layer and
+// `pdfTitle(pdfPath)` the document's own title; a test supplies them, so it needs no network, pdftotext or pdfinfo.
+export function main(argv, deps = {}) {
+  const scratch = { dir: null };
+  const cleanup = () => {
+    if (scratch.dir) rmSync(scratch.dir, { recursive: true, force: true });
+    scratch.dir = null;
+  };
+  process.on('exit', cleanup);
+  try { return clipPdf(argv, deps, scratch); }
+  finally { cleanup(); process.off('exit', cleanup); }
+}
+
+function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle } = {}, scratch) {
+  const arg = argv[0];
+  const isUrl = /^https?:\/\//i.test(arg ?? '');
+  let pdfPath = arg;
   if (!pdfPath) {
     for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
+    process.exit(2);
+  }
+  // A scheme other than http(s) is not a file name: ftp:, file: and the like are not fetched.
+  if (!isUrl && /^(?:[a-z][a-z0-9+.-]+:\/\/|file:)/i.test(arg)) {
+    console.error('only http and https addresses are fetched');
+    process.exit(2);
+  }
+  // A secret in the address would be copied into the triage log (which syncs), declined.json, the source: line and every
+  // message. It is refused wherever it arrives (the address or --source=) before anything else is computed or written.
+  const sourceOption = argv.find((a) => a.startsWith('--source='))?.slice('--source='.length);
+  if ((isUrl && urlCarriesSecret(arg)) || urlCarriesSecret(sourceOption)) {
+    console.error(secretRefusal(isUrl && urlCarriesSecret(arg) ? arg : sourceOption, 'download the file with your own credentials, then run clip-pdf.mjs on the file'));
     process.exit(2);
   }
   let readingMode;
@@ -455,6 +501,7 @@ export function main(argv) {
   let fig;
   try { fig = parseFigureArgs(argv); }
   catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
+  if (isUrl && fig.only) { console.error('ERROR: --figures-only needs the PDF file itself: download the file first, then run clip-pdf.mjs on it.'); process.exit(2); }
 
   // Yell about the toolchain BEFORE doing any work, on every run. A missing tool
   // silently downgrades what a clipping can ever be, and the downgrade is
@@ -467,7 +514,7 @@ export function main(argv) {
       return report;
     });
   }
-  const deps = toolchainReport();
+  const deps = toolchain();
   if (!deps.ok) {
     console.error('');
     console.error('=========================== clip-pdf toolchain ===========================');
@@ -479,7 +526,7 @@ export function main(argv) {
   if (deps.fatal) process.exit(1);
 
   const srcArg = argv.find((a) => a.startsWith('--source='));
-  const source = srcArg ? srcArg.split('=').slice(1).join('=') : pdfPath;
+  const source = srcArg ? srcArg.split('=').slice(1).join('=') : arg;
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // Attribution is recorded at clip time or never: wiki-maintainer triage can only group a
@@ -507,12 +554,25 @@ export function main(argv) {
   }
 
   if (isDuplicateUrl(source, knownSourceUrls(vaultPath))) {
+    // A document already in the vault answers every row that waited for it (a landing page's link, a failed download).
+    closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`duplicate (already clipped): ${source}`); return { status: 'duplicate' };
   }
 
-  if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
+  if (isUrl) {
+    scratch.dir = mkdtempSync(join(tmpdir(), 'wm-clip-pdf-'));
+    pdfPath = join(scratch.dir, 'download.pdf');
+    const got = download(arg, pdfPath);
+    if (!got.ok) {
+      // A fact about one attempt, not about the document: queued, never declined.
+      const reason = `download failed: ${got.reason}`;
+      recordIssue(vaultPath, { url: source, kind: 'failed', reason, topic });
+      console.log(`clip failed — ${reason} (queued for triage): ${source}`);
+      return { status: 'failed', reason };
+    }
+  } else if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
 
-  const title = titleFromArgs(argv, titleFromPdf(pdfPath));
+  const title = titleFromArgs(argv, isUrl ? (pdfTitle(pdfPath) || titleFromUrl(arg)) : titleFromPdf(pdfPath));
   const forceOcr = argv.includes('--ocr');
   const langArg = argv.find((a) => a.startsWith('--ocr-lang='));
   const lang = langArg ? langArg.split('=')[1] : 'eng';
@@ -529,7 +589,7 @@ export function main(argv) {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
     // invisible downstream, so the choice cannot be a global default (#66).
-    const { tab, mode } = planExtraction(pdfPath, { override: readingMode });
+    const { tab, mode } = extractText ? { tab: null, mode: { args: [] } } : planExtraction(pdfPath, { override: readingMode });
     // A mode we cannot honor is refused outright: producing a clipping in the
     // OTHER mode while the operator believes they forced this one is exactly the
     // silent-wrongness this module refuses everywhere else.
@@ -542,7 +602,7 @@ export function main(argv) {
     }
 
     let text;
-    try { text = pdfToText(pdfPath, mode.args); }
+    try { text = extractText ? extractText(pdfPath) : pdfToText(pdfPath, mode.args); }
     catch {
       if (!pdftotextPresent()) {
         console.error('pdftotext not found. Install the Xpdf command-line tools (https://www.xpdfreader.com/download.html) or poppler (https://poppler.freedesktop.org/). Xpdf is preferred: only it provides the -table mode that reads tabular PDFs without destroying row pairings.');
@@ -564,7 +624,7 @@ export function main(argv) {
   if (clip.wordCount < THIN_WORD_FLOOR) {
     const outcome = thinOutcome({ ocrAvailable: ocrReachable() });
     if (outcome.decline) recordDecline(vaultPath, source, outcome.reason);
-    console.log(`thin text layer: ${pdfPath}`);
+    console.log(`thin text layer: ${arg}`);
     console.log(outcome.message);
     return { status: outcome.status };
   }
@@ -577,8 +637,9 @@ export function main(argv) {
   // hash, which does not care where the binary lives.
   const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
   if (already) {
+    closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`exists (same content): ${already}`);
-    if (fig.enabled) console.log(`figures not rendered for an existing clipping; to add them: clip-pdf.mjs "${pdfPath}" --figures-only --clipping "${already}"`);
+    if (fig.enabled) console.log(`figures not rendered for an existing clipping; to add them: ${isUrl ? 'download the file first, then ' : ''}clip-pdf.mjs "${isUrl ? '<file.pdf>' : pdfPath}" --figures-only --clipping "${already}"`);
     return { status: 'duplicate', file: already };
   }
 
@@ -593,6 +654,8 @@ export function main(argv) {
   const file = join(dir, `${slug}.md`);
 
   writeFileSync(file, clip.body);
+  // After the write, so a row is never closed by a clip that did not land.
+  closeIssuesResolvedByClip(vaultPath, source, 'clipped');
   const how = clip.extraction === 'ocr' ? 'OCR'
     : clip.extraction === 'table-aware' ? 'text, table-aware'
     : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'

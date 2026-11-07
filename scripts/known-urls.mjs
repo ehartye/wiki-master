@@ -16,7 +16,7 @@ cliGuard(import.meta.url);
 // under raw/clippings, compared after normalizing the URL), so a URL this command calls new is one the clipper would
 // not call a duplicate. Every mode only reads: no file, folder or log row is created.
 //
-//   (no option)               the known source URLs, normalized, one per line
+//   (no option)               the known URLs (sources and twin-url: values), normalized, one per line
 //   --count                   how many there are
 //   --check <url>...          one line per URL, in the order given: new | clipped raw/clippings/<name>.md [(+N recapture)] | declined: <reason>
 //   --summary --topic <T>     what the topic holds: pages, quality tiers, open triage rows by kind
@@ -25,12 +25,14 @@ const USAGE = CLI_SPECS['known-urls'].usage.join('\n');
 const TIERS = ['high', 'medium', 'low'];
 const flat = (text) => String(text).replace(/\s+/g, ' ').trim();
 
-// The known source URLs as the clipper writes them down, once each, in order.
+// The known URLs as the clipper writes them down, once each, in order: every clipping's source and the twin it came from.
 export function listKnownUrls(vaultPath) {
   const seen = new Map();
-  for (const { url } of readClippings(vaultPath)) {
-    const key = urlKey(url);
-    if (!seen.has(key)) seen.set(key, normalizeUrl(url));
+  for (const { url, twinUrl } of readClippings(vaultPath)) {
+    for (const known of twinUrl ? [url, twinUrl] : [url]) {
+      const key = urlKey(known);
+      if (!seen.has(key)) seen.set(key, normalizeUrl(known));
+    }
   }
   return [...seen.values()].sort();
 }
@@ -78,7 +80,7 @@ function frontmatterValue(vaultPath, file, name) {
 export function summarizeTopic(vaultPath, topic) {
   const wanted = topicKey(topic);
   const pages = [];
-  for (const entries of knownUrlIndex(vaultPath).values()) {
+  for (const entries of knownUrlIndex(vaultPath, { twins: false }).values()) {
     const newest = newestCapture(entries);
     pages.push({ url: newest.url, topic: normalizeTopic(frontmatterValue(vaultPath, newest.file, 'topic')), quality: frontmatterValue(vaultPath, newest.file, 'quality') });
   }

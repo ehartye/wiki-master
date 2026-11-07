@@ -58,7 +58,7 @@ reason to skip this. The answer stays read-only unless filing is authorized.
   the named URL, preserving dedup, declines and provenance. Result: a verified
   raw clipping and one log entry; no source summary unless ingestion was requested.
 - **Format or service capture:** read the matching complete route:
-  [PDF](references/clip-pdf.md), [Word](references/clip-docx.md),
+  [web pages](references/clip-html.md), [PDF](references/clip-pdf.md), [Word](references/clip-docx.md),
   [PowerPoint](references/clip-pptx.md), [spreadsheets](references/clip-xlsx.md),
   [GitHub repository](references/clip-gh.md), or [Confluence](references/clip-confluence.md).
   Request: “Clip this PDF with its figures.” Action: run its linked prerequisite

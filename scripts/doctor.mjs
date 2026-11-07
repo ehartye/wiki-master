@@ -86,6 +86,15 @@ export function realDeps() {
   };
 }
 
+// How a render would reach playwright-core. npx is only found, never started: answering through it would need `--yes`,
+// which downloads the package, and a bare spawn of it fails on Windows anyway.
+async function playwrightRoute(deps) {
+  if ((await deps.playwright()).ok) return { ok: true, route: 'local', detail: 'local' };
+  const npx = deps.which('npx');
+  if (npx) return { ok: true, route: 'npx', path: npx, detail: 'on first use through npx' };
+  return { ok: false, route: 'missing', hint: HINTS['playwright-core'], detail: 'no local copy, and npx is not on PATH' };
+}
+
 // Probes every requirement once. Each result is { ok, path?, version?, detail?, hint? }.
 export async function gather(deps = realDeps()) {
   const out = {};
@@ -111,8 +120,7 @@ export async function gather(deps = realDeps()) {
   out['html-runtime'] = html.ok
     ? { ok: true, detail: NPM_PACKAGES.map((n) => `${n} ${versions[n] ?? '?'}`).join(', ') }
     : { ok: false, hint: HINTS['html-runtime'], detail: html.message };
-  const pw = await deps.playwright();
-  out['playwright-core'] = pw.ok ? { ok: true } : { ok: false, hint: HINTS['playwright-core'], detail: pw.message };
+  out['playwright-core'] = await playwrightRoute(deps);
   const browser = deps.browser();
   out.browser = browser ? { ok: true, path: browser } : { ok: false, hint: HINTS.browser };
   const confluencer = deps.confluencer();

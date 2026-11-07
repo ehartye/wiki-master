@@ -29,11 +29,11 @@ index built from your own Ollama instance and ranks chunks by cosine similarity.
   Required to finish authoring; it also powers semantic search and semantic-drift detection.
 - Node.js ≥20.8 (for the helper scripts and Linux abstract-socket CLI gate).
 - npm/npx for the pinned HTML clipping runtime; dependencies are acquired automatically on first use. See [capture fidelity and limits](docs/clipping-fidelity.md).
-- Optional: `npm i -g playwright-core`, plus Chrome or Edge, for the
-  browser-render clip rung — clipping JavaScript-rendered pages that serve no
-  article text to a plain fetch. Degrades gracefully if absent; without it those
-  pages are queued for triage exactly as before. Set `WIKI_MASTER_BROWSER` to
-  point at a specific browser executable.
+- Optional: Chrome or Edge, for the browser-render clip rung — clipping
+  JavaScript-rendered pages that serve no article text to a plain fetch. Its
+  pinned `playwright-core` is acquired through npx on first use. Degrades
+  gracefully if absent; without it those pages are queued for triage exactly as
+  before. Set `WIKI_MASTER_BROWSER` to point at a specific browser executable.
 
 Every authoring task ends with `refresh-index.mjs`, which checks Obsidian Git, Obsidian, Ollama and the
 repository first: if any falls short it names each failure with its fix, writes nothing and exits 1.
@@ -155,7 +155,7 @@ of one flat, ungrouped catalog.
 
 ### Capture routes
 
-`node scripts/clip.mjs <url> --recapture` writes a dated second clipping of a page already in the vault (`<name> (recaptured YYYY-MM-DD).md`, with `recapture-of` naming the capture it follows) and never edits the first; the same text again writes nothing. `node scripts/clip.mjs <url> --from-file <path>` records a page a person saved from a signed-in browser (`.md`, `.markdown`, `.txt`, `.html`, `.htm`) with its real URL, `extraction: manual` and the hash of the supplied bytes; nothing is fetched, and the thin and login-page checks still apply. When the clipper refuses a thin, wrong-node or login, consent or age-gate page, its message says to save the page from a signed-in browser and record it this way. `apply-reclips` refuses a clipping with `extraction: manual` rather than replace the supplied text with a fetched page; refresh it with `--from-file <path> --recapture`. `node scripts/known-urls.mjs` lists the known source URLs, `--check <url>...` says whether each is new, clipped or declined, and `--summary --topic "<topic>"` counts what a topic holds. See [clipping fidelity](docs/clipping-fidelity.md).
+`node scripts/clip.mjs <url> --recapture` writes a dated second clipping of a page already in the vault (`<name> (recaptured YYYY-MM-DD).md`, with `recapture-of` naming the capture it follows) and never edits the first; the same text again writes nothing. `node scripts/clip.mjs <url> --from-file <path>` records a page a person saved from a signed-in browser (`.md`, `.markdown`, `.txt`, `.html`, `.htm`) with its real URL, `extraction: manual` and the hash of the supplied bytes; nothing is fetched, and the thin and login-page checks still apply. When the clipper refuses a thin, wrong-node or login, consent or age-gate page, its message says to save the page from a signed-in browser and record it this way. `apply-reclips` refuses a clipping with `extraction: manual` rather than replace the supplied text with a fetched page; refresh it with `--from-file <path> --recapture`. `node scripts/known-urls.mjs` lists the known URLs (sources and plain-text twins), `--check <url>...` says whether each is new, clipped or declined, and `--summary --topic "<topic>"` counts what a topic holds. See [clipping fidelity](docs/clipping-fidelity.md).
 
 ### Declines
 

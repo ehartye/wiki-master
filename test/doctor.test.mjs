@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, realpathSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -81,6 +81,88 @@ test('the npm runtime, playwright and the browser are reported on their own', as
   assert.match(r['html-runtime'].detail, /run npm ci/);
   assert.equal(r['playwright-core'].ok, false);
   assert.equal(r.browser.ok, false);
+});
+
+const noLocalPackage = async () => ({ ok: false, message: 'playwright-core is not available here' });
+const whichNpx = (found) => (cmd) => (cmd === 'npx' ? found : null);
+const row = (output, id) => output.split('\n').filter((line) => new RegExp(`^ +(ok|MISSING) +${id}\\b`).test(line));
+
+test('a local playwright-core is the local route, and npx is not looked for', async () => {
+  const looked = [];
+  const d = deps({ which: (cmd) => { looked.push(cmd); return null; } });
+  const r = await gather(d);
+  assert.equal(r['playwright-core'].ok, true);
+  assert.equal(r['playwright-core'].route, 'local');
+  assert.ok(!looked.includes('npx'));
+  assert.deepEqual(row((await main([], d)).output, 'playwright-core').map((l) => l.trim().replace(/\s+/g, ' ')), ['ok playwright-core local']);
+});
+
+test('with no local copy and npx found, the route is first use through npx, which is never started', async () => {
+  const started = [];
+  const d = deps({
+    playwright: noLocalPackage,
+    which: whichNpx('C:\\node\\npx'),
+    run: (cmd, args) => { started.push([cmd, ...args]); return { ran: true, status: 0, text: 'v1' }; },
+  });
+  const r = await gather(d);
+  assert.equal(r['playwright-core'].ok, true, 'it is a working route, not a missing requirement');
+  assert.equal(r['playwright-core'].route, 'npx');
+  assert.equal(r['playwright-core'].path, 'C:\\node\\npx');
+  assert.ok(!started.some(([cmd]) => /npx/.test(cmd)), 'npx was started');
+  assert.ok(!started.flat().includes('--yes'));
+  const [line] = row((await main([], d)).output, 'playwright-core');
+  assert.match(line, /on first use through npx/);
+});
+
+test('with neither, the route is missing and says how to get one', async () => {
+  const d = deps({ playwright: noLocalPackage, which: whichNpx(null) });
+  const r = await gather(d);
+  assert.equal(r['playwright-core'].ok, false);
+  assert.equal(r['playwright-core'].route, 'missing');
+  assert.match(r['playwright-core'].hint, /npx/);
+  assert.doesNotMatch(r['playwright-core'].hint, /npm i -g/);
+  assert.equal(row((await main([], d)).output, 'playwright-core').length, 1);
+  assert.match((await main([], d)).output, /MISSING {2}playwright-core: no local copy, and npx is not on PATH/);
+});
+
+test('the browser has its own row whatever the package route is', async () => {
+  const none = await main([], deps({ browser: () => null }));
+  assert.equal(row(none.output, 'playwright-core').length, 1);
+  assert.equal(row(none.output, 'browser').length, 1);
+  assert.match(row(none.output, 'browser')[0], /MISSING/);
+  assert.match(row(none.output, 'playwright-core')[0], /ok/);
+  const found = await main([], deps({ playwright: noLocalPackage, which: whichNpx('/usr/bin/npx') }));
+  assert.match(row(found.output, 'browser')[0], /ok +browser +\/usr\/bin\/chromium/);
+  assert.match(row(found.output, 'playwright-core')[0], /on first use through npx/);
+});
+
+test('the real command, from a copy outside any node_modules: it finds npx on PATH and starts nothing there', () => {
+  // The stand-in records being run, so a doctor that started npx, as a bare `--yes` probe would, fails here. A path
+  // with no extension is what realWhich tries first, on every platform.
+  // realpath: macOS's temp folder sits behind a symlink, and the script's main guard wouldn't fire through one.
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-doctor-copy-'));
+  try {
+    cpSync(dirname(SCRIPT), join(root, 'scripts'), { recursive: true });
+    const bin = join(root, 'bin');
+    const started = join(root, 'npx-started');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'npx'), `#!/bin/sh\n: > "${started}"\n`, { mode: 0o755 });
+    const run = (path) => {
+      const env = { ...process.env, PATH: path, Path: path, HOME: root, USERPROFILE: root, CLAUDE_CONFIG_DIR: join(root, '.claude'), OLLAMA_HOST: 'http://127.0.0.1:9', WIKI_MASTER_BROWSER: '/no/such/browser' };
+      delete env.WIKI_MASTER_VAULT;
+      const r = spawnSync(process.execPath, [join(root, 'scripts', 'doctor.mjs'), '--json'], { cwd: root, env, encoding: 'utf8' });
+      assert.equal(r.status, 0, r.stderr);
+      return JSON.parse(r.stdout).requirements;
+    };
+    const through = run(bin);
+    assert.equal(through['playwright-core'].route, 'npx');
+    assert.equal(through['playwright-core'].path, join(bin, 'npx'));
+    assert.equal(through.browser.ok, false);
+    assert.equal(existsSync(started), false, 'the doctor started npx');
+    assert.equal(run('')['playwright-core'].route, 'missing');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('Ollama is reported with the model, and neither row starts a program', async () => {

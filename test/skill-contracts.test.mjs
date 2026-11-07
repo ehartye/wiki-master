@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { join, resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CLIP_SPECS } from '../scripts/lib/clip-args.mjs';
+import { qualifiesAsTwin } from '../scripts/lib/twin.mjs';
+import { newestCapture } from '../scripts/lib/known-urls.mjs';
+import { SECRET_QUERY_NAMES, secretRefusal } from '../scripts/lib/url-safety.mjs';
+import { unopenedTabsNote, retryKeptNote, shortfallNote } from '../scripts/lib/clip-notes.mjs';
+import { buildFrontmatter, duplicateResult } from '../scripts/clip.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const expected = ['wiki-maintainer', 'wiki-project', 'wiki-purge', 'wiki-researcher', 'wiki-search', 'wiki-setup'];
@@ -63,7 +69,7 @@ const capabilities = {
   'wiki-search': { 'advanced.md': 'search.mjs', 'answers.md': 'resolve-evidence.mjs' },
   'wiki-project': { 'authoring.md': 'refresh-index.mjs', 'backlog.md': 'backlog-list.mjs', 'catalogs.md': 'refresh-index.mjs' },
   'wiki-researcher': { 'discover.md': 'known-urls.mjs', 'capture.md': 'clip.mjs', 'ingest.md': 'health.mjs',
-    'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
+    'clip-html.md': 'clip.mjs', 'clip-pdf.md': 'clip-pdf.mjs', 'clip-docx.md': 'clip-docx.mjs', 'clip-pptx.md': 'clip-pptx.mjs',
     'clip-xlsx.md': 'clip-xlsx.mjs', 'clip-gh.md': 'clip-gh.mjs', 'clip-confluence.md': 'clip-confluence.mjs' },
   'wiki-maintainer': { 'lint.md': 'lint-disposition.mjs',
     'repair.md': 'health.mjs', 'relink.md': 'relationships.mjs', 'triage.md': 'triage.mjs', 'obsidian-cli.md': 'obsidian.mjs' },
@@ -118,14 +124,192 @@ test('all six capture routes are discoverable and synthesis filing stays direct'
   assert.ok(localLinks(read(entry('wiki-maintainer'))).includes('references/synthesis-filing.md'));
 });
 
-// The capture docs say what clip.mjs does with a JavaScript page. `scripts/doctor.mjs` is the plugin's own doctor: the
-// Confluence section of capture-prerequisites.md also names confluencer's, which says nothing about a browser.
+// The web route has its own reference, clip-html.md, and capture.md only routes. They say what clip.mjs does with a JavaScript
+// page. `scripts/doctor.mjs` is the plugin's own doctor: the Confluence section of capture-prerequisites.md also names
+// confluencer's, which says nothing about a browser.
+const researcherRefs = readdirSync(join(root, 'skills/wiki-researcher/references')).map(ref => 'skills/wiki-researcher/references/' + ref);
 const missingFrom = (file, wanted) => wanted.filter(text => !read(file).includes(text));
-for (const file of ['skills/wiki-researcher/references/capture.md', 'skills/wiki-setup/references/capture-prerequisites.md']) {
-  test(file + ' describes the browser render and the plain-text recipe', () => {
+const webRoute = 'skills/wiki-researcher/references/clip-html.md';
+for (const file of [webRoute, 'skills/wiki-setup/references/capture-prerequisites.md']) {
+  test(file + ' describes the browser render and the plain-text twin', () => {
     assert.deepEqual(missingFrom(file, ['extraction: rendered', 'scripts/doctor.mjs', '.md.txt']), []);
   });
 }
+
+test('clip-html.md is reachable from SKILL.md', () => {
+  assert.ok(localLinks(read(entry('wiki-researcher'))).includes('references/clip-html.md'), 'SKILL.md links the web route');
+});
+
+// Flags come from the parser's own table, so a new option cannot ship undocumented. Every clip option is one an agent may type.
+test('clip-html.md names every option clip.mjs accepts', () => {
+  const spec = CLIP_SPECS.clip;
+  const flags = new Set([...spec.values, ...spec.flags, ...spec.spaced, ...spec.lead.map(flag => flag.replace(/^--/, ''))]);
+  const text = read(webRoute);
+  assert.deepEqual([...flags].filter(flag => !text.includes('--' + flag)).sort(), []);
+});
+
+test('capture.md routes every format and names adopt-clipping.mjs for hand-clipped files', () => {
+  const capture = 'skills/wiki-researcher/references/capture.md';
+  assert.deepEqual(missingFrom(capture, ['adopt-clipping.mjs', 'repair-missing-hash.mjs']), []);
+  const linked = localLinks(read(capture));
+  for (const route of ['clip-html.md', 'clip-pdf.md', 'clip-docx.md', 'clip-pptx.md', 'clip-xlsx.md', 'clip-gh.md', 'clip-confluence.md'])
+    assert.ok(linked.includes(route), 'capture.md routes to ' + route);
+});
+
+// The commands now do what the earlier release's by-hand recipes did, so no changed reference may still teach the recipes.
+test('no changed reference still carries the by-hand recipes for a thin documentation page', () => {
+  const interim = /two things (?:to try by hand|can recover)|tries neither on its own|render the page yourself/i;
+  for (const file of [...researcherRefs, 'skills/wiki-setup/references/capture-prerequisites.md', 'skills/wiki-maintainer/references/evidence.md'])
+    assert.doesNotMatch(read(file), interim, file);
+});
+
+// What a document says about the code is checked against the code: the sentence is required, and so is the behaviour it describes,
+// so a doc cannot stay right on paper after the code moves.
+const sectionOf = (file, heading) => {
+  const text = read(file);
+  const lines = text.split('\n');
+  const start = lines.findIndex(line => /^#{1,6} /.test(line) && line.replace(/^#+ /, '') === heading);
+  assert.ok(start >= 0, file + ' has the heading ' + heading);
+  const end = lines.findIndex((line, i) => i > start && /^#{1,6} /.test(line));
+  return lines.slice(start + 1, end < 0 ? undefined : end).join('\n');
+};
+const flat = text => text.replace(/\s+/g, ' ');
+
+test('the secret query parameter names in clip-html.md are the ones the code refuses', () => {
+  const doc = flat(sectionOf(webRoute, 'Addresses that carry a secret'));
+  assert.deepEqual(SECRET_QUERY_NAMES.filter(name => !doc.includes('`' + name + '`')), []);
+  assert.match(secretRefusal('https://example.test/?token=x'), /secret in its query \(token\)/);
+});
+
+// Every route that takes an address or a --source names the refusal and where it is explained. decline.mjs refuses one too.
+const secretRoutes = ['pdf', 'docx', 'pptx', 'xlsx', 'gh', 'confluence'].map(name => 'skills/wiki-researcher/references/clip-' + name + '.md');
+for (const file of [...secretRoutes, 'skills/wiki-researcher/references/capture.md', 'docs/clipping-fidelity.md']) {
+  test(file + ' says an address with a secret is refused, and links the explanation', () => {
+    assert.ok(anchors(read(webRoute)).has('addresses-that-carry-a-secret'), 'the anchor exists');
+    assert.ok(localLinks(read(file)).some(link => link.endsWith('clip-html.md#addresses-that-carry-a-secret')), 'no link to the explanation');
+    assert.match(flat(read(file)), /username, password or secret query parameter[^.]*exits? 2|exits? 2[^.]*username, password or secret query parameter/i);
+  });
+}
+
+test('the clip usage text says a secret query parameter is refused, as the code does', () => {
+  const usage = flat(CLIP_SPECS.clip.usage.join(' '));
+  assert.match(usage, /carries a username, password or secret query parameter, is an error outcome/);
+  assert.doesNotMatch(usage, /carries a username or password/);
+  assert.match(usage, /address with a username, password or secret query parameter is refused/);
+});
+
+test('a twin must come back from the address that was asked for, and the docs say requested, not the page', () => {
+  const body = 'word '.repeat(150);
+  const reply = (finalUrl) => ({ ok: true, type: 'text/markdown', text: body, finalUrl });
+  const asked = 'https://example.test/guide/setup.md.txt';
+  assert.equal(qualifiesAsTwin(reply(asked), asked), true);
+  assert.equal(qualifiesAsTwin(reply('https://example.test/guide/setup'), asked), false, 'the page address is not the twin\'s');
+  const doc = flat(sectionOf(webRoute, 'Plain-text twins'));
+  assert.match(doc, /final address has the origin and path it was requested at/);
+  assert.doesNotMatch(doc, /final address has the page's/);
+});
+
+test('the newest capture of a URL is ordered by recapture sequence, and clipping-fidelity.md says so', () => {
+  const entry = (name) => ({ name, created: '2026-11-06' });
+  const names = ['Guide', 'Guide (recaptured 2026-11-06)', 'Guide (recaptured 2026-11-06 2)', 'Guide (recaptured 2026-11-06 9)', 'Guide (recaptured 2026-11-06 10)'];
+  assert.equal(newestCapture(names.map(entry)).name, names[4], '10 follows 9');
+  const doc = flat(read('docs/clipping-fidelity.md'));
+  assert.match(doc, /newest capture of a URL is the one with the latest `created`[^.]*sequence[^.]*later file name/);
+  assert.doesNotMatch(doc, /latest `created`, then the later file name/);
+});
+
+test('the ledger section says only clipped rows are written files, that a ledger is appended to, and how a duplicate is filled', () => {
+  assert.equal(duplicateResult({ name: 'A', file: 'A.md', extraction: null }).extraction, null, 'a plain-HTML clipping has no extraction line');
+  assert.equal(duplicateResult({ name: 'A', file: 'A.md', extraction: null }).path, 'raw/clippings/A.md', 'a duplicate row carries a path though nothing was written');
+  const doc = flat(sectionOf(webRoute, 'Lists and the ledger'));
+  assert.match(doc, /only rows with `status: "clipped"` are files written/);
+  assert.match(doc, /`unchanged`, `duplicate` and `clash`, which wrote nothing/);
+  assert.match(doc, /appended to[^.]*fresh file/);
+  assert.match(doc, /`text`[^|]*`duplicate`[^|]*`null`/);
+  assert.doesNotMatch(doc, /held clipping's line/);
+  const capture = flat(read('skills/wiki-researcher/references/capture.md'));
+  assert.match(capture, /`--list` run[^.]*ledger's `clipped` rows/);
+});
+
+test('a --list of rendered pages can pass a tool timeout, and the doc says to background or chunk it', () => {
+  assert.match(flat(sectionOf(webRoute, 'Lists and the ledger')), /two-minute[^.]*(?:background|chunks)/);
+});
+
+test('the first clip of a tabbed page carries --expand, where the clip step is', () => {
+  const step = read(webRoute).match(/^3\. \*\*Clip:\*\*[\s\S]*?(?=^4\. )/m)[0];
+  assert.match(flat(step), /tabs or collapsed panels[^.]*`--expand`[^.]*first clip/);
+  assert.match(flat(step), /plain clip stores a partial capture[^.]*second one/);
+});
+
+// What --expand skips is read off the page-side rules, not retyped.
+test('--expand is described as the code does it: off-limits regions, disabled tabs, and toggles that are not tabs', () => {
+  const code = read('scripts/lib/expand.mjs');
+  const offLimits = code.match(/const OFF_LIMITS = '([^']+)'/)[1].split(/,\s*/);
+  assert.deepEqual(offLimits, ['nav', 'header', 'footer', 'form']);
+  assert.match(code, /getAttribute\('role'\) !== 'tab'/, 'toggles exclude role=tab');
+  assert.match(code, /hasAttribute\('disabled'\) \|\| tab\.getAttribute\('aria-disabled'\) === 'true'/, 'disabled tabs are skipped');
+  const doc = flat(sectionOf(webRoute, 'Tabs and expansion'));
+  for (const region of offLimits) assert.ok(doc.includes('`' + region + '`'), region + ' is named');
+  assert.match(doc, /disabled/);
+  assert.match(doc, /not a tab/);
+  assert.doesNotMatch(doc, /opens every `<details>`, clicks each tab/);
+});
+
+// Each note: line is built by the code that prints it; the references show it with N and M for the numbers.
+test('the references show every note: line as clip.mjs prints it', () => {
+  const notes = [unopenedTabsNote('N'), retryKeptNote('<value>', 'N', 'M'), shortfallNote('N', 'M')];
+  assert.deepEqual(notes.filter(note => !read(webRoute).includes('`' + note + '`')), [], webRoute);
+  const setup = read('skills/wiki-setup/references/capture-prerequisites.md');
+  const whole = [notes[0], notes[2], notes[1].slice(0, notes[1].indexOf('):') + 2)];
+  assert.deepEqual(whole.filter(note => !setup.includes('`' + note)), [], 'capture-prerequisites.md');
+});
+
+// One tab is "1 tab control", not "1 tab controls": the references show the wording for N and say how one reads.
+test('the unopened-tabs note is singular for one tab and the references say so', () => {
+  assert.equal(unopenedTabsNote(1), 'note: page has 1 tab control this clip did not open; use --recapture --expand');
+  assert.equal(unopenedTabsNote(2), 'note: page has 2 tab controls this clip did not open; use --recapture --expand');
+  const one = /page has (1 tab control) this/.exec(unopenedTabsNote(1))[1];
+  for (const file of [webRoute, 'skills/wiki-setup/references/capture-prerequisites.md', 'docs/clipping-fidelity.md']) {
+    assert.ok(flat(read(file)).includes('`' + one + '`'), file + ' shows the singular wording');
+  }
+});
+
+test('a thin-or-short diagnosis goes past "inspect": recapture with --expand, then a saved page; --find-twin needs a partial clipping', () => {
+  const row = flat(read('skills/wiki-setup/references/capture-prerequisites.md')).match(/\| `note: extracted N of about M visible words` \|[^|]*\|[^|]*\|/)[0];
+  assert.match(row, /--recapture --expand/);
+  assert.match(row, /--from-file/);
+  assert.match(flat(read(webRoute)), /`note: extracted N of about M visible words` \|[^|]*--recapture --expand[^|]*--from-file/);
+  assert.match(flat(sectionOf(webRoute, 'Plain-text twins')), /`no probe \([^)]*\)` unless[^.]*`fidelity: partial`/);
+});
+
+test('--slug is explained under Names, where capture.md links it', () => {
+  assert.match(flat(sectionOf(webRoute, 'Names')), /`--slug /);
+});
+
+test('clip-pdf.md says the dedup and decline checks run on the source, which is what the code looks up', () => {
+  assert.match(read('scripts/clip-pdf.mjs'), /isDuplicateUrl\(source, knownSourceUrls\(vaultPath\)\)/);
+  const doc = flat(read('skills/wiki-researcher/references/clip-pdf.md'));
+  assert.match(doc, /dedup and decline checks run on the `source` \(the address, or the `--source` when one is given\)/);
+  assert.match(doc, /a PDF whose `source` is already in the vault is a `duplicate`/);
+});
+
+// The frontmatter keys the web clipper writes, read off buildFrontmatter, are the ones the references name.
+test('every key buildFrontmatter writes for a web clipping is named in clip-html.md, and the guides name the ones they cite', () => {
+  const all = buildFrontmatter({ title: 't', source: 's', author: 'a', published: '2026-01-01', created: '2026-01-02', quality: 'high', hash: 'h', fidelity: 'partial', fidelityChecks: 1, fidelityIgnored: 1, extraction: 'rendered', extractionRetry: 'unwrap-inline', topic: 'x', recaptureOf: 'raw/clippings/a.md', suppliedSha256: 'z', expandCoverage: 'tabs=1', twinUrl: 'u', documentLink: 'd' });
+  const plain = ['title', 'source', 'author', 'published', 'created', 'tags', 'quality', 'topic', 'source-hash', 'extraction', 'fidelity'];
+  const keys = [...all.matchAll(/^([a-z][a-z-]*):/gm)].map(m => m[1]).filter(key => !plain.includes(key));
+  for (const key of ['twin-url', 'expand-coverage', 'landing-page', 'extraction-retry']) assert.ok(keys.includes(key), key + ' is written: ' + keys.join());
+  const web = read(webRoute);
+  assert.deepEqual(keys.filter(key => !web.includes('`' + key)), []);
+  for (const [file, cited] of [['skills/wiki-maintainer/references/evidence.md', ['twin-url', 'expand-coverage', 'extraction-retry', 'landing-page']], ['docs/reclipping.md', ['expand-coverage', 'extraction-retry']]])
+    assert.deepEqual(cited.filter(key => !read(file).includes(key)), [], file);
+});
+
+test('the other changed references point at the routes that shipped', () => {
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/ingest.md', ['landing-page']), []);
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/clip-pdf.md', ['clip-pdf.mjs" "<url>"']), []);
+  assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['--list', '--ledger']), []);
+});
 
 test('discover.md checks for a browser with doctor.mjs before a batch', () => {
   assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['scripts/doctor.mjs']), []);
@@ -309,7 +493,6 @@ test('wiki-maintainer says a filesystem edit needs no app but the refresh does',
 // wiki-researcher: an ingest is an authoring workflow and ends with the contract. A capture that wrote no wiki page logs
 // once and stops, because clippings and log entries enter neither the catalogs nor the search index, which
 // refresh-index.test.mjs pins.
-const researcherRefs = readdirSync(join(root, 'skills/wiki-researcher/references')).map(ref => 'skills/wiki-researcher/references/' + ref);
 const flatten = text => text.replace(/\s+/g, ' ');
 
 test('wiki-researcher keeps no concept of an operation beyond the log entry', () => {

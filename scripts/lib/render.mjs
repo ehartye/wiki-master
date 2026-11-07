@@ -1,8 +1,10 @@
 import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, delimiter, join } from 'node:path';
 import { homedir, platform } from 'node:os';
-import { execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { expandPage } from './expand.mjs';
+import { redactReasonText } from './url-safety.mjs';
 
 // The last rung of the clip ladder: run the page in a real browser, then hand
 // the rendered HTML back to Defuddle. Two failure classes need it, and the
@@ -119,13 +121,13 @@ export function classifyRenderOutcome({ requestedUrl, finalUrl, status, title, w
       return {
         ok: false,
         kind: gone ? 'gone' : 'blocked',
-        reason: `redirected to an error page (${finalUrl}) — served as HTTP ${status}`,
+        reason: `redirected to an error page (${redactReasonText(finalUrl)}) — served as HTTP ${status}`,
       };
     }
     return {
       ok: false,
       kind: 'failed',
-      reason: `redirect landed on a different page (${finalUrl}) — the requested page has moved or been retired`,
+      reason: `redirect landed on a different page (${redactReasonText(finalUrl)}) — the requested page has moved or been retired`,
     };
   }
 
@@ -215,61 +217,44 @@ export function findBrowser({ env = process.env, os = platform(), home = homedir
 
 // Distinguishes "this rung cannot run here" from "this page failed". The first
 // is a setup problem the user can fix once and must therefore be NAMED, not
-// swallowed into a per-URL failure that looks like the site's fault.
-export class RenderUnavailable extends Error {}
-
-function npmGlobalRoot() {
-  try {
-    return execSync('npm root -g', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
-  } catch {
-    return null;
+// swallowed into a per-URL failure that looks like the site's fault. `missing`
+// says which part, because only a missing package can be fetched: clip.mjs retries
+// through npx for 'playwright-core' and never for 'browser'.
+export class RenderUnavailable extends Error {
+  constructor(message, missing) {
+    super(message);
+    this.missing = missing;
   }
 }
 
-// playwright-core is optional, so it may be installed anywhere -- and the place
-// this plugin's own advice sends people is the one place a plain import cannot
-// look. `npm i -g playwright-core` puts it in the global root, which is not on
-// any module resolution path; verified as ERR_MODULE_NOT_FOUND with the package
-// sitting in the directory `npm root -g` prints. A CLI like Defuddle escapes
-// this because PATH finds it; a library import does not have that luxury.
+// Local first, so a development checkout uses its own pinned copy. An installed
+// plugin has no node_modules: clip.mjs reruns this script through its pinned npx
+// launcher, and a library import cannot see what npx fetched, only a .bin folder
+// on PATH points at it (as extractionRuntime does for Defuddle).
 //
-// Local first regardless, so a vendored or repo-local copy always wins, and the
-// global root is only shelled for when there is nothing else -- `npm root -g`
-// costs ~200ms and this rung is already the slow path.
-export async function loadChromium({
-  importer = (s) => import(s),
-  globalRoot = npmGlobalRoot,
-  exists = existsSync,
-} = {}) {
+// Resolving from there lands on the package's CommonJS entry, which under import()
+// yields only `default.chromium`. Taking `.chromium` alone returns undefined, which
+// then fails four layers away as "Cannot read properties of undefined (reading
+// 'launch')" -- a message that says nothing about the entry point that caused it.
+export async function loadChromium({ importer = (s) => import(s), path = process.env.PATH ?? '' } = {}) {
+  const chromiumOf = (m) => m.chromium ?? m.default?.chromium;
   try {
-    const m = await importer('playwright-core');
-    if (m.chromium || m.default?.chromium) return m.chromium ?? m.default.chromium;
+    const chromium = chromiumOf(await importer('playwright-core'));
+    if (chromium) return chromium;
   } catch {
-    /* fall through to the global root */
+    /* not local: look for the copy npx exposes */
   }
-  const root = globalRoot();
-  if (root) {
-    // index.mjs FIRST, and the difference is not cosmetic: playwright-core ships
-    // both entries, and under import() the ESM one yields a real `chromium`
-    // named export while the CJS one yields only `default.chromium`. Taking
-    // `.chromium` off the CJS entry returns undefined, which then fails four
-    // layers away as "Cannot read properties of undefined (reading 'launch')" —
-    // a message that says nothing about the entry point that caused it.
-    for (const file of ['index.mjs', 'index.js']) {
-      const p = join(root, 'playwright-core', file);
-      if (!exists(p)) continue;
-      try {
-        const m = await importer(pathToFileURL(p).href);
-        const chromium = m.chromium ?? m.default?.chromium;
-        if (chromium) return chromium;
-      } catch {
-        /* try the next entry */
-      }
+  for (const dir of path.split(delimiter)) {
+    if (basename(dir).toLowerCase() !== '.bin') continue;
+    try {
+      const entry = createRequire(join(dir, '..', 'package.json')).resolve('playwright-core');
+      const chromium = chromiumOf(await importer(pathToFileURL(entry).href));
+      if (chromium) return chromium;
+    } catch {
+      /* try the next .bin folder */
     }
   }
-  throw new RenderUnavailable(
-    'playwright-core is not installed. Install it to enable the browser-render rung: npm i -g playwright-core'
-  );
+  throw new RenderUnavailable('playwright-core is not available here, and clip.mjs fetches it through npx on first use.', 'playwright-core');
 }
 
 // Returns the fully rendered HTML plus everything classifyRenderOutcome needs to
@@ -277,14 +262,19 @@ export async function loadChromium({
 // writes this to a temp file for Defuddle, and a file-parsed document resolves
 // every relative link against the file path otherwise -- silently turning an
 // article's links into dead local paths.
-export async function renderPage(url, { launcher, executablePath } = {}) {
-  const chromium = launcher ?? (await loadChromium());
+//
+// The browser is looked for first: without one the render cannot run, and the
+// package must not be reported missing, which would send clip.mjs to npx for a
+// download that could not help.
+export async function renderPage(url, { launcher, executablePath, load = loadChromium, expand = false, expandLimits } = {}) {
   const exe = executablePath ?? findBrowser();
   if (!exe) {
     throw new RenderUnavailable(
-      'No Chromium-based browser found. Install Chrome or Edge, or set WIKI_MASTER_BROWSER to a browser executable.'
+      'No Chromium-based browser found. Install Chrome or Edge, or set WIKI_MASTER_BROWSER to a browser executable.',
+      'browser'
     );
   }
+  const chromium = launcher ?? (await load());
 
   const browser = await chromium.launch({
     executablePath: exe,
@@ -292,7 +282,7 @@ export async function renderPage(url, { launcher, executablePath } = {}) {
     args: OFFSCREEN_ARGS,
   });
   try {
-    const ctx = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 900 } });
+    const ctx = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 900 }, ...(expand ? { serviceWorkers: 'block' } : {}) });
     const page = await ctx.newPage();
     const res = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
     // networkidle is a best-effort settle, never a requirement: pages with a
@@ -307,9 +297,11 @@ export async function renderPage(url, { launcher, executablePath } = {}) {
     const finalUrl = page.url();
     const title = await page.title();
     const words = await page.evaluate(() => (document.body?.innerText.match(/\S+/g) || []).length);
+    // After the verdict's facts are read: the page may change its own address as tabs open, and that isn't where it is.
+    const expansion = expand ? await expandPage(page, expandLimits) : undefined;
     let html = await page.content();
     html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${finalUrl.replace(/"/g, '&quot;')}">`);
-    return { html, finalUrl, status: res?.status() ?? 0, title, words };
+    return { html, finalUrl, status: res?.status() ?? 0, title, words, ...(expansion ? { expansion } : {}) };
   } finally {
     await browser.close().catch(() => {});
   }

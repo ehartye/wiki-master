@@ -29,7 +29,15 @@ This does not erase historical evidence. A later verified replacement needs an e
 
 ## Web pages
 
-A clipping made by `clip.mjs` takes the same transaction (dry run, journal, quarantine, hash propagation) through a different reader. It is recognised by an http(s) source that does not look like a PDF and has no PDF extraction mark (`extraction` absent or `rendered`). The page is fetched again through the clipper's own ladder, a static read and then a browser render when the text is thin, without the clipper's side effects: no decline and no triage row. `--kind auto|pdf|html` overrides the routing; use it for a PDF served from an address that does not say so, or to read a page the router took for a PDF. A PDF address given `--kind html` is refused. A clipping marked `extraction: manual` (text a person supplied with `clip.mjs <url> --from-file <path>`) is refused too, listed under `refused` in the report and never a target, because fetching the page again would replace what the person supplied; refresh it with `clip.mjs <url> --from-file <path> --recapture`.
+A clipping made by `clip.mjs` takes the same transaction (dry run, journal, quarantine, hash propagation) through a different reader. It is recognised by an http(s) source that does not look like a PDF and has no PDF extraction mark (`extraction` absent or `rendered`). The page is fetched again through the clipper's own ladder, a static read and then a browser render when the text is thin, without the clipper's side effects: no decline and no triage row. `--kind auto|pdf|html` overrides the routing; use it for a PDF served from an address that does not say so, or to read a page the router took for a PDF. A PDF address given `--kind html` is refused. Three kinds of web clipping are refused, listed under `refused` in the report and never a target, because fetching the page again would replace text that a better read or a person produced:
+
+| Clipping | Why | Refresh with |
+|---|---|---|
+| `expand-coverage` | It was read with its tabs and panels opened; this route opens none | `clip.mjs <url> --recapture --expand` |
+| `extraction: manual` | A person supplied the text with `--from-file` | `clip.mjs <url> --from-file <path> --recapture` |
+| `extraction: plaintext-twin` | It was stored from the page's Markdown twin; this route reads the rendered page | `clip.mjs <url> --recapture` |
+
+The refusal is not a failure: no row is queued and the exit code is unchanged. A quarantine is not refused.
 
 ```sh
 node scripts/apply-reclips.mjs --targets-file one-page.json            # dry run
@@ -42,6 +50,6 @@ What differs from a PDF repair:
 - **The same body again is `unchanged`.** Nothing is rewritten and no row is opened or closed.
 - **A read that still has fidelity warnings replaces the body and goes to review**, as a reconstructed table does: verify against the page before marking it acceptable.
 - **The glyph checks that read a PDF text layer are not applied to a page**; URLs and query strings would trip them.
-- **Only `source-hash`, `fidelity`, `extraction`, `fidelity-checks` and `fidelity-ignored` change**; the title, source, author, dates, tags, quality and topic are kept.
+- **Only `source-hash`, `fidelity`, `extraction`, `extraction-retry`, `fidelity-checks` and `fidelity-ignored` change**; the title, source, author, dates, tags, quality and topic are kept. `extraction-retry` is set when the new read needed a retry (`unwrap-inline` or `remove-images`) and cleared when it did not.
 - **A page that needs a browser fails without one**; the report names the reason and nothing changes.
 - **The old body is not kept beside the new one.** The vault's git history holds it, and summary hashes follow the new hash as for a PDF, without advancing factual review dates. Check the summaries' quotes against the new text before citing.

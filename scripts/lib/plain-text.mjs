@@ -37,15 +37,23 @@ const CHILD = join(dirname(fileURLToPath(import.meta.url)), 'fetch-text-child.mj
 // { ok: true, text, type } | { ok: false, reason } | { ok: false, refused: true, reason }
 // `refused` means it is a text URL that must not be clipped (a binary, a file over the size bound); anything else that is not
 // ok is simply not a text file, and the ladder takes it.
-export function fetchPlainText(url, { run = execFileSync } = {}) {
+export function fetchPlainText(url, { run = execFileSync, sameOrigin = false, timeoutMs } = {}) {
   try {
-    const out = run(process.execPath, [CHILD, url], { encoding: 'utf8', timeout: 40000, maxBuffer: 4 * MAX_PLAIN_BYTES });
+    const flags = [...(sameOrigin ? ['--same-origin'] : []), ...(timeoutMs ? [`--timeout-ms=${timeoutMs}`] : [])];
+    // The child stops its own fetch at its limit (25 s unless told); this outer limit only covers a child that does not start or finish.
+    const out = run(process.execPath, [CHILD, url, ...flags], { encoding: 'utf8', timeout: timeoutMs ? timeoutMs + 5000 : 40000, maxBuffer: 4 * MAX_PLAIN_BYTES });
     const parsed = JSON.parse(String(out).trim().split('\n').pop());
     return parsed && typeof parsed === 'object' ? parsed : { ok: false, reason: 'unreadable answer' };
   } catch (error) {
     return { ok: false, reason: `fetch failed: ${String(error.message ?? error).slice(0, 120)}` };
   }
 }
+
+// A guessed address (a plain-text twin probe) is fetched under a stricter rule than one the user typed: it may redirect only within its
+// own origin, and a redirect elsewhere is refused before any request is made to the other site.
+// A twin probe is also a guess that usually misses, up to five of them per page, so a slow one is cut at 10 seconds, not 25.
+export const TWIN_FETCH_MS = 10000;
+export const fetchTwinText = (url, options = {}) => fetchPlainText(url, { timeoutMs: TWIN_FETCH_MS, ...options, sameOrigin: true });
 
 // The longest run of backticks in the text, plus one (at least three), so the text cannot close its own fence.
 export function fenceFor(text) {

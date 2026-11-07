@@ -35,7 +35,7 @@ function metadata(text, values) {
 export function mergeReclip(original, clip) {
   // The page fields are undefined for a PDF clip (so nothing is added or removed); for a page they follow what
   // clip.mjs writes: the checks counted, the page chrome set aside only when there was some.
-  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
+  const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'extraction-retry':clip.extractionRetry, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
   return updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`;
 }
 export function extractForReclip(path, meta, {mode='auto', plan=planExtraction, readPdf=pdfToText, readOcr=pdfToTextOcr, canOcr=ocrReachable} = {}) {
@@ -97,6 +97,10 @@ async function obtainSource(url, {file,from,title,sourceFile}={}) {
 // A pending journal retains the original hash transition until every dependent update
 // and the raw replacement finish. A retry resumes it rather than extracting again.
 const SUPPLIED_REFUSAL='The text of this clipping was supplied by a person (extraction: manual), so a re-clip would replace it with a fetched page; to refresh it, save the page again from a signed-in browser and run `clip.mjs <url> --from-file <path> --recapture`';
+// A plain read of the page would retain enough of an expanded clip's text to replace it, and lose every panel it opened.
+const EXPANDED_REFUSAL='This clipping was read with its tabs and panels opened (expand-coverage), so a re-clip would replace it with a read that opens none of them; to refresh it, run `clip.mjs <url> --recapture --expand`';
+// A twin clipping holds the Markdown a site serves beside the page; a re-clip reads the page and would replace it with a different text.
+const TWIN_REFUSAL='This clipping was stored from the plain-text twin of its page (extraction: plaintext-twin), so a re-clip would replace it with a read of the rendered page; to refresh it, run `clip.mjs <url> --recapture`';
 const emptyReport=()=>({selected:0,reclipped:0,quarantined:0,alreadyResolved:0,usedLocal:0,needsReview:[],failed:[],refused:[],conflicts:[],conflictDetails:[],changed:[],results:[]});
 export async function runReclips(options={}) {
   if(!options.apply)return runReclipsOwned(options);
@@ -141,6 +145,8 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
     const text=head(path);if(scalar(text,'citation-status')==='quarantined')return false;
     const wanted=targets!==undefined||(requested.has(norm(scalar(text,'source')))&&!isOlderCapture(path))||(includeTabular&&layout(text));
     if(wanted&&!quarantineReason&&scalar(text,'extraction')==='manual'){refused.push({path:rel(path),url:scalar(text,'source'),reason:SUPPLIED_REFUSAL});return false;}
+    if(wanted&&!quarantineReason&&scalar(text,'extraction')==='plaintext-twin'){refused.push({path:rel(path),url:scalar(text,'source'),reason:TWIN_REFUSAL});return false;}
+    if(wanted&&!quarantineReason&&scalar(text,'expand-coverage')){refused.push({path:rel(path),url:scalar(text,'source'),reason:EXPANDED_REFUSAL});return false;}
     return wanted;
   }).slice(0,limit);
   if(sourceFile&&selected.length!==1)throw new Error('--source-file requires exactly one selected clipping');

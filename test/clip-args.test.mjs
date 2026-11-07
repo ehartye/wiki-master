@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { CLIP_SPECS, checkClipArgs, guardClipArgs } from '../scripts/lib/clip-args.mjs';
+import { main as clip } from '../scripts/clip.mjs';
 
 const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 
@@ -13,7 +14,7 @@ const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 // `--help` was read as the URL. Each clipper checks its arguments before any network or vault activity.
 
 const VALID = {
-  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name']],
+  clip: [['https://x.test/a', '--quality=high', '--topic=T', '--decline=reason', '--slug=name'], ['https://x.test/a', '--slug', 'name'], ['--list', 'urls.txt', '--topic=T', '--quality=high', '--ledger', 'out.jsonl'], ['https://x.test/a', '--ledger=out.jsonl']],
   'clip-pdf': [
     ['a.pdf', '--source=u', '--quality=low', '--mode=table', '--ocr', '--ocr-lang=eng', '--topic=t', '--decline=r', '--figures', '--figures=3,5-7', '--figures-max=4', '--title=T', '--slug=s'],
     ['a.pdf', '--figures-only', '--clipping', 'raw/clippings/x.md'],
@@ -59,6 +60,9 @@ test('a value option written without its value, and a spaced option missing its 
 test('a lead option such as --doctor is accepted first only where the clipper has one', () => {
   assert.deepEqual(checkClipArgs(['--doctor'], CLIP_SPECS['clip-gh']), { ok: true });
   assert.match(checkClipArgs(['--doctor'], CLIP_SPECS.clip).error, /unknown option --doctor/);
+  // --list names the file of addresses, so it leads; after an address it would be silently ignored.
+  assert.deepEqual(checkClipArgs(['--list', 'urls.txt'], CLIP_SPECS.clip), { ok: true });
+  assert.match(checkClipArgs(['https://x.test/a', '--list', 'urls.txt'], CLIP_SPECS.clip).error, /unknown option --list/);
 });
 
 test('extra words that are not options are left alone, as before', () => {
@@ -111,4 +115,24 @@ test('each clipper prints usage and exits 0 for --help, touching nothing', () =>
     assert.match(r.stdout, new RegExp(`usage: ${name}\\.mjs`));
     assert.deepEqual(r.left, [], `${name} must not create anything`);
   }
+});
+
+// `--slug x` passed the guard and was then ignored, because clip.mjs read only `--slug=x`.
+test('--slug x and --slug=x name the clipping the same', () => {
+  const body = Array.from({ length: 150 }, (_, i) => `word${i}`).join(' ');
+  const names = ['--slug=chosen-name', '--slug chosen-name'].map((form) => {
+    const vault = mkdtempSync(join(tmpdir(), 'wm-slug-'));
+    mkdirSync(join(vault, 'raw', 'clippings'), { recursive: true });
+    const prior = process.env.WIKI_MASTER_VAULT;
+    process.env.WIKI_MASTER_VAULT = vault;
+    try {
+      const result = clip(['https://slug.example.test/page', ...form.split(' ')], { extract: () => ({ title: 'A page', contentMarkdown: body }) });
+      assert.equal(result.status, 'clipped');
+      return readdirSync(join(vault, 'raw', 'clippings'));
+    } finally {
+      if (prior === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prior;
+      rmSync(vault, { recursive: true, force: true });
+    }
+  });
+  assert.deepEqual(names, [['chosen-name.md'], ['chosen-name.md']]);
 });

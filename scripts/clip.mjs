@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync, readdirSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
+import { existsSync, writeFileSync, readdirSync, readFileSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
@@ -8,16 +8,22 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { optionValue } from './lib/cli-guard.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
+import { coverageWarnings, formatCoverage } from './lib/expand.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
-import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
+import { knownSourceUrls, knownUrlIndex, urlKey, clippingsForUrl, newestCapture, RECAPTURE_NAME } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
+import { urlCarriesSecret, secretRefusal, redactReasonText } from './lib/url-safety.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
-import { looksLikePlainTextUrl, fetchPlainText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
+import { looksLikePlainTextUrl, fetchPlainText, fetchTwinText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
 import { slugify, slugFromUrl, chooseClipSlug, clipSlugCandidates, firstHeading, uniqueTitle } from './lib/clip-slug.mjs';
+import { findTwin, twinPage } from './lib/twin.mjs';
+import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
+import { unopenedTabsNote, retryKeptNote, shortfallNote } from './lib/clip-notes.mjs';
+import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -93,7 +99,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256 }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, extractionRetry, topic, recaptureOf, suppliedSha256, expandCoverage, twinUrl, documentLink }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -115,6 +121,9 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // (Tesseract) instead of reading the PDF text layer; 'manual' when a person saved the page and supplied it
   // (--from-file). Omitted for the default.
   if (extraction && extraction !== 'text') lines.push(`extraction: ${extraction}`);
+  // The page lost most of its text on the first read and a changed copy of its markup gave it back (lib/html-extract.mjs).
+  // A separate key, so the `extraction:` values stay the closed set that triage matches exactly.
+  if (extractionRetry) lines.push(`extraction-retry: ${extractionRetry}`);
   // Extraction fidelity is set by clip-pdf when pdftotext likely mangled math or
   // symbols — a signal to ingest to paraphrase, not quote. Omitted when high.
   if (fidelity && fidelity !== 'high') lines.push(`fidelity: ${fidelity}`);
@@ -122,6 +131,12 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // Headings the assessment set aside as page chrome (a feedback widget, a sidebar) rather than counting
   // them as lost. Recorded so the set-aside is visible in the clipping; omitted when there were none.
   if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
+  // What an --expand read opened and found, one line a person can read. Its presence also keeps the repair tools off it.
+  if (expandCoverage) lines.push(`expand-coverage: ${yaml(expandCoverage)}`);
+  // Where the stored Markdown was served from, when it is the plain-text twin of `source` (extraction: plaintext-twin).
+  if (twinUrl) lines.push(`twin-url: ${yaml(twinUrl)}`);
+  // A short page whose substance is one link to a PDF (lib/landing.mjs): it is not evidence for the document's contents.
+  if (documentLink) lines.push('landing-page: true', `document-link: ${yaml(documentLink)}`);
   // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
   if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
@@ -228,6 +243,17 @@ export function classifyShortExtraction({ markdown, rawHtml, description }) {
 
 // Existing clipping source: URLs, for dedup. The reading lives in lib/known-urls.mjs, shared with the known-URL commands.
 export { knownSourceUrls };
+
+// The result of a duplicate (decision 14): the address is already clipped, so the ledger row carries the clipping that holds
+// it instead of nulls, for the next step to read. `held` is a known-URL index entry (lib/known-urls.mjs), the newest capture
+// when a page was recaptured; a clipping that is gone by now (a race) leaves the row with nulls.
+export function duplicateResult(held) {
+  if (!held) return { status: 'duplicate' };
+  return { status: 'duplicate', existing: held.name, path: `raw/clippings/${held.file}`, quality: held.quality, sourceHash: held.sourceHash, topic: held.topic, extraction: held.extraction };
+}
+// The clipping that holds an address, or null: one reading of the vault serves the duplicate check and the row. A twin
+// the clipping was stored from counts as its address (the index holds both).
+const heldClipping = (vaultPath, address) => newestCapture(knownUrlIndex(vaultPath).get(urlKey(address)) ?? []);
 
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
@@ -353,6 +379,22 @@ export function runDefuddleJson(url, { run = execDefuddle, sourceUrl = url } = {
 }
 
 const RENDER_CLI = join(dirname(fileURLToPath(import.meta.url)), 'render-page.mjs');
+// Local first, then the pinned package through npx, as extractionLaunchers does. The pin must match package.json's.
+export function renderLaunchers() {
+  return [`node "${RENDER_CLI}"`,
+    `npx --yes --package=playwright-core@1.64.1 -- node "${RENDER_CLI}"`];
+}
+
+// npx and npm write to stderr too, sometimes after render-page's own line, so a whole-stream parse would lose it.
+function lastJsonObject(stderr) {
+  for (const line of String(stderr ?? '').split(/\r?\n/).reverse()) {
+    try {
+      const value = JSON.parse(line);
+      if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+    } catch { /* npx or npm chatter */ }
+  }
+  return null;
+}
 
 // Is this url a PDF? Judged from the url alone, deliberately: main() is
 // synchronous, and a content-type probe on every clip would spend a request on
@@ -408,26 +450,43 @@ export function shouldDeclineThin({ renderRan }) {
 // documentation index; there is nothing in that text to mark it as not being the
 // article that was asked for, so it has to be refused on the redirect, before
 // anyone can be tempted by the prose.
-export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
+export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = false } = {}) {
   // Per-URL scratch path: two sessions clipping into one vault is normal here
   // (lib/triage.mjs), and a shared filename would let one render overwrite
   // another's page and file the wrong article under the wrong url.
   const htmlFile = join(tmp, `wm-render-${createHash('sha1').update(url).digest('hex').slice(0, 16)}.html`);
+  const [local, pinned] = renderLaunchers();
+  const target = `"${url}" "${htmlFile}"${expand ? ' --expand' : ''}`;
   let meta;
+  let throughNpx = false;
   try {
-    meta = JSON.parse(run(`node "${RENDER_CLI}" "${url}" "${htmlFile}"`));
+    try {
+      meta = JSON.parse(run(`${local} ${target}`));
+    } catch (e) {
+      if (lastJsonObject(e.stderr)?.missing !== 'playwright-core') throw e;
+      throughNpx = true;
+      meta = JSON.parse(run(`${pinned} ${target}`));
+    }
   } catch (e) {
     // render-page.mjs exits 3 with {unavailable:true} when the rung cannot run
     // at all — no playwright-core, no browser. That is a setup problem the user
     // fixes once for every future URL, and reporting it per-URL as "the site
     // blocked us" would send them off to triage 60 sources by hand instead.
-    let payload = {};
-    try { payload = JSON.parse(String(e.stderr || '')); } catch { /* not ours */ }
+    // An npx that dies before render-page starts, as it does offline, leaves no
+    // line of ours, and that says nothing about the page either.
+    const payload = lastJsonObject(e.stderr);
+    const firstLine = String(e.message || e).split('\n')[0];
+    // npm ends with a pointer to its log file, so its first error line is the one that names the cause.
+    const npmError = String(e.stderr || '').split(/\r?\n/).find((line) => line.startsWith('npm error'));
+    const unavailable = payload ? payload.unavailable === true : throughNpx;
+    // Which part is missing, as render-page.mjs names it. An npx that died without a line of ours could not fetch the package.
+    const missing = unavailable ? (payload ? payload.missing : 'playwright-core') : undefined;
     return {
       ok: false,
       kind: 'failed',
-      unavailable: payload.unavailable === true,
-      reason: payload.error || `render failed: ${String(e.message || e).split('\n')[0]}`,
+      unavailable,
+      ...(missing && { missing }),
+      reason: redactReasonText(payload?.error || (throughNpx ? `render did not finish through npx: ${npmError || firstLine}` : `render failed: ${firstLine}`)),
     };
   }
 
@@ -442,12 +501,40 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
   // removal as every other clipping in the vault.
   try {
     const data = runDefuddleJson(htmlFile, { run, sourceUrl: meta.finalUrl ?? url });
-    return { ok: true, data, finalUrl: meta.finalUrl };
+    const coverage = meta.expansion ? { ...meta.expansion, tables: data.pageCounts?.tables ?? 0, code: data.pageCounts?.code ?? 0 } : undefined;
+    return { ok: true, data, finalUrl: meta.finalUrl, ...(coverage ? { coverage } : {}) };
   } catch (e) {
-    return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${String(e.message || e).split('\n')[0]}` };
+    // The command text carries the page's final address as a base64 payload, so it never goes into the reason.
+    const message = String(e.message || e).split('\n')[0].replace(/--payload\s+\S+/g, '--payload …');
+    return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${redactReasonText(message)}` };
   } finally {
     rmSync(htmlFile, { force: true });
   }
+}
+
+// landingDocument over the page's PDF links without any that carries a secret: an extractor that was handed one
+// (a test, a browser route) must not turn it into the landing row's address.
+const landingOf = (signals, words) => landingDocument(signals && { ...signals, pdfLinks: (signals.pdfLinks ?? []).filter((link) => !urlCarriesSecret(link)) }, words);
+
+// An address on the page's own site that no page should answer: its origin and directory, the last path segment replaced by a name
+// taken from the page's address, and no query.
+export function probeUrl(url) {
+  const u = new URL(url);
+  const parts = u.pathname.split('/');
+  const trailing = parts.length > 2 && parts.at(-1) === '';
+  if (trailing) parts.pop();
+  parts[parts.length - 1] = `wiki-master-probe-${createHash('sha256').update(url).digest('hex').slice(0, 8)}`;
+  if (trailing) parts.push('');
+  return `${u.origin}${parts.join('/')}`;
+}
+
+// True when the browser reads the same text at a made-up address as it did at the page: whitespace and case do not count. A
+// failed or differing read of the made-up address (a not-found page, a 404) is the site telling the two addresses apart.
+function servesOneShell(url, pageText, render) {
+  const probe = render(probeUrl(url));
+  if (!probe.ok) return false;
+  const same = (t) => String(t ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return same(stripArchiveChrome(probe.data.contentMarkdown || probe.data.content || '')) === same(pageText);
 }
 
 export function extractionAvailable() {
@@ -459,13 +546,164 @@ export function extractionAvailable() {
 }
 
 // `today` is the date a clipping is stamped with (YYYY-MM-DD); a test supplies its own, and its own `render` in place of a browser.
-export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, today: todayOf = today, render = renderAttempt } = {}) {
+// `fetchTwin(url)` answers the plain-text twin probes with the same shape as `fetchText`, and is as offline as it when `extract` is injected.
+// `sleep(ms)` is the wait between two requests to one host in a --list run; `runtimeAvailable()` says whether the extractor can run at all.
+export function main(argv, { extract = runDefuddleJson, writeClipping = writeClippingExclusive, fetchText, fetchTwin, today: todayOf = today, render = renderAttempt, sleep = waitSync, runtimeAvailable = extractionAvailable } = {}) {
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
+  const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchTwinText : () => ({ ok: false, reason: 'extraction is injected' }));
+  if (argv.slice(1).includes('--list')) return refuse('--list must be the first argument');
+  // --ledger is checked before anything is read, so a refused ledger leaves the vault as it was.
+  const ledger = optionValue(argv, 'ledger');
+  if (ledger !== undefined) {
+    const problem = ledgerFileProblem(ledger, resolveVault().path);
+    if (problem) return refuse(problem);
+  }
+  // A list that cannot be run is refused before the ledger is probed, because the probe creates the file and a refused run must not leave one.
+  const list = argv[0] === '--list' ? readList(argv) : null;
+  if (list?.error) return refuse(list.error);
+  if (ledger !== undefined) {
+    // A ledger that cannot be appended to is found now, not after the first clipping is written.
+    const unwritable = ledgerAppendProblem(ledger);
+    if (unwritable) return refuse(unwritable);
+  }
+  // A write that fails later is reported once; the run goes on without rows and ends with exit 2 (1 still wins for a missing runtime).
+  let ledgerWorks = ledger !== undefined;
+  const record = (result) => {
+    if (!ledgerWorks) return;
+    try { appendLedgerRow(ledger, ledgerRow(result)); } catch (e) {
+      ledgerWorks = false;
+      console.error(`--ledger: ${ledger} cannot be appended to (${e.code ?? e.message}); no more rows will be written and the run carries on`);
+      process.exitCode = 2;
+    }
+  };
+  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
+  if (list) return runList(argv, deps, list);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
-  try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }
+  // A refused address is recorded without its secrets, or not at all when it is not an address.
+  const refused = (error) => record({ url: redactAddress(url), topic: parseTopicArg(argv), status: 'error', error });
+  try { new URL(url); } catch { console.error(`invalid url: ${url}`); refused('invalid url'); process.exit(2); }
+  // A secret in the address would be queued in the triage log (which syncs), recorded in declined.json or written as source:.
+  if (urlCarriesSecret(url)) {
+    const refusal = secretRefusal(url, 'save the page from a signed-in browser and record it with clip.mjs <url-without-the-secret> --from-file <path>');
+    console.error(refusal);
+    refused(refusal);
+    process.exit(2);
+  }
+  const { exit, requested, ...result } = clipUrl(url, argv, deps);
+  // A missing extraction runtime is recorded like any outcome, then ends the command.
+  record(result);
+  if (exit === 1) process.exit(1);
+  if (exit) process.exitCode = exit;
+  return result;
+}
+
+// A refusal of the whole command: one line, exit 2, nothing read.
+function refuse(error) {
+  console.error(error);
+  process.exitCode = 2;
+  return { status: 'error', error };
+}
+
+// A real wait that does not spin: the thread sleeps on a value that never changes until the time is up.
+function waitSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+// The options that name one page or lift a decline: each is refused with --list.
+const LIST_REFUSES = ['from-file', 'slug', 'decline', 'override-decline', 'supersede-decline'];
+const OUTCOME_ORDER = ['clipped', 'unchanged', 'duplicate', 'clash', 'declined', 'blocked', 'thin', 'failed', 'error'];
+
+// What is wrong with one line of a list, or null. A message never repeats the line: it may hold a password.
+function listLineProblem(line) {
+  if (urlCarriesSecret(line)) return secretRefusal(line);
+  try { if (/^https?:$/.test(new URL(line).protocol)) return null; } catch { /* not an address at all */ }
+  return 'not an http or https address';
+}
+
+// The file of a `--list` run and its text, or the one-line refusal when the arguments or the file cannot be used. Nothing is created.
+function readList(argv) {
+  const file = argv[1];
+  if (!file || file.startsWith('--')) return { error: '--list needs a file: clip.mjs --list <file> [options]' };
+  for (let i = 2; i < argv.length; i++) {
+    const name = argv[i].startsWith('--') ? argv[i].slice(2).split('=')[0] : null;
+    if (argv[i] === '--ledger') { i++; continue; }
+    if (name === null) return { error: `--list cannot be used with a URL on the command line: put the address in ${file}` };
+    if (LIST_REFUSES.includes(name)) return { error: `--list cannot be used with --${name}` };
+  }
+  try { return { file, text: readFileSync(file, 'utf8') }; } catch (e) { return { error: `--list: cannot read ${file}: ${e.code ?? e.message}` }; }
+}
+
+// A render that comes back unavailable because the package could not be fetched (an npx that cannot reach the registry took about
+// 71 seconds a URL offline) is not asked again for the rest of the run: every later render answers with the same result, and one line
+// says so. A missing browser is quick and a timeout is about one page, so neither counts. The state is this run's and no more.
+function skippingRenders(render) {
+  let fetchFailed = null;
+  let said = false;
+  return (url, options) => {
+    if (!fetchFailed) {
+      const r = render(url, options);
+      if (r?.unavailable === true && r.missing === 'playwright-core') fetchFailed = r;
+      return r;
+    }
+    if (!said) { said = true; console.error('renders are being skipped for the rest of this run: the render package could not be fetched (pages are queued, not declined)'); }
+    return { ...fetchFailed };
+  };
+}
+
+// `clip.mjs --list <file> [options]`: each address of the file, in order and one at a time, clipped as `clip.mjs <url> [options]` would
+// be. Only a missing extraction runtime ends the run early (exit 1), because it affects every address; every other outcome, a bad line
+// among them, is counted and the run goes on.
+function runList(argv, rootDeps, { text }) {
+  const deps = { ...rootDeps, render: skippingRenders(rootDeps.render) };
+  const lines = (text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text).split(/\r?\n/).map((line, i) => ({ n: i + 1, line: line.trim() })).filter(({ line }) => line && !line.startsWith('#'));
+  const counts = new Map();
+  const outcomes = [];
+  // Hosts a request went to since the last wait for them.
+  const awaiting = new Set();
+  let stopped = null;
+  for (const { n, line } of lines) {
+    const problem = listLineProblem(line);
+    let outcome;
+    if (problem) {
+      console.error(`line ${n}: ${problem}`);
+      outcome = { url: redactAddress(line), topic: parseTopicArg(argv), status: 'error', error: problem };
+    } else {
+      const host = new URL(line).host;
+      if (awaiting.delete(host)) deps.sleep(1000);
+      outcome = clipUrl(line, argv, deps);
+      if (outcome.requested) awaiting.add(host);
+    }
+    const { exit, requested, ...result } = outcome;
+    deps.record(result);
+    // The address that found the runtime missing has its row, but it is not counted among the URLs that were clipped or refused.
+    if (exit === 1) { stopped = n; break; }
+    outcomes.push(result);
+    counts.set(result.status, (counts.get(result.status) ?? 0) + 1);
+  }
+  const order = [...counts.keys()].sort((a, b) => (OUTCOME_ORDER.indexOf(a) + 1 || 99) - (OUTCOME_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b));
+  const done = stopped ? `stopped at line ${stopped}, after ${outcomes.length} URLs` : `${outcomes.length} URLs`;
+  console.log(`list: ${done}${order.length ? `: ${order.map((k) => `${k} ${counts.get(k)}`).join(', ')}` : ''}`);
+  if (stopped) process.exitCode = 1;
+  return { status: stopped ? 'error' : 'list', counts: Object.fromEntries(order.map((k) => [k, counts.get(k)])), outcomes };
+}
+
+// One address, start to finish. It never exits and never sets the exit code: an outcome that should end the process says so in
+// `exit` (2 for a refused command, 1 for an extraction runtime that is missing) and the caller decides.
+// `requested` says whether a request went out to the address's host (true unless an outcome says otherwise), which is what the wait
+// between two addresses on one host is owed for: a duplicate found after the plain-text twin probe or a lost write did request.
+function clipUrl(url, argv, deps) {
+  const outcome = clipCore(url, argv, deps);
+  const topic = parseTopicArg(argv);
+  return { url, ...(topic && { topic }), requested: true, ...outcome };
+}
+
+function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }) {
+  // A reason from the browser can quote an address the page sent it to. It is made safe here, once, before anything prints or stores it.
+  const render = (target, options) => {
+    const r = renderPage(target, options);
+    return typeof r?.reason === 'string' ? { ...r, reason: redactReasonText(r.reason) } : r;
+  };
   const qArg = argv.find((a) => a.startsWith('--quality='));
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   // One flag feeds both topic carriers: frontmatter on the clip path below,
@@ -475,14 +713,44 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
 
   // --from-file: a page a person saved. The file must be one this clipper can read before anything else happens.
   const fromFile = optionValue(argv, 'from-file');
+  // --expand needs a page a browser can open: a saved file isn't one, and a browser reads a PDF or a text file no better.
+  const expand = argv.includes('--expand');
+  if (expand && (fromFile !== undefined || looksLikePdfUrl(url) || looksLikePlainTextUrl(url))) {
+    const error = fromFile !== undefined ? '--expand cannot be used with --from-file' : `--expand opens a page in a browser, and this URL serves a PDF or a text file: ${url}`;
+    console.error(error);
+    return { status: 'error', error, exit: 2, requested: false };
+  }
+  // --find-twin reads the clipping already in the vault and the live page; a supplied file or a browser read has neither.
+  const findingTwin = argv.includes('--find-twin');
+  if (findingTwin && (fromFile !== undefined || expand)) {
+    const error = `--find-twin cannot be used with ${fromFile !== undefined ? '--from-file' : '--expand'}`;
+    console.error(error);
+    return { status: 'error', error, exit: 2, requested: false };
+  }
   if (fromFile !== undefined) {
     const problem = suppliedFileProblem(fromFile);
-    if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
+    if (problem) { console.error(`--from-file: ${problem}`); return { status: 'error', error: problem, exit: 2, requested: false }; }
   }
 
-  if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked' }; }
+  if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked', requested: false }; }
 
   const { path: vaultPath } = resolveVault();
+
+  // Only a page that already clipped with a partial warning is worth a probe, and nothing is written whatever it finds.
+  if (findingTwin) {
+    const held = newestCapture(clippingsForUrl(vaultPath, url));
+    if (held?.fidelity !== 'partial') {
+      const reason = 'no clipping of it carries a partial fidelity warning';
+      console.log(`no probe (${reason}): ${url}`);
+      return { status: 'skipped', reason, requested: false };
+    }
+    let signals;
+    try { signals = extract(url).pageSignals; } catch { /* the suffix and index probes need no page */ }
+    const found = findTwin({ url, signals, fetchTwin: probeTwin });
+    if (!found.ok) { console.log(`no plain-text twin found: ${url}`); return { status: 'no-twin' }; }
+    console.log(`twin found (${wordCount(found.text)} words; nothing was written): ${found.url}`);
+    return { status: 'twin', twinUrl: found.url };
+  }
 
   // Explicit decline (Phase 2 reject): record the decision instead of clipping,
   // so the next discovery run does not re-litigate this URL.
@@ -491,27 +759,28 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     const reason = declineArg.slice('--decline='.length) || 'declined';
     recordDecline(vaultPath, url, reason);
     console.log(`declined (recorded): ${url} — ${reason}`);
-    return { status: 'declined' };
+    return { status: 'declined', reason, requested: false };
   }
 
   const gate = declineGate(vaultPath, url, argv);
   if (gate.blocked) {
-    if (gate.error) { console.error(gate.error); process.exitCode = 2; return { status: 'error', error: gate.error }; }
+    if (gate.error) { console.error(gate.error); return { status: 'error', error: gate.error, exit: 2, requested: false }; }
     console.log(gate.message);
-    return { status: 'declined' };
+    return { status: 'declined', reason: gate.message.split('\n')[0], requested: false };
   }
 
   // --recapture: a URL that is already clipped is fetched, extracted and checked like any clip, then written as a dated second
   // capture beside the first, or not written at all when the text has not changed. Only the flag skips the duplicate check.
   const recapture = argv.includes('--recapture');
   const capturesNow = () => (recapture ? clippingsForUrl(vaultPath, url) : []);
-  if (!recapture && isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+  const alreadyHeld = recapture ? null : heldClipping(vaultPath, url);
+  if (alreadyHeld) {
     // A url already in the vault closes any row that says it could not be
     // fetched — that row is describing a source sitting on disk. This is the
     // 9-of-29 case from the 2026-09-05 replay, and leaving it open is how a
     // queue fills with entries nobody can action.
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
-    console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
+    console.log(`duplicate (already clipped): ${url}`); return { ...duplicateResult(alreadyHeld), requested: false };
   }
   if (recapture && capturesNow().length === 0) console.log(`recapture: not clipped yet, clipping it normally: ${url}`);
 
@@ -531,13 +800,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     const supplied = readSuppliedFile(fromFile);
     if (supplied.missing) {
       console.error(`--from-file: ${fromFile}: ${supplied.reason}`);
-      process.exitCode = 2;
-      return { status: 'error', error: supplied.reason };
+      return { status: 'error', error: supplied.reason, exit: 2, requested: false };
     }
     if (supplied.refused) {
       recordIssue(vaultPath, { url, kind: 'attention', reason: `supplied file refused: ${supplied.reason}`, topic });
       console.log(`not clipped (${supplied.reason}; triage recorded): ${url}`);
-      return { status: 'thin', reason: supplied.reason };
+      return { status: 'thin', reason: supplied.reason, requested: false };
     }
     manual = { kind: suppliedKind(fromFile), text: supplied.text, sha256: supplied.sha256 };
     extraction = 'manual';
@@ -551,7 +819,47 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     if (plain.ok) extraction = 'plaintext';
   }
-  try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
+  // Still NOT declined: a decline is a judgment, and a fetch failure is a fact about one attempt. A 180-day TTL would
+  // bury a recoverable source.
+  const queueRenderFailure = (r) => {
+    // `unavailable` means the rung never ran (no playwright-core, no browser),
+    // so nothing has been learned about this URL. Say so once, plainly, rather
+    // than filing a setup problem as the site's fault on every URL in the batch.
+    if (r.unavailable) console.error(`render rung unavailable: ${r.reason}`);
+    const kind = r.unavailable ? 'failed' : r.kind;
+    const reason = r.unavailable
+      ? 'fetch failed (likely 403/paywall/transient; browser render unavailable)'
+      : r.reason;
+    recordIssue(vaultPath, { url, kind, reason, topic });
+    console.log(`clip failed — ${reason} (queued for triage): ${url}`);
+    return { status: 'failed', reason };
+  };
+  // The plain-text twin of a page that read thin or failed (lib/twin.mjs): Markdown a site serves beside the page, which keeps
+  // the code a rendered read loses and costs a request instead of a browser. Not for a supplied file, --expand, or a URL that
+  // is already text or a PDF. A twin the vault holds is a duplicate unless the clip is a recapture.
+  let twinUrl = null;
+  const twinFor = (pageData) => {
+    if (manual || expand || plain || looksLikePlainTextUrl(url) || looksLikePdfUrl(url)) return null;
+    const found = findTwin({ url, signals: pageData?.pageSignals, fetchTwin: probeTwin });
+    if (!found.ok) return null;
+    const heldTwin = recapture ? null : heldClipping(vaultPath, found.url);
+    if (heldTwin) {
+      closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
+      console.log(`duplicate (already clipped): ${found.url} (the plain-text twin of ${url})`);
+      return { result: duplicateResult(heldTwin) };
+    }
+    twinUrl = found.url;
+    return { data: { ...(pageData?.author && { author: pageData.author }), ...(pageData?.published && { published: pageData.published }), ...twinPage({ twin: found, pageTitle: pageData?.title, name: plainTextPage(url, '').title }) } };
+  };
+  // What --expand opened and found. It reads the browser or nothing: static text in its place would look like the full page.
+  let coverage = null;
+  if (expand) {
+    const r = render(url, { expand: true });
+    if (!r.ok) return queueRenderFailure(r);
+    data = r.data;
+    extraction = 'rendered';
+    coverage = r.coverage ?? null;
+  } else try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
   catch {
     // The extractor could not read the supplied page. It is the person's file, so there is no ladder to try: no fetch, no browser.
     if (manual) {
@@ -562,9 +870,10 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     // Distinguish "Defuddle not installed" (fatal) from "this URL failed" (skip, so
     // batch runs continue).
-    if (!extractionAvailable()) {
-      console.error(`HTML extraction runtime unavailable. Ensure Node.js and npm/npx are available; the clipper installs its pinned extraction packages automatically.`);
-      process.exit(1);
+    if (!runtimeAvailable()) {
+      const error = 'HTML extraction runtime unavailable. Ensure Node.js and npm/npx are available; the clipper installs its pinned extraction packages automatically.';
+      console.error(error);
+      return { status: 'error', error, exit: 1 };
     }
     // A PDF is not a page this clipper can ever read, and rendering one only
     // buys a longer way to say so: arxiv.org/pdf/2404.03337 spent four Defuddle
@@ -573,8 +882,9 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // here and name the tool that does handle it — the vault already holds
     // eight arxiv PDFs that clip-pdf extracted correctly.
     if (looksLikePdfUrl(url)) {
-      const reason = 'this url serves a PDF — clip it with clip-pdf (download the file, then: node scripts/clip-pdf.mjs <file.pdf> --source="<url>")';
-      recordIssue(vaultPath, { url, kind: 'attention', reason, topic });
+      const reason = `this url serves a PDF — clip it with: node scripts/clip-pdf.mjs "${url}"`;
+      // Retryable, like the landing row: a later row for this URL without the tag would clear it, and a clip-pdf run closes it.
+      recordIssue(vaultPath, { url, kind: 'attention', reason, topic, retryable: true });
       console.log(`clip failed — ${reason} (queued for triage): ${url}`);
       return { status: 'failed', reason };
     }
@@ -583,24 +893,14 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // pages that HAVE no content until a browser builds it. Sampling 17 entries
     // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
     // recovered 8 of them outright and correctly re-diagnosed most of the rest.
-    const r = render(url);
-    if (r.ok) {
+    const twin = twinFor(null);
+    if (twin?.result) return twin.result;
+    if (twin) { data = twin.data; extraction = 'plaintext-twin'; }
+    else {
+      const r = render(url);
+      if (!r.ok) return queueRenderFailure(r);
       data = r.data;
       extraction = 'rendered';
-    } else {
-      // `unavailable` means the rung never ran (no playwright-core, no browser),
-      // so nothing has been learned about this URL. Say so once, plainly, rather
-      // than filing a setup problem as the site's fault on every URL in the batch.
-      if (r.unavailable) console.error(`render rung unavailable: ${r.reason}`);
-      // Still NOT declined: a decline is a judgment, and a fetch failure is a
-      // fact about one attempt. A 180-day TTL would bury a recoverable source.
-      const kind = r.unavailable ? 'failed' : r.kind;
-      const reason = r.unavailable
-        ? 'fetch failed (likely 403/paywall/transient; browser render unavailable)'
-        : r.reason;
-      recordIssue(vaultPath, { url, kind, reason, topic });
-      console.log(`clip failed — ${reason} (queued for triage): ${url}`);
-      return { status: 'failed', reason };
     }
   }
 
@@ -608,7 +908,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // judge the article, not the archive's banner, and the source-hash must
   // describe what the vault will actually quote.
   // Supplied text is the page as the person saved it, so the archive banner is not stripped from it.
-  let md = manual?.kind === 'text' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
+  let md = manual?.kind === 'text' || extraction === 'plaintext-twin' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -619,17 +919,31 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // just below. The verdict further down needs all of it: whether the browser
   // read the page, and if not, why.
   let renderResult = extraction === 'rendered' ? { ok: true } : null;
-  if (wordCount(md) < THIN_WORD_FLOOR && !renderResult && extraction !== 'plaintext' && !manual) {
+  // The text the browser read, kept past the choice below because a thin one is judged against another address on the same site.
+  let renderedMd = extraction === 'rendered' ? md : null;
+  const isPlain = () => extraction === 'plaintext' || extraction === 'plaintext-twin';
+  // A short page whose substance is one PDF link is written as what it is, before the thin path can decline it. A page read by
+  // --expand is not checked: the owner asked for its tabs, not for a verdict on what it links to.
+  let landing = expand ? null : landingOf(data.pageSignals, wordCount(md));
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
+    const twin = twinFor(data);
+    if (twin?.result) return twin.result;
+    if (twin) { data = twin.data; md = data.contentMarkdown; extraction = 'plaintext-twin'; }
+  }
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !renderResult && !isPlain() && !manual) {
     renderResult = render(url);
     const rendered = renderResult.ok ? stripArchiveChrome(renderResult.data.contentMarkdown || renderResult.data.content || '') : '';
-    if (wordCount(rendered) >= THIN_WORD_FLOOR) {
+    if (renderResult.ok) renderedMd = rendered;
+    const renderedLanding = renderResult.ok ? landingOf(renderResult.data.pageSignals, wordCount(rendered)) : null;
+    if (wordCount(rendered) >= THIN_WORD_FLOOR || renderedLanding) {
       data = renderResult.data;
       md = rendered;
       extraction = 'rendered';
+      landing = renderedLanding;
     }
   }
 
-  if (wordCount(md) < THIN_WORD_FLOOR && extraction !== 'plaintext') {
+  if (!landing && wordCount(md) < THIN_WORD_FLOOR && !isPlain()) {
     const verdict = classifyShortExtraction({ markdown: md, rawHtml: data.content, description: data.description });
     if (verdict.kind !== 'short_real_article' && manual) {
       // A file a person supplied is never declined and never re-fetched: the row says what to supply instead.
@@ -654,11 +968,16 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       // Thin/wrong-node is deterministic given this page's current markup — once a
       // browser has read it, record it so the next run skips without re-fetching.
       // TTL re-litigates eventually.
-      const declined = shouldDeclineThin({ renderRan: renderResult.ok === true });
+      // An --expand read is asked for by name and its failures are queued; it leaves the verdict to a person.
+      // A browser read the page and it is still a shell. If a made-up address on the same site reads the same, the site serves that
+      // shell for any address and the read says nothing about this URL: it is queued and not declined. Only that verdict, only a
+      // browser that read the page, and not an --expand read, which is never declined anyway.
+      const unverified = !expand && verdict.kind === 'empty_shell' && renderResult.ok === true && servesOneShell(url, renderedMd, render);
+      const declined = !expand && !unverified && shouldDeclineThin({ renderRan: renderResult.ok === true });
       if (declined) recordDecline(vaultPath, url, verdict.reason);
       // Also queue it: the decline stops the re-fetch, but the source was still
       // wanted and only a human can clip it manually.
-      const reason = unread ? `${verdict.reason}; ${notRead}` : verdict.reason;
+      const reason = unread ? `${verdict.reason}; ${notRead}` : unverified ? `unverified URL: this site serves the same text for an address that does not exist, so it says nothing about this one (${verdict.reason})` : verdict.reason;
       recordIssue(vaultPath, {
         url,
         kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin',
@@ -669,7 +988,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       const route = 'save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>';
       const recorded = declined
         ? 'decline + triage recorded'
-        : 'triage recorded; not declined — browser render unavailable';
+        : expand ? 'triage recorded; not declined — an --expand read'
+        : unverified ? 'triage recorded; not declined — unverified URL: the site serves this text for any address' : 'triage recorded; not declined — browser render unavailable';
       console.log(unread
         ? `${label} (${route}): ${url}; triage recorded; not declined — ${notRead}`
         : `${label} (${route}; ${recorded}): ${url}`);
@@ -681,7 +1001,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A page with words enough to clear the floor can still be the gate and not the page: a login form, a consent wall, an age
   // check. Its own vocabulary, dense, with none of its title in the text, is the signal (lib/interstitial.mjs). It is queued
   // for a person and not declined: a wall is not a verdict on the source, and a signed-in browser can still clip it.
-  const shell = extraction === 'plaintext' ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
+  const shell = isPlain() ? null : classifyInterstitial({ markdown: md, title: manual?.kind === 'text' ? addressTitle(url) : data.title });
   if (shell) {
     recordIssue(vaultPath, { url, kind: 'wrong-node', reason: shell.reason, topic });
     console.log(manual
@@ -690,69 +1010,102 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'thin', reason: shell.reason };
   }
 
+  if (coverage) {
+    const short = coverageWarnings(coverage, md);
+    if (short.length) data = { ...data, fidelityWarnings: [...(data.fidelityWarnings ?? []), ...short] };
+  }
+  const expandCoverage = coverage ? formatCoverage(coverage) : undefined;
   const clippingsDir = join(vaultPath, 'raw', 'clippings');
   const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.
   const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
+  // A tab this HTML shows no panel for. The extractor keeps every panel that is there, so only --expand can read these.
+  const unopened = expand ? 0 : data.pageSignals?.tabControls ?? 0;
+  // What the text kept of the page. Only a read that went through extractHtml has a visible-word count to compare with. A shortfall no
+  // retry fixed is a note and not a warning: a short article beside a long comment thread trips the same trigger.
+  const keptOfPage = () => {
+    if (!Number.isInteger(data.visibleWords)) return {};
+    const extracted = wordCount(md);
+    if (data.extractionRetry) console.log(retryKeptNote(data.extractionRetry, extracted, data.visibleWords));
+    else if (data.shortfall) console.log(shortfallNote(extracted, data.visibleWords));
+    return { ...(data.extractionRetry && { extractionRetry: data.extractionRetry }), visibleWords: data.visibleWords, extractedWords: extracted };
+  };
+  const withNotes = (result) => {
+    if (expandCoverage) result = { ...result, expandCoverage };
+    else if (unopened > 0) {
+      console.log(unopenedTabsNote(unopened));
+      result = { ...result, unexpandedTabs: unopened };
+    }
+    return { ...result, sourceHash: hash, extraction, ...(twinUrl && { twinUrl }), ...(landing && { landing: true, documentLink: landing }), ...keptOfPage() };
+  };
   const unchanged = (twin) => {
     closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
     console.log(`unchanged (same text as raw/clippings/${twin.file}); nothing written`);
-    return { status: 'unchanged', existing: twin.name };
+    return withNotes({ status: 'unchanged', existing: twin.name, path: `raw/clippings/${twin.file}` });
   };
   const twin = sameText();
   if (twin) return unchanged(twin);
-  const previous = newestCapture(capturesNow());
-  const recapturing = previous !== null;
-  const suffix = recapturing ? ` (recaptured ${created})` : '';
-  // A title is an identity in this vault: a new clip does not take one another clipping already holds. A recapture's title is
-  // the page's title and the same suffix as its name, so it is never the first capture's title.
-  const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffix}` : data.title, url, taken: clippingTitles(vaultPath) });
-  const fm = buildFrontmatter({
-    title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
-    published: data.published, created, quality, hash, topic, extraction, suppliedSha256: manual?.sha256,
-    fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
-    fidelityIgnored: data.fidelityAssessment?.ignored?.length,
-  });
+  const recapturing = newestCapture(capturesNow()) !== null;
+  // The Nth capture of one day is named and titled `(recaptured D)`, then `(recaptured D 2)`, `3`...: a second recapture the same day
+  // is a new capture, and only a name the owner chose with --slug is exact.
+  const suffixFor = (n) => (recapturing ? ` (recaptured ${created}${n > 1 ? ` ${n}` : ''})` : '');
   // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
   // exclusive create so a clip never overwrites a file another session just made. A name nobody can
   // take is a `clash`, never a `duplicate`: it is recorded and named so the document is not lost silently.
-  const slugArg = argv.find((a) => a.startsWith('--slug='));
-  const ownerSlug = slugArg && slugArg.slice('--slug='.length).trim() ? slugify(slugArg.slice('--slug='.length)) : null;
+  const slugArg = (optionValue(argv, 'slug') ?? '').trim();
+  const ownerSlug = slugArg ? slugify(slugArg) : null;
   // lowercase name -> the name as it is on disk, so a clash can name the file that is really there
   const names = new Map((existsSync(clippingsDir) ? readdirSync(clippingsDir) : []).filter((f) => f.toLowerCase().endsWith('.md')).map((f) => [f.slice(0, -3).toLowerCase(), f.slice(0, -3)]));
   const exists = (s) => names.has(s.toLowerCase());
   const heading = firstHeading(md);
-  const content = `${fm}\n\n${md}\n`;
-  // A recapture's name is the first capture's name and the dated suffix. A name another capture of this URL already holds
-  // (a second recapture the same day) is a clash; a name another document holds moves on to the next candidate.
+  // The title and the file for the capture numbered `n` of its day. A title is an identity in this vault: a new clip does not take one
+  // another clipping already holds, and a recapture's is the page's title with the same suffix as its name, so it is never the first
+  // capture's title. Built again for the name that is finally chosen, and `recapture-of` names the newest capture at that moment.
+  const build = (n) => {
+    const previous = newestCapture(capturesNow());
+    const title = uniqueTitle({ title: recapturing && data.title ? `${data.title}${suffixFor(n)}` : data.title, url, taken: clippingTitles(vaultPath) });
+    const fm = buildFrontmatter({
+      title, source: url, author: data.author, recaptureOf: previous ? `raw/clippings/${previous.file}` : undefined,
+      published: data.published, created, quality, hash, topic, extraction, extractionRetry: data.extractionRetry, twinUrl: twinUrl ?? undefined, documentLink: landing ?? undefined, suppliedSha256: manual?.sha256,
+      fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
+      fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
+    });
+    return { title, content: `${fm}\n\n${md}\n` };
+  };
+  // A recapture's name is the first capture's name and the dated suffix, with the day's next free sequence when this URL already
+  // holds that name; a name another document holds moves on to the next candidate.
   const pickRecapture = () => {
     const held = capturesNow();
     const mine = new Set(held.map((e) => e.name.toLowerCase()));
     const oldest = held.reduce((a, e) => (a === null || (e.created ?? '') < (a.created ?? '') || ((e.created ?? '') === (a.created ?? '') && e.name < a.name) ? e : a), null);
-    const stem = oldest.name.replace(/ \(recaptured \d{4}-\d{2}-\d{2}\)$/, '');
-    const wanted = [stem, ...clipSlugCandidates({ title: data.title, heading, url })].map((n) => `${n}${suffix}`);
-    for (const name of wanted) {
-      if (mine.has(name.toLowerCase())) return { clash: true, existing: name };
-      if (!exists(name)) return { slug: name };
+    const stem = oldest.name.replace(RECAPTURE_NAME, '');
+    for (const base of [stem, ...clipSlugCandidates({ title: data.title, heading, url })]) {
+      for (let n = 1; ; n++) {
+        const name = `${base}${suffixFor(n)}`;
+        if (mine.has(name.toLowerCase())) continue;
+        if (!exists(name)) return { slug: name, sequence: n };
+        break;
+      }
     }
-    return { clash: true, existing: wanted[0] };
+    return { clash: true, existing: `${stem}${suffixFor(1)}` };
   };
   let slug = null;
   let clashWith = null;
+  let lostTo = null;
   for (let lost = 0; ;) {
-    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title, heading, url, exists });
+    const pick = ownerSlug ? (exists(ownerSlug) ? { clash: true, existing: ownerSlug } : { slug: ownerSlug }) : recapturing ? pickRecapture() : chooseClipSlug({ title: build(1).title, heading, url, exists });
     if (pick.clash) { clashWith = names.get(pick.existing.toLowerCase()) ?? pick.existing; break; }
-    if (writeClipping(clippingsDir, pick.slug, content)) { slug = pick.slug; break; }
+    if (writeClipping(clippingsDir, pick.slug, build(pick.sequence ?? 1).content)) { slug = pick.slug; break; }
     // Lost a race: the name was free when we looked and taken when we wrote.
     names.set(pick.slug.toLowerCase(), pick.slug);
     if (recapture) {
       // The winner may be a capture of this very text: then there is nothing new to write.
       const winner = sameText();
       if (winner) return unchanged(winner);
-    } else if (isDuplicateUrl(url, knownSourceUrls(vaultPath))) {
+    } else if ((lostTo = heldClipping(vaultPath, url))) {
       closeIssuesResolvedByClip(vaultPath, url, 'duplicate');
-      console.log(`duplicate (already clipped): ${url}`); return { status: 'duplicate' };
+      console.log(`duplicate (already clipped): ${url}`); return duplicateResult(lostTo);
     }
     if (++lost >= MAX_WRITE_ATTEMPTS) { clashWith = names.get(pick.slug.toLowerCase()) ?? pick.slug; break; }
   }
@@ -760,7 +1113,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     const reason = `raw/clippings/${clashWith}.md already exists and no alternative name could be written; nothing was written`;
     recordIssue(vaultPath, { url, kind: 'attention', reason, topic, source: `raw/clippings/${clashWith}.md`, retryable: 'clash' });
     console.log(`clash: ${url}: ${reason} (choose a name with --slug=<name>)`);
-    return { status: 'clash', existing: clashWith };
+    return { status: 'clash', existing: clashWith, path: `raw/clippings/${clashWith}.md`, reason };
   }
   const file = join(clippingsDir, `${slug}.md`);
   // Written first, closed second: a row must never be marked resolved by a clip
@@ -775,8 +1128,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const ignored = data.fidelityAssessment?.ignored ?? [];
   if (ignored.length) console.error(`fidelity: ignored ${ignored.length} page-chrome heading(s), not counted as loss: ${ignored.map((x) => x.label).join('; ').slice(0, 500)}`);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality})`);
+  if (landing) {
+    console.log(landingLine(landing));
+    recordIssue(vaultPath, { url: landing, kind: 'attention', reason: landingReason(url, landing), topic, retryable: true });
+  }
   gate.finish();
-  return { status: 'clipped', slug, file };
+  return withNotes({ status: 'clipped', slug, file, path: `raw/clippings/${slug}.md`, quality, fidelity: data.fidelityWarnings?.length ? 'partial' : 'high' });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

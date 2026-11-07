@@ -27,9 +27,10 @@ topic discovery and uses [capture](capture.md) directly.
 ## Phase 0 — check the browser, then dedup before searching
 Before a batch that will clip pages, run `node "<absolute-plugin-root>/scripts/doctor.mjs"`
 (read-only) and read its `clip` line. `clip.mjs` needs `playwright-core` and Chrome
-or Edge to read a JavaScript page. Without them it queues those pages for triage
-instead of clipping them, and doctor still exits 0 because both are optional. Tell
-the user what is missing before the batch; installing it is their decision.
+or Edge to read a JavaScript page. `playwright-core` is fetched through `npx` on the first
+render when no local copy exists, so only a missing browser or missing `npx` blocks it. Without
+them `clip.mjs` queues those pages for triage instead of clipping them, and doctor still exits 0
+because both are optional. Tell the user what is missing before the batch; installing it is their decision.
 
 Gather what the wiki already has so the search hunts for *gaps*, not dupes:
 - Known source URLs: `node "<absolute-plugin-root>/scripts/known-urls.mjs"` prints
@@ -40,7 +41,8 @@ Gather what the wiki already has so the search hunts for *gaps*, not dupes:
   stale. To ask about particular candidates, use
   `node "<absolute-plugin-root>/scripts/known-urls.mjs" --check "<url>" "<url>"`: one line
   per URL, in the order given, `new`, `clipped raw/clippings/<name>.md` (with
-  ` (+N recapture)` when later captures of the page exist) or `declined: <reason>`.
+  ` (+N recapture)` when later captures of the page exist) or `declined: <reason>`. A page held
+  only as the `twin-url` of a clipping counts as clipped, and the plain listing includes twin addresses.
   `--summary --topic "<topic>"` prints what a topic already holds. All three only read.
 - Coverage summary: name the unanswered question, run bounded wiki searches, and
   read the relevant task MOC and leading concept/synthesis pages. Read only the
@@ -99,8 +101,15 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    and `show "<url>"` read the log without changing it. `supersede "<url>" --reason "<why>"`
    ends an active decline without clipping anything; it is the only way to do so for a URL
    already in the vault, because `--supersede-decline` on a clip takes effect only when a
-   clipping is written.
+   clipping is written. Record rejects one address at a time: `clip.mjs --list` refuses `--decline`.
 
+
+**A batch of web addresses.** Put the survivors in a file, one address per line (`#` lines and blank lines are skipped), and run
+`node "<absolute-plugin-root>/scripts/clip.mjs" --list <file> --quality=<tier> --topic="<topic>" --ledger <ledger-file>`, with the ledger
+outside `raw/` and `wiki/`. Do not write a shell loop. Read the ledger's one JSON line per address, not the printed lines; the
+fields are in [web capture](clip-html.md#lists-and-the-ledger). An address that carries a username, password or secret
+query parameter is refused (exit 2 for a single clip, an `error` outcome in a list) and nothing is queued for it: drop it, or have the user supply
+the saved page with `--from-file` under the address without the secret. PDF addresses go through `clip-pdf.mjs "<url>"`, one at a time.
 
 Continue with [capture and completion](capture.md#capture-the-selected-sources)
 for approved-scope survivors, or return the candidate report for a research-only

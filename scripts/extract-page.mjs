@@ -20,7 +20,9 @@ export async function extractSource(payload, userAgent, { runtime = extractionRu
       const bot = await extract(botHtml, url);
       if (raw) {
         const markdown = transport.cleanMarkdownContent(raw);
-        data = { ...bot, content: markdown, contentMarkdown: markdown, wordCount: markdown.trim().split(/\s+/).length,
+        // The HTML's retry and word counts describe text that is no longer the clipping's, so they go with it.
+        const { extractionRetry, visibleWords, shortfall, ...page } = bot;
+        data = { ...page, content: markdown, contentMarkdown: markdown, wordCount: markdown.trim().split(/\s+/).length,
           fidelityWarnings: [], fidelityAssessment: { checked: 0, missing: 0, scope: 'raw Markdown; HTML structure not assessed' } };
       } else if (bot.wordCount > 0) data = bot;
     } catch { /* retain the original extraction when the bot is blocked */ }

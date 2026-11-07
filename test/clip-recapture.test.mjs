@@ -201,20 +201,68 @@ test('--recapture on a URL not yet clipped clips it normally and says so', (t) =
   assert.ok(r.lines.includes('clipped: raw/clippings/Setup guide.md (quality=medium)'));
 });
 
-test('a second recapture the same day with different text is a clash: nothing written, one attention row', (t) => {
+test('same-day recaptures with different text take a sequence on name and title: the second is 2, the third 3 naming the second', (t) => {
   const v = vault(t);
+  const D = '2026-10-29';
   clip(URL_A, page('Setup guide', text('One')), [], day('2026-10-01'));
-  clip(URL_A, page('Setup guide', text('Two')), ['--recapture'], day('2026-10-29'));
+  clip(URL_A, page('Setup guide', text('Two')), ['--recapture'], day(D));
+  const second = clip(URL_A, page('Setup guide', text('Three')), ['--recapture'], day(D));
+  assert.equal(second.result.status, 'clipped', second.lines.join('\n'));
+  assert.equal(second.result.slug, `Setup guide (recaptured ${D} 2)`);
+  assert.equal(field(v.read(`Setup guide (recaptured ${D} 2).md`), 'title'), JSON.stringify(`Setup guide (recaptured ${D} 2)`));
+  assert.equal(field(v.read(`Setup guide (recaptured ${D} 2).md`), 'recapture-of'), JSON.stringify(`raw/clippings/Setup guide (recaptured ${D}).md`));
+  const third = clip(URL_A, page('Setup guide', text('Four')), ['--recapture'], day(D));
+  assert.equal(third.result.slug, `Setup guide (recaptured ${D} 3)`);
+  assert.equal(field(v.read(`Setup guide (recaptured ${D} 3).md`), 'title'), JSON.stringify(`Setup guide (recaptured ${D} 3)`));
+  assert.equal(field(v.read(`Setup guide (recaptured ${D} 3).md`), 'recapture-of'), JSON.stringify(`raw/clippings/Setup guide (recaptured ${D} 2).md`));
+  assert.deepEqual(v.issues(), []);
+});
+
+test('a tenth same-day recapture follows the ninth, not the first', (t) => {
+  const v = vault(t);
+  const D = '2026-10-29';
+  const held = (name, n) => writeFileSync(join(v.dir, `${name}.md`), `---
+title: ${JSON.stringify(name)}
+source: ${JSON.stringify(URL_A)}
+created: ${D}
+source-hash: h${n}
+---
+
+old ${n}
+`);
+  held('Setup guide', 0);
+  held(`Setup guide (recaptured ${D})`, 1);
+  for (let n = 2; n <= 9; n++) held(`Setup guide (recaptured ${D} ${n})`, n);
+  const tenth = clip(URL_A, page('Setup guide', text('Ten')), ['--recapture'], day(D));
+  assert.equal(tenth.result.slug, `Setup guide (recaptured ${D} 10)`);
+  assert.equal(field(v.read(`${tenth.result.slug}.md`), 'recapture-of'), JSON.stringify(`raw/clippings/Setup guide (recaptured ${D} 9).md`));
+  const eleventh = clip(URL_A, page('Setup guide', text('Eleven')), ['--recapture'], day(D));
+  assert.equal(field(v.read(`${eleventh.result.slug}.md`), 'recapture-of'), JSON.stringify(`raw/clippings/Setup guide (recaptured ${D} 10).md`));
+});
+
+test('newestCapture orders same-day names by their parsed sequence and keeps plain name order for any other name', () => {
+  const D = '2026-10-29';
+  const entry = (name) => ({ name, created: D });
+  const newest = (...names) => newestCapture(names.map(entry)).name;
+  assert.equal(newest(`G (recaptured ${D} 2)`, `G (recaptured ${D})`), `G (recaptured ${D} 2)`);
+  assert.equal(newest(`G (recaptured ${D} 9)`, `G (recaptured ${D} 10)`), `G (recaptured ${D} 10)`);
+  assert.equal(newest(`G (recaptured ${D})`, `G (recaptured ${D}, evening)`), `G (recaptured ${D}, evening)`);
+  assert.equal(newest('G', `G (recaptured ${D})`), `G (recaptured ${D})`);
+});
+
+test('--slug stays exact: a taken slug is a clash even on a day that has a sequence free', (t) => {
+  const v = vault(t);
+  const D = '2026-10-29';
+  clip(URL_A, page('Setup guide', text('One')), [], day('2026-10-01'));
+  clip(URL_A, page('Setup guide', text('Two')), ['--recapture'], day(D));
   const before = v.snapshot();
-  const r = clip(URL_A, page('Setup guide', text('Three')), ['--recapture'], day('2026-10-29'));
+  const r = clip(URL_A, page('Setup guide', text('Three')), ['--recapture', `--slug=Setup guide (recaptured ${D})`], day(D));
   assert.equal(r.result.status, 'clash');
-  assert.equal(r.result.existing, 'Setup guide (recaptured 2026-10-29)');
-  assert.ok(r.lines.some((l) => l.startsWith('clash:')), r.lines.join('\n'));
+  assert.equal(r.result.existing, `Setup guide (recaptured ${D})`);
   assert.deepEqual(v.snapshot(), before);
   const rows = v.issues();
   assert.equal(rows.length, 1);
   assert.equal(rows[0].kind, 'attention');
-  assert.equal(rows[0].url, URL_A);
   assert.match(rows[0].reason, /raw\/clippings\/Setup guide \(recaptured 2026-10-29\)\.md already exists/);
 });
 

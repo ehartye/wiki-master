@@ -67,7 +67,7 @@ Use the direct [Confluence prerequisite and failure procedure](../../wiki-setup/
      canonical URL, a tiny link (`/wiki/x/…`), a legacy `viewpage.action` URL,
      or a bare numeric page ID. If you only have an exact title + space, first
      resolve it via the `confluence` skill (`page.mjs --title "..." --space
-     ...` or `search.mjs`), then pass the resulting URL/ID here.
+     ...` or `search.mjs`), then pass the resulting URL/ID here. An address with a username, password or secret query parameter exits 2 and clips nothing ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
    - No `--source=` flag (unlike `clip-pdf`/`clip-docx`) — the canonical URL
      always comes from `page.mjs`'s own metadata, which is the authoritative
      citation per the `confluence` skill's own rule ("always cite the title,

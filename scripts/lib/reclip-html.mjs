@@ -78,7 +78,7 @@ export async function readPageForReclip(url, { extract = runDefuddleJson, render
   const warnings = data.fidelityWarnings ?? [];
   return {
     md, wordCount: words(md), hash: createHash('sha256').update(md).digest('hex'),
-    fidelity: warnings.length ? 'partial' : 'high', extraction,
+    fidelity: warnings.length ? 'partial' : 'high', extraction, extractionRetry: data.extractionRetry,
     fidelityChecks: data.fidelityAssessment?.checked, fidelityIgnored: data.fidelityAssessment?.ignored?.length,
     warning: warnings.length ? `possible selective extraction loss: ${warnings.map((w) => `${w.kind}: ${w.label}`).join('; ').slice(0, 500)}` : undefined,
   };

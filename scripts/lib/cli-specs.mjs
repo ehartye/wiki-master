@@ -6,6 +6,17 @@ const DRY = 'Dry run: prints what it would change. Add --apply to write.';
 const VAULT = 'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).';
 
 export const CLI_SPECS = {
+  'adopt-clipping': {
+    options: ['apply', 'topic', 'quality'],
+    usage: [
+      'usage: node scripts/adopt-clipping.mjs <path>... [--topic=<t>] [--quality=high|medium|low] [--apply]',
+      '',
+      'Brings hand-clipped files into the pipeline. For each named file under raw/clippings/ it stamps the source-hash a clipper would have written for the same text, and fills quality and topic when the file has none. Only the frontmatter changes; the body stays byte-identical, and a second run changes nothing. A file saved with CRLF line breaks is stamped with the hash of its CRLF body, so a recapture of identical text with LF breaks is not reported as unchanged.',
+      'Refused with exit 2, before anything is written: a path outside raw/clippings/, a file that starts with a byte-order mark, a file with no frontmatter or no source: line, and a file with no quality when --quality is not given. A value the file already holds that differs from the one given is reported as a conflict and left alone.',
+      DRY,
+      VAULT,
+    ],
+  },
   'backfill-authored-metadata': {
     options: ['apply'],
     usage: ['usage: node scripts/backfill-authored-metadata.mjs [--apply]', '', 'One-time backfill of project:, kind: and decision-status: onto the existing wiki/authored/ pages.', DRY, VAULT],
@@ -46,8 +57,8 @@ export const CLI_SPECS = {
       '       node scripts/known-urls.mjs --check <url>...',
       '       node scripts/known-urls.mjs --summary --topic "<topic>"',
       '',
-      'Answers "is this already in the vault" the way the clippers do (the first source: line of each file directly under raw/clippings, compared after normalizing the URL). With no option it prints the known source URLs, one per line; --count prints how many.',
-      '--check prints one line per URL, in the order given: "new", "clipped raw/clippings/<name>.md" (with " (+N recapture)" when later captures of the page exist), or "declined: <reason>".',
+      'Answers "is this already in the vault" the way the clippers do (the first source: line of each file directly under raw/clippings, and the twin-url: line of one stored from a plain-text twin, compared after normalizing the URL). With no option it prints the known URLs, source and twin alike, one per line; --count prints how many of them there are.',
+      '--check prints one line per URL, in the order given: "new", "clipped raw/clippings/<name>.md" (with " (+N recapture)" when later captures of the page exist), or "declined: <reason>". A URL held only as the twin-url: of a clipping counts as clipped, and names that clipping.',
       '--summary --topic prints how many pages the topic holds, how many per quality tier, its open triage rows by kind, and that declines are not recorded per topic.',
       'Read-only.',
       VAULT,
@@ -87,8 +98,8 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'render-page': {
-    options: [],
-    usage: ['usage: node scripts/render-page.mjs <url> <out.html>', '', 'Renders one page in a browser and writes its HTML to <out.html>. clip.mjs runs this as a subprocess for pages that need JavaScript.'],
+    options: ['expand'],
+    usage: ['usage: node scripts/render-page.mjs <url> <out.html> [--expand]', '', 'Renders one page in a browser and writes its HTML to <out.html>. clip.mjs runs this as a subprocess for pages that need JavaScript. --expand opens its tabs and collapsed panels first, sending no non-GET request and leaving no page.'],
   },
   'repair-ambiguous-links': {
     options: ['apply', 'json', 'project', 'exclude', 'mapping'],

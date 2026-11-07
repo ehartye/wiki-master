@@ -33,8 +33,15 @@ function vault(t) {
   };
 }
 
+// The browser answers by address. A thin page is judged against a made-up address on the same site, rendered beside it: a site that
+// serves one shell for every address says nothing about this URL. That address gets a different page here, as a real site's own
+// not-found page would; the matching case is in clip-unknown-route.test.mjs.
+const isProbe = (url) => /\/wiki-master-probe-[0-9a-f]{8}$/.test(url);
+const NOT_FOUND_PAGE = () => ({ ok: true, data: { title: 'Not found', contentMarkdown: 'This address does not exist on the site.' } });
+
 // Runs main with console output captured; returns the result and the printed lines.
-function clip(extract, render) {
+function clip(extract, pageRender) {
+  const render = (url, options) => (isProbe(url) ? NOT_FOUND_PAGE() : pageRender(url, options));
   const lines = [];
   const log = console.log, err = console.error;
   console.log = (...a) => lines.push(a.join(' '));

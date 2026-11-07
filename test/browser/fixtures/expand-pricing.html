@@ -1,0 +1,20 @@
+<!doctype html><html><head><title>Pricing guide</title></head><body><main><h1>Pricing guide</h1>
+<p>This guide describes how the example service behaves for its users. It explains the plans, the limits and the samples in plain words, so that a reader can follow the reference without any other document open. Each section below holds the detail a reader needs, and the words here give the extractor an article to keep. The service keeps its promises in writing, and the tables and samples on this page are the source of those promises. Readers who need a different plan can compare them side by side in the sections that follow, and can copy any sample into their own project without changing it.</p>
+<h2>Tiers</h2>
+<div role="tablist" id="tiers"></div>
+<div id="stage"></div>
+</main><script>
+// Each tab's panel does not exist until it is clicked, arrives late, and replaces the one before it.
+const tiers = { Alpha: 'alpha-rate', Beta: 'beta-rate', Gamma: 'gamma-rate', Delta: 'delta-rate' };
+const list = document.getElementById('tiers'), stage = document.getElementById('stage');
+for (const [name, rate] of Object.entries(tiers)) {
+  const tab = document.createElement('button');
+  tab.setAttribute('role', 'tab');
+  tab.setAttribute('aria-controls', 'panel-' + name);
+  tab.textContent = name;
+  tab.addEventListener('click', () => setTimeout(() => {
+    stage.innerHTML = '<div role="tabpanel" id="panel-' + name + '"><table><thead><tr><th>Tier</th><th>Rate</th></tr></thead><tbody><tr><td>' + name + '</td><td>' + rate + '</td></tr></tbody></table></div>';
+  }, 200));
+  list.append(tab);
+}
+</script></body></html>

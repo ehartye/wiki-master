@@ -236,3 +236,13 @@ test('an unknown option exits 2 and names it, and --help exits 0 with the usage'
     assert.match(h.out, /--check/);
   }
 });
+
+test('--help says that twin URLs are listed, counted and treated as clipped', (t) => {
+  const h = run(vault(t), '--help');
+  assert.equal(h.status, 0);
+  const text = h.out.replace(/\s+/g, ' ');
+  assert.doesNotMatch(text, /prints the known source URLs/, 'the list is no longer only source URLs');
+  assert.match(text, /twin-url:/);
+  assert.match(text, /prints how many[^.]*twin|twin[^.]*prints how many|--count[^.]*twin/i);
+  assert.match(text, /A URL held only as the twin-url: of a clipping counts as clipped/);
+});

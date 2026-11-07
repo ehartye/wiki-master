@@ -35,6 +35,8 @@ const page = (title, body) => () => ({ title, contentMarkdown: body });
 
 // Nothing may be fetched, and nothing may be extracted unless a test says it will be.
 const NO_FETCH = () => { throw new Error('fetchText must not be called: nothing is fetched'); };
+// A page that reads thin is looked up as a plain-text twin; no page here has one.
+const NO_TWIN = () => ({ ok: false, reason: 'status 404' });
 const NO_EXTRACT = () => { throw new Error('extract must not be called for supplied text'); };
 
 function setup(t) {
@@ -80,7 +82,7 @@ function clip(argv, deps) {
   console.error = (...a) => lines.push(a.join(' '));
   const code = process.exitCode;
   process.exitCode = undefined;
-  try { const result = clipMain(argv, deps); return { result, lines, exitCode: process.exitCode }; }
+  try { const result = clipMain(argv, { fetchTwin: NO_TWIN, ...deps }); return { result, lines, exitCode: process.exitCode }; }
   finally { console.log = log; console.error = err; process.exitCode = code; }
 }
 const fromFile = (url, path, extra = [], deps = {}) => clip([url, '--from-file', path, ...extra], { fetchText: NO_FETCH, extract: NO_EXTRACT, ...deps });
