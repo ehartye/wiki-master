@@ -57,7 +57,7 @@ async function stream(url, dest, { stallMs, openWriter, fetchImpl }) {
     if (stalled) return fail('STALL', `the download stalled: no data for ${Number((stallMs / 1000).toFixed(1))} seconds`);
     if (error?.code === 'ENOSPC') return fail('ENOSPC', 'the disk is full (ENOSPC): the PDF could not be written');
     if (writer) return fail('WRITE', `the PDF could not be written: ${String(error?.message ?? error).slice(0, 120)}`);
-    return fail('FETCH', `the download failed: ${String(error?.cause?.message ?? error?.message ?? error).slice(0, 120)}`);
+    return fail('FETCH', `${String(error?.cause?.message ?? error?.message ?? error).slice(0, 120)}`);
   } finally {
     clearTimeout(timer);
     try { await writer?.close(); } catch { /* the outcome is already decided */ }

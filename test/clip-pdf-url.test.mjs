@@ -256,3 +256,20 @@ test('the credential refusal comes before the decline gate and the duplicate che
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.deepEqual(wmFiles(v).map((n) => [n, readFileSync(join(v.root, '.wiki-master', n), 'utf8')]), before);
 });
+
+test('a failed download names the failure once: one "download failed" prefix, not two', async (t) => {
+  const v = vault(t);
+  // A port nothing listens on: a refused connection is a fetch failure, the case that read "download failed: the download failed: ...".
+  const { createServer } = await import('node:net');
+  const probe = createServer();
+  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+  const { port } = probe.address();
+  await new Promise((resolve) => probe.close(resolve));
+  const url = `http://127.0.0.1:${port}/gone.pdf`;
+  const { result, lines } = clip([url]);
+  assert.equal(result.status, 'failed');
+  assert.match(result.reason, /^download failed: \S/);
+  assert.equal((result.reason.match(/download failed/gi) ?? []).length, 1, result.reason);
+  assert.equal((lines.join('\n').match(/download failed/gi) ?? []).length, 1, lines.join('\n'));
+  assert.equal(v.rows()[0].reason, result.reason);
+});
