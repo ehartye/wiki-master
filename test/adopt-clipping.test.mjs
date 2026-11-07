@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/clip.mjs';
 import { clippingHash, clipperText } from '../scripts/lib/clipping-hash.mjs';
+import { parseNote } from '../scripts/lib/note.mjs';
 
 // Hand-clipped files joining the pipeline. A stamp is only worth having when it is the hash a clipper computes for the same
 // text: recapture, re-clip and dedupe all join on it. So most tests close the loop through a real recapture.
@@ -162,6 +163,34 @@ for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
       if (shape === 'CRLF') assert.ok(!/[^\r]\n/.test(stamped.slice(0, stamped.indexOf('\n---', 4) + 5)), 'the frontmatter keeps its CRLF line breaks');
       const second = adopt(v, 'Hand guide.md');
       assert.equal(second.code, 0, second.err);
+      assert.equal(firstReport(second).status, 'unchanged');
+      assert.equal(v.read('Hand guide.md'), stamped, 'a second run writes nothing');
+    });
+  }
+}
+
+// The pipeline's parser takes the LAST line of a repeated key, so a stamp that fills only the first empty copy reads back empty.
+const afterFrontmatter = (s) => s.slice(s.match(/^---\r?\n[\s\S]*?\r?\n---/)[0].length);
+for (const [shape, eol] of [['LF', (s) => s], ['CRLF', crlf]]) {
+  for (const dup of ['topic:\ntopic:\nquality:', 'quality:\nquality:', 'topic: ""\nquality:\ntopic: \'\'\nquality: ""']) {
+    test(`${shape}: a key repeated empty (${JSON.stringify(dup)}) ends as one stamped line that the pipeline parser reads back`, (t) => {
+      const v = vault(t);
+      const original = eol(handClip(text('Hand')).replace('tags:', `${dup}\ntags:`));
+      writeFileSync(v.path('Hand guide.md'), original);
+      const first = adopt(v, 'Hand guide.md');
+      assert.equal(first.code, 0, first.err);
+      const stamped = v.read('Hand guide.md');
+      assert.deepEqual(keyLines(stamped, 'topic').map((l) => l.trimEnd()), ['topic: "Field notes"']);
+      assert.deepEqual(keyLines(stamped, 'quality').map((l) => l.trimEnd()), ['quality: high']);
+      assert.equal(keyLines(stamped, 'source-hash').length, 1);
+      const meta = parseNote(stamped).metadata;
+      assert.equal(meta.topic, 'Field notes', 'the pipeline reads the stamped topic');
+      assert.equal(meta.quality, 'high', 'the pipeline reads the stamped quality');
+      assert.equal(meta['source-hash'], clippingHash(original), 'the hash a clipper would write for the same text');
+      assert.deepEqual(firstReport(first).conflicts, []);
+      assert.equal(afterFrontmatter(stamped), afterFrontmatter(original), 'the body is byte-identical');
+      if (shape === 'CRLF') assert.ok(!/[^\r]\n/.test(stamped.slice(0, stamped.indexOf('\n---', 4) + 5)), 'the frontmatter keeps its CRLF line breaks');
+      const second = adopt(v, 'Hand guide.md');
       assert.equal(firstReport(second).status, 'unchanged');
       assert.equal(v.read('Hand guide.md'), stamped, 'a second run writes nothing');
     });

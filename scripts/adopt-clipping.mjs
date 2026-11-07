@@ -54,11 +54,21 @@ const scalar = (block, name) => {
   return null;
 };
 
-// Put `line` where the first empty line of the key is, so the key is never written twice; null when no line is empty.
+// Put `line` where the first empty line of the key is, so the key is never written twice; null when no line is empty. Any
+// other empty line of the key goes too: the pipeline's parser takes the LAST copy of a repeated key, so one left behind
+// would read back as empty and the stamp would be silently ineffective. A line that has a value is never touched.
 const fillEmpty = (block, name, line) => {
+  const own = new RegExp(`^${name}:[ \t]*(.*?)[ \t]*\r?$`);
   let done = false;
-  const out = block.replace(keyLines(name), (all, raw) => (!done && !unquote(raw) ? (done = true, line) : all));
-  return done ? out : null;
+  const out = [];
+  for (const l of block.split('\n')) {
+    const m = own.exec(l);
+    if (!m || unquote(m[1])) { out.push(l); continue; }
+    if (done) continue;
+    done = true;
+    out.push(l.endsWith('\r') ? `${line}\r` : line);
+  }
+  return done ? out.join('\n') : null;
 };
 
 function plan(arg) {
