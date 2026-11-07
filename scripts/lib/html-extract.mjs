@@ -105,15 +105,7 @@ function textOf(node) {
   if (label && !normalize(inner).startsWith(normalize(label))) inner = `${label} ${inner}`;
   return BLOCK.test(node.tagName) ? ` ${inner} ` : inner;
 }
-function contentRoot(document) {
-  const description = document.querySelector('.class-description');
-  const main = document.querySelector('main, [role="main"]');
-  if (main) return main;
-  // An API introduction may be a sibling of its article, or of several sections.
-  // Never narrow the capture or audit to only the introduction's nearest section.
-  const article = document.querySelector('article');
-  return description ? (article?.contains(description) ? article : document.body) : (article ?? document.body);
-}
+const { contentRoot } = tabDomRules();
 
 // Site chrome that an extractor removes on purpose is not a loss, but "is this chrome" is a judgement that
 // can hide a real loss, so every rule here is narrow and every exemption is reported (see assessSignals):
@@ -261,6 +253,15 @@ function pageSignals(document, url) {
   return { tabControls, pdfLinks: [...pdfLinks], markdownLinks: [...markdownLinks] };
 }
 
+// The tables and code blocks of the region pageSignals reads, for an expanded clip to compare its Markdown with. Hidden
+// ones aren't content, and a table holding a code block is that block's line numbers.
+function pageCounts(document) {
+  const region = contentRoot(document);
+  const content = (node) => !node.closest('nav, header, footer, [hidden], [aria-hidden="true"]');
+  const tables = [...region.querySelectorAll('table')].filter((table) => content(table) && !table.parentElement.closest('table') && !table.querySelector('pre'));
+  return { tables: tables.length, code: [...region.querySelectorAll('pre')].filter(content).length };
+}
+
 // Tab panels the HTML holds become plain sections, because Defuddle drops a hidden panel and everything in a wrapper it
 // takes for tab chrome. In place, not through innerHTML: a panel can hold another group, and nodes stay valid when moved.
 function flattenTabPanels(document, root) {
@@ -371,6 +372,7 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   const root = contentRoot(document);
   // In this order: signals read the untouched page, and fidelity then checks the headings of panels no longer hidden.
   const page = pageSignals(document, url);
+  const counts = pageCounts(document);
   flattenTabPanels(document, root);
   const expected = signals(document);
   // Preserve supplied mathematical alternatives as literal inline code. This
@@ -461,5 +463,5 @@ export async function extractHtml(html, url, { extractImpl } = {}) {
   });
   const markdown = data.contentMarkdown ?? '';
   const { warnings: fidelityWarnings, ignored } = assessSignalsDetailed(expected, markdown, data.title ?? '', url);
-  return { ...data, pageSignals: page, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
+  return { ...data, pageSignals: page, pageCounts: counts, fidelityWarnings, fidelityAssessment: { checked: expected.length, missing: fidelityWarnings.length, ignored, scope: 'headings, callouts, availability, API introductions, feature lists, recognized image equations and REST endpoints, parameters and examples' } };
 }

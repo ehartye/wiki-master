@@ -3,6 +3,7 @@ import { basename, delimiter, join } from 'node:path';
 import { homedir, platform } from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { expandPage } from './expand.mjs';
 
 // The last rung of the clip ladder: run the page in a real browser, then hand
 // the rendered HTML back to Defuddle. Two failure classes need it, and the
@@ -264,7 +265,7 @@ export async function loadChromium({ importer = (s) => import(s), path = process
 // The browser is looked for first: without one the render cannot run, and the
 // package must not be reported missing, which would send clip.mjs to npx for a
 // download that could not help.
-export async function renderPage(url, { launcher, executablePath, load = loadChromium } = {}) {
+export async function renderPage(url, { launcher, executablePath, load = loadChromium, expand = false, expandLimits } = {}) {
   const exe = executablePath ?? findBrowser();
   if (!exe) {
     throw new RenderUnavailable(
@@ -280,7 +281,7 @@ export async function renderPage(url, { launcher, executablePath, load = loadChr
     args: OFFSCREEN_ARGS,
   });
   try {
-    const ctx = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 900 } });
+    const ctx = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 900 }, ...(expand ? { serviceWorkers: 'block' } : {}) });
     const page = await ctx.newPage();
     const res = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
     // networkidle is a best-effort settle, never a requirement: pages with a
@@ -295,9 +296,11 @@ export async function renderPage(url, { launcher, executablePath, load = loadChr
     const finalUrl = page.url();
     const title = await page.title();
     const words = await page.evaluate(() => (document.body?.innerText.match(/\S+/g) || []).length);
+    // After the verdict's facts are read: the page may change its own address as tabs open, and that isn't where it is.
+    const expansion = expand ? await expandPage(page, expandLimits) : undefined;
     let html = await page.content();
     html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${finalUrl.replace(/"/g, '&quot;')}">`);
-    return { html, finalUrl, status: res?.status() ?? 0, title, words };
+    return { html, finalUrl, status: res?.status() ?? 0, title, words, ...(expansion ? { expansion } : {}) };
   } finally {
     await browser.close().catch(() => {});
   }

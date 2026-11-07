@@ -1,0 +1,15 @@
+<!doctype html><html><head><title>Wrapper guide</title></head><body><main><h1>Wrapper guide</h1>
+<p>This guide describes how the example service behaves for its users. It explains the plans, the limits and the samples in plain words, so that a reader can follow the reference without any other document open. Each section below holds the detail a reader needs, and the words here give the extractor an article to keep. The service keeps its promises in writing, and the tables and samples on this page are the source of those promises. Readers who need a different plan can compare them side by side in the sections that follow, and can copy any sample into their own project without changing it.</p>
+<h2>Plans</h2>
+<div class="tabs-wrapper"><div class="tabs-container">
+<div class="tabs-list" role="tablist"><button role="tab" aria-controls="plan-a">Starter</button><button role="tab" aria-controls="plan-b">Team</button></div>
+<div role="tabpanel" id="plan-a"><div class="tabs-body"><table><thead><tr><th>Plan</th></tr></thead><tbody><tr><td>starter-plan-row</td></tr></tbody></table></div></div>
+<div role="tabpanel" id="plan-b" hidden><div class="tabs-body"><table><thead><tr><th>Plan</th></tr></thead><tbody><tr><td>team-plan-row</td></tr></tbody></table></div></div>
+</div></div>
+</main><script>
+for (const tab of document.querySelectorAll('[role=tab]')) {
+  tab.addEventListener('click', () => {
+    for (const panel of document.querySelectorAll('[role=tabpanel]')) panel.hidden = panel.id !== tab.getAttribute('aria-controls');
+  });
+}
+</script></body></html>

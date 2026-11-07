@@ -1,0 +1,27 @@
+<!doctype html><html><head><title>Client guide</title></head><body><main><h1>Client guide</h1>
+<p>This guide describes how the example service behaves for its users. It explains the plans, the limits and the samples in plain words, so that a reader can follow the reference without any other document open. Each section below holds the detail a reader needs, and the words here give the extractor an article to keep. The service keeps its promises in writing, and the tables and samples on this page are the source of those promises. Readers who need a different plan can compare them side by side in the sections that follow, and can copy any sample into their own project without changing it.</p>
+<h2>Install</h2>
+<div role="tablist" id="group"><button role="tab" id="t-py" aria-controls="py" aria-selected="true">Python</button><button role="tab" id="t-js" aria-controls="js" aria-selected="false">Node</button><button role="tab" id="t-go" aria-controls="go" aria-selected="false">Go</button><button role="tab" id="t-rb" aria-controls="rb" aria-selected="false">Ruby</button></div>
+<div role="tabpanel" id="py" aria-labelledby="t-py"><pre><code>python_sample()</code></pre></div>
+<div role="tabpanel" id="js" aria-labelledby="t-js" hidden><pre><code>node_sample()</code></pre></div>
+<div role="tabpanel" id="go" aria-labelledby="t-go" hidden><pre><code>go_sample()</code></pre></div>
+<div role="tabpanel" id="rb" aria-labelledby="t-rb" hidden><pre><code>go_sample()</code></pre></div>
+<h2>Uninstall</h2>
+<div role="tablist" id="mouse"><button role="tab" aria-controls="only-a">First way</button><button role="tab" aria-controls="only-b">Second way</button></div>
+<div role="tabpanel" id="only-a"></div><div role="tabpanel" id="only-b" hidden></div>
+</main><script>
+for (const tab of document.querySelectorAll('#group [role=tab]')) {
+  tab.addEventListener('click', () => {
+    for (const other of document.querySelectorAll('#group [role=tab]')) {
+      other.setAttribute('aria-selected', String(other === tab));
+      document.getElementById(other.getAttribute('aria-controls')).hidden = other !== tab;
+    }
+  });
+}
+// Some component libraries activate a tab on mouse down and ignore click.
+for (const tab of document.querySelectorAll('#mouse [role=tab]')) {
+  tab.addEventListener('mousedown', () => {
+    document.getElementById(tab.getAttribute('aria-controls')).innerHTML = '<pre><code>mousedown_' + tab.getAttribute('aria-controls').slice(-1) + '()</code></pre>';
+  });
+}
+</script></body></html>

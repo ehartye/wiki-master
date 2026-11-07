@@ -8,6 +8,7 @@ import { resolveVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { optionValue } from './lib/cli-guard.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
+import { coverageWarnings, formatCoverage } from './lib/expand.mjs';
 import { isBlocked } from './lib/blocklist.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
@@ -93,7 +94,7 @@ export { normalizeUrl, isDuplicateUrl } from './lib/url.mjs';
 
 function yaml(v) { return JSON.stringify(String(v)); }
 
-export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256 }) {
+export function buildFrontmatter({ title, source, author, published, created, quality, hash, fidelity, fidelityChecks, fidelityIgnored, extraction, topic, recaptureOf, suppliedSha256, expandCoverage }) {
   const lines = ['---'];
   lines.push(`title: ${yaml(title)}`);
   lines.push(`source: ${yaml(source)}`);
@@ -122,6 +123,8 @@ export function buildFrontmatter({ title, source, author, published, created, qu
   // Headings the assessment set aside as page chrome (a feedback widget, a sidebar) rather than counting
   // them as lost. Recorded so the set-aside is visible in the clipping; omitted when there were none.
   if (Number.isInteger(fidelityIgnored) && fidelityIgnored > 0) lines.push(`fidelity-ignored: ${fidelityIgnored}`);
+  // What an --expand read opened and found, one line a person can read. Its presence also keeps the repair tools off it.
+  if (expandCoverage) lines.push(`expand-coverage: ${yaml(expandCoverage)}`);
   // The hash of the bytes a person supplied (--from-file): source-hash describes the text stored, this the file it came from.
   if (suppliedSha256) lines.push(`supplied-sha256: ${suppliedSha256}`);
   lines.push(`source-hash: ${hash}`);
@@ -424,13 +427,13 @@ export function shouldDeclineThin({ renderRan }) {
 // documentation index; there is nothing in that text to mark it as not being the
 // article that was asked for, so it has to be refused on the redirect, before
 // anyone can be tempted by the prose.
-export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
+export function renderAttempt(url, { run = execRender, tmp = tmpdir(), expand = false } = {}) {
   // Per-URL scratch path: two sessions clipping into one vault is normal here
   // (lib/triage.mjs), and a shared filename would let one render overwrite
   // another's page and file the wrong article under the wrong url.
   const htmlFile = join(tmp, `wm-render-${createHash('sha1').update(url).digest('hex').slice(0, 16)}.html`);
   const [local, pinned] = renderLaunchers();
-  const target = `"${url}" "${htmlFile}"`;
+  const target = `"${url}" "${htmlFile}"${expand ? ' --expand' : ''}`;
   let meta;
   let throughNpx = false;
   try {
@@ -471,7 +474,8 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
   // removal as every other clipping in the vault.
   try {
     const data = runDefuddleJson(htmlFile, { run, sourceUrl: meta.finalUrl ?? url });
-    return { ok: true, data, finalUrl: meta.finalUrl };
+    const coverage = meta.expansion ? { ...meta.expansion, tables: data.pageCounts?.tables ?? 0, code: data.pageCounts?.code ?? 0 } : undefined;
+    return { ok: true, data, finalUrl: meta.finalUrl, ...(coverage ? { coverage } : {}) };
   } catch (e) {
     return { ok: false, kind: 'failed', reason: `rendered, but extraction failed: ${String(e.message || e).split('\n')[0]}` };
   } finally {
@@ -504,6 +508,14 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
 
   // --from-file: a page a person saved. The file must be one this clipper can read before anything else happens.
   const fromFile = optionValue(argv, 'from-file');
+  // --expand needs a page a browser can open: a saved file isn't one, and a browser reads a PDF or a text file no better.
+  const expand = argv.includes('--expand');
+  if (expand && (fromFile !== undefined || looksLikePdfUrl(url) || looksLikePlainTextUrl(url))) {
+    const error = fromFile !== undefined ? '--expand cannot be used with --from-file' : `--expand opens a page in a browser, and this URL serves a PDF or a text file: ${url}`;
+    console.error(error);
+    process.exitCode = 2;
+    return { status: 'error', error };
+  }
   if (fromFile !== undefined) {
     const problem = suppliedFileProblem(fromFile);
     if (problem) { console.error(`--from-file: ${problem}`); process.exitCode = 2; return { status: 'error', error: problem }; }
@@ -580,7 +592,30 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     }
     if (plain.ok) extraction = 'plaintext';
   }
-  try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
+  // Still NOT declined: a decline is a judgment, and a fetch failure is a fact about one attempt. A 180-day TTL would
+  // bury a recoverable source.
+  const queueRenderFailure = (r) => {
+    // `unavailable` means the rung never ran (no playwright-core, no browser),
+    // so nothing has been learned about this URL. Say so once, plainly, rather
+    // than filing a setup problem as the site's fault on every URL in the batch.
+    if (r.unavailable) console.error(`render rung unavailable: ${r.reason}`);
+    const kind = r.unavailable ? 'failed' : r.kind;
+    const reason = r.unavailable
+      ? 'fetch failed (likely 403/paywall/transient; browser render unavailable)'
+      : r.reason;
+    recordIssue(vaultPath, { url, kind, reason, topic });
+    console.log(`clip failed — ${reason} (queued for triage): ${url}`);
+    return { status: 'failed', reason };
+  };
+  // What --expand opened and found. It reads the browser or nothing: static text in its place would look like the full page.
+  let coverage = null;
+  if (expand) {
+    const r = render(url, { expand: true });
+    if (!r.ok) return queueRenderFailure(r);
+    data = r.data;
+    extraction = 'rendered';
+    coverage = r.coverage ?? null;
+  } else try { data = manual ? (manual.kind === 'html' ? extract(resolve(fromFile), { sourceUrl: url }) : suppliedTextPage(url, manual.text)) : plain?.ok ? plainTextPage(url, plain.text) : extract(url); }
   catch {
     // The extractor could not read the supplied page. It is the person's file, so there is no ladder to try: no fetch, no browser.
     if (manual) {
@@ -613,24 +648,9 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     // out of this vault's own failed/thin queue on 2026-09-05, the browser rung
     // recovered 8 of them outright and correctly re-diagnosed most of the rest.
     const r = render(url);
-    if (r.ok) {
-      data = r.data;
-      extraction = 'rendered';
-    } else {
-      // `unavailable` means the rung never ran (no playwright-core, no browser),
-      // so nothing has been learned about this URL. Say so once, plainly, rather
-      // than filing a setup problem as the site's fault on every URL in the batch.
-      if (r.unavailable) console.error(`render rung unavailable: ${r.reason}`);
-      // Still NOT declined: a decline is a judgment, and a fetch failure is a
-      // fact about one attempt. A 180-day TTL would bury a recoverable source.
-      const kind = r.unavailable ? 'failed' : r.kind;
-      const reason = r.unavailable
-        ? 'fetch failed (likely 403/paywall/transient; browser render unavailable)'
-        : r.reason;
-      recordIssue(vaultPath, { url, kind, reason, topic });
-      console.log(`clip failed — ${reason} (queued for triage): ${url}`);
-      return { status: 'failed', reason };
-    }
+    if (!r.ok) return queueRenderFailure(r);
+    data = r.data;
+    extraction = 'rendered';
   }
 
   // Stripped before anything measures or hashes it: the word floor below must
@@ -683,7 +703,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       // Thin/wrong-node is deterministic given this page's current markup — once a
       // browser has read it, record it so the next run skips without re-fetching.
       // TTL re-litigates eventually.
-      const declined = shouldDeclineThin({ renderRan: renderResult.ok === true });
+      // An --expand read is asked for by name and its failures are queued; it leaves the verdict to a person.
+      const declined = !expand && shouldDeclineThin({ renderRan: renderResult.ok === true });
       if (declined) recordDecline(vaultPath, url, verdict.reason);
       // Also queue it: the decline stops the re-fetch, but the source was still
       // wanted and only a human can clip it manually.
@@ -698,7 +719,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       const route = 'save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>';
       const recorded = declined
         ? 'decline + triage recorded'
-        : 'triage recorded; not declined — browser render unavailable';
+        : expand ? 'triage recorded; not declined — an --expand read' : 'triage recorded; not declined — browser render unavailable';
       console.log(unread
         ? `${label} (${route}): ${url}; triage recorded; not declined — ${notRead}`
         : `${label} (${route}; ${recorded}): ${url}`);
@@ -719,14 +740,20 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     return { status: 'thin', reason: shell.reason };
   }
 
+  if (coverage) {
+    const short = coverageWarnings(coverage, md);
+    if (short.length) data = { ...data, fidelityWarnings: [...(data.fidelityWarnings ?? []), ...short] };
+  }
+  const expandCoverage = coverage ? formatCoverage(coverage) : undefined;
   const clippingsDir = join(vaultPath, 'raw', 'clippings');
   const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.
   const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));
   // A tab this HTML shows no panel for. The extractor keeps every panel that is there, so only --expand can read these.
-  const unopened = data.pageSignals?.tabControls ?? 0;
+  const unopened = expand ? 0 : data.pageSignals?.tabControls ?? 0;
   const noteUnopened = (result) => {
+    if (expandCoverage) return { ...result, expandCoverage };
     if (unopened === 0) return result;
     console.log(`note: page has ${unopened} tab controls this clip did not open; use --recapture --expand`);
     return { ...result, unexpandedTabs: unopened };
@@ -748,7 +775,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     title, source: url, author: data.author, recaptureOf: recapturing ? `raw/clippings/${previous.file}` : undefined,
     published: data.published, created, quality, hash, topic, extraction, suppliedSha256: manual?.sha256,
     fidelity: data.fidelityWarnings?.length ? 'partial' : undefined, fidelityChecks: data.fidelityAssessment?.checked,
-    fidelityIgnored: data.fidelityAssessment?.ignored?.length,
+    fidelityIgnored: data.fidelityAssessment?.ignored?.length, expandCoverage,
   });
   // The first free name from a fixed, deterministic list (see lib/clip-slug.mjs), written with an
   // exclusive create so a clip never overwrites a file another session just made. A name nobody can

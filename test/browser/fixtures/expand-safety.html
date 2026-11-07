@@ -1,0 +1,21 @@
+<!doctype html><html><head><title>Safety guide</title></head><body><main><h1>Safety guide</h1>
+<p>This guide describes how the example service behaves for its users. It explains the plans, the limits and the samples in plain words, so that a reader can follow the reference without any other document open. Each section below holds the detail a reader needs, and the words here give the extractor an article to keep. The service keeps its promises in writing, and the tables and samples on this page are the source of those promises. Readers who need a different plan can compare them side by side in the sections that follow, and can copy any sample into their own project without changing it.</p>
+<h2>Tabs</h2>
+<div role="tablist">
+  <button role="tab" aria-controls="real">Real</button>
+  <a role="tab" href="/elsewhere.html">Link styled</a>
+  <button role="tab" id="assign">Assigns location</button>
+  <button role="tab" id="poster">Posts</button>
+</div>
+<div role="tabpanel" id="real"><table><thead><tr><th>Kept</th></tr></thead><tbody><tr><td>real-panel-text</td></tr></tbody></table></div>
+<form id="order" action="/submit-order" method="post">
+  <input name="item" value="one">
+  <button type="submit" aria-expanded="false" aria-controls="order-more">Place order</button>
+  <div role="tablist"><button type="submit" role="tab">Order by tab</button></div>
+</form>
+<div id="order-more"></div>
+<button type="submit" form="order" aria-expanded="false" aria-controls="order-more">Submit from outside</button>
+</main><script>
+document.getElementById('assign').addEventListener('click', () => { location.assign('/elsewhere.html'); });
+document.getElementById('poster').addEventListener('click', () => { fetch('/track', { method: 'POST', body: 'x' }); navigator.sendBeacon('/beacon', 'x'); });
+</script></body></html>

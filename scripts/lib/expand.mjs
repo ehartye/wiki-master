@@ -91,7 +91,7 @@ export function tabDomRules() {
   };
   const isWrapper = (node) => WRAPPER_ATTRIBUTES.some((name) => matchesWrapper(node, name));
   const applyWrapperRule = (section, root) => {
-    for (let node = section.parentElement; node && node !== root;) {
+    for (let node = section.parentElement; node && node !== root && root.contains(node);) {
       const parent = node.parentElement;
       if (isWrapper(node)) unwrap(node);
       node = parent;
@@ -99,5 +99,223 @@ export function tabDomRules() {
     for (const node of [...section.querySelectorAll('*')]) if (isWrapper(node)) unwrap(node);
   };
 
-  return { isEmptyPanel, tabGroups, panelOfTab, labelOfTab, panelKey, labelLevel, sectionFromPanel, applyWrapperRule };
+  // An API introduction may be a sibling of its article, or of several sections. Never narrow the capture or audit to
+  // only the introduction's nearest section.
+  const contentRoot = (document) => {
+    const description = document.querySelector('.class-description');
+    const main = document.querySelector('main, [role="main"]');
+    if (main) return main;
+    const article = document.querySelector('article');
+    return description ? (article?.contains(description) ? article : document.body) : (article ?? document.body);
+  };
+
+  return { contentRoot, isEmptyPanel, tabGroups, panelOfTab, labelOfTab, panelKey, labelLevel, sectionFromPanel, applyWrapperRule };
+}
+
+export const MAX_EXPAND_CLICKS = 200;
+export const MAX_EXPAND_MS = 60000;
+// A panel that has its content is settled once the page stops changing for this long. One that is still empty, or
+// still shows the last tab's content, may be waiting on the network, so it gets the longer wait.
+const QUIET_MS = 50;
+const SETTLE_MS = 3000;
+// The page's own main thread can hang, where the page-side deadline can't fire.
+const HANG_MARGIN_MS = 5000;
+
+// Runs in the page, through page.evaluate, so it uses nothing from this module; `rules` is tabDomRules' result, as a
+// handle from the same page. It opens everything first and only changes the DOM's structure at the end: a framework
+// re-rendering after a later click would trip over a node moved under it. Panels are copied while open because a closing
+// or replaced panel loses its content, which is also why nothing here reads innerText.
+export async function expandInPage({ rules, maxClicks, maxMs, quietMs, settleMs }) {
+  const { contentRoot, isEmptyPanel, tabGroups, panelOfTab, labelOfTab, panelKey, labelLevel, sectionFromPanel, applyWrapperRule } = rules;
+  const deadline = Date.now() + maxMs;
+  const OFF_LIMITS = 'nav, header, footer, form';
+  const root = contentRoot(document);
+  const counts = { tabs: 0, panels: 0, details: 0, truncated: false };
+  let clicks = 0;
+
+  const mayClick = () => {
+    if (clicks < maxClicks && Date.now() < deadline) { clicks++; return true; }
+    counts.truncated = true;
+    return false;
+  };
+  // Some component libraries activate a tab on mouse down and ignore click, so this is the whole gesture.
+  const press = (node) => {
+    for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup']) {
+      const Event = type.startsWith('pointer') ? PointerEvent : MouseEvent;
+      node.dispatchEvent(new Event(type, { bubbles: true, cancelable: true, button: 0 }));
+    }
+    node.click();
+  };
+  const settled = (ready) => new Promise((resolve) => {
+    const started = Date.now();
+    let changed = started;
+    const observer = new MutationObserver(() => { changed = Date.now(); });
+    observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true });
+    const check = () => {
+      const now = Date.now();
+      if ((now - changed >= quietMs && ready()) || now - started >= settleMs || now >= deadline) { observer.disconnect(); resolve(); } else setTimeout(check, 10);
+    };
+    setTimeout(check, 10);
+  });
+  const reveal = (node) => {
+    node.removeAttribute('hidden');
+    node.removeAttribute('aria-hidden');
+    node.removeAttribute('inert');
+    node.classList.remove('hidden', 'invisible');
+    if (node.style) { node.style.removeProperty('display'); node.style.removeProperty('visibility'); }
+  };
+
+  const openDetails = (scope) => {
+    for (const details of scope.querySelectorAll('details:not([open])')) {
+      if (details.closest(OFF_LIMITS)) continue;
+      details.open = true;
+      counts.details++;
+    }
+  };
+  // Pressing one can bring in another, and an accordion closes or unmounts the last, so what each showed is kept.
+  const opened = new Map();
+  const pressToggles = async (scope, skipPanels) => {
+    for (;;) {
+      const toggle = [...scope.querySelectorAll('[aria-expanded="false"][aria-controls]')].find((node) => !opened.has(node)
+        && node.getAttribute('role') !== 'tab' && !node.closest(OFF_LIMITS) && !(skipPanels && node.closest('[role="tabpanel"]')));
+      if (!toggle || !mayClick()) return;
+      const target = () => document.getElementById(toggle.getAttribute('aria-controls').split(/\s+/)[0]);
+      opened.set(toggle, null);
+      press(toggle);
+      await settled(() => target() && !isEmptyPanel(target()));
+      if (target() && !isEmptyPanel(target())) opened.set(toggle, target().cloneNode(true));
+    }
+  };
+
+  const disabled = (tab) => tab.hasAttribute('disabled') || tab.getAttribute('aria-disabled') === 'true';
+  const expandGroup = async (tablist, scope, parentLevel) => {
+    const level = labelLevel(tablist, root, parentLevel);
+    const result = { tablist, sections: [], copied: new Set(), pressed: new Set() };
+    const group = () => tabGroups(scope).find((candidate) => candidate.tablist === tablist);
+    const seen = new Set();
+    let last = null;
+    for (const tab of group()?.tabs ?? []) {
+      if (disabled(tab) || tab.closest(OFF_LIMITS)) continue;
+      if (!tablist.isConnected) { counts.truncated = true; break; }
+      if (!mayClick()) break;
+      counts.tabs++;
+      result.pressed.add(tab);
+      // A tab with no link to a panel shows whichever one is visible. When tabs share one panel, the last tab's
+      // content is still there until the new one arrives.
+      const shown = () => {
+        const current = group();
+        const { panel } = panelOfTab(tab, document, current);
+        return panel ?? current?.panels.find((candidate) => !candidate.hidden && getComputedStyle(candidate).display !== 'none');
+      };
+      const isStale = (panel) => last && panel === last.panel && panelKey(panel) === last.key;
+      press(tab);
+      await settled(() => { const panel = shown(); return panel && !isEmptyPanel(panel) && !isStale(panel); });
+      const panel = shown();
+      if (!panel || isEmptyPanel(panel)) continue;
+      last = { panel, key: panelKey(panel) };
+      result.copied.add(panel);
+
+      openDetails(panel);
+      await pressToggles(panel, false);
+      const nested = [];
+      for (const inner of panel.querySelectorAll('[role="tablist"]')) {
+        if (inner.parentElement.closest('[role="tabpanel"]') === panel && !inner.closest(OFF_LIMITS)) nested.push(await expandGroup(inner, panel, level));
+      }
+      const copy = panel.cloneNode(true);
+      const STRUCTURE = '[role="tablist"], [role="tabpanel"], [role="tab"]';
+      const live = [...panel.querySelectorAll(STRUCTURE)], copied = [...copy.querySelectorAll(STRUCTURE)];
+      const copyOf = (node) => copied[live.indexOf(node)];
+      for (const inner of nested) {
+        const list = copyOf(inner.tablist);
+        list?.before(...inner.sections);
+        for (const node of [...inner.copied, ...inner.pressed]) copyOf(node)?.remove();
+        if (list && !list.querySelector('[role="tab"]')) list.remove();
+      }
+      const key = panelKey(copy);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.sections.push(sectionFromPanel(document, copy, labelOfTab(tab), level));
+      counts.panels++;
+    }
+    return result;
+  };
+
+  openDetails(document);
+  await settled(() => true);
+  const results = [];
+  const done = new Set();
+  for (;;) {
+    const next = tabGroups(document.body).map((group) => group.tablist)
+      .find((tablist) => !done.has(tablist) && !tablist.parentElement.closest('[role="tabpanel"]') && !tablist.closest(OFF_LIMITS));
+    if (!next) break;
+    done.add(next);
+    results.push(await expandGroup(next, document.body, 0));
+  }
+  await pressToggles(document, true);
+
+  for (const { tablist, sections, copied, pressed } of results) {
+    tablist.before(...sections);
+    for (const node of [...copied, ...pressed]) node.remove();
+    if (!tablist.querySelector('[role="tab"]')) tablist.remove();
+    for (const section of sections) applyWrapperRule(section, root);
+  }
+  for (const [toggle, copy] of opened) {
+    const target = document.getElementById(toggle.getAttribute('aria-controls').split(/\s+/)[0]);
+    if (target && !isEmptyPanel(target)) reveal(target);
+    else if (copy) { reveal(copy); toggle.after(copy); }
+  }
+  return counts;
+}
+
+// Blocks what a click could change on the server or leave the page for, then opens everything. On the context, not the
+// page, so a popup's requests are covered too. `render` blocks service workers for the same reason: a page's requests
+// through one don't reach this route.
+export async function expandPage(page, { maxClicks = MAX_EXPAND_CLICKS, maxMs = MAX_EXPAND_MS } = {}) {
+  const context = page.context();
+  await context.route('**/*', (route) => {
+    const request = route.request();
+    let topLevel = false;
+    try { topLevel = request.isNavigationRequest() && !request.frame().parentFrame(); } catch { /* no frame to leave */ }
+    // 'aborted', because any other error makes Chrome commit its error page, which is a navigation.
+    return (request.method() !== 'GET' || topLevel ? route.abort('aborted') : route.continue()).catch(() => {});
+  });
+  context.on('page', (popup) => { popup.close().catch(() => {}); });
+  const rules = await page.evaluateHandle(tabDomRules);
+  let timer;
+  const hang = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`expansion did not finish within ${maxMs + HANG_MARGIN_MS} ms`)), maxMs + HANG_MARGIN_MS); });
+  try {
+    return await Promise.race([page.evaluate(expandInPage, { rules, maxClicks, maxMs, quietMs: QUIET_MS, settleMs: SETTLE_MS }), hang]);
+  } finally { clearTimeout(timer); }
+}
+
+// How many tables and fenced code blocks a clipping's Markdown holds, to compare with its page. A table Defuddle couldn't
+// express in Markdown stays as HTML.
+export function markdownCounts(markdown) {
+  const counts = { tables: 0, code: 0 };
+  let fence = null;
+  for (const line of String(markdown).split(/\r?\n/)) {
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence) {
+      if (marker && marker[0] === fence[0] && marker.length >= fence.length && line.trim() === marker) fence = null;
+      continue;
+    }
+    if (marker) { fence = marker; counts.code++; continue; }
+    if (line.includes('|') && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(line)) counts.tables++;
+    counts.tables += (line.match(/<table\b/gi) ?? []).length;
+  }
+  return counts;
+}
+
+export function formatCoverage({ tabs, panels, details, tables, code, truncated }) {
+  return `tabs=${tabs} panels=${panels} details=${details} tables=${tables} code=${code} truncated=${truncated}`;
+}
+
+// What an expanded clipping is short of, as fidelity warnings. Its counts are of the page's content region.
+export function coverageWarnings(coverage, markdown) {
+  const found = markdownCounts(markdown);
+  const warnings = [];
+  if (coverage.truncated) warnings.push({ kind: 'expand-coverage', label: 'expansion stopped at its click or time limit, or its tab list went away, so some content was not opened' });
+  if (found.tables < coverage.tables) warnings.push({ kind: 'expand-coverage', label: `${found.tables} of ${coverage.tables} tables reached the text` });
+  if (found.code < coverage.code) warnings.push({ kind: 'expand-coverage', label: `${found.code} of ${coverage.code} code blocks reached the text` });
+  return warnings;
 }

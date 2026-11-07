@@ -87,8 +87,8 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/rename-unsafe-clippings.mjs [--apply] [--exclude=<path>]... [--flag=<path>]... [--list-out <file>]', '', 'Gives raw clippings a name Obsidian will index and a wikilink can carry, and repoints the citations that name them.', DRY, 'It refuses to apply while a file it would change has uncommitted edits.', VAULT],
   },
   'render-page': {
-    options: [],
-    usage: ['usage: node scripts/render-page.mjs <url> <out.html>', '', 'Renders one page in a browser and writes its HTML to <out.html>. clip.mjs runs this as a subprocess for pages that need JavaScript.'],
+    options: ['expand'],
+    usage: ['usage: node scripts/render-page.mjs <url> <out.html> [--expand]', '', 'Renders one page in a browser and writes its HTML to <out.html>. clip.mjs runs this as a subprocess for pages that need JavaScript. --expand opens its tabs and collapsed panels first, sending no non-GET request and leaving no page.'],
   },
   'repair-ambiguous-links': {
     options: ['apply', 'json', 'project', 'exclude', 'mapping'],

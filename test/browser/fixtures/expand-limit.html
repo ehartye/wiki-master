@@ -1,0 +1,22 @@
+<!doctype html><html><head><title>Limit guide</title></head><body><main><h1>Limit guide</h1>
+<p>This guide describes how the example service behaves for its users. It explains the plans, the limits and the samples in plain words, so that a reader can follow the reference without any other document open. Each section below holds the detail a reader needs, and the words here give the extractor an article to keep. The service keeps its promises in writing, and the tables and samples on this page are the source of those promises. Readers who need a different plan can compare them side by side in the sections that follow, and can copy any sample into their own project without changing it.</p>
+<h2>Items</h2>
+<div role="tablist" id="items"></div>
+</main><script>
+const list = document.getElementById('items');
+for (let i = 0; i < 205; i++) {
+  const tab = document.createElement('button');
+  tab.setAttribute('role', 'tab');
+  tab.setAttribute('aria-controls', 'item-' + i);
+  tab.textContent = 'Item ' + i;
+  tab.addEventListener('click', () => {
+    if (document.getElementById('item-' + i)) return;
+    const panel = document.createElement('div');
+    panel.setAttribute('role', 'tabpanel');
+    panel.id = 'item-' + i;
+    panel.textContent = 'content of item number ' + i;
+    list.after(panel);
+  });
+  list.append(tab);
+}
+</script></body></html>

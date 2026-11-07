@@ -23,15 +23,15 @@ cliGuard(import.meta.url);
 // document on a pipe is a buffer limit waiting to be hit.
 
 export async function main(argv) {
-  const [url, outFile] = argv;
+  const [url, outFile] = argv.filter((a) => a !== '--expand');
   if (!url || !outFile) {
-    console.error('usage: render-page.mjs <url> <out.html>');
+    console.error('usage: render-page.mjs <url> <out.html> [--expand]');
     process.exit(2);
   }
   try {
-    const { html, finalUrl, status, title, words } = await renderPage(url);
+    const { html, finalUrl, status, title, words, expansion } = await renderPage(url, { expand: argv.includes('--expand') });
     writeFileSync(outFile, html);
-    console.log(JSON.stringify({ htmlFile: outFile, finalUrl, status, title, words }));
+    console.log(JSON.stringify({ htmlFile: outFile, finalUrl, status, title, words, expansion }));
   } catch (err) {
     // The two are not the same failure and must not read the same. "No browser
     // installed" is a setup problem the user fixes once for every future URL;
