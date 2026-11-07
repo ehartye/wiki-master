@@ -14,7 +14,7 @@ import { isDuplicateUrl } from './lib/url.mjs';
 import { knownSourceUrls, clippingsForUrl, newestCapture } from './lib/known-urls.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { classifyInterstitial } from './lib/interstitial.mjs';
-import { looksLikePlainTextUrl, fetchPlainText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
+import { looksLikePlainTextUrl, fetchPlainText, fetchTwinText, plainTextPage, suppliedKind, suppliedFileProblem, readSuppliedFile } from './lib/plain-text.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { recordIssue, closeIssuesResolvedByClip } from './lib/triage.mjs';
 import { normalizeTopic, parseTopicArg } from './lib/topic.mjs';
@@ -506,7 +506,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // A caller that supplies its own extraction (a test) has not asked for the network: the plain-text fetch runs only with the real
   // extractor, or when it is supplied too.
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
-  const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
+  const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchTwinText : () => ({ ok: false, reason: 'extraction is injected' }));
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
   try { new URL(url); } catch { console.error(`invalid url: ${url}`); process.exit(2); }

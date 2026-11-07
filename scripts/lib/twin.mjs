@@ -71,10 +71,11 @@ export function findTwin({ url, signals, fetchTwin }) {
     const hit = probe(`${base}.md.txt`) ?? probe(`${base}.md`);
     if (hit) return hit;
   }
-  const hit = probe(signals?.markdownLinks?.[0]);
-  if (hit) return hit;
   let origin;
   try { origin = new URL(url).origin; } catch { return { ok: false }; }
+  // A link on the page can name any site, and what comes back is stored under this page's provenance: only the page's own origin.
+  const hit = probe(signals?.markdownLinks?.find((link) => { try { return new URL(link).origin === origin; } catch { return false; } }));
+  if (hit) return hit;
   const index = fetchTwin(`${origin}/llms.txt`);
   if (index?.ok && typeof index.text === 'string') return probe(llmsEntry(index.text, url)) ?? { ok: false };
   return { ok: false };
