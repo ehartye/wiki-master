@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
 import { renderAttempt } from '../scripts/clip.mjs';
+import { extractSource } from '../scripts/extract-page.mjs';
 
 // What the clipper learns from a page's own HTML before any cleaning. Everything here goes through the real extractor:
 // with an injected `extract` these tests would pass while real runs found nothing.
@@ -105,4 +106,26 @@ test('a plain page has empty signals, and they reach the clipper through extract
   const result = renderAttempt(URL_A, { run, tmp });
   assert.equal(result.ok, true);
   assert.deepEqual(result.data.pageSignals, { tabControls: 1, pdfLinks: ['https://docs.example.test/rendered.pdf'], markdownLinks: [] });
+});
+
+// The bot retry's two branches, with the transport mocked and the real extractor: the first fetch has no words, the
+// bot's has a PDF link and a tab naming a panel the page lacks.
+const SIGNALS = { tabControls: 1, pdfLinks: ['https://docs.example.test/guide/bot.pdf'], markdownLinks: [] };
+const botTransport = (rawMarkdown) => ({ fetch: {
+  getInitialUA: () => 'default', BOT_UA: 'bot', cleanMarkdownContent: (text) => text, extractRawMarkdown: () => rawMarkdown,
+  fetchPage: async (_url, agent) => (agent === 'bot'
+    ? page(`<main><h1>Guide</h1>${PROSE.repeat(8)}<a href="/guide/bot.pdf">Manual</a><div role="tablist"><button role="tab" aria-controls="missing">More</button></div></main>`)
+    : page('<main></main>')),
+} });
+
+test('pageSignals reach the clip through the bot retry raw Markdown branch', async () => {
+  const data = await extractSource({ source: URL_A }, undefined, { runtime: botTransport('# Guide\n\nRaw Markdown the bot was given.') });
+  assert.match(data.contentMarkdown, /Raw Markdown the bot was given/);
+  assert.deepEqual(data.pageSignals, SIGNALS);
+});
+
+test('pageSignals reach the clip through the bot retry HTML branch', async () => {
+  const data = await extractSource({ source: URL_A }, undefined, { runtime: botTransport(null) });
+  assert.match(data.contentMarkdown, /plain words/);
+  assert.deepEqual(data.pageSignals, SIGNALS);
 });
