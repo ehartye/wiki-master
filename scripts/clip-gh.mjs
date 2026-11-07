@@ -12,6 +12,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import { looksBinaryBytes } from './lib/binary-content.mjs';
+import { urlCarriesCredentials, credentialRefusal } from './lib/url-safety.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
@@ -611,6 +612,11 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
 }
 
 export function main(argv, { readSelected } = {}) {
+  // A credential in the address would be echoed, queued or written to source:; refuse it before anything else is read.
+  if (urlCarriesCredentials(argv[0])) {
+    console.error(credentialRefusal('use gh auth login, then name the repository without them'));
+    process.exit(2);
+  }
   let selection;
   try {
     selection = selectionOptions(argv);

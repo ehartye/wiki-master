@@ -53,6 +53,15 @@ for (const [form, url, secret] of FORMS) {
     assertRefused(root, run(root, 'clip-pdf.mjs', [OK, '--decline=no', `--source=${url}`]), secret, '--decline --source');
   });
 
+  for (const script of ['clip-gh.mjs', 'clip-confluence.mjs']) {
+    test(`${script} refuses a ${form} as its address, with or without --decline, before it writes, queues or declines anything`, (t) => {
+      const root = vault(t);
+      assertRefused(root, run(root, script, [url]), secret, 'address');
+      assertRefused(root, run(root, script, [url, '--decline=no']), secret, '--decline');
+      assertRefused(root, run(root, script, [url, '--topic=Docs', '--quality=high']), secret, 'options');
+    });
+  }
+
   test(`clip.mjs refuses a ${form} as its address, with or without --decline or --from-file`, (t) => {
     const root = vault(t);
     const page = join(root, 'saved.html');
