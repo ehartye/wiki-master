@@ -219,3 +219,29 @@ test('a tab controlling a visible block that is no tab panel is not reported', a
   const data = await extractHtml(page(`<div role="tablist"><button role="tab" aria-controls="more">More</button></div><div id="more"><p>visible-block-text</p></div>`), URL_A);
   assert.equal(data.pageSignals.tabControls, 0);
 });
+
+// A panel that opens with a heading naming its own tab would carry the label twice. Only that exact case drops the label.
+const headed = (i, heading, body) => `<div role="tabpanel" id="p${i}" ${i ? 'hidden' : ''}>${heading}<p>${body}</p></div>`;
+
+test('a panel opening with a heading of the tab label text gets no second label heading', async () => {
+  const text = await md(tabs('Alpha', 'Beta') + headed(0, '<h4>  ALPHA\n</h4>', 'alpha-body-text') + headed(1, '<h4>Beta</h4>', 'beta-body-text'));
+  assert.equal(text.match(/^#{2,6} (Alpha)$/gim).length, 1, `one Alpha heading:\n${text}`);
+  assert.equal(text.match(/^#{2,6} Beta$/gm).length, 1, `one Beta heading:\n${text}`);
+  assert.equal(text.match(/alpha-body-text/g).length, 1, text);
+  assert.equal(text.match(/beta-body-text/g).length, 1, text);
+  assert.ok(text.indexOf('alpha-body-text') < text.search(/^#{2,6} Beta$/m), text);
+});
+
+test('a panel whose first heading differs from the tab label keeps both', async () => {
+  const text = await md(tabs('Alpha', 'Beta') + headed(0, '<h4>Alpha details</h4>', 'alpha-body-text') + headed(1, '<h4>Beta details</h4>', 'beta-body-text'));
+  assert.match(text, /^#{2,6} Alpha$/m);
+  assert.match(text, /^#{2,6} Alpha details$/m);
+  assert.match(text, /^#{2,6} Beta$/m);
+  assert.match(text, /^#{2,6} Beta details$/m);
+});
+
+test('a panel with no heading, or a heading that is not its first child, still gets the label', async () => {
+  const text = await md(tabs('Alpha', 'Beta') + headed(0, '', 'alpha-body-text') + headed(1, '<p>intro-text</p><h4>Beta</h4>', 'beta-body-text'));
+  assert.equal(text.match(/^#{2,6} Alpha$/gm).length, 1, text);
+  assert.equal(text.match(/^#{2,6} Beta$/gm).length, 2, `the label and the panel's own later heading:\n${text}`);
+});

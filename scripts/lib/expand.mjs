@@ -69,9 +69,17 @@ export function tabDomRules() {
   };
 
   // A plain section takes the panel's children, so its role, hiding and wrapper-like attributes go with the panel.
+  // A panel already opening with a heading of the label's text (trimmed, whitespace-collapsed, case-insensitive) needs
+  // no second one. Only the first element child counts, and only when it is a heading.
+  const squash = (text) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+  const sameText = (a, b) => squash(a) === squash(b);
+  const opensWithLabel = (panel, label) => {
+    const first = panel.firstElementChild;
+    return !!first && /^H[1-6]$/.test(first.tagName) && sameText(first.textContent, label);
+  };
   const sectionFromPanel = (document, panel, label, level) => {
     const section = document.createElement('section');
-    if (label) {
+    if (label && !opensWithLabel(panel, label)) {
       const heading = document.createElement(`h${level}`);
       heading.textContent = label;
       section.append(heading);
