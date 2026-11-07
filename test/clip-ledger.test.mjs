@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/clip.mjs';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
@@ -357,4 +357,100 @@ test('a ledger that fails to write after a single clipping is reported, the clip
   assert.equal(r.result.status, 'clipped');
   assert.equal(v.names().length, 1);
   assert.equal(r.lines.filter((l) => /--ledger/.test(l)).length, 1, r.lines.join('\n'));
+});
+
+// ---------------------------------------------------------------- a ledger path is judged by where it lands, not how it is spelled
+
+// A directory link, made as a junction on Windows (which needs no privilege) and a symlink elsewhere; skipped only when the platform refuses.
+function dirLink(t, target, name = 'lnk') {
+  const outside = mkdtempSync(join(tmpdir(), 'wm-clip-ledger-link-'));
+  const link = join(outside, name);
+  let made = true;
+  try { symlinkSync(target, link, 'junction'); } catch (e) { made = false; t.skip(`this platform refuses a directory link (${e.code})`); }
+  t.after(() => {
+    // Remove the link itself, never what it points at.
+    try { unlinkSync(link); } catch { try { rmdirSync(link); } catch { /* already gone */ } }
+    rmSync(outside, { recursive: true, force: true });
+  });
+  return made ? link : null;
+}
+
+function refusedInside(v, file, zone) {
+  const list = join(v.root, 'urls.txt');
+  writeFileSync(list, 'https://one.example.test/a\n');
+  for (const argv of [[PAGE, '--ledger', file], ['--list', list, '--ledger', file]]) {
+    const r = clip(argv, { extract: () => assert.fail('nothing may be read') });
+    assert.equal(r.exitCode, 2, argv.join(' '));
+    assert.equal(r.result.status, 'error');
+    assert.match(r.lines.join('\n'), new RegExp(`inside ${zone}/ of the vault`));
+  }
+  assert.deepEqual(v.names(), []);
+}
+
+for (const zone of ['raw', 'wiki']) {
+  test(`a ledger reached through a directory link into ${zone}/ exits 2 and writes nothing`, (t) => {
+    const v = setup(t);
+    mkdirSync(join(v.root, zone), { recursive: true });
+    const link = dirLink(t, join(v.root, zone));
+    if (!link) return;
+    refusedInside(v, join(link, 'e.jsonl'), zone);
+    assert.deepEqual(readdirSync(join(v.root, zone)).filter((n) => n !== 'clippings'), []);
+  });
+
+  test(`a ledger in a new folder under a directory link into ${zone}/ exits 2`, (t) => {
+    const v = setup(t);
+    mkdirSync(join(v.root, zone, 'sub'), { recursive: true });
+    const link = dirLink(t, join(v.root, zone));
+    if (!link) return;
+    refusedInside(v, join(link, 'sub', 'e.jsonl'), zone);
+  });
+}
+
+test('a ledger that is a link to a file under raw/ exits 2, whether or not the file exists yet', (t) => {
+  const v = setup(t);
+  const outside = mkdtempSync(join(tmpdir(), 'wm-clip-ledger-link-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  for (const exists of [true, false]) {
+    const target = join(v.root, 'raw', exists ? 'held.jsonl' : 'later.jsonl');
+    if (exists) writeFileSync(target, '');
+    const link = join(outside, exists ? 'held-link' : 'later-link');
+    try { symlinkSync(target, link, 'file'); } catch (e) { t.skip(`this platform refuses a file link (${e.code})`); return; }
+    refusedInside(v, link, 'raw');
+    assert.equal(existsSync(join(v.root, 'raw', 'later.jsonl')), false);
+  }
+});
+
+test('a ledger spelled with .. into raw/ or wiki/ exits 2', (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'sub'));
+  mkdirSync(join(v.root, 'wiki'), { recursive: true });
+  refusedInside(v, `${v.root}${sep}sub${sep}..${sep}raw${sep}e.jsonl`, 'raw');
+  refusedInside(v, `${v.root}${sep}sub${sep}..${sep}wiki${sep}e.jsonl`, 'wiki');
+});
+
+test('a ledger whose .. follows a directory link that leads into raw/ exits 2', { skip: process.platform === 'win32' ? 'Windows resolves .. in the text before the file system sees the path' : false }, (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'raw', 'sub'));
+  const link = dirLink(t, join(v.root, 'raw', 'sub'));
+  if (!link) return;
+  // lnk/.. is raw/, so this is raw/e.jsonl, though the text reads as a file beside the link.
+  refusedInside(v, `${link}${sep}..${sep}e.jsonl`, 'raw');
+});
+
+test('a ledger spelled in another case into raw/ exits 2 where the file system ignores case', { skip: process.platform === 'win32' || process.platform === 'darwin' ? false : 'this file system is case sensitive' }, (t) => {
+  const v = setup(t);
+  mkdirSync(join(v.root, 'raw', 'sub'));
+  refusedInside(v, join(v.root, 'raw', 'sub', 'e.jsonl').toUpperCase(), 'raw');
+  refusedInside(v, join(v.root, 'RAW', 'Sub', 'new.jsonl'), 'raw');
+});
+
+test('a ledger outside raw/ and wiki/ through a link is accepted', (t) => {
+  const v = setup(t);
+  const dest = join(v.root, 'out');
+  mkdirSync(dest);
+  const link = dirLink(t, dest);
+  if (!link) return;
+  const r = clip([PAGE, '--ledger', join(link, 'e.jsonl')]);
+  assert.equal(r.exitCode, 0, r.lines.join('\n'));
+  assert.equal(readFileSync(join(dest, 'e.jsonl'), 'utf8').split('\n').filter(Boolean).length, 1);
 });
