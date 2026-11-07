@@ -14,13 +14,21 @@ const frontmatterOf = (text) => {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   return m ? m[1] : '';
 };
+// The unquoted text of one frontmatter value: "double" (JSON escapes), 'single' ('' is a quote) or bare; '' when empty.
+// Shared with adopt-clipping, so a file it accepts is read the same way by the dedup and recapture lookups.
+export const unquoteValue = (raw) => {
+  const value = String(raw ?? '').trim();
+  if (value.startsWith('"')) {
+    try { return String(JSON.parse(value)).trim(); } catch { return (value.match(/^"([^"]*)"?/)?.[1] ?? '').trim(); }
+  }
+  if (value.startsWith("'")) return (value.match(/^'((?:[^']|'')*)'?/)?.[1] ?? '').replace(/''/g, "'").trim();
+  return value;
+};
 const scalar = (block, name) => {
   const m = block.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'm'));
   if (!m) return null;
-  let value = m[1].trim();
-  if (value.startsWith('"')) { try { value = JSON.parse(value); } catch { value = value.replace(/^"|"$/g, ''); } }
-  else value = value.replace(/^'|'$/g, '');
-  return value === '' ? null : String(value);
+  const value = unquoteValue(m[1]);
+  return value === '' ? null : value;
 };
 
 // Every top-level clipping that has a `source:` line, in directory order:
@@ -34,13 +42,14 @@ export function readClippings(vaultPath) {
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.md')) continue;
     const text = readFileSync(join(dir, file), 'utf8');
-    const m = text.match(/^source:\s*"?([^"\n]+)"?/m);
-    if (!m) continue;
+    const m = text.match(/^source:[ \t]*(.*)$/m);
+    const url = m ? unquoteValue(m[1]) : '';
+    if (!url) continue;
     const block = frontmatterOf(text);
     out.push({
       file,
       name: file.slice(0, -3),
-      url: m[1].trim(),
+      url,
       created: scalar(block, 'created'),
       sourceHash: scalar(block, 'source-hash'),
       recaptureOf: scalar(block, 'recapture-of'),

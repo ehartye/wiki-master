@@ -10,6 +10,7 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { join, resolve } from 'node:path';
 import { resolveVault, isUnder } from './lib/vault.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
+import { unquoteValue } from './lib/known-urls.mjs';
 import { normalizeTopic } from './lib/topic.mjs';
 import { optionValue, cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -41,12 +42,8 @@ const clippingsDir = join(vault, 'raw', 'clippings');
 const keyLines = (name) => new RegExp(`^${name}:[ 	]*(.*?)[ 	]*$`, 'gm');
 
 // The unquoted value of one such line; '' for an empty value, for `""` and for `''`, which all say the key is not filled in.
-const unquote = (raw) => {
-  let value = raw;
-  if (raw.startsWith('"')) { try { value = String(JSON.parse(raw)); } catch { /* fall through to the raw text */ } }
-  if (value === raw) value = raw.replace(/^'|'$/g, '');
-  return value.trim();
-};
+// The same reader the dedup and recapture lookups use, so what is adopted here is found there.
+const unquote = unquoteValue;
 
 // The value of the first line of the key that has one, or null when the key is absent or every line of it is empty.
 const scalar = (block, name) => {

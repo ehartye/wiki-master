@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -290,6 +290,24 @@ test('a "---" in the body, quoted values, a tags list and a file in a nested dir
   assert.match(after, new RegExp(`^source-hash: ${sha(`${body}\n`.slice(0, -1))}$`, 'm'));
   assert.deepEqual(firstReport(r).conflicts, [], "'low' equals low");
 });
+
+// Adopt reads `source:` quoted either way or bare; the dedup reader the clippers use must read it the same, or an adopted
+// clipping is a stranger to --recapture and to a plain re-clip.
+for (const [label, sourceLine] of [['single-quoted', `source: '${URL_A}'`], ['double-quoted', `source: "${URL_A}"`], ['bare', `source: ${URL_A}`]]) {
+  test(`an adopted clipping with a ${label} source is unchanged on recapture with identical text and a duplicate on a plain re-clip`, (t) => {
+    const v = vault(t);
+    writeFileSync(v.path('Hand guide.md'), handClip(text('Hand')).replace(/^source: .*$/m, sourceLine));
+    const r = script('adopt-clipping.mjs', [v.path('Hand guide.md'), '--quality=high', '--apply'], v.root);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(recapture(page(text('Hand'))).result.status, 'unchanged');
+    assert.deepEqual(readdirSync(v.dir), ['Hand guide.md'], 'no second clipping was written');
+    const lines = [];
+    const log = console.log;
+    console.log = (...a) => lines.push(a.join(' '));
+    try { assert.equal(main([URL_A], { extract: page(text('Hand')), today: () => '2026-10-29' }).status, 'duplicate'); } finally { console.log = log; }
+    assert.deepEqual(readdirSync(v.dir), ['Hand guide.md']);
+  });
+}
 
 test('--help says a file saved with CRLF line breaks is stamped with the hash of its CRLF body', (t) => {
   const v = vault(t);
