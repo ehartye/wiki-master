@@ -139,14 +139,14 @@ test('setup failures reported through npx noise are still unavailable', () => {
 test('an npx that fails without a JSON line, such as offline, reports unavailable and not the page', () => {
   const run = (cmd) => {
     throw cmd.startsWith('npx ')
-      ? renderFailure(1, 'npm error code ENOTFOUND\nnpm error network request to https://registry.npmjs.org failed\n')
+      ? renderFailure(1, 'npm warn exec installing\nnpm error code ENOTFOUND\nnpm error network request to https://registry.npmjs.org failed\nnpm error A complete log of this run can be found in: /tmp/npm.log\n')
       : renderFailure(3, NO_PACKAGE);
   };
   const out = renderAttempt('https://ampcode.com', { run });
   assert.equal(out.ok, false);
   assert.equal(out.unavailable, true);
   assert.match(out.reason, /did not finish through npx/);
-  assert.match(out.reason, /registry\.npmjs\.org failed/, 'the reason carries what npm said');
+  assert.match(out.reason, /npm error code ENOTFOUND/, 'the reason names the cause, not the log file');
 });
 
 test('a local render that dies without a JSON line is that attempt failing, not a setup problem', () => {

@@ -450,12 +450,13 @@ export function renderAttempt(url, { run = execRender, tmp = tmpdir() } = {}) {
     // line of ours, and that says nothing about the page either.
     const payload = lastJsonObject(e.stderr);
     const firstLine = String(e.message || e).split('\n')[0];
-    const lastStderrLine = String(e.stderr || '').trim().split(/\r?\n/).at(-1);
+    // npm ends with a pointer to its log file, so its first error line is the one that names the cause.
+    const npmError = String(e.stderr || '').split(/\r?\n/).find((line) => line.startsWith('npm error'));
     return {
       ok: false,
       kind: 'failed',
       unavailable: payload ? payload.unavailable === true : throughNpx,
-      reason: payload?.error || (throughNpx ? `render did not finish through npx: ${lastStderrLine || firstLine}` : `render failed: ${firstLine}`),
+      reason: payload?.error || (throughNpx ? `render did not finish through npx: ${npmError || firstLine}` : `render failed: ${firstLine}`),
     };
   }
 
