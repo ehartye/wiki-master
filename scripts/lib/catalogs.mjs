@@ -20,6 +20,7 @@ import { join, basename, relative } from 'node:path';
 import { buildGraph, isContent, findAmbiguousNames, wikilinkTarget } from './graph.mjs';
 import { groupByProject, groupByBacklogStatus, groupByKind, unrecognizedBacklogItems, BACKLOG_STATUS_ORDER, OTHER } from './authored-group.mjs';
 import { analyzeBacklog, CLOSED_STATUSES } from './backlog-deps.mjs';
+import { analyzeSpecs } from './backlog-specs.mjs';
 import { parseNote } from './note.mjs';
 import { BEGIN_MARK, END_MARK, writeFence } from './index-fence.mjs';
 
@@ -153,6 +154,23 @@ export function renderBacklogCatalog({ pages, ambiguousNames = new Set(), titles
     return p.backlogStatus === 'planned' && a.deps.length > 0 && a.unmet.length === 0 && a.malformed.length === 0;
   });
   if (ready.length) lines.push('## Ready to start', ...ready.sort(byName).map(ln), '');
+  // A spec (any item another item names in specced-in) with what it covers; its items stay under their
+  // own statuses above. A group whose spec and members are all closed is left out, so a long-lived
+  // roadmap does not grow without bound. An entry that does not resolve adds no line.
+  const isClosed = (path) => CLOSED_STATUSES.includes(pageAt.get(path).backlogStatus);
+  const specced = analyzeSpecs(pages).groups.filter((g) => !(isClosed(g.spec) && g.members.every((m) => isClosed(m.path))));
+  if (specced.length) {
+    lines.push('## Specced work');
+    for (const { spec, members } of specced) {
+      const closed = members.filter((m) => isClosed(m.path)).length;
+      lines.push(`${ln(pageAt.get(spec))} — covers ${members.length} item${members.length === 1 ? '' : 's'}, ${closed} closed`);
+      for (const m of members) {
+        const label = m.label ? cleanTitle(m.label) : '';
+        lines.push(`  ${ln(pageAt.get(m.path))}${label ? ` (${label})` : ''}`);
+      }
+    }
+    lines.push('');
+  }
   // An item outside the vocabulary is listed, never dropped: a roadmap that skips it hides open work.
   const unrecognized = unrecognizedBacklogItems(pages);
   if (unrecognized.length) {

@@ -10,6 +10,7 @@ import { parseTerms, scanText, BUILTIN_RULES } from './lib/private-terms.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
+import { speccedInDefects } from './lib/backlog-specs-check.mjs';
 import {
   AUTHORED_ROOT, BACKLOG_STATUSES, DECISION_STATUSES, KINDS, KIND_STATUS_KEY, PROJECT_KEYS, REQUIRED_KEYS,
   placement, projectProblem,
@@ -130,7 +131,10 @@ function dependencyDefects(vaultPath, texts) {
       analyses.set(dir, { items, analysis: null });
     }
     const entry = analyses.get(dir);
-    if (!entry.items.some(it => it.path === path)) entry.items.push({ path, backlogStatus: metadata['backlog-status'], metadata });
+    if (!entry.items.some(it => it.path === path)) {
+      entry.items.push({ path, backlogStatus: metadata['backlog-status'], metadata });
+      entry.analysis = null;
+    }
     entry.analysis ??= analyzeBacklog(entry.items);
     return entry.analysis;
   };
@@ -201,6 +205,7 @@ export function validateAuthored(vaultPath, paths, { termRules = null, termProje
   for (const [path, markdown] of texts) defects.push(...frontmatterDefects(path, markdown));
   if (termRules) defects.push(...termDefects(texts, termRules, termProjects));
   defects.push(...dependencyDefects(vaultPath, texts));
+  defects.push(...speccedInDefects(vaultPath, texts, { keyLines }));
   if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath, { sources: present })));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
   return { version: 1, checked, skipped, defects };

@@ -145,7 +145,7 @@ export const CLI_SPECS = {
   // Scripts whose own parser refuses an unknown option (test/cli-guard.test.mjs checks that): the guard only
   // answers `--help` for them, so the accepted options are not repeated here.
   'backlog-list': {
-    usage: ['usage: node scripts/backlog-list.mjs [--project <slug>] [--backlog-status <list>] [--startable] [--json]', '', 'Lists backlog items by lifecycle status, one row per item (project, status, path, title, what it waits on). --startable lists the planned items whose prerequisites are all closed; --backlog-status takes in-progress, planned, blocked, shipped, dropped or unrecognized, comma separated.', 'Read-only.', VAULT],
+    usage: ['usage: node scripts/backlog-list.mjs [--project <slug>] [--backlog-status <list>] [--startable] [--specced-in <name>] [--json]', '', 'Lists backlog items by lifecycle status, one row per item (project, status, path, title, what it waits on). --startable lists the planned items whose prerequisites are all closed; --backlog-status takes in-progress, planned, blocked, shipped, dropped or unrecognized, comma separated; --specced-in keeps the items whose specced-in names that spec (a name or a path), and --json rows list each item\'s specs under speccedIn.', 'Read-only.', VAULT],
   },
   drift: {
     usage: ['usage: node scripts/drift.mjs [--coverage] [--json] [--limit <n>]', '', 'Checks wiki pages against their sources for drift using the embedding index. --coverage reports how many pages were evaluated; zero evaluated pages cannot show that the wiki has no drift. --limit caps the pages checked.', 'Read-only.', VAULT],

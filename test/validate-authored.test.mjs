@@ -682,6 +682,16 @@ test('an item without depends-on, and an empty depends-on, add no defect', t => 
   assert.deepEqual(v.validate([`${BL}/plain.md`, `${BL}/empty.md`]).defects, []);
 });
 
+test('two backlog items outside backlog/ in one project are each checked, not a crash on the second', t => {
+  const v = vault(t);
+  v.put(`${BL}/base.md`, todo('shipped'));
+  v.put(`${DEMO}/notes/stray-one.md`, todo('planned', '["[[base]]"]'));
+  v.put(`${DEMO}/notes/stray-two.md`, todo('planned', '["[[nowhere]]"]'));
+  const result = v.validate([`${DEMO}/notes/stray-one.md`, `${DEMO}/notes/stray-two.md`]);
+  assert.deepEqual(rules(result, `${DEMO}/notes/stray-one.md`), ['kind-folder-mismatch']);
+  assert.deepEqual(rules(result, `${DEMO}/notes/stray-two.md`).sort(), ['dependency-dangling', 'kind-folder-mismatch']);
+});
+
 test('the command prints a dependency defect and exits 1', t => {
   const v = vault(t);
   v.put(`${BL}/next.md`, todo('planned', '["[[nowhere]]"]'));

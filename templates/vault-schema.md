@@ -40,7 +40,10 @@ This vault is an LLM-maintained wiki (Karpathy pattern). Maintained by the
   small file per tracked item, edited in place as status changes rather than
   accumulating appended "Update (date): ..." paragraphs. A backlog item may also
   carry `depends-on`, a list of quoted wikilinks to other backlog items of the same
-  project; it never changes the item's own status.
+  project; it never changes the item's own status. A backlog item may also carry
+  `specced-in`, the same kind of list naming the spec (another backlog item of the
+  same project) that covers it, each link with an optional `|WP1` label; it never
+  changes any item's status either.
 
 ## Rules
 

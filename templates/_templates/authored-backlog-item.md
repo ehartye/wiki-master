@@ -18,5 +18,7 @@ backlog-status: planned
      the item's state changes (planned | in-progress | shipped | blocked | dropped).
      Prerequisites, if any, go in a depends-on: line above as quoted wikilinks to other
      items of this project, e.g. depends-on: ["[[other-item]]"]. Delete the line if none.
+     The spec that covers this item, if any, goes in a specced-in: line, e.g.
+     specced-in: ["[[spec-item|WP1]]"], where WP1 names its work package. Delete it if none.
      A behavior stated as tested or observed carries the exact call arguments and the exact
      log or error text beside it; mark it unsettled if the source reads differently. -->

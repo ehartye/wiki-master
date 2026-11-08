@@ -17,21 +17,55 @@ const strip = target => target.toLowerCase().replace(/\.md$/, '');
 const projectOf = path => (path.includes(BACKLOG_SEGMENT) ? path.slice(0, path.indexOf(BACKLOG_SEGMENT)) : null);
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
-// The entries of one item's `depends-on`. One scalar counts as a list of one. An entry that is
-// not a wikilink with a target is returned in `malformed` rather than dropped, because dropping
-// it would make a mistyped prerequisite look like no prerequisite.
-export function dependsOnEntries(metadata = {}) {
-  const value = metadata[DEPENDS_ON_KEY];
+// The entries of one item's relation key (`depends-on`, `specced-in`). One scalar counts as a
+// list of one. Each entry is exactly one wikilink: its target drops a `#heading`, and the text
+// after the first `|` is its label (trimmed; null when absent or blank). An entry that is not a
+// wikilink with a target is returned in `malformed` rather than dropped, because dropping it
+// would make a mistyped entry look like no entry.
+export function relationEntries(metadata = {}, key) {
+  const value = metadata[key];
   const raws = (Array.isArray(value) ? value : [value]).filter(v => typeof v === 'string' && v.trim() !== '').map(v => v.trim());
   const entries = [];
   const malformed = [];
   for (const raw of raws) {
     const inner = raw.match(/^\[\[([^\][]*)\]\]$/)?.[1];
-    const target = inner?.split('|')[0].split('#')[0].trim();
-    if (target) entries.push({ raw, target });
+    const pipe = inner === undefined ? -1 : inner.indexOf('|');
+    const target = (pipe < 0 ? inner : inner.slice(0, pipe))?.split('#')[0].trim();
+    const label = pipe < 0 ? '' : inner.slice(pipe + 1).trim();
+    if (target) entries.push({ raw, target, label: label || null });
     else malformed.push(raw);
   }
   return { entries, malformed };
+}
+
+// The prerequisites of one item, as { raw, target } entries and the malformed rest.
+export function dependsOnEntries(metadata = {}) {
+  const { entries, malformed } = relationEntries(metadata, DEPENDS_ON_KEY);
+  return { entries: entries.map(({ raw, target }) => ({ raw, target })), malformed };
+}
+
+// Resolves a relation target among one project's items, the same way for both relations: a bare
+// name or a full path, case-insensitive, `.md` optional, the first item winning a duplicate name.
+// Returns { path, problem }: `problem` is null, 'self', 'dangling' (no such item in this project)
+// or 'cross-project' (a path into another project).
+export function projectResolver(items) {
+  const byFull = new Map();
+  const byName = new Map();
+  for (const it of items) {
+    const full = strip(it.path);
+    if (!byFull.has(full)) byFull.set(full, it.path);
+    const name = full.slice(full.lastIndexOf('/') + 1);
+    if (!byName.has(name)) byName.set(name, it.path);
+  }
+  return (fromPath, target) => {
+    const key = strip(target);
+    const path = key.includes('/') ? byFull.get(key) : byName.get(key);
+    if (path === fromPath) return { path, problem: 'self' };
+    if (path) return { path, problem: null };
+    const there = projectOf(key + '.md');
+    const away = key.startsWith('wiki/authored/') && there !== null && there !== projectOf(fromPath);
+    return { path: null, problem: away ? 'cross-project' : 'dangling' };
+  };
 }
 
 // One project's backlog items: [{ path, backlogStatus, metadata }].
@@ -42,30 +76,14 @@ export function dependsOnEntries(metadata = {}) {
 //             dep whose item is not shipped or dropped
 // cycles lists each dependency cycle as paths that return to their start, from the smallest path.
 export function analyzeBacklog(items) {
-  const statusByPath = new Map();
-  const byFull = new Map();
-  const byName = new Map();
-  for (const it of items) {
-    statusByPath.set(it.path, it.backlogStatus);
-    const full = strip(it.path);
-    if (!byFull.has(full)) byFull.set(full, it.path);
-    const name = full.slice(full.lastIndexOf('/') + 1);
-    if (!byName.has(name)) byName.set(name, it.path);
-  }
+  const statusByPath = new Map(items.map(it => [it.path, it.backlogStatus]));
+  const resolve = projectResolver(items);
 
   const byPath = new Map();
   const edges = new Map();
   for (const it of items) {
     const { entries, malformed } = dependsOnEntries(it.metadata);
-    const home = projectOf(it.path);
-    const deps = entries.map(({ raw, target }) => {
-      const key = strip(target);
-      const path = key.includes('/') ? byFull.get(key) : byName.get(key);
-      if (path === it.path) return { raw, target, path, problem: 'self' };
-      if (path) return { raw, target, path, problem: null };
-      const away = key.startsWith('wiki/authored/') && projectOf(key + '.md') !== null && projectOf(key + '.md') !== home;
-      return { raw, target, path: null, problem: away ? 'cross-project' : 'dangling' };
-    });
+    const deps = entries.map(({ raw, target }) => ({ raw, target, ...resolve(it.path, target) }));
     const unmet = deps.filter(d => d.problem || !CLOSED_STATUSES.includes(statusByPath.get(d.path)));
     byPath.set(it.path, { deps, malformed, unmet });
     edges.set(it.path, deps.filter(d => !d.problem).map(d => d.path));
@@ -73,9 +91,10 @@ export function analyzeBacklog(items) {
   return { byPath, cycles: findCycles(edges) };
 }
 
-// Depth-first with an explicit stack: a recursive search overflowed on a 5,000-link chain in the
-// marketing runtime, and a backlog is a list people extend.
-function findCycles(edges) {
+// Each cycle in a graph (Map of path -> [path]) as paths that return to their start, from the
+// smallest path. Depth-first with an explicit stack: a recursive search overflowed on a
+// 5,000-link chain in the marketing runtime, and a backlog is a list people extend.
+export function findCycles(edges) {
   const WHITE = 0, GREY = 1, BLACK = 2;
   const color = new Map();
   const found = new Map();
