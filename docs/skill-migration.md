@@ -80,3 +80,5 @@ for unknown third-party callers.
 Historical transcripts, evaluation snapshots, dated plans/specifications under
 `docs/superpowers/`, and release history retain the names they actually used.
 They are evidence, not current invocation instructions.
+
+To find citations of retired names in another plugin's checkout, run `node scripts/check-skill-citations.mjs <dir>...` from this plugin's root; it skips `docs/superpowers/` unless given `--include-history`.

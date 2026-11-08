@@ -25,6 +25,15 @@ export const CLI_SPECS = {
     options: ['vault', 'seed', 'per-category', 'out'],
     usage: ['usage: node scripts/build-keyword-eval.mjs [--vault <dir>] [--seed <n>] [--per-category <n>] [--out <file>]', '', 'Builds the keyword-engine evaluation question set from the vault: questions only a keyword channel can answer.'],
   },
+  'check-skill-citations': {
+    options: ['include-history'],
+    usage: [
+      'usage: node scripts/check-skill-citations.mjs <dir>... [--include-history]',
+      '',
+      'Reports every wiki-master:<name> citation in the .md and .json files below the given directories that names no current skill of this plugin, as file:line, with the replacement from docs/skill-migration.md when that table names one. Use it on a companion plugin after a skill rename. node_modules and .git are not read; dated records under docs/superpowers/ are skipped unless --include-history is given.',
+      'Exit 0: no stale citation. Exit 1: at least one. Exit 2: no directory given, or one that is not a directory. Read-only.',
+    ],
+  },
   decline: {
     options: ['json', 'reason'],
     usage: [
