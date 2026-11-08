@@ -35,6 +35,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from '../scripts/stale.mjs';
+import { obsidianJson } from '../scripts/lib/vault.mjs';
 import { tempVault } from './helpers/temp-vault.mjs';
 
 function fixture(t) {
@@ -143,4 +144,14 @@ test('a verified empty wiki is reported explicitly', t => {
   const r = main({ vaultPath: root, obsidianJsonImpl: () => [], log() {} });
   assert.equal(r.backend, 'filesystem');
   assert.match(r.report, /no wiki pages/i);
+});
+
+test('a refusal the CLI prints with exit 0 is named as the reason for the filesystem fallback', t => {
+  const { root } = fixture(t);
+  const refusing = (args, options) => obsidianJson(args, { ...options, execFileSyncImpl: () => 'Vault not found.' });
+  const out = [];
+  const r = main({ vaultPath: root, today, obsidianJsonImpl: refusing, log: line => out.push(line) });
+  assert.equal(r.backend, 'filesystem');
+  assert.match(r.reason, /base:query failed: Vault not found./);
+  assert.doesNotMatch(r.reason, /invalid JSON/);
 });

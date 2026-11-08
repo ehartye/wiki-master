@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/setup-obsidian-git.mjs';
 import { REQUIRED_SETTINGS } from '../scripts/lib/obsidian-git.mjs';
-import { commandLines, vaultEnvFor } from '../scripts/lib/vault.mjs';
+import { commandLines, obsidian, vaultEnvFor } from '../scripts/lib/vault.mjs';
 
 // Setup installs and configures the one plugin that handles git for the vault. The stubbed app below behaves as the
 // real one was read to behave: its CLI exits 0 and prints "Error: ..." or "Vault not found." on failure, and a plugin's
@@ -328,6 +328,33 @@ test('--apply: restricted mode is reported and left on', async (t) => {
 test('--apply: the app not knowing the vault stops it, although the CLI exits 0 for that', async (t) => {
   const h = await blockedBeforeInstall(t, { vault: () => 'Vault not found.' }, /answered unexpectedly: "Vault not found\."/);
   assert.doesNotMatch(h.text(), /reaches the vault at/);
+});
+
+// The default hook is the real helper, which throws when the CLI prints a refusal with exit 0. These run it over a
+// stubbed process, so the messages below are the ones the owner sees.
+function throughHelper(h, answers) {
+  h.cli = (args, options) => {
+    h.calls.push({ args, options });
+    return obsidian(args, { name: 'scratch', ...options, execFileSyncImpl: () => answers[args[0]] ?? 'off' });
+  };
+  return h;
+}
+
+test('--apply: the real helper refusing the vault still says the CLI answered unexpectedly', async (t) => {
+  const vault = world(t);
+  const h = throughHelper(hooks(vault), { vault: 'Vault not found.' });
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), /answered unexpectedly: "Vault not found."/);
+  assert.doesNotMatch(h.text(), /obsidian vault failed/);
+  assertManualSteps(h.text());
+});
+
+test('--apply: the real helper refusing the install reports the words the CLI printed as the reason', async (t) => {
+  const vault = world(t);
+  const h = throughHelper(hooks(vault), { vault: vault.path, 'plugin:install': 'Error: Plugin is not permitted by policy.' });
+  assert.equal(await main(['--apply'], h), 1);
+  assert.match(h.text(), /the install did not finish: Error: Plugin is not permitted by policy./);
+  assert.doesNotMatch(h.text(), /obsidian plugin:install failed/);
 });
 
 test('--apply: no answer at all reads as the vault not being open', async (t) => {

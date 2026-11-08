@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkPrerequisites, gitState, obsidianSession, parseTasklist } from '../scripts/lib/prerequisites.mjs';
 import { obsidianGitPrerequisite } from '../scripts/lib/obsidian-git.mjs';
+import { obsidianActive } from '../scripts/lib/vault.mjs';
 
 // ---- the Windows process list, from canned output ----
 
@@ -321,6 +322,21 @@ test('any other CLI failure, or a wrong or empty vault path, is a failure', asyn
   assert.deepEqual(ids(wrong), ['obsidian-vault']);
   assert.match(wrong.failures[0].fix, /open this vault/i);
   assert.deepEqual(ids(await world(t, { cli: () => '' }).check()), ['obsidian-vault']);
+});
+
+// The real helper throws when the CLI prints a refusal with exit 0; the failure keeps the words the checks always showed.
+test('a refusal printed with exit 0 is reported as an unexpected answer, as before', async (t) => {
+  for (const [text, shown] of [['Vault not found.', 'Vault not found.'], ['Error: view unavailable', 'Error: view unavailable']]) {
+    const r = await world(t, { cli: (args) => obsidianActive(args, { execFileSyncImpl: () => text }) }).check();
+    assert.deepEqual(ids(r), ['obsidian-cli-answer'], text);
+    assert.equal(r.failures[0].problem, `The Obsidian CLI answered unexpectedly: "${shown}".`);
+  }
+  const { root } = world(t);
+  const r = await checkPrerequisites({ vault: { path: root, name: 'fixture' }, probes: {
+    ollamaUp: async () => true, modelPulled: async () => true, session: () => 'this-session', git: () => ({ repo: true, upstream: true }),
+    cli: (args) => (args[0] === 'vault' ? root : obsidianActive(args, { execFileSyncImpl: () => 'Error: no such command' })),
+  } });
+  assert.deepEqual(ids(r), ['obsidian-cli-answer'], 'a refused restricted-mode question');
 });
 
 test('a differently spelled path to the same vault folder is the same vault', async (t) => {
