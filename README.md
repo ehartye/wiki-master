@@ -163,10 +163,23 @@ A source a clipper declines (`--decline="reason"`, or its own thin-content and w
 
 ## Development
 
-`npm test` (or `node --test`) runs the unit suite for the deterministic scripts
-against a fixture vault — no running Obsidian required. See
+`npm test` runs the unit suite for the deterministic scripts
+against a fixture vault — no running Obsidian required. Arguments after `--` go to
+`node --test`, so `npm test -- test/health.test.mjs` runs one file. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
 [docs/scripts.md](docs/scripts.md) lists every script under `scripts/` with its purpose.
+
+### Temp folders
+
+`npm test` runs `test/run-suite.mjs`, which gives each run its own temp root, `wm-run-XXXXXX` under the system temp folder, and points `TMPDIR`, `TEMP` and `TMP` at it, so the temp folders the tests make land there instead of piling up in the system temp folder. At the end it prints how many entries the tests left in the root and how many new `wm-*` entries appeared outside it. A passing run removes the root; a failing run keeps it and prints its path, because a failed test's leftovers are its evidence. Plain `node --test` still works, without the root. The runner deletes nothing it did not create, so folders from earlier runs stay until removed by hand. To remove `wm-*` folders older than seven days (this includes the roots kept by failed runs):
+
+```sh
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'wm-*' -mtime +7 -exec rm -rf {} +
+```
+
+```powershell
+Get-ChildItem $env:TEMP -Filter 'wm-*' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) | Remove-Item -Recurse -Force
+```
 
 ### Tests and the vault
 
