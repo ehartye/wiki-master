@@ -131,7 +131,10 @@ function dependencyDefects(vaultPath, texts) {
       analyses.set(dir, { items, analysis: null });
     }
     const entry = analyses.get(dir);
-    if (!entry.items.some(it => it.path === path)) entry.items.push({ path, backlogStatus: metadata['backlog-status'], metadata });
+    if (!entry.items.some(it => it.path === path)) {
+      entry.items.push({ path, backlogStatus: metadata['backlog-status'], metadata });
+      entry.analysis = null;
+    }
     entry.analysis ??= analyzeBacklog(entry.items);
     return entry.analysis;
   };
