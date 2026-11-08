@@ -40,6 +40,12 @@ that universal core with shared policy references and a maintenance router;
 the current six-role source preserves that shared-policy ownership.
 Existing provenance and purge safeguards remain in force.
 
+## Structural audit
+
+`node test/helpers/skill-audit.mjs [skillsDir]` prints one row per skill (name, description length in characters, body lines), a reference-depth report and one `finding:` line per defect, and exits 1 when there is a finding. Findings: frontmatter that does not start on line 1, a `name` that differs from the folder, a missing description or one over 1,024 characters, a `when_to_use` key, and a script that takes `--apply` that no `SKILL.md`, skill reference, `README.md` or `docs/*.md` names. The [script index](scripts.md) lists every script by construction, so it does not count as naming one. The parser strips carriage returns and folds block and multi-line scalars, so a CRLF checkout audits like an LF one. `test/skill-audit.test.mjs` runs it on fixtures and on this tree.
+
+The accepted reference shape is SKILL.md to reference to doc: a skill links a reference, and a reference may link a document under `docs/` for the full contract. Several references do, so a strict one-level rule would fail the tree for links that are working as intended. Depth is measured from the nearest `SKILL.md` through inline links; a file deeper than two hops is reported, not enforced. What sits deeper today is dated evidence (`docs/superpowers/`, `eval/`) and documents reached through other documents.
+
 ## Behavioral suite
 
 ```sh
