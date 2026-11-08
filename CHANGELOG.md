@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.94.0 — 2026-11-08
+
+- **Breaking, removed command:** `backfill-authored-metadata.mjs`, a one-time migration that read only the top level of `wiki/authored/`; add `project` and `kind` by hand and check with `validate-authored.mjs`. An earlier release has the script.
+- `doctor.mjs` reports how the HTML runtime is reached: a local copy, first use through `npx`, or missing. A copy with no `node_modules` no longer reports `clip` as not ready when `npx` is on the path; `npx` is found, never started.
+- The Obsidian helper treats a refusal the CLI prints with exit 0 (such as `Vault not found.`) as an error, so `obsidian.mjs` exits 1 with the CLI's words and `stale.mjs` names the real cause instead of reporting invalid JSON.
+- A new vault's `.gitattributes` and the setup reference point at the `-text` rule that byte-exact, hashed evidence needs.
+- A test keeps the CI job names that branch protection relies on, and the workflow comment says where required checks are set.
+- The process-tree termination test for the PDF doctor gives the stop budget room on a loaded machine.
+- Add `check-skill-citations.mjs <dir>...`, which reports citations of retired wiki-master skill names in other plugins and names the replacement from `docs/skill-migration.md`; historical design notes are skipped unless `--include-history` is passed.
+- `health.mjs` names `repair-missing-hash.mjs` when clippings lack a `source-hash`, and `docs/scripts.md` indexes every script with its purpose; a test fails when a script is added without an entry.
+- A test-side skill audit checks description lengths, reference depth and `--apply` scripts that no skill or document names.
+- `npm test` runs the suite under its own temporary root and removes it after a passing run, so tests no longer leave folders in the system temp folder; a failed run keeps its root for inspection. Older leftover folders are never deleted automatically.
+
 ## 0.93.0 — 2026-11-07
 
 - **Breaking, new refusals:** every clipper that takes an address (`clip.mjs`, `clip-pdf.mjs`, `clip-docx.mjs`, `clip-pptx.mjs`, `clip-xlsx.mjs`, `clip-gh.mjs`, `clip-confluence.mjs`) and `decline.mjs show` and `supersede` now exit 2, writing, queuing and printing nothing, for an address with a username or password or with a secret-named query parameter (`token`, `password`, `api_key`, `sig` and the other names in the web capture reference). Such an address used to reach the synced triage log and the terminal. Save the page and record it with `--from-file` and the address without the secret.
