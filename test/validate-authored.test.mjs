@@ -417,7 +417,7 @@ test('validate-authored and health import the graph cache reader and never the w
   for (const file of ['scripts/validate-authored.mjs', 'scripts/health.mjs']) {
     const source = readFileSync(join(ROOT, file), 'utf8');
     assert.match(source, /from '\.\/lib\/graph-cache-read\.mjs'/, file);
-    assert.doesNotMatch(source, /graph-cache-write/, file);
+    assert.doesNotMatch(source, /['"][^'"]*graph-cache-write(?:\.mjs)?['"]/, file);
   }
 });
 

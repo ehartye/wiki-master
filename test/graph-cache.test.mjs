@@ -22,7 +22,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fm = (fields) => `---\n${fields}\n---\n`;
 const authored = (kind, extra = '') => fm(`type: authored\ncreated: 2026-01-01\nupdated: 2026-01-01\nstatus: draft\nsources: []\nai-generated: true\nproject: demo\nkind: ${kind}${extra}`);
 const FILES = {
-  'wiki/concepts/alpha.md': `${fm('type: concept\nstatus: maintained\nsources: ["[[raw/clippings/clip.md]]"]')}# Alpha\n\nAlpha cites [[raw/clippings/clip.md]] and links [[beta]] and [[topic]].\n`,
+  'wiki/concepts/alpha.md': `${fm('type: concept\nstatus: maintained\nsources: ["[[raw/clippings/clip.md]]"]')}# Alpha\n\nAlpha cites [[raw/clippings/clip.md]] and links [[beta]], [[topic]] and [[other]].\n`,
   'wiki/concepts/beta.md': `${fm('type: concept\nstatus: maintained\nsources: []')}# Beta\n\nBeta links [[alpha]].\n`,
   'wiki/concepts/gamma.md': `${fm('type: concept\nstatus: maintained\nsources: []\naliases: [other]')}# Gamma\n\nGamma has an alias nobody links.\n`,
   'wiki/sources/topic.md': `${fm('type: source\nstatus: maintained\nsources: ["[[raw/clippings/clip.md]]"]')}# Topic\n\nA source page about the topic, citing the clip.\n`,
@@ -156,15 +156,18 @@ test('a title or alias edit on one page flips an ambiguous-link result in the sa
   const { root, put } = fixture(t);
   writeCache(root);
   const ambiguous = (scan) => scan.issues.filter(i => i.rule === 'ambiguous-link').map(i => i.target);
-  assert.deepEqual(ambiguous(warm(root).scan), []);
-  put('wiki/concepts/gamma.md', FILES['wiki/concepts/gamma.md'].replace('aliases: [other]', 'aliases: [beta]'));
+  assert.deepEqual(ambiguous(warm(root).scan), [], '[[other]] is the alias of gamma alone');
+  // beta takes the title "other": alpha's [[other]] now names two pages, neither by its file name.
+  put('wiki/concepts/beta.md', FILES['wiki/concepts/beta.md'].replace('sources: []', 'sources: []\ntitle: other'));
   let w = warm(root);
-  assert.deepEqual(w.reads, ['wiki/concepts/gamma.md']);
-  assert.deepEqual(ambiguous(w.scan), ['beta']);
+  assert.deepEqual(w.reads, ['wiki/concepts/beta.md']);
+  assert.deepEqual(ambiguous(w.scan), ['other']);
   assert.deepEqual(w.scan, cold(root));
   writeCache(root);
-  put('wiki/concepts/gamma.md', FILES['wiki/concepts/gamma.md'].replace('aliases: [other]', 'title: Gamma page'));
+  // gamma drops the alias: the link resolves to beta alone again.
+  put('wiki/concepts/gamma.md', FILES['wiki/concepts/gamma.md'].replace('aliases: [other]', 'aliases: [elsewhere]'));
   w = warm(root);
+  assert.deepEqual(w.reads, ['wiki/concepts/gamma.md']);
   assert.deepEqual(ambiguous(w.scan), []);
   assert.deepEqual(w.scan, cold(root));
 });
@@ -258,12 +261,14 @@ test('the writer replaces the file through a rename: a failed rename leaves the 
 // validate-authored.test.mjs owns the other half: validate-authored and health import no writer.
 test('refresh-index, the catalogs and the writer do not import the reader, and nothing the readers load imports the writer', () => {
   const imports = (file) => readFileSync(join(ROOT, file), 'utf8');
+  const importOf = (name) => new RegExp(String.raw`(?:\bfrom\s*|\bimport\s*\(?\s*)['"][^'"]*${name}(?:\.mjs)?['"]`);
   for (const file of ['scripts/refresh-index.mjs', 'scripts/lib/catalogs.mjs', 'scripts/lib/graph-cache-write.mjs']) {
-    assert.doesNotMatch(imports(file), /graph-cache-read/, file);
+    assert.doesNotMatch(imports(file), importOf('graph-cache-read'), file);
   }
   for (const file of ['scripts/lib/graph-cache-read.mjs', 'scripts/lib/integrity.mjs', 'scripts/lib/graph.mjs']) {
-    assert.doesNotMatch(imports(file), /graph-cache-write/, file);
+    assert.doesNotMatch(imports(file), importOf('graph-cache-write'), file);
   }
+  assert.match(imports('scripts/validate-authored.mjs'), importOf('graph-cache-read'), 'the pattern finds an import');
   assert.match(imports('scripts/refresh-index.mjs'), /from '\.\/lib\/graph-cache-write\.mjs'/);
 });
 
@@ -357,7 +362,9 @@ test('validate-authored and health read the cache; with --no-cache they read non
 // ----------------------------------------------------------- property --
 
 test('property: after any of these edits a warm scan deep-equals a cold one, scoped or not', t => {
-  const { root, put } = fixture(t);
+  const { root, put: putOld } = fixture(t);
+  // Each edit gets the current time, as an editor gives it, so it is outside the cache until a rewrite stores it.
+  const put = (path, text) => putOld(path, text, { old: false });
   const sources = new Set(['wiki/concepts/alpha.md', 'wiki/authored/demo/guide.md']);
   const check = (label) => {
     assert.deepEqual(warm(root).scan, cold(root), label);
@@ -398,7 +405,7 @@ const GOLDEN_TEXTS = [
   ['wiki/concepts/links.md', '# Links\n\n[[a|alias]] [[b#heading]] [[c\\|table]] ![[embed.png]] \\[[escaped]] [[unclosed\nnext line]] [[]]\n'],
   ['wiki/concepts/code.md', '# Code\n\n`[[span]]` and\n\n```\n[[fenced]]\n```\n\n[[real]]\n'],
   ['wiki/concepts/crlf.md', '---\r\ntype: concept\r\nsources: []\r\n---\r\n# CRLF\r\n\r\nA [[crlf link]].\r\n'],
-  ['wiki/concepts/bom.md', '﻿---\ntype: concept\nsources: []\n---\n# BOM\n\n[[bom link]]\n'],
+  ['wiki/concepts/bom.md', '\ufeff---\ntype: concept\nsources: []\n---\n# BOM\n\n[[bom link]]\n'],
   ['wiki/concepts/damaged.md', '---\ntype: concept\rstatus: draft\n---\nStray \r return.\n'],
   ['wiki/authored/demo/backlog/item.md', '---\ntype: authored\nproject: demo\nkind: backlog-item\nbacklog-status: planned\nsource-hash: ABCDEF12\n---\n# Item\n\n> [!update] one\n\nWork on [[raw/clippings/c.md]] per [[other]].\n'],
   ['raw/clippings/clip.md', '---\nsource: "https://example.test/x"\nsource-hash: "0123456789abcdef"\ntags: [clippings]\n---\nCaptured [[not a link to follow]].\n'],
@@ -416,7 +423,8 @@ test('golden: markdownPage and deriveIntegrity give the stored output for twelve
     const same = stored && JSON.stringify(stored.cases) === JSON.stringify(now);
     const bumped = !stored || stored.format !== GRAPH_CACHE_FORMAT || stored.derive !== INTEGRITY_DERIVE_ID;
     assert.ok(same || bumped, `${bump} (UPDATE_GOLDEN=1 refuses to store a new output under the old constants)`);
-    writeFileSync(GOLDEN, `${JSON.stringify(current, null, 2)}\n`);
+    const ascii = JSON.stringify(current, null, 2).replace(/[^\x20-\x7e\n]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+    writeFileSync(GOLDEN, `${ascii}\n`);
     return;
   }
   assert.ok(stored, `${GOLDEN} is missing; create it with UPDATE_GOLDEN=1`);

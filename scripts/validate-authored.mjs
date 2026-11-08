@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
+import { readGraphCache } from './lib/graph-cache-read.mjs';
 import { parseNote } from './lib/note.mjs';
 import { parseTerms, scanText, BUILTIN_RULES } from './lib/private-terms.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
@@ -20,17 +21,20 @@ cliGuard(import.meta.url);
 
 // Read-only check of exactly the pages one authoring task wrote. The ledger is a
 // JSON array of vault-relative paths, written by hand.
-// Nothing is written: no cache, no .wiki-master directory, no temp file.
+// Nothing is written; it may read the cache that refresh-index.mjs leaves in .wiki-master/.
 //
-//   node validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <terms.txt> [--terms-projects a,b]]
+//   node validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache] [--terms-file <terms.txt> [--terms-projects a,b]]
 //
 // --terms-file also checks the ledger's pages against the owner's private list (the one scan-private-terms.mjs
 // reads) and the built-in machine patterns, for pages that are written for a public repository. A hit is a
 // `private-term` defect with its line and rule number, never the text. --terms-projects limits that check to the
 // pages whose `project:` (its first segment) is named, so a private project's own pages may name themselves.
 //
-// Exit 0 clean, 1 defects, 2 bad input. The integrity scan still reads the whole
-// vault because ambiguity is vault-wide; only the report is scoped to the ledger.
+// Exit 0 clean, 1 defects, 2 bad input. The integrity scan still covers the whole
+// vault because ambiguity is vault-wide; only the report is scoped to the ledger. With the
+// graph cache it re-reads only the files whose size or modification time changed since the
+// last refresh. --no-cache ignores the cache and reads every file: use it after a bulk copy or
+// restore, which can change a file while keeping its size and time.
 
 export class InputError extends Error {}
 
@@ -189,7 +193,8 @@ function linkDefects(scan) {
   return out;
 }
 
-export function validateAuthored(vaultPath, paths, { termRules = null, termProjects = null } = {}) {
+// `noCache` builds the graph cold; `readFile` replaces the read of the cache and of the vault's files, for tests.
+export function validateAuthored(vaultPath, paths, { termRules = null, termProjects = null, noCache = false, readFile } = {}) {
   const entries = checkLedger(paths);
   try { if (!statSync(vaultPath).isDirectory()) throw new Error('not a directory'); }
   catch { throw new InputError(`vault not found: ${vaultPath}`); }
@@ -216,7 +221,8 @@ export function validateAuthored(vaultPath, paths, { termRules = null, termProje
   if (termRules) defects.push(...termDefects(texts, termRules, termProjects));
   defects.push(...dependencyDefects(vaultPath, texts));
   defects.push(...speccedInDefects(vaultPath, texts, { keyLines }));
-  const integrity = present.size ? scanIntegrity(vaultPath, { sources: present }) : null;
+  const cache = present.size && !noCache ? readGraphCache(vaultPath, { readFile }) : null;
+  const integrity = present.size ? scanIntegrity(vaultPath, { sources: present, cache, readFile }) : null;
   if (integrity) defects.push(...linkDefects(integrity));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
   // `skipped` counts ledger entries that are not wiki content. `skippedPaths` are vault entries the walk could not
@@ -250,8 +256,8 @@ export function summary(result) {
 // Returns the exit code; the process-level guard below sets it.
 export function main(argv = process.argv.slice(2)) {
   try {
-    const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, json: { type: 'boolean' }, 'terms-file': { type: 'string' }, 'terms-projects': { type: 'string' } } });
-    if (!values['paths-file']) throw new InputError('--paths-file <JSON array of vault-relative paths> is required (usage: node validate-authored.mjs --paths-file <ledger.json> [--json])');
+    const { values } = parseArgs({ args: argv, options: { 'paths-file': { type: 'string' }, json: { type: 'boolean' }, 'no-cache': { type: 'boolean' }, 'terms-file': { type: 'string' }, 'terms-projects': { type: 'string' } } });
+    if (!values['paths-file']) throw new InputError('--paths-file <JSON array of vault-relative paths> is required (usage: node validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache])');
     if (values['terms-projects'] && !values['terms-file']) throw new InputError('--terms-projects needs --terms-file');
     let termRules = null;
     if (values['terms-file']) {
@@ -260,7 +266,7 @@ export function main(argv = process.argv.slice(2)) {
       try { termRules = [...BUILTIN_RULES, ...parseTerms(text)]; } catch (error) { throw new InputError(error.message); }
     }
     const termProjects = values['terms-projects'] ? values['terms-projects'].split(',').map(s => s.trim()).filter(Boolean) : null;
-    const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']), { termRules, termProjects });
+    const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
     for (const s of result.skippedPaths ?? []) console.error(`validate-authored: skipped path ${s.path} (${s.reason})`);
     if (values.json) console.log(JSON.stringify(result, null, 2));
     else {

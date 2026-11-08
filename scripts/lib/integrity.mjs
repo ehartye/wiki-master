@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } from './graph.mjs';
 import { frontmatterDamage, normalizeIdentity, parseNote, strayCarriageReturn, withoutComment } from './note.mjs';
 import { blank, prose } from './prose.mjs';
@@ -30,7 +29,12 @@ function links(text, { clean = true, offset = 0 } = {}) {
   return out;
 }
 
-function prepare(page, markdown) {
+// The fields the integrity scan adds to a content page, from its path and text alone (the graph record cache rests
+// on that: it stores this result keyed by the file's size and time). Bump INTEGRITY_DERIVE_ID by hand in the same
+// change that alters this function's output; the golden fixture in test/graph-cache.test.mjs fails until it is.
+export const INTEGRITY_DERIVE_ID = 'integrity-prepare-1';
+
+export function deriveIntegrity(path, markdown, page) {
   const { body, metadata } = parseNote(markdown);
   const prefix = markdown.slice(0, markdown.length - body.length);
   const offset = prefix.split('\n').length - 1;
@@ -51,7 +55,7 @@ function prepare(page, markdown) {
   const factualLinks = links(factual, { clean: false, offset });
   const factualKeys = new Set(factualLinks.map(x => JSON.stringify([x.line, x.target])));
   for (const link of bodyLinks) link.factual = factualKeys.has(JSON.stringify([link.line, link.target]));
-  return { ...page, bodyLinks, sourceLinks,
+  return { bodyLinks, sourceLinks,
     outTargets: bodyLinks.filter(x => !x.malformed).map(x => x.target),
     fmTargets: sourceLinks.filter(x => !x.malformed).map(x => x.target),
     evidenceTargets: factualLinks.filter(x => !x.malformed).map(x => x.target),
@@ -115,9 +119,12 @@ const isRetired = p => /^retired$/i.test(String(p?.metadata?.['citation-status']
 // whole vault, because a link is ambiguous only against every page. With it the result also lists `pages`,
 // the named paths that are scanned content pages, so a caller can tell a path the scan never saw from a
 // page with nothing to report. Without it the result is the whole-vault one.
-export function scanIntegrity(vaultPath, { sources } = {}) {
-  const graph = buildGraph(vaultPath);
-  const pages = graph.pages.map(p => isContent(p.path) ? prepare(p, readFileSync(join(vaultPath, p.path), 'utf8')) : p);
+// Each file is read once: buildGraph runs deriveIntegrity on the text it read. `cache` (from readGraphCache, made
+// with INTEGRITY_DERIVE_ID) spares the read of every file it matches; `readFile` replaces the read, for tests.
+export function scanIntegrity(vaultPath, { sources, cache = null, readFile = readFileSync } = {}) {
+  const graph = buildGraph(vaultPath, { cache: cache?.derive === INTEGRITY_DERIVE_ID ? cache : null, readFile, derive: deriveIntegrity });
+  // A content page is { ...page, ...deriveIntegrity(path, markdown, page) }.
+  const pages = graph.pages.map(p => isContent(p.path) ? { ...p, ...graph.records.get(p.path).extra } : p);
   const content = pages.filter(p => isContent(p.path));
   const byPath = new Map(pages.map(p => [p.path, p]));
   const resolve = resolver(pages);

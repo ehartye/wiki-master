@@ -253,16 +253,56 @@ export function walkVaultEntries(vaultPath, { enter = () => true, file, skippedP
   return skippedPaths;
 }
 
+// The graph record cache (.wiki-master/graph-cache.json, machine-local): for each Markdown file, the size and
+// modification time it was read under, what markdownPage made of its text, and, for content pages, what a caller's
+// `derive` made of it. refresh-index.mjs writes it from a cold build (lib/graph-cache-write.mjs); validate-authored.mjs
+// and health.mjs read it (lib/graph-cache-read.mjs). Bump GRAPH_CACHE_FORMAT by hand in the same change that alters
+// markdownPage's output or the entry shape; test/graph-cache.test.mjs holds a golden fixture that fails until it is.
+export const GRAPH_CACHE_FORMAT = 1;
+export const GRAPH_CACHE_FILE = '.wiki-master/graph-cache.json';
+// An entry is stored only for a file last modified at least this long before its build began, so an edit within the
+// clock's granularity of the build, which could keep both size and time, is read again next time.
+export const GRAPH_CACHE_RACY_MS = 2000;
+
+function readPluginVersion() {
+  for (const file of ['../../plugin.json', '../../package.json']) {
+    try { return String(JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8')).version); } catch { /* the next one */ }
+  }
+  return 'unknown';
+}
+const PLUGIN_VERSION = readPluginVersion();
+
+// What a cache must match to be used at all. The plugin version discards every cache at a release.
+export function graphCacheKey(vaultPath, derive) {
+  let root;
+  try { root = realpathSync.native(vaultPath); } catch { root = vaultPath; }
+  return { format: GRAPH_CACHE_FORMAT, plugin: PLUGIN_VERSION, derive, root };
+}
+
 // `readFile` is the read used for each Markdown file (readFileSync by default); a test injects one to count reads
-// or to remove a file between the listing and the read.
-export function buildGraph(vaultPath, { readFile = readFileSync } = {}) {
+// or to remove a file between the listing and the read. `derive(path, markdown, page)`, when given, runs on the same
+// text for each content page; its result is kept in the page's record as `extra`, never merged into the page.
+// `cache` (from readGraphCache) supplies the page and extra of a file whose size and time it matches, so that file
+// is not read. `records` maps each Markdown path to { size, mtimeMs, page, extra? }: the stat the file was read under
+// and the results at that moment, which is what the cache writer stores.
+export function buildGraph(vaultPath, { readFile = readFileSync, cache = null, derive = null } = {}) {
   const pages = [];
+  const records = new Map();
   const skippedPaths = walkVaultEntries(vaultPath, {
-    file(abs, r, e, _stat, skip) {
+    file(abs, r, e, stat, skip) {
       if (e.endsWith('.md')) {
-        let markdown;
-        try { markdown = readFile(abs, 'utf8'); } catch (error) { skip(error); return; }
-        pages.push(markdownPage(r, markdown));
+        const wantExtra = Boolean(derive) && isContent(r);
+        const hit = cache?.lookup(r, stat, wantExtra) ?? null;
+        let record;
+        if (hit) record = { size: stat.size, mtimeMs: stat.mtimeMs, ...hit };
+        else {
+          let markdown;
+          try { markdown = readFile(abs, 'utf8'); } catch (error) { skip(error); return; }
+          const page = markdownPage(r, markdown);
+          record = { size: stat.size, mtimeMs: stat.mtimeMs, page, ...(wantExtra ? { extra: derive(r, markdown, page) } : {}) };
+        }
+        records.set(r, record);
+        pages.push(record.page);
       } else {
         // Non-markdown files are Obsidian attachments (PDFs, docx, images, …).
         // They emit no links and are never scored as content, but they ARE
@@ -280,7 +320,7 @@ export function buildGraph(vaultPath, { readFile = readFileSync } = {}) {
       }
     },
   });
-  return { pages, skippedPaths };
+  return { pages, skippedPaths, records };
 }
 
 export function normalizeName(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }

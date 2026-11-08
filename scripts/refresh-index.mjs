@@ -7,6 +7,8 @@ import { resolveVault } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { embed as ollamaEmbed } from './lib/embed.mjs';
 import { refreshCatalogs } from './lib/catalogs.mjs';
+import { deriveIntegrity } from './lib/integrity.mjs';
+import { writeGraphCache } from './lib/graph-cache-write.mjs';
 import { probeDimension, refreshIndex, statusReport, progressPrinter } from './lib/embedding.mjs';
 import { checkPrerequisites } from './lib/prerequisites.mjs';
 cliGuard(import.meta.url);
@@ -36,10 +38,19 @@ function reportFailures(failures, { err }) {
   err('Offer the user these fixes rather than applying them unasked, and report the task as written but not refreshed.');
 }
 
-function runCatalogs(vaultPath, { out, err }) {
-  const { changed, unrecognized } = refreshCatalogs(vaultPath);
+// The graph is built cold (no cache is read) with the integrity derive, and its records, taken before the catalog
+// phases, become the graph cache that validate-authored.mjs and health.mjs read. A catalog this run wrote gets no
+// entry. A cache that cannot be written costs the next validation its speed, not its answer, so it is one line on
+// stderr and never the exit code. `hooks.graphCache` may replace the clock and the cache's write and rename, for tests.
+function runCatalogs(vaultPath, { graphCache = {} }, { out, err }) {
+  const { changed, unrecognized, records, builtAtMs } = refreshCatalogs(vaultPath, { derive: deriveIntegrity, clock: graphCache.clock });
   if (unrecognized) err(`${unrecognized.length} backlog item(s) have a status outside the vocabulary and are listed under "Unrecognized status": ${unrecognized.join(', ')}`);
   out(`${NAME}: catalogs: ${changed.length} file(s) changed`);
+  try {
+    writeGraphCache(vaultPath, records, { builtAtMs, exclude: changed, writeFileImpl: graphCache.writeFileImpl, renameImpl: graphCache.renameImpl });
+  } catch (error) {
+    err(`${NAME}: the graph cache was not written: ${error.message}. Validation reads every file until a refresh writes it.`);
+  }
 }
 
 const embedderOf = (hooks) => hooks.embedFn ?? ((text) => ollamaEmbed(text));
@@ -91,7 +102,7 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
   }
 
   try {
-    runCatalogs(vault.path, io);
+    runCatalogs(vault.path, hooks, io);
   } catch (error) {
     err(`${NAME}: the catalogs could not be refreshed: ${error.message}. Rerun refresh-index.mjs after fixing that.`);
     return 1;

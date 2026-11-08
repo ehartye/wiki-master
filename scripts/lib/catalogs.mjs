@@ -354,8 +354,13 @@ function updateSnapshot(graph, outputs) {
 // file name with a page, which makes that name ambiguous and changes the links of any catalog rendered before it
 // existed. A first pass that writes nothing puts every new catalog in the graph. Which catalogs exist does not depend on
 // their links, so the second pass renders the final text.
-export function refreshCatalogs(vaultPath, { buildGraphImpl = buildGraph, now } = {}) {
-  const graph = buildGraphImpl(vaultPath);
+//
+// `derive` is passed to buildGraph (refresh-index.mjs passes the integrity derive). The result carries the graph's
+// `records`, which the phases leave untouched (updateSnapshot replaces page objects, it never changes one), and
+// `builtAtMs`, the `clock` time just before the build: together the input of the graph cache writer.
+export function refreshCatalogs(vaultPath, { buildGraphImpl = buildGraph, now, derive, clock = Date.now } = {}) {
+  const builtAtMs = clock();
+  const graph = buildGraphImpl(vaultPath, { derive });
   const phases = (write) => {
     const backlog = regenerateBacklogRoadmaps(vaultPath, { apply: write, graph, now });
     updateSnapshot(graph, backlog.outputs.filter((o) => backlog.changed.includes(o.path)));
@@ -370,5 +375,7 @@ export function refreshCatalogs(vaultPath, { buildGraphImpl = buildGraph, now } 
     changed: [...backlog.changed, ...moc.changed, ...(index.changed ? ['index.md'] : [])],
     projects: { backlog: backlog.written, moc: moc.written },
     ...(backlog.unrecognized.length ? { unrecognized: backlog.unrecognized } : {}),
+    records: graph.records,
+    builtAtMs,
   };
 }
