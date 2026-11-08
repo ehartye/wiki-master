@@ -120,5 +120,95 @@ test('a style record leaves quote verdicts alone, and an older reader that only 
   assert.equal(lines.length, 2);
   assert.ok(lines.every((r) => r.v === 1 && typeof r.id === 'string' && r.page && r.disposition), 'both records have the shape the existing reader requires');
   assert.equal(lintJson(v.root, ['--ids']).findings.length, 0, 'the quote verdict still hides its finding');
-  appendFileSync(v.file, '');
+});
+
+// ---- Found in review of the first version: each of these failed on it, or passed only by accident. ----
+
+const lintText = (root, args = []) => spawnSync(process.execPath, [join(SCRIPTS, 'lint.mjs'), ...args], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: root } }).stdout;
+const crlf = (root, page, text) => writeFileSync(join(root, page), text.replace(/\r?\n/g, '\r\n'));
+
+test('a citation in the contrast sentence itself covers it', (t) => {
+  const v = vault(t);
+  v.synth('self', 'It rose, but only slightly [[fox-page]].');
+  assert.deepEqual(connective(v.root), []);
+});
+
+test('a list item, a heading and a table row each end the paragraph, so a later citation does not cover an earlier one', (t) => {
+  const v = vault(t);
+  v.synth('listy', '- It rose, but slowly.\n- A different claim is in [[fox-page]].');
+  v.synth('headed', '## Rise\nIt rose, but slowly.\n\nElsewhere [[fox-page]].');
+  v.synth('tabled', '| a | It rose, but slowly. |\n| b | cited [[fox-page]] |');
+  const by = (page) => connective(v.root).filter((f) => f.page === `wiki/syntheses/${page}.md`).length;
+  assert.equal(by('listy'), 1);
+  assert.equal(by('headed'), 1);
+  assert.equal(by('tabled'), 1);
+});
+
+test('the paragraph rules hold on a file with CRLF line endings', (t) => {
+  const v = vault(t);
+  const page = (name, body) => crlf(v.root, `wiki/syntheses/${name}.md`, `${FM('synthesis')}# ${name}\n${body}\n`);
+  page('crlf-trailing', 'The score rose, but only slightly. Pay was flat.\n\nThe measurements are in [[fox-page]].\n\nIt rose, but slowly. See [[fox-page]].');
+  page('crlf-split', 'The score rose, but only slightly.\n\nA different claim is in [[fox-page]].');
+  const flagged = connective(v.root).map((f) => f.page);
+  assert.equal(flagged.filter((p) => p.endsWith('crlf-trailing.md')).length, 1, 'only the first paragraph is uncovered: its citation is in a later paragraph, and the third paragraph cites after its own contrast');
+  assert.equal(flagged.filter((p) => p.endsWith('crlf-split.md')).length, 1);
+});
+
+test('"as yet", "everyone but" and "yet another" are not contrasts, but "yet to" after a subject is still one', (t) => {
+  const v = vault(t);
+  v.synth('quiet', 'It is as yet unbuilt. Everyone but the owner agreed. Here is yet another example. It is yet to ship.');
+  assert.deepEqual(connective(v.root), []);
+  v.synth('loud', 'The tool is cheap, yet to many it is slow.\n\nYet to critics it failed.');
+  assert.equal(connective(v.root).length, 2);
+});
+
+test('the id covers the page: the same sentence on two pages is two findings', (t) => {
+  const v = vault(t);
+  v.synth('one', 'It rose, but only slightly.');
+  v.synth('two', 'It rose, but only slightly.');
+  const ids = connective(v.root).map((f) => f.id);
+  assert.equal(ids.length, 2);
+  assert.notEqual(ids[0], ids[1]);
+});
+
+test('editing a neighbouring list item or a heading does not change the id of a flagged sentence', (t) => {
+  const v = vault(t);
+  v.concept('listed', '- alpha item\n- this is clearly wrong\n- gamma item');
+  v.synth('headed', '## Exclusive power\nIt rose, but only slightly.');
+  const ids = () => checkStyle(v.root, buildGraph(v.root)).map((f) => `${f.category}:${f.id}`).sort();
+  const before = ids();
+  v.concept('listed', '- alpha item, reworded\n- this is clearly wrong\n- gamma item also');
+  v.synth('headed', '## A renamed heading\nIt rose, but only slightly.');
+  assert.deepEqual(ids(), before);
+});
+
+test('a contrast-heavy page of tens of thousands of sentences is checked in linear time', (t) => {
+  const v = vault(t);
+  v.synth('huge', 'It rose, but slightly. '.repeat(40000));
+  const started = Date.now();
+  assert.equal(connective(v.root).length, 40000);
+  assert.ok(Date.now() - started < 4000, `took ${Date.now() - started} ms`);
+});
+
+test('recording a style id outside the page scope fails cleanly and writes nothing', (t) => {
+  const v = vault(t);
+  v.synth('joint', 'It rose, but only slightly.');
+  v.synth('other', 'Nothing here is contrasted.');
+  const id = lintJson(v.root, ['--ids']).style[0].id;
+  const out = record(v.root, [`--ids=${id}`, '--disposition=accepted', '--reviewer=tester', '--page=wiki/syntheses/other.md']);
+  assert.equal(out.status, 2);
+  assert.match(out.stderr, /outside the scope|flagged sentence/);
+  assert.throws(() => readFileSync(v.file), /ENOENT/);
+});
+
+test('the text listing shows style ids on request, counts reviewed pointers, and lists their verdicts with --include-reviewed', (t) => {
+  const v = vault(t);
+  v.synth('joint', 'It rose, but only slightly.');
+  v.synth('second', 'It fell, but only slightly.');
+  const listed = lintText(v.root, ['--ids']);
+  const ids = [...listed.matchAll(/\[([0-9a-f]{12})\]/g)].map((m) => m[1]);
+  assert.equal(ids.length, 2, 'every id is shown, not only the first five of a category');
+  assert.equal(record(v.root, [`--ids=${ids[0]}`, '--disposition=accepted', '--reviewer=tester', '--whole-vault']).status, 0);
+  assert.match(lintText(v.root), /\(1 more with a recorded verdict, not listed\)/);
+  assert.match(lintText(v.root, ['--include-reviewed']), /reviewed: accepted by tester/);
 });

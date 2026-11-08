@@ -35,7 +35,7 @@ function record(values, vaultPath) {
   const style = checkStyle(vaultPath, graph, pages ? { pages } : {}).map((f) => ({ id: f.id, page: f.page, quote: `${f.category}: ${f.word}`, evidenceHash: f.evidenceHash, tier: 'style' }));
   const byId = new Map([...style, ...findings].map((f) => [f.id, f]));
   const missing = ids.filter((id) => !byId.has(id));
-  if (missing.length) throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote or its evidence may have changed; run lint.mjs --ids again)`);
+  if (missing.length) throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote, the flagged sentence or the evidence may have changed, or its page is outside the scope; run lint.mjs --ids again)`);
   const date = new Date().toISOString().slice(0, 10);
   appendDispositions(join(vaultPath, DISPOSITIONS_FILE), ids.map((id) => recordFor(byId.get(id), { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
   return `recorded ${ids.length} verdict(s) in ${DISPOSITIONS_FILE} (${values.disposition}): ${ids.join(', ')}`;
