@@ -31,7 +31,8 @@ every command below, as in [name the vault](initialization.md#name-the-vault).
 Only Markdown clippings are ingestable units; PDF/spreadsheet/ZIP originals are
 not summary targets. Report `unsummarizedSources` when asked how much remains.
 For authorized repairs use [maintenance recipes](../../wiki-maintainer/references/maintenance.md)
-or [repair](../../wiki-maintainer/references/repair.md); for requested ingestion use
+or [repair](../../wiki-maintainer/references/repair.md), and find a repair or backfill script
+by name in the [script index](../../../docs/scripts.md); for requested ingestion use
 [wiki-researcher](../../wiki-researcher/SKILL.md).
 
 The old capped score and topology counts are available only through `--legacy`

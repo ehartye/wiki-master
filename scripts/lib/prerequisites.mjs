@@ -103,6 +103,10 @@ export async function checkOllama({ ollamaUp, modelPulled, model, host }) {
 export const looksLikePath = (answer) => /^(?:[A-Za-z]:[\\/]|[\\/])/.test(answer);
 
 function cliFailure(error) {
+  // The helper throws when the CLI prints a refusal with exit 0; it is reported as the unexpected answer it is.
+  if (error.code === 'OBSIDIAN_CLI_ERROR') {
+    return failure('obsidian-cli-answer', `The Obsidian CLI answered unexpectedly: "${error.cliOutput}".`, 'Offer to open this vault in Obsidian with its command line interface on (Settings > General > Advanced), then rerun.');
+  }
   if (['CLI_BUSY', 'CLI_LOCK'].includes(error.code)) {
     return failure('obsidian-cli-gate', `The Obsidian CLI gate is busy or failing (${error.code}).`, 'Rerun refresh-index.mjs. Treat a repeat as the CLI being down, and offer to restart Obsidian.');
   }

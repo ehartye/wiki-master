@@ -163,15 +163,29 @@ A source a clipper declines (`--decline="reason"`, or its own thin-content and w
 
 ## Development
 
-`npm test` (or `node --test`) runs the unit suite for the deterministic scripts
-against a fixture vault — no running Obsidian required. See
+`npm test` runs the unit suite for the deterministic scripts
+against a fixture vault — no running Obsidian required. Arguments after `--` go to
+`node --test`, so `npm test -- test/health.test.mjs` runs one file. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
+[docs/scripts.md](docs/scripts.md) lists every script under `scripts/` with its purpose.
+
+### Temp folders
+
+`npm test` runs `test/run-suite.mjs`, which gives each run its own temp root, `wm-run-XXXXXX` under the system temp folder, and points `TMPDIR`, `TEMP` and `TMP` at it, so the temp folders the tests make land there instead of piling up in the system temp folder. At the end it prints how many entries the tests left in the root and how many new `wm-*` entries appeared outside it. A passing run removes the root; a failing run keeps it and prints its path, because a failed test's leftovers are its evidence. Plain `node --test` still works, without the root. The runner deletes nothing it did not create, so folders from earlier runs stay until removed by hand. To remove `wm-*` folders older than seven days (this includes the roots kept by failed runs):
+
+```sh
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'wm-*' -mtime +7 -exec rm -rf {} +
+```
+
+```powershell
+Get-ChildItem $env:TEMP -Filter 'wm-*' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) | Remove-Item -Recurse -Force
+```
 
 ### Tests and the vault
 
 With `WIKI_MASTER_VAULT` unset, a script acts on the default vault, which is the real one. Two guards keep that from happening by accident. `WIKI_MASTER_REQUIRE_VAULT=1` makes a script stop before it reads or writes anything when no vault is named (exit 2, one line). Under `node --test` (the runner sets `NODE_TEST_CONTEXT`, and a child process inherits it) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails instead of acting on the real one. A test that needs a vault uses `tempVault()` from `test/helpers/temp-vault.mjs`, or puts its own temp path in the `env` it gives a child process, and a test that only checks how a path is resolved passes an environment object: `resolveVault({ WIKI_MASTER_VAULT: '/some/path' })`.
 
-`--help` on a script prints its usage and does nothing else. `triage`, `init`, `lint` and `stale` answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read. An option a script does not know is refused, not ignored. The seven clippers keep their options in `scripts/lib/clip-args.mjs`; 39 other scripts (the repair, backfill and rename scripts, `health`, `lint`, `refresh-index`, `stale`, `init`, `triage` and the rest) keep theirs in `scripts/lib/cli-specs.mjs`, checked by `scripts/lib/cli-guard.mjs` at the command-line entry: an unknown option prints one line and exits 2, and `--help` or `-h` prints the usage and exits 0 (a script with its own help, such as `lint`, keeps it). Four scripts have their own help and parser (`apply-reclips`, `bump-version`, `doctor`, `session-brief`). `obsidian.mjs` is the exception: it passes its arguments to the Obsidian CLI. `test/cli-guard.test.mjs` runs every script with a made-up option in a throwaway home, vault and working directory and checks that it refuses and writes nothing (`triage` is checked without being run, because a failed guard would start its server); a new script that is neither guarded nor listed there fails the test.
+`--help` on a script prints its usage and does nothing else. `triage`, `init`, `lint` and `stale` answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read. An option a script does not know is refused, not ignored. The seven clippers keep their options in `scripts/lib/clip-args.mjs`; the other scripts (the repair, backfill and rename scripts, `health`, `lint`, `refresh-index`, `stale`, `init`, `triage` and the rest) keep theirs in `scripts/lib/cli-specs.mjs`, checked by `scripts/lib/cli-guard.mjs` at the command-line entry: an unknown option prints one line and exits 2, and `--help` or `-h` prints the usage and exits 0 (a script with its own help, such as `lint`, keeps it). Four scripts have their own help and parser (`apply-reclips`, `bump-version`, `doctor`, `session-brief`). `obsidian.mjs` is the exception: it passes its arguments to the Obsidian CLI. `test/cli-guard.test.mjs` runs every script with a made-up option in a throwaway home, vault and working directory and checks that it refuses and writes nothing (`triage` is checked without being run, because a failed guard would start its server); a new script that is neither guarded nor listed there fails the test.
 
 ### Public-repository hygiene
 

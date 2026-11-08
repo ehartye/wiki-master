@@ -32,7 +32,7 @@ export const HINTS = {
   'obsidian-git': 'run setup-obsidian-git.mjs --check; the wiki-setup skill offers the install',
   python: 'install Python 3 and put it on PATH',
   'python-pptx': 'pip install python-pptx',
-  'html-runtime': 'in a development checkout run `npm ci`; an installed copy runs through the pinned npm exec launcher',
+  'html-runtime': 'install npm, so npx can fetch the pinned packages on first use; in a development checkout run `npm ci` for a local copy',
   'playwright-core': 'install npm, so npx can fetch the pinned package on first use; in a development checkout run `npm ci`',
   browser: 'install Chrome or Edge, or set WIKI_MASTER_BROWSER to a browser executable',
   confluencer: 'install the confluencer plugin, or set WIKI_MASTER_CONFLUENCER_SCRIPTS',

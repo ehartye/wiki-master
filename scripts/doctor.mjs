@@ -95,6 +95,19 @@ async function playwrightRoute(deps) {
   return { ok: false, route: 'missing', hint: HINTS['playwright-core'], detail: 'no local copy, and npx is not on PATH' };
 }
 
+// How HTML extraction would reach its npm packages: a local copy, or the pinned npx launcher clip.mjs extracts through.
+// Like playwrightRoute, npx is only found, never started.
+function htmlRoute(deps) {
+  const html = deps.htmlRuntime();
+  if (html.ok) {
+    const versions = deps.packageVersions();
+    return { ok: true, route: 'local', detail: NPM_PACKAGES.map((n) => `${n} ${versions[n] ?? '?'}`).join(', ') };
+  }
+  const npx = deps.which('npx');
+  if (npx) return { ok: true, route: 'npx', path: npx, detail: 'on first use through npx' };
+  return { ok: false, route: 'missing', hint: HINTS['html-runtime'], detail: `${html.message}; npx is not on PATH` };
+}
+
 // Probes every requirement once. Each result is { ok, path?, version?, detail?, hint? }.
 export async function gather(deps = realDeps()) {
   const out = {};
@@ -115,11 +128,7 @@ export async function gather(deps = realDeps()) {
   const py = deps.python();
   out.python = py.cmd ? { ok: true, path: deps.which(py.cmd) ?? py.cmd, detail: py.cmd } : { ok: false, hint: HINTS.python };
   out['python-pptx'] = py.pptx ? { ok: true, detail: `in ${py.cmd}` } : { ok: false, hint: HINTS['python-pptx'], ...(py.cmd ? { detail: `${py.cmd} has no python-pptx` } : {}) };
-  const html = deps.htmlRuntime();
-  const versions = deps.packageVersions();
-  out['html-runtime'] = html.ok
-    ? { ok: true, detail: NPM_PACKAGES.map((n) => `${n} ${versions[n] ?? '?'}`).join(', ') }
-    : { ok: false, hint: HINTS['html-runtime'], detail: html.message };
+  out['html-runtime'] = htmlRoute(deps);
   out['playwright-core'] = await playwrightRoute(deps);
   const browser = deps.browser();
   out.browser = browser ? { ok: true, path: browser } : { ok: false, hint: HINTS.browser };

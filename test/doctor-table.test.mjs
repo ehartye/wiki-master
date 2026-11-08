@@ -75,3 +75,8 @@ test('the poppler programs figure extraction resolves are all in the table or th
   assert.ok(tokens.includes('pdfimages') && tokens.includes('pdftoppm'), 'the scan did not find the programs');
   assert.deepEqual(tokens.filter((t) => !named.has(t)), []);
 });
+
+test('the html-runtime hint names both routes: a development checkout and npx', () => {
+  assert.match(HINTS['html-runtime'], /npm ci/);
+  assert.match(HINTS['html-runtime'], /npx/);
+});

@@ -36,7 +36,8 @@ jobs:
 
   # The plugin ships to macOS, which the suite had never run on. This is a separate job, not a matrix entry on
   # `test`: a matrix would rename the required check `test` to `test (ubuntu-latest)` and break branch protection.
-  # It is not a required check yet; require it once it has been green for a few weeks.
+  # Which checks a merge needs is a repository setting, not something this file decides. Read it with
+  # `gh api repos/<owner>/<repo>/branches/main/protection/required_status_checks --jq .contexts`.
   test-macos:
     runs-on: macos-latest
     steps:

@@ -72,8 +72,61 @@ test('invalid timeout overrides cannot disable the bound', () => {
 
 test('invalid CLI JSON identifies the command without swallowing the failure', () => {
   assert.throws(() => obsidianJson(['base:query', 'file=stale.base'], {
-    name: 'MyWiki', execFileSyncImpl: () => 'Error: view unavailable',
+    name: 'MyWiki', execFileSyncImpl: () => 'not json at all',
   }), /base:query.*invalid JSON/);
+});
+
+// The CLI exits 0 when it refuses, so the helper reads the text it printed.
+const answering = (text) => ({ name: 'MyWiki', execFileSyncImpl: () => text });
+const refused = (command, words) => (error) => error.code === 'OBSIDIAN_CLI_ERROR' && error.message === `obsidian ${command} failed: ${words}`;
+
+test('a refusal the CLI prints with exit 0 throws OBSIDIAN_CLI_ERROR carrying the words the CLI printed', () => {
+  assert.throws(() => obsidian(['vault', 'info=path'], answering('Vault not found.\n')), refused('vault', 'Vault not found.'));
+  assert.throws(() => obsidian(['plugin:reload', 'id=x'], answering('Error: Failed to reload: x')), refused('plugin:reload', 'Error: Failed to reload: x'));
+  const gate = 'Command line interface is not enabled. Turn it on in Settings.\nSee the docs.';
+  assert.throws(() => obsidian(['vaults'], answering(gate)), refused('vaults', gate));
+  assert.throws(() => obsidianActive(['vault', 'info=path'], answering('Vault not found.')), refused('vault', 'Vault not found.'));
+});
+
+test('output that merely mentions those words still succeeds', () => {
+  for (const text of ['Notes: Vault not found. is printed when\nthe name is wrong', 'The vault was not found earlier', 'Note: the command line interface is not enabled by default',
+    'Error handling\nretries and backoff', `Error ${'x'.repeat(300)}`, 'Vault not found. Try again', '']) {
+    assert.equal(obsidian(['search', 'query=x'], answering(text)), text.trim(), text.slice(0, 30));
+  }
+});
+
+test('a one-line answer that merely begins with the word Error is returned; only "Error: " is a refusal', () => {
+  assert.equal(obsidian(['property:read', 'name=topic', 'path=a.md'], answering('Error budget')), 'Error budget');
+  assert.equal(obsidian(['search', 'query=handling'], answering('Error handling.md')), 'Error handling.md');
+  assert.equal(obsidian(['tags'], answering('Errors')), 'Errors');
+  assert.throws(() => obsidian(['property:read', 'name=topic', 'path=a.md'], answering('Error: something')), refused('property:read', 'Error: something'));
+  assert.throws(() => obsidian(['search', 'query=x'], answering('Error: something')), refused('search', 'Error: something'));
+});
+
+test('content-returning commands (read, daily:read, template:read) return text that starts with "Error: "', () => {
+  for (const command of ['read', 'daily:read', 'template:read']) {
+    assert.equal(obsidian([command], answering('Error: a note about errors')), 'Error: a note about errors', command);
+  }
+});
+
+test('the read command returns a note, even one that starts with Error', () => {
+  assert.equal(obsidian(['read', 'path=a.md'], answering('Error: a note about errors')), 'Error: a note about errors');
+  assert.equal(obsidian(['read', 'path=a.md'], answering('# Notes\nVault not found.')), '# Notes\nVault not found.');
+});
+
+test('obsidianJson reports the real cause of a refusal, not invalid JSON', () => {
+  assert.throws(() => obsidianJson(['base:query', 'file=stale.base'], answering('Vault not found.')), (error) => {
+    assert.equal(error.code, 'OBSIDIAN_CLI_ERROR');
+    assert.match(error.message, /base:query failed: Vault not found\./);
+    assert.doesNotMatch(error.message, /invalid JSON/);
+    return true;
+  });
+  assert.deepEqual(obsidianJson(['base:query', 'file=stale.base'], answering('[{"path":"a.md"}]')), [{ path: 'a.md' }]);
+});
+
+test('assertRunning reports a refused CLI as unavailable', async () => {
+  const { assertRunning } = await import('../scripts/lib/vault.mjs');
+  assert.throws(() => assertRunning({ name: 'MyWiki', ...answering('Command line interface is not enabled.') }), /Obsidian CLI unavailable.*not enabled/);
 });
 
 test('assertRunning preserves the timeout reason for app-only operations', async () => {

@@ -3,7 +3,8 @@
 Use [checks](../../wiki-setup/references/checks.md) for read-only health, metrics,
 freshness and lint reporting. Apply repairs only within authorized content scope,
 with [completion](operations.md), [evidence](evidence.md) and direct
-[scoped validation](../../wiki-setup/references/validation.md).
+[scoped validation](../../wiki-setup/references/validation.md). The [script index](../../../docs/scripts.md)
+lists every repair, backfill and rename script with its purpose.
 
 ## "Has this been ingested?" — a content-hash join, not a guess
 A raw clipping is **ingested iff its `source-hash` is recorded in some
@@ -79,6 +80,20 @@ reading, and only with a path that is a candidate. A page an application reads b
 citation would break it, is left alone with `--exclude=<path-prefix>` (repeatable). It sets `updated` to the run
 date, leaves `reviewed`, and checks line by line that only wikilinks changed.
 
+**Removing duplicate clippings.** Two clippings with the same `source-hash` hold the same
+text, and the uncited copy reads as permanent ingest backlog. From the plugin root:
+`node "<absolute-plugin-root>/scripts/dedupe-clippings.mjs"` (dry run) then `--apply`, which
+deletes the uncited copies in a group where some copy is cited. A group where every copy is
+cited (an intentional duplicate) or none is (no keeper to prove) is reported and left alone.
+Deleting a raw file needs the owner's authorization like any other `raw/` change.
+
+**Recording the source of a verbatim quote.** A page that quotes a clipping word for word but
+declares no path to it reads as unverifiable. From the plugin root:
+`node "<absolute-plugin-root>/scripts/repair-quote-provenance.mjs"` (dry run) then `--apply`
+adds the clipping, or the source page that covers it, to the page's `sources:`; the quote is
+never changed. Only a quote with a verbatim run of at least 40 characters found in a clipping
+is repaired; the counts of unmatched and too-generic quotes it prints are for human review.
+
 **Renaming clippings that Obsidian hides or a wikilink cannot carry.** Obsidian does
 not index a dot-prefixed file, and `graph.mjs` skips the same names, so a clipping
 filed as `.github-workflows-build.yml.md` is invisible: every citation of it is an
@@ -115,13 +130,8 @@ because another writer may be editing it, and changes nothing: rerun after that 
 for review and `--exclude=<prefix>` reports them without rewriting (both repeatable): use them for pages
 whose citations an app reads by title. A bare-name link such as `[[README.md]]` is not rewritten.
 
-**Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
-whose authored pages predate this convention has none of it set. Repair from the
-plugin root: `node "<absolute-plugin-root>/scripts/backfill-authored-metadata.mjs"` (dry-run) then `--apply`
-— deterministic, filename- and content-shape-driven classification (never a guess:
-a field it cannot resolve confidently is left unset rather than labeled wrong), and
-idempotent, so it is safe to re-run as new authored pages arrive without metadata
-of their own yet.
+**A `wiki/authored/` page missing `project:` or `kind:`** is reported by `validate-authored.mjs`;
+add the keys by hand.
 
 **Never move files to record ingestion state.** `raw/` immutability is the
 load-bearing invariant. The hash key lives *in* the markdown — each page's

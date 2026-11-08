@@ -125,6 +125,45 @@ test('with neither, the route is missing and says how to get one', async () => {
   assert.match((await main([], d)).output, /MISSING {2}playwright-core: no local copy, and npx is not on PATH/);
 });
 
+test('a local HTML runtime is the local route with the package versions, and npx is not looked for', async () => {
+  const looked = [];
+  const d = deps({ which: (cmd) => { looked.push(cmd); return null; } });
+  const r = await gather(d);
+  assert.equal(r['html-runtime'].ok, true);
+  assert.equal(r['html-runtime'].route, 'local');
+  assert.match(r['html-runtime'].detail, /defuddle 0\.19\.5, linkedom 0\.18\.12, turndown 7\.2\.0/);
+  assert.ok(!looked.includes('npx'));
+});
+
+test('with no local HTML runtime and npx found, clip is ready through npx, which is never started', async () => {
+  const started = [];
+  const d = deps({
+    htmlRuntime: () => ({ ok: false, message: 'run npm ci' }),
+    which: whichNpx('/opt/node/bin/npx'),
+    run: (cmd, args) => { started.push([cmd, ...args]); return { ran: true, status: 0, text: 'v1' }; },
+  });
+  const r = await gather(d);
+  assert.equal(r['html-runtime'].ok, true, 'a working route, not a missing requirement');
+  assert.equal(r['html-runtime'].route, 'npx');
+  assert.equal(r['html-runtime'].path, '/opt/node/bin/npx');
+  assert.ok(!started.some(([cmd]) => /npx/.test(cmd)), 'npx was started');
+  const out = await main(['clip'], d);
+  assert.equal(out.exit, 0);
+  assert.match(row(out.output, 'html-runtime')[0], /on first use through npx/);
+});
+
+test('with no local HTML runtime and no npx, the route is missing, says how to get one, and clip is not ready', async () => {
+  const d = deps({ htmlRuntime: () => ({ ok: false, message: 'run npm ci' }), which: whichNpx(null) });
+  const r = await gather(d);
+  assert.equal(r['html-runtime'].ok, false);
+  assert.equal(r['html-runtime'].route, 'missing');
+  assert.match(r['html-runtime'].hint, /npx/);
+  assert.match(r['html-runtime'].detail, /run npm ci/);
+  const out = await main(['clip'], d);
+  assert.equal(out.exit, 1);
+  assert.match(out.output, /clip: .*NOT READY \(missing html-runtime\)/);
+});
+
 test('the browser has its own row whatever the package route is', async () => {
   const none = await main([], deps({ browser: () => null }));
   assert.equal(row(none.output, 'playwright-core').length, 1);
@@ -147,19 +186,31 @@ test('the real command, from a copy outside any node_modules: it finds npx on PA
     const started = join(root, 'npx-started');
     mkdirSync(bin);
     writeFileSync(join(bin, 'npx'), `#!/bin/sh\n: > "${started}"\n`, { mode: 0o755 });
-    const run = (path) => {
+    const childEnv = (path) => {
       const env = { ...process.env, PATH: path, Path: path, HOME: root, USERPROFILE: root, CLAUDE_CONFIG_DIR: join(root, '.claude'), OLLAMA_HOST: 'http://127.0.0.1:9', WIKI_MASTER_BROWSER: '/no/such/browser' };
       delete env.WIKI_MASTER_VAULT;
-      const r = spawnSync(process.execPath, [join(root, 'scripts', 'doctor.mjs'), '--json'], { cwd: root, env, encoding: 'utf8' });
+      return env;
+    };
+    const run = (path) => {
+      const r = spawnSync(process.execPath, [join(root, 'scripts', 'doctor.mjs'), '--json'], { cwd: root, env: childEnv(path), encoding: 'utf8' });
       assert.equal(r.status, 0, r.stderr);
       return JSON.parse(r.stdout).requirements;
     };
+    const exitOf = (path) => spawnSync(process.execPath, [join(root, 'scripts', 'doctor.mjs'), 'clip'], { cwd: root, env: childEnv(path), encoding: 'utf8' }).status;
     const through = run(bin);
     assert.equal(through['playwright-core'].route, 'npx');
     assert.equal(through['playwright-core'].path, join(bin, 'npx'));
+    assert.equal(through['html-runtime'].ok, true);
+    assert.equal(through['html-runtime'].route, 'npx');
+    assert.equal(through['html-runtime'].path, join(bin, 'npx'));
     assert.equal(through.browser.ok, false);
     assert.equal(existsSync(started), false, 'the doctor started npx');
     assert.equal(run('')['playwright-core'].route, 'missing');
+    assert.equal(run('')['html-runtime'].ok, false);
+    assert.equal(run('')['html-runtime'].route, 'missing');
+    assert.equal(exitOf(bin), 0, 'clip is ready through npx');
+    assert.equal(exitOf(''), 1, 'clip is not ready with no runtime and no npx');
+    assert.equal(existsSync(started), false, 'the doctor started npx');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
