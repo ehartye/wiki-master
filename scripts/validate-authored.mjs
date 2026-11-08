@@ -206,9 +206,12 @@ export function validateAuthored(vaultPath, paths, { termRules = null, termProje
   if (termRules) defects.push(...termDefects(texts, termRules, termProjects));
   defects.push(...dependencyDefects(vaultPath, texts));
   defects.push(...speccedInDefects(vaultPath, texts, { keyLines }));
-  if (present.size) defects.push(...linkDefects(scanIntegrity(vaultPath, { sources: present })));
+  const integrity = present.size ? scanIntegrity(vaultPath, { sources: present }) : null;
+  if (integrity) defects.push(...linkDefects(integrity));
   defects.sort((a, b) => compare(a.path, b.path) || a.line - b.line || compare(a.rule, b.rule) || compare(a.message, b.message));
-  return { version: 1, checked, skipped, defects };
+  // `skipped` counts ledger entries that are not wiki content. `skippedPaths` are vault entries the walk could not
+  // follow (a link cycle, a link or file that vanished): notices, not defects, present only when there are some.
+  return { version: 1, checked, skipped, defects, ...(integrity?.skippedPaths ? { skippedPaths: integrity.skippedPaths } : {}) };
 }
 
 // Lines are numbered from the top of the file, frontmatter included, as the other defects are.
@@ -248,6 +251,7 @@ export function main(argv = process.argv.slice(2)) {
     }
     const termProjects = values['terms-projects'] ? values['terms-projects'].split(',').map(s => s.trim()).filter(Boolean) : null;
     const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']), { termRules, termProjects });
+    for (const s of result.skippedPaths ?? []) console.error(`validate-authored: skipped path ${s.path} (${s.reason})`);
     if (values.json) console.log(JSON.stringify(result, null, 2));
     else {
       for (const d of result.defects) console.log(`${d.path}:${d.line} ${d.rule} ${d.message}`);

@@ -189,6 +189,8 @@ export function scanIntegrity(vaultPath, { sources } = {}) {
   return { version: 1, status: !content.length ? 'empty' : findings.length ? 'defects' : 'clear',
     defectCount: findings.length, issues: findings, forwardLinks: scoped(sorted(forwards)),
     ...(sources ? { pages: content.map(p => p.path).filter(path => sources.has(path)).sort(compare) } : {}),
+    // Unscored and never scoped: entries the walk skipped (a link cycle, a link or file that vanished). Omitted when none.
+    ...(graph.skippedPaths.length ? { skippedPaths: graph.skippedPaths } : {}),
     // Unscored: a page with a carriage return that is not half of a CRLF. It stays readable, so it is not a defect.
     strayCarriageReturns: scoped(content.filter(p => p.strayCarriageReturn).map(p => ({ page: p.path, line: p.strayCarriageReturn })).sort((a, b) => compare(a.page, b.page))),
     // Unscored: a backlog item whose status the generated roadmap cannot place (it lists them under "Unrecognized status").
@@ -206,6 +208,7 @@ export function integrityReport(r) {
     `Scanned ${r.coverage.contentPages} content pages; ${r.coverage.provenanceEligible} require evidence; ${r.coverage.stubs} stubs.${r.coverage.retired ? ` ${r.coverage.retired} retired.` : ''}`,
     `Unresolved navigation: ${r.forwardLinks.length} (unscored; preserve intentional forward links).`];
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
+  if (r.skippedPaths?.length) lines.push(`Skipped paths: ${r.skippedPaths.length} (unscored): ${r.skippedPaths.slice(0, 5).map(x => `${x.path} (${x.reason})`).join(', ')}${r.skippedPaths.length > 5 ? ', ...' : ''}`);
   if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
   if (r.unrecognizedBacklogStatus?.length) lines.push(`Backlog items with a missing or unrecognized status: ${r.unrecognizedBacklogStatus.length} (unscored; the project's generated roadmap lists them under "Unrecognized status"): ${r.unrecognizedBacklogStatus.slice(0, 5).map(x => `${x.page} (${x.status ?? 'no status'})`).join(', ')}${r.unrecognizedBacklogStatus.length > 5 ? ', ...' : ''}`);
   for (const issue of r.issues) lines.push(`  ${issue.id} ${issue.rule} ${issue.source}:${issue.line}${issue.target ? ` -> ${JSON.stringify(issue.target)}` : ''}`, `    ${issue.evidence.replace(/\s+/g, ' ')}`, `    Verify: ${issue.verification}`);

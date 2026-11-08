@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 import { parseNote, normalizeIdentity } from './note.mjs';
@@ -211,16 +211,57 @@ export function markdownPage(path, markdown) {
   };
 }
 
-export function buildGraph(vaultPath) {
-  const pages = [];
+// The errors a vault walk survives: a dangling or self-referential link, a file a pull removed or replaced while
+// the walk ran, a name the platform cannot open, a file the user may not read. Anything else is rethrown.
+const SKIPPED_WALK_CODES = new Set(['ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EACCES', 'EPERM']);
+const realPathKey = process.platform === 'win32' || process.platform === 'darwin'
+  ? abs => realpathSync.native(abs).toLowerCase()
+  : abs => realpathSync.native(abs);
+
+// The vault walk shared by buildGraph and walkVault (lib/embedding.mjs). Links are followed, so a vault reached
+// through a junction keeps working, and a directory reached twice through different paths (an alias) is walked
+// under each. Only a directory whose real path is one of its own ancestors' is skipped, as `link-cycle`. An entry
+// that fails with a code in SKIPPED_WALK_CODES is skipped with that code. Every skip is pushed onto skippedPaths as
+// { path, reason }. `enter(name, rel)` is asked before an entry is looked at; `file(abs, rel, name, stat, skip)` is
+// called for every entry that is not a directory, and passes a read error to `skip` to record or rethrow it.
+// The vault root itself is never skipped: a missing or unreadable vault still throws.
+export function walkVaultEntries(vaultPath, { enter = () => true, file, skippedPaths = [] }) {
+  const skip = (path, error) => {
+    if (!SKIPPED_WALK_CODES.has(error?.code)) throw error;
+    skippedPaths.push({ path, reason: error.code });
+  };
+  const ancestors = [];
   (function walk(dir, rel) {
-    for (const e of readdirSync(dir)) {
-      if (e.startsWith('.')) continue;
+    let names;
+    try { names = readdirSync(dir); } catch (error) { if (!rel) throw error; skip(rel, error); return; }
+    if (!rel) ancestors.push(realPathKey(dir));
+    for (const e of names) {
+      if (e.startsWith('.') || !enter(e, rel)) continue;
       const abs = join(dir, e);
       const r = rel ? `${rel}/${e}` : e;
-      if (statSync(abs).isDirectory()) walk(abs, r);
-      else if (e.endsWith('.md')) {
-        const markdown = readFileSync(abs, 'utf8');
+      let stat;
+      try { stat = statSync(abs); } catch (error) { skip(r, error); continue; }
+      if (!stat.isDirectory()) { file(abs, r, e, stat, error => skip(r, error)); continue; }
+      let real;
+      try { real = realPathKey(abs); } catch (error) { skip(r, error); continue; }
+      if (ancestors.includes(real)) { skippedPaths.push({ path: r, reason: 'link-cycle' }); continue; }
+      ancestors.push(real);
+      walk(abs, r);
+      ancestors.pop();
+    }
+  })(vaultPath, '');
+  return skippedPaths;
+}
+
+// `readFile` is the read used for each Markdown file (readFileSync by default); a test injects one to count reads
+// or to remove a file between the listing and the read.
+export function buildGraph(vaultPath, { readFile = readFileSync } = {}) {
+  const pages = [];
+  const skippedPaths = walkVaultEntries(vaultPath, {
+    file(abs, r, e, _stat, skip) {
+      if (e.endsWith('.md')) {
+        let markdown;
+        try { markdown = readFile(abs, 'utf8'); } catch (error) { skip(error); return; }
         pages.push(markdownPage(r, markdown));
       } else {
         // Non-markdown files are Obsidian attachments (PDFs, docx, images, …).
@@ -237,9 +278,9 @@ export function buildGraph(vaultPath) {
           fmTargets: [],
         });
       }
-    }
-  })(vaultPath, '');
-  return { pages };
+    },
+  });
+  return { pages, skippedPaths };
 }
 
 export function normalizeName(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
