@@ -10,6 +10,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { main } from '../scripts/refresh-index.mjs';
 import { LEGACY_BEGIN_MARKS, BEGIN_MARK, END_MARK } from '../scripts/lib/index-fence.mjs';
 import * as embedding from '../scripts/lib/embedding.mjs';
+import { markdownPage } from '../scripts/lib/graph.mjs';
+import { deriveIntegrity } from '../scripts/lib/integrity.mjs';
 
 const { DIMENSION_PROBE } = embedding;
 
@@ -85,8 +87,11 @@ async function run(root, argv = [], overrides = {}) {
     ...overrides.probes,
   };
   const embedFn = overrides.embedFn ?? (async (text) => { embedCalls.push(text); return [text.length, 1, 2, 3]; });
+  // A graph cache built at time 0 stores no entry (every file is inside its racy window), so it is as byte-stable
+  // between runs as every other file here. The graph-cache cases below pass the real clock.
+  const graphCache = { clock: () => 0, ...overrides.graphCache };
   const code = await main(argv, {
-    vault: { path: root, name: 'fixture' }, probes, embedFn,
+    vault: { path: root, name: 'fixture' }, probes, embedFn, graphCache,
     out: (line) => lines.push(line), err: (line) => lines.push(line),
   });
   return { code, output: lines.join('\n'), cliCalls, embedCalls };
@@ -529,6 +534,73 @@ test('a real path that is not this vault still reads as the wrong active vault, 
     assert.match(r.output, /active vault is/, other);
     assert.doesNotMatch(r.output, /answered unexpectedly/, other);
   }
+});
+
+// ---- the graph record cache ----
+
+const CACHE = '.wiki-master/graph-cache.json';
+const OLD = new Date(Date.now() - 3600_000);
+// Every fixture file an hour old, so the writer's racy window keeps none of them out.
+function backdate(root) {
+  (function walk(dir) {
+    for (const name of readdirSync(dir)) {
+      if (name.startsWith('.')) continue;
+      const abs = join(dir, name);
+      if (statSync(abs).isDirectory()) walk(abs); else utimesSync(abs, OLD, OLD);
+    }
+  })(root);
+}
+const realClock = { clock: Date.now };
+const catalogFiles = (root) => Object.fromEntries(['index.md', 'moc/alpha.md', 'moc/beta.md', 'wiki/authored/alpha/roadmap.md', 'wiki/authored/beta/roadmap.md'].map((p) => [p, read(root, p)]));
+const coldEntry = (root, path) => {
+  const text = read(root, path), st = statSync(join(root, path)), page = markdownPage(path, text);
+  return JSON.parse(JSON.stringify({ size: st.size, mtimeMs: st.mtimeMs, page, ...(path.startsWith('wiki/') ? { extra: deriveIntegrity(path, text, page) } : {}) }));
+};
+
+test('a refresh writes the graph cache with no entry for a catalog it wrote, and every entry equals a cold read', async (t) => {
+  const root = vault(t);
+  backdate(root);
+  const r = await run(root, [], { graphCache: realClock });
+  assert.equal(r.code, 0, r.output);
+  const data = JSON.parse(read(root, CACHE));
+  for (const written of ['index.md', 'moc/alpha.md', 'wiki/authored/alpha/roadmap.md']) assert.equal(written in data.entries, false, written);
+  assert.deepEqual(Object.keys(data.entries).sort(), Object.keys(PAGES).sort());
+  for (const [path, entry] of Object.entries(data.entries)) assert.deepEqual(entry, coldEntry(root, path), path);
+});
+
+test('a refresh never trusts the cache: a poisoned entry changes no catalog, and the rewritten cache is a cold read', async (t) => {
+  const poisoned = vault(t), clean = vault(t);
+  for (const root of [poisoned, clean]) { backdate(root); assert.equal((await run(root, [], { graphCache: realClock })).code, 0); }
+  const data = JSON.parse(read(poisoned, CACHE));
+  const guide = 'wiki/authored/alpha/guide.md';
+  // The right size and time, the wrong content: a reader that trusted it would file the guide under another kind.
+  Object.assign(data.entries[guide].page, { kind: 'roadmap', title: 'Poisoned', aliases: ['poison'] });
+  writeFileSync(join(poisoned, CACHE), JSON.stringify(data));
+  rmSync(join(clean, CACHE));
+  for (const root of [poisoned, clean]) assert.equal((await run(root, [], { graphCache: realClock })).code, 0);
+  assert.deepEqual(catalogFiles(poisoned), catalogFiles(clean));
+  const rewritten = JSON.parse(read(poisoned, CACHE)).entries;
+  assert.ok(guide in rewritten);
+  for (const [path, entry] of Object.entries(rewritten)) assert.deepEqual(entry, coldEntry(poisoned, path), path);
+});
+
+test('a cache write that fails leaves the old cache, prints one line and does not change the exit code', async (t) => {
+  const root = vault(t);
+  backdate(root);
+  assert.equal((await run(root, [], { graphCache: realClock })).code, 0);
+  const before = readFileSync(join(root, CACHE));
+  writeFileSync(join(root, 'wiki/concepts/idea.md'), '---\ntype: concept\nsources: []\n---\n# Idea\n\nAn edited concept page.\n');
+  utimesSync(join(root, 'wiki/concepts/idea.md'), OLD, OLD);
+  const renameFails = await run(root, [], { graphCache: { ...realClock, renameImpl: () => { throw Object.assign(new Error('rename refused'), { code: 'EBUSY' }); } } });
+  assert.equal(renameFails.code, 0, renameFails.output);
+  assert.deepEqual(readFileSync(join(root, CACHE)), before, 'the old file is intact');
+  assert.equal(renameFails.output.split('\n').filter((line) => /graph cache/.test(line)).length, 1, renameFails.output);
+  assert.match(renameFails.output, /refresh-index: the graph cache was not written: rename refused/);
+  assert.match(renameFails.output, /search index: saved/);
+  const writeFails = await run(root, [], { graphCache: { ...realClock, writeFileImpl: () => { throw Object.assign(new Error('disk full'), { code: 'ENOSPC' }); } } });
+  assert.equal(writeFails.code, 0, writeFails.output);
+  assert.deepEqual(readFileSync(join(root, CACHE)), before);
+  assert.deepEqual(readdirSync(join(root, '.wiki-master')).filter((n) => n.includes('graph-cache') && n !== 'graph-cache.json'), [], 'no temp file is left');
 });
 
 // ---- embedding failures come after the catalogs ----

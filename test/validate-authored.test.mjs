@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync, symlinkSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
+import { buildGraph } from '../scripts/lib/graph.mjs';
+import { deriveIntegrity } from '../scripts/lib/integrity.mjs';
+import { writeGraphCache } from '../scripts/lib/graph-cache-write.mjs';
 import * as contract from '../scripts/lib/authored-contract.mjs';
 import { BACKLOG_STATUS_ORDER, KIND_ORDER } from '../scripts/lib/authored-group.mjs';
 
@@ -47,7 +50,7 @@ function vault(t) {
     cwd: scratch, encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: root },
   });
   const runLedger = (paths, extra = []) => run(['--paths-file', ledger(paths), ...extra]);
-  return { root, scratch, put, ledger, ledgerText, run, runLedger, validate: paths => validateAuthored(root, paths) };
+  return { root, scratch, put, ledger, ledgerText, run, runLedger, validate: (paths, options) => validateAuthored(root, paths, options) };
 }
 
 const rules = (result, path) => result.defects.filter(d => !path || d.path === path).map(d => d.rule);
@@ -405,9 +408,33 @@ test('the vault is byte-for-byte unchanged after a run: no write, no timestamp c
 
 test('the validator source has no write, delete, rename or directory-creating call', () => {
   const forbidden = /\b(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|mkdtemp|mkdtempSync|rm|rmSync|rmdir|unlink|unlinkSync|rename|renameSync|copyFile|copyFileSync|createWriteStream|utimes|utimesSync|chmod|openSync|truncate)\(/;
-  for (const file of ['scripts/validate-authored.mjs', 'scripts/lib/authored-contract.mjs']) {
+  for (const file of ['scripts/validate-authored.mjs', 'scripts/lib/authored-contract.mjs', 'scripts/lib/graph-cache-read.mjs']) {
     assert.doesNotMatch(readFileSync(join(ROOT, file), 'utf8'), forbidden, file);
   }
+});
+
+test('validate-authored and health import the graph cache reader and never the writer', () => {
+  for (const file of ['scripts/validate-authored.mjs', 'scripts/health.mjs']) {
+    const source = readFileSync(join(ROOT, file), 'utf8');
+    assert.match(source, /from '\.\/lib\/graph-cache-read\.mjs'/, file);
+    assert.doesNotMatch(source, /graph-cache-write/, file);
+  }
+});
+
+test('a valid graph cache in the vault is read, not written: its bytes and time are unchanged and no file appears', t => {
+  const v = exampleFixture(t);
+  const old = new Date(Date.now() - 3600_000);
+  for (const path of [...v.ledgerPaths, `${DEMO}/notes/outside-broken.md`, 'wiki/authored/other/roadmap.md']) utimesSync(join(v.root, path), old, old);
+  const graph = buildGraph(v.root, { derive: deriveIntegrity });
+  writeGraphCache(v.root, graph.records, { builtAtMs: Date.now() });
+  const cache = join(v.root, '.wiki-master', 'graph-cache.json');
+  assert.ok(Object.keys(JSON.parse(readFileSync(cache, 'utf8')).entries).length > 0, 'the cache holds entries');
+  const before = snapshot(v.root);
+  const json = v.runLedger(v.ledgerPaths, ['--json']);
+  const text = v.runLedger(v.ledgerPaths);
+  assert.deepEqual([json.status, text.status], [1, 1]);
+  assert.deepEqual(JSON.parse(json.stdout), v.validate(v.ledgerPaths, { noCache: true }), 'the same result as a cold run');
+  assert.deepEqual([...snapshot(v.root)], [...before]);
 });
 
 // ------------------------------------------------------------ ledger shape --

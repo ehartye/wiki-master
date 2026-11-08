@@ -116,7 +116,7 @@ test('a walk with nothing to skip returns an empty skippedPaths and the pages it
   const { root } = fixture(t);
   const graph = buildGraph(root);
   assert.deepEqual(graph.skippedPaths, []);
-  assert.deepEqual(Object.keys(graph).sort(), ['pages', 'skippedPaths']);
+  assert.deepEqual(Object.keys(graph).sort(), ['pages', 'records', 'skippedPaths']);
   assert.deepEqual(graph.pages.map(p => p.path).sort(), ['moc/project.md', 'raw/clippings/clip.md', 'wiki/concepts/alpha.md', 'wiki/sources/beta.md']);
 });
 
