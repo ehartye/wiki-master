@@ -38,6 +38,28 @@ test('tokenize keeps a negative-number sign as a symbol whether it is a hyphen o
   assert.deepEqual(tokenize('1990-1995, pages 5-10 and well-known (a - b)'), ['1990', '1995', 'pages', '5', '10', 'and', 'well', 'known', 'a', 'b']);
 });
 
+// An HTML table row on its own line: the tag strip leaves the first cell at the start of the line, where the
+// list and blockquote rules used to read "1790." or "+" or ">" as a marker and drop it. A row reads the same on
+// its own line as inside a longer line; ordinary list and quote lines still lose their markers.
+for (const cell of ['1790.', '+', '>', '2)']) {
+  test(`tokenize keeps the first cell of a table row on its own line (${cell})`, () => {
+    const row = `<tr><td>${cell}</td><td>founded the city</td></tr>`;
+    const own = tokenize(`The table:\n${row}\nends here.`);
+    assert.deepEqual(own, tokenize(`The table: ${row} ends here.`));
+    assert.deepEqual(tokenize(`The table:\n  ${row.toUpperCase()}\nends here.`), tokenize(`The table: ${row.toUpperCase()} ends here.`), 'tags in upper case, indented');
+    for (const tag of ['table', 'thead', 'tbody', 'th']) {
+      assert.deepEqual(tokenize(`x\n<${tag}>${cell} y`), tokenize(`x <${tag}>${cell} y`), `<${tag}>`);
+    }
+  });
+}
+
+test('a list or quote marker outside a table row is still dropped', () => {
+  assert.deepEqual(tokenize('1790. In that year'), ['in', 'that', 'year']);
+  assert.deepEqual(tokenize('> quoted words here'), ['quoted', 'words', 'here']);
+  assert.deepEqual(tokenize('<b>bold</b>\n- item'), ['bold', 'item'], 'only table tags exempt a line');
+  assert.deepEqual(tokenize('<p>\n2) second'), ['second']);
+});
+
 // ── tier 2: convention — same words, different markup / punctuation / spacing ─
 
 test('matchFragment: markup and punctuation differences are convention, not drift', () => {
