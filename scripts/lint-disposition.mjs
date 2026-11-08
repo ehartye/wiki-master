@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
-import { classifyQuotes } from './lint.mjs';
+import { classifyQuotes, checkStyle } from './lint.mjs';
 import {
   DISPOSITIONS, DISPOSITIONS_FILE, appendDispositions, pruneDispositions, recordFor,
 } from './lib/lint-dispositions.mjs';
@@ -28,8 +28,12 @@ function record(values, vaultPath) {
   let pages;
   if (values.page !== undefined) pages = new Set([values.page]);
   else if (values['paths-file'] !== undefined) pages = new Set(checkLedgerPaths(readLedger(values['paths-file'])));
-  const { findings } = classifyQuotes(vaultPath, buildGraph(vaultPath), pages ? { pages } : {});
-  const byId = new Map(findings.map((f) => [f.id, f]));
+  const graph = buildGraph(vaultPath);
+  const { findings } = classifyQuotes(vaultPath, graph, pages ? { pages } : {});
+  // A style pointer is recorded the same way: its "quote" is the category and the flagged words, its evidence the hash of
+  // the sentence it was raised on, and its tier "style".
+  const style = checkStyle(vaultPath, graph, pages ? { pages } : {}).map((f) => ({ id: f.id, page: f.page, quote: `${f.category}: ${f.word}`, evidenceHash: f.evidenceHash, tier: 'style' }));
+  const byId = new Map([...style, ...findings].map((f) => [f.id, f]));
   const missing = ids.filter((id) => !byId.has(id));
   if (missing.length) throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote or its evidence may have changed; run lint.mjs --ids again)`);
   const date = new Date().toISOString().slice(0, 10);

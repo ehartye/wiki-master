@@ -8,7 +8,7 @@ import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from '.
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
 import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
-import { evidenceHashOf, findingId, DISPOSITIONS_FILE, loadDispositions, reviewedBy } from './lib/lint-dispositions.mjs';
+import { evidenceHashOf, findingId, contextHashOf, DISPOSITIONS_FILE, loadDispositions, reviewedBy } from './lib/lint-dispositions.mjs';
 cliGuard(import.meta.url);
 
 // Content lints for the v0.2.2 style policy. WARN-ONLY by contract: flag for
@@ -264,6 +264,36 @@ const LICENSE = {
 };
 
 const CONNECTIVES = /\b(however|but|despite|yet)\b/i;
+// Uses of these words that are not a contrast: a time word ("not yet built", "yet to ship") and "but" meaning "except"
+// ("nothing but a stub"). They are taken out of a sentence before it is tested for a contrast connective.
+const NOT_A_CONTRAST = /\bnot yet\b|\byet to\b|\bas yet\b|\b(?:nothing|anything|none|all|everyone|everybody|anyone|no one|nobody)\s+but\b/gi;
+// A paragraph ends at a blank line and also where a list item, heading or table row starts: a citation after a list item
+// does not cover the item before it.
+const STYLE_PARAGRAPH_BREAK = /\r?\n[ \t]*\r?\n|\r?\n(?=[ \t]*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|))/;
+const SENTENCE_BREAK = /(?<=[.!?])\s+/;
+
+// A contrast connective in a sentence is covered when that sentence, or a later sentence of its paragraph, carries a
+// [[citation]]: pages cite at the end of a paragraph, and that citation stands for what precedes it. A citation only
+// BEFORE the sentence does not cover it, which is the unsourced joint this check exists to find.
+export function uncoveredContrasts(body) {
+  const out = [];
+  for (const paragraph of body.split(STYLE_PARAGRAPH_BREAK)) {
+    const sentences = paragraph.split(SENTENCE_BREAK);
+    sentences.forEach((s, i) => {
+      if (!CONNECTIVES.test(s.replace(NOT_A_CONTRAST, ' '))) return;
+      if (sentences.slice(i).some((x) => x.includes('[['))) return;
+      out.push(s.trim());
+    });
+  }
+  return out;
+}
+
+// Each finding has an id (page, category, the flagged words and a hash of the sentence(s) it was raised on) so a reviewer
+// can record that it was read (lint-disposition.mjs). `evidenceHash` stays internal, as it does for quotes.
+const styleFinding = (page, category, word, context) => {
+  const evidenceHash = contextHashOf(context);
+  return { page, category, word, id: findingId({ page, quote: `${category}: ${word}`, evidenceHash }), evidenceHash };
+};
 
 export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
   const findings = [];
@@ -275,21 +305,18 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
     // Quotation exemption: nothing inside quotation marks is ever flagged.
     body = body.replace(/["“][^"“”]*["”]/g, '""');
+    const sentences = body.split(SENTENCE_BREAK);
     for (const cat of LICENSE[dir]) {
       for (const w of STYLE[cat]) {
         const re = new RegExp(`(?<![\\w-])${w.replace(/[- ]/g, '[- ]')}(?![\\w-])`, 'i');
-        if (re.test(body)) findings.push({ page: p.path, category: cat, word: w });
+        if (re.test(body)) findings.push(styleFinding(p.path, cat, w, sentences.filter((s) => re.test(s)).join('\n') || w));
       }
     }
     // Connective-SYNTH weak signal, syntheses only: a contrast connective in a
-    // sentence carrying no [[citation]] may be an unsourced joint (WP:SYNTH's
+    // sentence no [[citation]] covers may be an unsourced joint (WP:SYNTH's
     // "but"). Weakest signal — report last, expect false positives.
     if (dir === 'wiki/syntheses/') {
-      for (const s of body.split(/(?<=[.!?])\s+/)) {
-        if (CONNECTIVES.test(s) && !s.includes('[[')) {
-          findings.push({ page: p.path, category: 'connective', word: s.trim().slice(0, 70) });
-        }
-      }
+      for (const s of uncoveredContrasts(body)) findings.push(styleFinding(p.path, 'connective', s.slice(0, 70), s));
     }
   }
   return findings;
@@ -353,6 +380,7 @@ export function main(argv = process.argv.slice(2)) {
     const per = (reviewed) => Object.fromEntries(TIERS.map((t) => [t, findings.filter((f) => f.tier === t && !!verdict(f) === reviewed).length]));
     tiers.reviewed = per(true);
     tiers.unreviewed = per(false);
+    tiers.styleReviewed = style.filter((f) => reviewedBy(dispositions, f)).length;
   }
   const wanted = args.tier && args.tier !== 'all' ? [args.tier] : (args.json || args.tier === 'all' ? TIERS : SHOW_BY_DEFAULT);
   const inPage = (x) => !args.page || x.page.includes(args.page);
@@ -365,7 +393,14 @@ export function main(argv = process.argv.slice(2)) {
   // passage is likeliest to hide among the header-and-timestamp noise.
   const skipped = (f) => f.inserted.join(' ').split(' ').filter(Boolean).length;
   listed.sort((x, y) => (x.tier === 'gapped' && y.tier === 'gapped' ? skipped(y) - skipped(x) : 0));
-  const shownStyle = style.filter(inPage);
+  // Style pointers follow the same rule as quotes: a recorded verdict hides one, --include-reviewed lists it with the verdict,
+  // and the id is shown only when asked for. A pointer whose sentence was reworded has a new id and is read again.
+  const styleVerdict = (f) => (dispositions ? reviewedBy(dispositions, f) : null);
+  const shapeStyle = ({ evidenceHash, id, ...rest }) => {
+    const v = args.includeReviewed ? styleVerdict({ id }) : null;
+    return { ...rest, ...(args.ids ? { id } : {}), ...(v ? { reviewed: { disposition: v.disposition, reviewer: v.reviewer, date: v.date, ...(v.note ? { note: v.note } : {}) } } : {}) };
+  };
+  const shownStyle = style.filter((f) => inPage(f) && (args.includeReviewed || !styleVerdict(f))).map(shapeStyle);
 
   const near = args.near ? nearMatches(vaultPath, graph, findings.filter((f) => inPage(f) && visible(f))) : null;
 
@@ -414,10 +449,10 @@ Near matches (--near): ${near.listed.length} unverified quote(s) of ${near.minWo
   const byCat = {};
   for (const f of shownStyle) (byCat[f.category] ??= []).push(f);
   console.log(`
-Style flags: ${shownStyle.length}`);
+Style flags: ${shownStyle.length}${tiers.styleReviewed && !args.includeReviewed ? ` (${tiers.styleReviewed} more with a recorded verdict, not listed)` : ''}`);
   for (const [cat, fs] of Object.entries(byCat)) {
     console.log(`  ${cat}: ${fs.length}`);
-    for (const f of fs.slice(0, 5)) console.log(`    ${f.page} — ${f.word}`);
+    for (const f of fs.slice(0, 5)) console.log(`    ${f.page} — ${f.word}${args.ids ? ` [${f.id}]` : ''}`);
     if (fs.length > 5) console.log(`    ... and ${fs.length - 5} more`);
   }
   return { findings: listed.map(shape), tiers, ...(scope ? { scope: scope.info } : {}), style: shownStyle };
@@ -435,7 +470,7 @@ const USAGE = [
   '  --page=<path>  limit the report to pages whose path contains this text (the whole vault is still examined)',
   '  --paths-file=<ledger>      examine only the pages a JSON array of vault-relative paths names',
   '  --updated-since=<date>     examine only pages whose `updated` is on or after the date; with --paths-file, both must hold',
-  '  --ids          show the id of each finding, which lint-disposition.mjs takes',
+  '  --ids          show the id of each finding (quotes and style flags), which lint-disposition.mjs takes',
   '  --include-reviewed         list findings that have a recorded verdict too, with the verdict',
   'When lint-dispositions.jsonl exists in the vault, findings with a recorded verdict are not listed and the summary counts them.',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',

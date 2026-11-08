@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.96.0 — 2026-11-08
+
+- `lint.mjs` flags a contrast connective (`however`, `but`, `despite`, `yet`) in a synthesis only when no `[[citation]]` covers its sentence. A citation in the same sentence or in a later sentence of the same paragraph covers it, because pages cite at the end of a paragraph; a citation only before the sentence does not. A list item, heading or table row starts a new paragraph. `not yet`, `yet to`, `as yet` and `nothing but` are no longer read as contrasts.
+- Every style flag has an id, shown by `--ids` and made of the page, the category, the flagged words and a hash of the sentence it was raised on. `lint-disposition.mjs record` accepts a style id like a quote id, `lint.mjs` leaves a flag with a recorded verdict out of its listing and counts it in `tiers.styleReviewed`, and `--include-reviewed` lists it with the verdict. Rewording the flagged sentence gives it a new id. The records share `lint-dispositions.jsonl` and have the quote record's shape, so an earlier version reads the file and ignores them.
+- `--json` style entries no longer carry the internal `evidenceHash`.
+
 ## 0.95.0 — 2026-11-08
 
 - Add an optional `specced-in` key for backlog items: a list of quoted wikilinks to the spec items that cover them, with an optional `|WPn` work-package label (`specced-in: ["[[some-spec|WP2]]"]`). A spec is any backlog item another item names; there is no new kind. Existing "Specced in" prose lines stay valid and are not read.

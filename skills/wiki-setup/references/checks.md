@@ -87,7 +87,8 @@ These reporting options do not record new verdicts.
 Read a bounded sample and the exact evidence trail before judging quotations.
 Check ambiguous/misrouted citations first. Distinguish own wording, mention/title
 quotes, retracted claims, real drift and unsupported claims. Style flags are
-review pointers, not scored violations. The
+review pointers, not scored violations; each has an id (`--ids`) and a reviewed one is
+recorded like a quote and left out of the listing. The
 [content-lint contract](../../../README.md#content-lint) describes mark pairing
 (curly marks nest; straight marks alternate) and skipped style spans.
 
