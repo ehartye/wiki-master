@@ -388,10 +388,19 @@ export function buildNameIndex(pages) {
       labels.get(key).add(p.path);
     }
   }
+  // Both per-label lookups are built once (a scan per label cost labels times pages). The stem table keeps page
+  // order, so each label's `paths` Set gains its same-named pages in the order the scan gave them.
+  const identityByStem = new Map();
+  for (const p of identityPages) {
+    const stem = normalizeIdentity(p.name);
+    if (!identityByStem.has(stem)) identityByStem.set(stem, []);
+    identityByStem.get(stem).push(p.path);
+  }
+  const strippedPaths = new Set(pages.map(p => p.path.replace(/\.md$/i, '').toLowerCase()));
   for (const [key, paths] of labels) {
-    for (const p of identityPages) if (normalizeIdentity(p.name) === key) paths.add(p.path);
+    for (const path of identityByStem.get(key) ?? []) paths.add(path);
     // Full canonical paths always win over title/alias labels.
-    if (pages.some(p => p.path.replace(/\.md$/i, '').toLowerCase() === key.replace(/\.md$/i, ''))) continue;
+    if (strippedPaths.has(key.replace(/\.md$/i, ''))) continue;
     const raw = [...paths].filter(path => path.startsWith('raw/'));
     const content = [...paths].filter(isContent);
     // Within one channel: a generated MOC yields to real content in navigation, and a file whose
