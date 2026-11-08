@@ -99,11 +99,14 @@ export function computeHealth({ orphans, deadEnds, brokenLinks, hubStubs, monoli
     // hash-joined at all, so it is surfaced for repair. Migration progress: source
     // pages that cite raw but have not yet recorded a hash (fallback still credits
     // them; the count reaches 0 when the vault is fully migrated).
-    `\n  clippings missing source-hash (repair): ${missingHash.length}` +
+    `\n  clippings missing source-hash (repair): ${missingHash.length}${repairHint(missingHash)}` +
     (missingHash.length ? `\n    ${missingHash.join('\n    ')}` : '') +
     `\n  source pages awaiting hash backfill: ${backfillPending}`;
   return { score, orphans, deadEnds, brokenLinks, hubStubs, monolithCandidates, unparsedSources, unsummarizedSources, missingHash, backfillPending, provenanceGaps, unreachableProvenance, declaredNoProvenance, declaredStubs, brokenClass, report };
 }
+
+// The command that repairs a clipping with no source-hash, named on the line that counts them.
+const repairHint = (missingHash) => (missingHash.length ? ' (repair: node scripts/repair-missing-hash.mjs)' : '');
 
 // The ingest backlog is the first question wiki-researcher ingestion asks, and in the full
 // report its four lines sit last, under every deferred forward-link. --backlog
@@ -114,7 +117,7 @@ export function backlogReport({ unparsedSources = [], unsummarizedSources = [], 
     `Ingest backlog\n` +
     `  not ingested (no summary records their hash): ${unsummarizedSources.length}` + list(unsummarizedSources) +
     `\n  unparsed raw sources (nothing cites them): ${unparsedSources.length}` + list(unparsedSources) +
-    `\n  clippings missing source-hash (repair): ${missingHash.length}` + list(missingHash) +
+    `\n  clippings missing source-hash (repair): ${missingHash.length}${repairHint(missingHash)}` + list(missingHash) +
     `\n  source pages awaiting hash backfill: ${backfillPending}`
   );
 }

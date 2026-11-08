@@ -166,6 +166,7 @@ A source a clipper declines (`--decline="reason"`, or its own thin-content and w
 `npm test` (or `node --test`) runs the unit suite for the deterministic scripts
 against a fixture vault — no running Obsidian required. See
 `docs/superpowers/specs/` and `docs/superpowers/plans/` for the design and plan.
+[docs/scripts.md](docs/scripts.md) lists every script under `scripts/` with its purpose.
 
 ### Tests and the vault
 
