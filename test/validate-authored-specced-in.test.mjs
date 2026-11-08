@@ -117,8 +117,7 @@ test('the command exits 1 on a dangling spec and 0 once the spec exists', t => {
   assert.equal(green.status, 0, green.stdout + green.stderr);
 });
 
-// The documentation lands with the docs package; until then this is a todo, not a failure.
-test('the specced-in key and its six rules are written where authors read them', { todo: 'documented by the docs work package' }, () => {
+test('the specced-in key and its six rules are written where authors read them', () => {
   const read = file => readFileSync(join(ROOT, file), 'utf8');
   const authoring = read('skills/wiki-project/references/backlog.md');
   const validation = read('skills/wiki-setup/references/validation.md');
@@ -130,4 +129,5 @@ test('the specced-in key and its six rules are written where authors read them',
   }
   assert.ok(authoring.includes('Specced work'), 'authoring reference names the generated section');
   assert.ok(authoring.includes('--specced-in'), 'authoring reference names the list filter');
+  assert.match(authoring.replace(/\s+/g, ' '), /same spec twice[^.]*labels[^.]*joined with [`"]?, /, 'authoring reference says how two labels for one spec are shown');
 });

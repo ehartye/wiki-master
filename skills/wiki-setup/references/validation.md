@@ -57,6 +57,12 @@ Under `wiki/authored/`:
   that is not a backlog item, where it is ignored. Only the item's own project backlog
   folder is read, so these checks add no second whole-vault scan.
 
+- `specced-in-dangling`, `specced-in-cross-project`, `specced-in-self`, `specced-in-cycle`,
+  `specced-in-malformed`, `specced-in-misplaced`: the same checks for `specced-in`, whose
+  entries must link to a backlog item of the same project (the spec). The `|WP1` label is
+  not checked. A chain of specs is allowed; only a loop is a cycle. A page whose body says
+  `Specced in [[spec]]` and has no key is not checked.
+
 On every wiki content page: `ambiguous-link`, `malformed-link` (a hard-wrapped link
 is one), `unresolved-citation`, `malformed-frontmatter` (the page's metadata is not
 read because of a stray carriage return or an unclosed fence), `missing-evidence`,
