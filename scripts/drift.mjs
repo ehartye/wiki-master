@@ -7,6 +7,8 @@ import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 import { buildGraph, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { parseNote } from './lib/note.mjs';
 import { chunkMarkdown } from './lib/chunk.mjs';
+import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
+import { readDriftState, writeDriftState } from './lib/drift-state.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -54,25 +56,60 @@ function centroid(vecs) {
   return out;
 }
 
-export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHOLD, limit, coverage = false, unavailable = false } = {}) {
+export const SELECTION_RULE = 'never-evaluated, changed, oldest';
+const REASON_RANK = { 'never-evaluated': 0, changed: 1, oldest: 2 };
+const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+// The order in which eligible pages are evaluated: pages this machine never evaluated, then pages whose text
+// changed since their evaluation, then the rest by the time of their evaluation, oldest first; ties by path.
+// `state` maps a path to { evaluatedAt, pageHash } (lib/drift-state.mjs). Only the page's own text is compared:
+// hashing its evidence would mean reading every evidence document before choosing.
+export function selectDriftPages(pages, state = {}, limit) {
+  return pages.map(page => {
+    const entry = state[page.path];
+    const reason = !entry ? 'never-evaluated' : entry.pageHash !== page.pageHash ? 'changed' : 'oldest';
+    return { page, reason, at: reason === 'oldest' ? String(entry.evaluatedAt ?? '') : '' };
+  }).sort((a, b) => REASON_RANK[a.reason] - REASON_RANK[b.reason] || compare(a.at, b.at) || compare(a.page.path, b.page.path))
+    .slice(0, limit ?? Infinity);
+}
+
+// `pages` are either complete ({ path, body, sources: [{ path, content }] }) or the light descriptors of
+// collectDriftPages ({ path, pageHash, sources: [{ path }], load }), whose body and evidence are read by `load()`
+// only when the page is picked. `named`, the paths of a --paths-file ledger, restricts the pool to those pages; a
+// name that is not an eligible page is skipped as not-eligible.
+export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHOLD, limit, coverage = false, unavailable = false, state = {}, named = null } = {}) {
   if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) throw new Error('limit must be a positive integer');
   const drifted = [], evaluated = [], failed = [], skippedPages = [];
-  const eligible = pages.filter(page => page.sources?.length).length;
-  let attempted = 0;
-  for (const page of pages) {
+  let pool = pages;
+  if (named) {
+    const byPath = new Map(pages.map(page => [page.path, page]));
+    pool = [];
+    for (const path of named) {
+      const page = byPath.get(path);
+      if (page?.sources?.length) pool.push(page);
+      else skippedPages.push({ path, reason: 'not-eligible' });
+    }
+  }
+  const eligiblePages = pool.filter(page => page.sources?.length);
+  const eligible = eligiblePages.length;
+  const total = pool.length + (named ? skippedPages.length : 0);
+  const picked = selectDriftPages(eligiblePages, state, limit);
+  const pickedPaths = new Set(picked.map(p => p.page.path));
+  const evaluatedBefore = eligiblePages.filter(page => state[page.path]).length;
+  for (const page of pool) {
     const reason = !page.sources?.length ? 'no reachable readable evidence'
       : coverage ? 'coverage only' : unavailable ? 'embedder unavailable'
-      : attempted >= (limit ?? Infinity) ? 'limit' : null;
+      : !pickedPaths.has(page.path) ? 'limit' : null;
     if (reason) { skippedPages.push({ path: page.path, reason }); continue; }
-    attempted++;
     // One un-embeddable page (or raw source -- typically the longest content
     // in the vault, so likeliest to exceed the embedding model's context
     // window) must not take the whole drift run down. Recorded, never silent.
     try {
-      const pageResult = await documentVector(page.body, embedFn);
+      const loaded = page.load ? page.load() : page;
+      const pageResult = await documentVector(loaded.body, embedFn);
       const srcVecs = [];
       const documents = [];
-      const chosenSources = sample(page.sources, MAX_SOURCES);
+      const chosenSources = sample(loaded.sources, MAX_SOURCES);
       for (const s of chosenSources) {
         const result = await documentVector(s.content, embedFn);
         srcVecs.push(result.vector);
@@ -88,27 +125,42 @@ export async function computeDrift(pages, { embedFn, threshold = DEFAULT_THRESHO
       failed.push({ path: page.path, error: err.message });
     }
   }
+  const evaluatedPaths = new Set(evaluated.map(e => e.path));
   return { drifted, evaluated, failed, skipped: coverage || unavailable, coverage, skippedPages,
-    counts: { total: pages.length, eligible, ineligible: pages.length - eligible,
+    counts: { total, eligible, ineligible: total - eligible,
       evaluated: evaluated.length, failed: failed.length, skipped: skippedPages.length,
-      skippedEligible: eligible - evaluated.length - failed.length } };
+      skippedEligible: eligible - evaluated.length - failed.length },
+    // `picked` is the pages this run evaluates (or, for --coverage or an unavailable embedder, would evaluate).
+    selection: { rule: SELECTION_RULE, evaluatedBefore, eligible, picked: picked.map(p => ({ path: p.page.path, reason: p.reason })) },
+    // Eligible pages evaluated on this machine at some time, this run included.
+    everEvaluated: eligiblePages.filter(page => state[page.path] || evaluatedPaths.has(page.path)).length };
 }
 
-export function collectDriftPages(vaultPath) {
+// Light descriptors: the page text is read here (its hash decides "changed"), but no evidence document is read
+// until `load()` is called for a picked page. `readFile` is injectable to count reads.
+export function collectDriftPages(vaultPath, { readFile = readFileSync } = {}) {
   const { pages } = buildGraph(vaultPath);
   const byName = buildNameIndex(pages);
   const byPath = new Map(pages.map(page => [page.path, page]));
   return pages.filter(page => /^wiki\/(concepts|syntheses)\/.+\.md$/.test(page.path)).map(page => {
     const evidence = evidencePaths(page, byName, byPath).filter(path => path.endsWith('.md'));
     const raw = evidence.filter(path => path.startsWith('raw/'));
-    const sources = (raw.length ? raw : evidence).map(path => ({ path, content: parseNote(readFileSync(join(vaultPath, path), 'utf8')).body }));
-    return { path: page.path, body: parseNote(readFileSync(join(vaultPath, page.path), 'utf8')).body, sources };
+    const sourcePaths = raw.length ? raw : evidence;
+    const text = readFile(join(vaultPath, page.path), 'utf8');
+    return {
+      path: page.path, pageHash: hash(text), sources: sourcePaths.map(path => ({ path })),
+      load: () => ({ body: parseNote(text).body, sources: sourcePaths.map(path => ({ path, content: parseNote(readFile(join(vaultPath, path), 'utf8')).body })) }),
+    };
   });
 }
 
 export function formatDriftReport(result) {
   const c = result.counts;
   const lines = [`drift: total ${c.total} · eligible ${c.eligible} · ineligible ${c.ineligible} · evaluated ${c.evaluated} · failed ${c.failed} · skipped ${c.skipped} (${c.skippedEligible} eligible)`];
+  if (result.selection) {
+    lines.push(`drift: selection: never-evaluated first, then changed since last evaluation, then oldest evaluated (${result.selection.evaluatedBefore} of ${result.selection.eligible} eligible pages evaluated before on this machine)`);
+    lines.push('drift: a page counts as changed when its own text changed; edits to its evidence alone are not tracked');
+  }
   if (result.coverage) lines.push('drift: coverage only; no embeddings or factual verification performed');
   else if (!c.evaluated) lines.push('drift: no pages evaluated; no clean verdict is available');
   else if (!result.drifted.length) lines.push('drift: no evaluated pages diverged from their sources');
@@ -125,8 +177,11 @@ export function formatDriftReport(result) {
 // Hash-keyed embedding cache (loadCache/saveCache/hash) now lives in
 // lib/embed-cache.mjs, shared with search.mjs.
 
-export async function main(argv = []) {
+// The second argument injects the embedder, the availability probe, the clock, the state directory (default
+// <vault>/.wiki-master), the output and the file read, for tests.
+export async function main(argv = [], { embed = ollamaEmbed, available = isAvailable, now = () => new Date(), stateDir, print = console.log, readFile } = {}) {
   const options = {};
+  let pathsFile;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--coverage') options.coverage = true;
     else if (argv[i] === '--json') options.json = true;
@@ -134,31 +189,44 @@ export async function main(argv = []) {
       const value = argv[i] === '--limit' ? argv[++i] : argv[i].slice('--limit='.length);
       if (!/^\d+$/.test(value ?? '') || Number(value) < 1 || !Number.isSafeInteger(Number(value))) throw new Error('--limit must be a positive integer');
       options.limit = Number(value);
+    } else if (argv[i] === '--paths-file' || argv[i].startsWith('--paths-file=')) {
+      pathsFile = argv[i] === '--paths-file' ? argv[++i] : argv[i].slice('--paths-file='.length);
+      if (!pathsFile) throw new Error('--paths-file needs a ledger file (a JSON array of vault-relative paths)');
     } else throw new Error(`unknown argument: ${argv[i]}`);
   }
+  const named = pathsFile === undefined ? null : checkLedgerPaths(readLedger(pathsFile));
   const { path: vaultPath } = resolveVault();
-  const pages = collectDriftPages(vaultPath);
-  const unavailable = !options.coverage && !(await isAvailable());
-  if (options.coverage || unavailable) {
-    const r = await computeDrift(pages, { ...options, unavailable });
-    if (options.json) console.log(JSON.stringify(r));
-    else for (const line of formatDriftReport(r)) console.log(line);
+  const pages = collectDriftPages(vaultPath, { readFile });
+  const dir = stateDir ?? join(vaultPath, '.wiki-master');
+  const state = readDriftState(dir, vaultPath);
+  const report = (r) => {
+    if (options.json) print(JSON.stringify(r));
+    else for (const line of formatDriftReport(r)) print(line);
     return r;
-  }
+  };
+  const unavailable = !options.coverage && !(await available());
+  if (options.coverage || unavailable) return report(await computeDrift(pages, { ...options, unavailable, state, named }));
   const cacheDir = join(vaultPath, '.wiki-master');
   const cache = loadCache(cacheDir);
   const cachedEmbed = async (text) => {
     const k = hash(text);
     if (cache[k]) return cache[k];
-    const v = await ollamaEmbed(text);
+    const v = await embed(text);
     cache[k] = v;
     return v;
   };
-  const r = await computeDrift(pages, { ...options, embedFn: cachedEmbed });
+  const r = await computeDrift(pages, { ...options, embedFn: cachedEmbed, state, named });
   saveCache(cacheDir, cache);
-  if (options.json) console.log(JSON.stringify(r));
-  else for (const line of formatDriftReport(r)) console.log(line);
-  return r;
+  // Record the pages evaluated now (not failed ones), and drop pages that are no longer eligible anywhere in the
+  // vault. A --paths-file run keeps the entries of pages it did not name.
+  const eligible = new Set(pages.filter(page => page.sources?.length).map(page => page.path));
+  const next = Object.fromEntries(Object.entries(state).filter(([path]) => eligible.has(path)));
+  const hashes = new Map(pages.map(page => [page.path, page.pageHash]));
+  const evaluatedAt = now().toISOString();
+  for (const e of r.evaluated) next[e.path] = { evaluatedAt, pageHash: hashes.get(e.path) };
+  try { writeDriftState(dir, vaultPath, next); }
+  catch (error) { console.error(`drift: could not record which pages were evaluated (${error.code ?? error.message}); the next run may pick them again`); }
+  return report(r);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
