@@ -64,6 +64,8 @@ export const NO_SKIP = new Set([
 // is marked before the tag strip and the marker rules skip it; other tag-led lines are unchanged.
 const TABLE_LINE = /(^|\n)(?=[ \t]*<(?:table|thead|tbody|tr|td|th)[\s>/])/gi;
 const TABLE_MARK = '\u0000';
+// The mark is removed wherever a NUL starts a line. A NUL the input already had there is removed the same way, and
+// that line, like a table line, skipped the marker rules. A NUL anywhere else in the input stays, and separates words.
 const TABLE_MARK_AT_LINE_START = /(^|\n)\u0000/g;
 
 // Reduce markdown to the words a reader sees. Applied to the quote AND the
@@ -82,7 +84,7 @@ export function flattenMarkdown(text) {
     .replace(/\\([_*\[\]()#>.\-!~`|])/g, '$1')              // backslash escapes
     .replace(/(^|\n)[ \t]*>[ \t>]*/g, '$1')                 // blockquote markers
     .replace(/(^|\n)[ \t]*(?:[-*+]|\d+[.)])[ \t]+/g, '$1')  // list markers
-    .replace(TABLE_MARK_AT_LINE_START, '$1')               // only the marks inserted above; a NUL in the text stays
+    .replace(TABLE_MARK_AT_LINE_START, '$1')               // a NUL at a line start: the mark, or one the input had
     .replace(/\[\d+\]|\[\^[^\]]+\]/g, ' ');                 // footnote / citation numbers
 }
 
