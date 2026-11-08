@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  tokenize, prepareDocument, matchFragment, classifyFragments,
+  tokenize, flattenMarkdown, prepareDocument, matchFragment, classifyFragments,
   GAP_MAX_RUN, GAP_SHORT_QUOTE, GAP_SHORT_BUDGET, GAP_CAP, maxInserted, DECLARES_ABSENT,
 } from '../scripts/lib/quote-match.mjs';
 
@@ -58,6 +58,12 @@ test('a list or quote marker outside a table row is still dropped', () => {
   assert.deepEqual(tokenize('> quoted words here'), ['quoted', 'words', 'here']);
   assert.deepEqual(tokenize('<b>bold</b>\n- item'), ['bold', 'item'], 'only table tags exempt a line');
   assert.deepEqual(tokenize('<p>\n2) second'), ['second']);
+});
+
+test('a NUL already in the text still separates words; only the table-line mark is removed', () => {
+  assert.deepEqual(tokenize('a\u0000b'), ['a', 'b']);
+  assert.equal(flattenMarkdown('a\u0000b'), 'a\u0000b');
+  assert.deepEqual(tokenize('words\u0000\n<tr><td>1790.</td></tr>'), ['words', '1790']);
 });
 
 // ── tier 2: convention — same words, different markup / punctuation / spacing ─

@@ -273,6 +273,9 @@ test('--paths-file evaluates exactly the named pages, --limit applies to them, a
 
 test('no evidence document is read for a page outside the selection', async (t) => {
   const v = selectionVault(t, 8);
+  // The counter sees only drift's own reads (the page texts and the evidence load() reads). buildGraph still reads
+  // every Markdown file, evidence included, with its own readFileSync, so this shows that evidence is loaded only for
+  // the picked pages, not that nothing else reads an evidence file.
   const reads = [];
   const readFile = (abs, encoding) => { reads.push(abs.replaceAll('\\', '/')); return readFileSync(abs, encoding); };
   const { r } = await v.run(['--limit', '2', '--json'], { readFile });
