@@ -68,7 +68,7 @@ Keep the exact diagnostic and distinguish what was sent:
 | Result | Next action |
 |---|---|
 | `CLI_REQUEST`, `CLI_BUSY`, `CLI_LOCK` | Request was not sent. Narrow an oversized read or use the supported filesystem channel. Do not disable the guard or split a note into repeated CLI writes. |
-| `Vault not found.`, `Error: ...`, or `Command line interface is not enabled...` | The CLI still exits 0 for these, so read the text rather than the exit code. Report it; nothing was done. |
+| `Vault not found.`, `Error: ...`, or `Command line interface is not enabled...` | The CLI itself exits 0 for these. The proxy and the helper (`scripts/lib/vault.mjs`) recognize them, fail with `OBSIDIAN_CLI_ERROR` and exit 1 with the CLI's words. Report them; nothing was done. Any other text on a successful exit is the answer. |
 | App unavailable | Report which app-only action could not run. Continue independent filesystem work; do not loop waiting or require an app restart for it. |
 | Command timeout or worker failure | A mutation may have run. Read the exact target and reconcile the intended effect before retrying or switching to filesystem editing. An app-only effect cannot be claimed from a filesystem approximation. |
 | Process death released the guard | This does not prove its child or submitted app mutation finished. Inspect the uncertain target as above. |

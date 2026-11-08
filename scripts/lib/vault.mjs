@@ -80,6 +80,16 @@ export function buildArgs(name, args) {
   return [`vault=${name}`, ...args];
 }
 
+// The CLI exits 0 when it refuses, so a refusal arrives as ordinary output. These are the refusals it is known to
+// print: the whole output "Vault not found.", the gate text that begins "Command line interface is not enabled", and a
+// single short line that begins "Error". `read` prints a note, which may begin with any word, so it is exempt from the
+// last rule. Output that merely mentions these words is an answer. Returns the CLI's words, or null.
+export function cliFailure(output, args) {
+  if (output === 'Vault not found.' || output.startsWith('Command line interface is not enabled')) return output;
+  if (args[0] !== 'read' && !/[\r\n]/.test(output) && output.length <= 300 && output.startsWith('Error')) return output;
+  return null;
+}
+
 // Reads normally finish in milliseconds. A hung app must not block an agent
 // indefinitely; callers with a known longer operation may supply a finite bound.
 // `name: null` names no vault, and `cwd` sets the folder the CLI runs from; see obsidianActive.
@@ -88,8 +98,9 @@ export function obsidian(args, { name = resolveVault().name, cwd, timeout = 10_0
   if (!Array.isArray(args) || !args.length) throw new Error('A CLI command is required; request not sent');
   const argv = name === null ? args : buildArgs(name, args);
   validateCliRequest(argv, cwd === undefined ? undefined : { cwd });
+  let output;
   try {
-    return execFileSyncImpl('obsidian', argv, {
+    output = execFileSyncImpl('obsidian', argv, {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
       timeout,
@@ -102,6 +113,9 @@ export function obsidian(args, { name = resolveVault().name, cwd, timeout = 10_0
     const msg = (err.stderr || err.message || '').toString();
     throw Object.assign(new Error(`obsidian ${args[0]} failed: ${msg}`, { cause: err }), { code: err.code });
   }
+  const refusal = cliFailure(output, args);
+  if (refusal !== null) throw Object.assign(new Error(`obsidian ${args[0]} failed: ${refusal}`), { code: 'OBSIDIAN_CLI_ERROR', cliOutput: refusal });
+  return output;
 }
 
 // Asks the running app about the vault it already has active. With no `vault=` the CLI uses the vault of its working

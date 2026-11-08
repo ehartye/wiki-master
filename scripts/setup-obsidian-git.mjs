@@ -90,7 +90,8 @@ function blocker(vault, { cli }) {
     if (restricted === 'on') return 'restricted mode is on in this vault, so it allows no community plugins.';
     if (restricted !== 'off') return `could not read restricted mode (it answered: ${restricted}).`;
   } catch (error) {
-    return error.message;
+    // A refusal the CLI printed with exit 0 keeps the words it always had here.
+    return error.code === 'OBSIDIAN_CLI_ERROR' ? `the Obsidian CLI answered unexpectedly: "${error.cliOutput}".` : error.message;
   }
   return null;
 }
@@ -119,7 +120,7 @@ function runStep(cli, args, options, success) {
     const failed = success ? !output.startsWith(success) : output.startsWith('Error');
     return failed ? output || 'no answer' : null;
   } catch (error) {
-    return error.message;
+    return error.code === 'OBSIDIAN_CLI_ERROR' ? error.cliOutput : error.message;
   }
 }
 

@@ -89,7 +89,7 @@ test('a refusal the CLI prints with exit 0 throws OBSIDIAN_CLI_ERROR carrying th
 });
 
 test('output that merely mentions those words still succeeds', () => {
-  for (const text of ['Notes: Vault not found. is printed when\nthe name is wrong', 'The vault was not found earlier', 'Command line interface is not enabled by default',
+  for (const text of ['Notes: Vault not found. is printed when\nthe name is wrong', 'The vault was not found earlier', 'Note: the command line interface is not enabled by default',
     'Error handling\nretries and backoff', `Error ${'x'.repeat(300)}`, 'Vault not found. Try again', '']) {
     assert.equal(obsidian(['search', 'query=x'], answering(text)), text.trim(), text.slice(0, 30));
   }
