@@ -43,19 +43,28 @@ export function checkLedger(paths) {
 
 // Does the file exist under exactly this spelling? A case-insensitive file system
 // would open a wrongly cased path, but the integrity scan keys pages by their real
-// spelling, so every link check on that page would silently vanish.
-function existsExactly(vaultPath, path, listings) {
+// spelling, so every link check on that page would silently vanish. Returns null when it
+// does, otherwise the reason: the first path part the directory lacks, and the entry that
+// equals it after Unicode normalization (NFC or NFD) or case folding, when one does.
+const MISSING = 'no file at this exact path (the letter case and Unicode normalization must match too)';
+const folded = name => name.normalize('NFC').toLowerCase();
+
+function missingReason(vaultPath, path, listings) {
   let dir = vaultPath;
   for (const part of path.split('/')) {
     let names = listings.get(dir);
     if (!names) {
-      try { names = new Set(readdirSync(dir)); } catch { return false; }
+      try { names = new Set(readdirSync(dir)); } catch { return MISSING; }
       listings.set(dir, names);
     }
-    if (!names.has(part)) return false;
+    if (!names.has(part)) {
+      const near = [...names].find(name => folded(name) === folded(part));
+      return near === undefined ? MISSING : `${MISSING}; the directory holds ${JSON.stringify(near)}`;
+    }
     dir = join(dir, part);
   }
-  try { return statSync(dir).isFile(); } catch { return false; }
+  // A symbolic link to a file is read as the page it points to.
+  try { return statSync(dir).isFile() ? null : MISSING; } catch { return MISSING; }
 }
 
 const withoutBom = text => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
@@ -194,8 +203,9 @@ export function validateAuthored(vaultPath, paths, { termRules = null, termProje
     // that is not Markdown, and dot-prefixed paths the vault walk never sees.
     if (!isContent(path) || path.split('/').some(part => part.startsWith('.'))) { skipped++; continue; }
     checked++;
-    if (!existsExactly(vaultPath, path, listings)) {
-      defects.push({ path, line: 1, rule: 'missing-file', message: 'no file at this exact path (the letter case must match too)' });
+    const missing = missingReason(vaultPath, path, listings);
+    if (missing) {
+      defects.push({ path, line: 1, rule: 'missing-file', message: missing });
       continue;
     }
     try { texts.set(path, readFileSync(join(vaultPath, path), 'utf8')); }
