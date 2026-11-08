@@ -260,6 +260,21 @@ test('an entry whose page or extra has the wrong inner shape is a miss: that fil
   }
 });
 
+test('an edit that keeps the size but has a new time, after the build, re-reads that page and nothing else', t => {
+  const { root } = fixture(t);
+  const abs = join(root, 'wiki/concepts/beta.md');
+  const builtAtMs = Date.now();
+  writeGraphCache(root, buildGraph(root, { derive: deriveIntegrity }).records, { builtAtMs });
+  const edited = FILES['wiki/concepts/beta.md'].replace('[[alpha]]', '[[gamma]]');
+  assert.equal(edited.length, FILES['wiki/concepts/beta.md'].length);
+  writeFileSync(abs, edited);
+  const later = new Date(builtAtMs + 5000);
+  utimesSync(abs, later, later);
+  const w = warm(root);
+  assert.deepEqual(w.reads, ['wiki/concepts/beta.md']);
+  assert.deepEqual(w.scan, cold(root));
+});
+
 test('the writer removes leftover temp files older than ten minutes and keeps a newer one, another write in progress', t => {
   const { root } = fixture(t);
   const dir = dirname(cacheFile(root));
