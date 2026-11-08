@@ -17,10 +17,6 @@ export const CLI_SPECS = {
       VAULT,
     ],
   },
-  'backfill-authored-metadata': {
-    options: ['apply'],
-    usage: ['usage: node scripts/backfill-authored-metadata.mjs [--apply]', '', 'One-time backfill of project:, kind: and decision-status: onto the existing wiki/authored/ pages.', DRY, VAULT],
-  },
   'backfill-source-hashes': {
     options: ['apply'],
     usage: ['usage: node scripts/backfill-source-hashes.mjs [--apply]', '', 'One-time migration: records each legacy wiki/sources page\'s clipping hashes in a source-hashes: field.', DRY, VAULT],

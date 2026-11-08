@@ -115,13 +115,8 @@ because another writer may be editing it, and changes nothing: rerun after that 
 for review and `--exclude=<prefix>` reports them without rewriting (both repeatable): use them for pages
 whose citations an app reads by title. A bare-name link such as `[[README.md]]` is not rewritten.
 
-**Backfilling `project:`/`kind:` onto pre-existing `wiki/authored/` pages.** A vault
-whose authored pages predate this convention has none of it set. Repair from the
-plugin root: `node "<absolute-plugin-root>/scripts/backfill-authored-metadata.mjs"` (dry-run) then `--apply`
-— deterministic, filename- and content-shape-driven classification (never a guess:
-a field it cannot resolve confidently is left unset rather than labeled wrong), and
-idempotent, so it is safe to re-run as new authored pages arrive without metadata
-of their own yet.
+**A `wiki/authored/` page missing `project:` or `kind:`** is reported by `validate-authored.mjs`;
+add the keys by hand.
 
 **Never move files to record ingestion state.** `raw/` immutability is the
 load-bearing invariant. The hash key lives *in* the markdown — each page's
