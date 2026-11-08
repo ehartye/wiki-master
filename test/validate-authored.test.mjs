@@ -444,6 +444,50 @@ test('a ledger path whose letter case differs from the file is missing-file, nev
   assert.deepEqual(v.validate([`${DEMO}/notes/Case.md`]).defects.map(d => d.rule), ['bad-value']);
 });
 
+// A name typed or pasted in one Unicode normalization does not open a file stored in the other on most file systems,
+// and where it does the scan still keys the page by its stored spelling. The message names what the directory holds.
+test('a ledger path in another Unicode normalization or letter case is missing-file and names the stored name', t => {
+  const v = vault(t);
+  const composed = 'café.md', decomposed = 'café.md';
+  v.put(`${DEMO}/notes/${composed}`, page());
+  v.put(`${DEMO}/other/${decomposed}`, page());
+  v.put(`${DEMO}/notes/Case.md`, page());
+  const cases = [
+    [`${DEMO}/notes/${decomposed}`, composed],
+    [`${DEMO}/other/${composed}`, decomposed],
+    [`${DEMO}/notes/case.md`, 'Case.md'],
+    [`${DEMO}/Notes/Case.md`, 'notes'],
+  ];
+  for (const [wrong, stored] of cases) {
+    const d = only(v.validate([wrong]), wrong);
+    assert.equal(d.rule, 'missing-file', wrong);
+    assert.equal(d.message, `no file at this exact path (the letter case and Unicode normalization must match too); the directory holds ${JSON.stringify(stored)}`, wrong);
+  }
+  for (const right of [`${DEMO}/notes/${composed}`, `${DEMO}/other/${decomposed}`]) assert.deepEqual(v.validate([right]).defects, [], right);
+});
+
+test('a ledger path with no near match keeps the plain missing-file message and exits 1', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/notes/a.md`, page());
+  const gone = `${DEMO}/notes/elsewhere.md`;
+  assert.deepEqual(only(v.validate([gone]), gone), { path: gone, line: 1, rule: 'missing-file', message: 'no file at this exact path (the letter case and Unicode normalization must match too)' });
+  const cli = v.runLedger([gone]);
+  assert.equal(cli.status, 1);
+  assert.match(cli.stdout, /missing-file no file at this exact path \(the letter case and Unicode normalization must match too\)\n/);
+});
+
+test('a ledger path that is a symbolic link to a page validates as that page', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/notes/target.md`, page({ 'ai-generated': 'maybe' }));
+  try { symlinkSync(join(v.root, DEMO, 'notes', 'target.md'), join(v.root, DEMO, 'notes', 'alias.md'), 'file'); } catch (error) {
+    if (error.code === 'EPERM' || error.code === 'EACCES') { t.skip(`this platform refuses a file symbolic link (${error.code})`); return; }
+    throw error;
+  }
+  const r = v.validate([`${DEMO}/notes/alias.md`]);
+  assert.equal(r.checked, 1);
+  assert.deepEqual(r.defects.map(d => [d.path, d.rule]), [[`${DEMO}/notes/alias.md`, 'bad-value']]);
+});
+
 test('duplicate ledger entries are checked once', t => {
   const v = vault(t);
   v.put(`${DEMO}/notes/a.md`, page());
