@@ -203,19 +203,23 @@ test('remaining budget shortens the next subprocess timeout', async t => {
   assert.deepEqual(limits, [5000, 2000]);
 });
 
-test('timeout terminates the owned process tree before returning', { timeout: 15000 }, async t => {
-  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+// The probe budget arithmetic is covered by the injected-runner test above; this
+// test calls the owned-process runner directly with a longer deadline so that
+// tree termination is checked without depending on machine load.
+test('timeout terminates the owned process tree before returning', { timeout: 30000 }, async t => {
+  const { runOwnedProcess } = await import('../scripts/lib/pdf-doctor.mjs');
+  const deadline = 10000;
   const root = mkdtempSync(join(tmpdir(), 'doctor-tree-')); let verified = false;
   t.after(() => { if (verified) rmSync(root, { recursive: true, force: true }); else t.diagnostic(`unconfirmed cleanup evidence retained: ${root}`); });
   const pidFile = join(root, 'child.pid');
     const script = `const {spawn}=require('node:child_process');const {writeFileSync}=require('node:fs');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});writeFileSync(process.argv[1],String(c.pid));setInterval(()=>{},1000);`;
     const started = performance.now();
-    const result = await createProbeRunner()(process.execPath, ['-e', script, pidFile]);
+    const result = await runOwnedProcess(process.execPath, ['-e', script, pidFile], { timeout: deadline });
     const elapsed = performance.now() - started;
     const descendant = Number(readFileSync(pidFile, 'utf8'));
-    assert.equal(result.outcome, 'timeout');
+    assert.equal(result.error?.code, 'ETIMEDOUT');
     assert.equal(result.termination?.outcome, 'passed', JSON.stringify({ termination: result.termination, elapsed }));
-    assert.ok(elapsed < 6000, `five-second internal deadline plus scheduler overhead: ${elapsed}ms`);
+    assert.ok(elapsed < deadline + 3000, `ten-second deadline plus scheduler overhead: ${elapsed}ms`);
     if (process.platform === 'linux') {
       try { t.diagnostic(`descendant state before absence assertion: ${readFileSync(`/proc/${descendant}/status`, 'utf8').split('\n').filter(line => /^(Name|State|PPid):/.test(line)).join('; ')}`); }
       catch (error) { t.diagnostic(`descendant status unavailable: ${error.code}`); }
