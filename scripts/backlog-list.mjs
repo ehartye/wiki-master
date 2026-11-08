@@ -20,8 +20,8 @@ cliGuard(import.meta.url);
 // "Unrecognized status"). --startable keeps planned items with no unmet prerequisite, whether or
 // not they declare any. --specced-in keeps the items whose `specced-in` resolves to that spec: a bare
 // name is compared with the file name, a path with the full path, ignoring case and `.md`. Each
-// JSON row lists its specs under `speccedIn` (the declared target when it does not resolve); the
-// text output does not show them. Exit 0 (also when nothing matches), 2 for bad input.
+// JSON row lists each of its specs once under `speccedIn` (the declared target when it does not
+// resolve; an item naming itself is left out); the text output does not show them. Exit 0 (also when nothing matches), 2 for bad input.
 
 export class InputError extends Error {}
 
@@ -69,7 +69,7 @@ export function listBacklog(vaultPath, { project, backlogStatus, startable = fal
       dependsOn: a.deps.map((d) => d.target),
       unmet: [...a.unmet.map((d) => d.path ?? d.target), ...a.malformed],
       startable: it.backlogStatus === 'planned' && a.unmet.length === 0 && a.malformed.length === 0,
-      speccedIn: covers.map((s) => s.path ?? s.target),
+      speccedIn: [...new Set(covers.filter((s) => s.problem !== 'self').map((s) => s.path ?? s.target))],
     };
     if (startable && !row.startable) continue;
     if (inSpec && !covers.some((s) => !s.problem && inSpec(s.path))) continue;

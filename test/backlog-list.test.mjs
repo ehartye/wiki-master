@@ -133,6 +133,16 @@ test('a row names the specs that cover it by resolved path, or by the declared t
   assert.deepEqual(byName['alpha-spec.md'].speccedIn, []);
 });
 
+test('a row lists each spec once and leaves out an item naming itself', t => {
+  const v = vault(t);
+  speccedFixture(v);
+  v.item('demo', 'twice', 'planned', { speccedIn: `["[[alpha-spec|WP1]]", "[[alpha-spec|WP2]]", "[[${SPEC}]]", "[[nowhere]]", "[[nowhere|WP3]]"]` });
+  v.item('demo', 'selfish', 'planned', { speccedIn: '["[[selfish]]", "[[alpha-spec]]"]' });
+  const byName = Object.fromEntries(v.list({}).map(r => [r.path.split('/').pop(), r]));
+  assert.deepEqual(byName['twice.md'].speccedIn, [SPEC, 'nowhere']);
+  assert.deepEqual(byName['selfish.md'].speccedIn, [SPEC]);
+});
+
 test('--specced-in keeps the items of one spec, by bare name or full path, ignoring case and .md', t => {
   const v = vault(t);
   speccedFixture(v);
