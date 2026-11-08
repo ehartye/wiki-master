@@ -24,6 +24,12 @@ export function evidenceHashOf(paths, bodies) {
   return sha(raw.map(([p, body]) => `${p}\0${body}`).join('\0\0')).slice(0, 16);
 }
 
+// A style pointer has no raw evidence behind it: what it points at is the sentence(s) it was raised on. Its "evidence" is a
+// hash of that text, so rewording the sentence gives the pointer a new identity and it is read again.
+export function contextHashOf(text) {
+  return sha(String(text).replace(/\s+/g, ' ').trim()).slice(0, 16);
+}
+
 export function findingId({ page, quote, evidenceHash }) {
   return sha(`${page}\0${String(quote).replace(/\s+/g, ' ').trim()}\0${evidenceHash}`).slice(0, 12);
 }

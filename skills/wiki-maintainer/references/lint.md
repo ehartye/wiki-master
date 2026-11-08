@@ -34,7 +34,8 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    `accepted`; use `fixed` only for a quote actually corrected. The supported
    scope choices are `--page=<path>`, `--paths-file=<ledger>` or `--whole-vault`;
    select only the authorized scope. A changed quote or replaced clipping is a new finding and needs a new
-   reading; a finding still present after `fixed` is listed again.
+   reading; a finding still present after `fixed` is listed again. A style flag takes
+   the same command with its own id; reword its sentence and it is a new flag.
 6. Recheck the affected findings, then follow [completion](operations.md) with
    `--op lint`. If no edit or disposition was applied, return the report with no log
    or refresh.
