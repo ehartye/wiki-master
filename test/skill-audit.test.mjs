@@ -87,6 +87,17 @@ test('a file two hops beyond SKILL.md -> reference -> doc is reported, not a fin
   assert.deepEqual(deep.map((d) => [d.file, d.depth]), [['docs/two.md', 3], ['docs/three.md', 4]]);
 });
 
+test('a link whose percent-encoding is malformed is skipped, not thrown on', async (t) => {
+  const root = library(t, {
+    'skills/odd/SKILL.md': skill('odd', '', 'See [bad](references/100%zz.md) and [ref](references/ref.md).\n'),
+    'skills/odd/references/ref.md': '[doc](../../../docs/one.md)\n',
+    'docs/one.md': 'End.\n',
+  });
+  const { findings, deep } = await audit(root);
+  assert.deepEqual(findings, []);
+  assert.deepEqual(deep, []);
+});
+
 test('a script that takes --apply but nothing names is a finding; the script index alone does not name it', async (t) => {
   const files = {
     'skills/s/SKILL.md': skill('s'),

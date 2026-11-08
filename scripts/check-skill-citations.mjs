@@ -5,7 +5,7 @@
 //
 //   node scripts/check-skill-citations.mjs <dir>... [--include-history]
 //
-// Exit 0: no stale citation. Exit 1: at least one. Exit 2: no directory, or one that is not a directory.
+// Exit 0: no stale citation. Exit 1: at least one. Exit 2: no directory, or one that is not a directory or cannot be read.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -77,9 +77,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const dirs = args.filter((a) => !a.startsWith('--'));
   const usage = () => console.error(CLI_SPECS['check-skill-citations'].usage[0]);
   if (!dirs.length) { usage(); process.exit(2); }
-  const bad = dirs.find((d) => !existsSync(d) || !statSync(d).isDirectory());
-  if (bad) { console.error(`check-skill-citations: ${bad} is not a directory`); usage(); process.exit(2); }
-  const { findings, scanned } = scan(dirs, { includeHistory });
+  // A directory that is missing or cannot be read is a usage error (exit 2), not a crash, whose exit 1 would read as
+  // "stale citations found".
+  let result;
+  try {
+    const bad = dirs.find((d) => !statSync(d).isDirectory());
+    if (bad) { console.error(`check-skill-citations: ${bad} is not a directory`); usage(); process.exit(2); }
+    result = scan(dirs, { includeHistory });
+  } catch (error) {
+    console.error(`check-skill-citations: cannot read ${error.path ?? dirs.join(', ')}: ${error.code ?? error.message}`);
+    process.exit(2);
+  }
+  const { findings, scanned } = result;
   for (const f of findings) console.log(`${f.file}:${f.line}: wiki-master:${f.name} is not a current skill${f.replacement ? `; use wiki-master:${f.replacement}` : ''}`);
   console.log(`${findings.length} stale citation${findings.length === 1 ? '' : 's'} in ${scanned} file${scanned === 1 ? '' : 's'}${includeHistory ? '' : ` (${HISTORY} skipped; --include-history reads it)`}`);
   process.exit(findings.length ? 1 : 0);

@@ -95,6 +95,20 @@ test('output that merely mentions those words still succeeds', () => {
   }
 });
 
+test('a one-line answer that merely begins with the word Error is returned; only "Error: " is a refusal', () => {
+  assert.equal(obsidian(['property:read', 'name=topic', 'path=a.md'], answering('Error budget')), 'Error budget');
+  assert.equal(obsidian(['search', 'query=handling'], answering('Error handling.md')), 'Error handling.md');
+  assert.equal(obsidian(['tags'], answering('Errors')), 'Errors');
+  assert.throws(() => obsidian(['property:read', 'name=topic', 'path=a.md'], answering('Error: something')), refused('property:read', 'Error: something'));
+  assert.throws(() => obsidian(['search', 'query=x'], answering('Error: something')), refused('search', 'Error: something'));
+});
+
+test('content-returning commands (read, daily:read, template:read) return text that starts with "Error: "', () => {
+  for (const command of ['read', 'daily:read', 'template:read']) {
+    assert.equal(obsidian([command], answering('Error: a note about errors')), 'Error: a note about errors', command);
+  }
+});
+
 test('the read command returns a note, even one that starts with Error', () => {
   assert.equal(obsidian(['read', 'path=a.md'], answering('Error: a note about errors')), 'Error: a note about errors');
   assert.equal(obsidian(['read', 'path=a.md'], answering('# Notes\nVault not found.')), '# Notes\nVault not found.');

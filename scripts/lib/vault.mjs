@@ -82,11 +82,14 @@ export function buildArgs(name, args) {
 
 // The CLI exits 0 when it refuses, so a refusal arrives as ordinary output. These are the refusals it is known to
 // print: the whole output "Vault not found.", the gate text that begins "Command line interface is not enabled", and a
-// single short line that begins "Error". `read` prints a note, which may begin with any word, so it is exempt from the
-// last rule. Output that merely mentions these words is an answer. Returns the CLI's words, or null.
+// single short line that begins "Error: ". A one-line answer may begin with the word Error (a property value "Error
+// budget", a search hit "Error handling.md"), so only the colon form counts. The commands that print a note's or a
+// template's text, which may begin with anything, are exempt from that rule. Output that merely mentions these words
+// is an answer. Returns the CLI's words, or null.
+const CONTENT_COMMANDS = new Set(['read', 'daily:read', 'template:read']);
 export function cliFailure(output, args) {
   if (output === 'Vault not found.' || output.startsWith('Command line interface is not enabled')) return output;
-  if (args[0] !== 'read' && !/[\r\n]/.test(output) && output.length <= 300 && output.startsWith('Error')) return output;
+  if (!CONTENT_COMMANDS.has(args[0]) && !/[\r\n]/.test(output) && output.length <= 300 && output.startsWith('Error: ')) return output;
   return null;
 }
 

@@ -71,7 +71,9 @@ export function referenceDepths(entries, root) {
     const file = queue.shift();
     const here = depth.get(file);
     for (const target of localLinks(readFileSync(file, 'utf8'))) {
-      const next = resolve(dirname(file), decodeURI(target));
+      let decoded;
+      try { decoded = decodeURI(target); } catch { continue; } // malformed percent-encoding names no file
+      const next = resolve(dirname(file), decoded);
       if (!next.endsWith('.md') || depth.has(next) || !existsSync(next) || !statSync(next).isFile()) continue;
       const rel = relative(root, next);
       if (rel.startsWith('..') || rel.startsWith(sep)) continue;

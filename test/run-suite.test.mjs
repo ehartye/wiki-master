@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 // `npm test` runs test/run-suite.mjs, which gives the run its own temp root: every test's tmpdir() is inside it,
@@ -53,6 +53,28 @@ test('fails', () => { assert.equal(1, 2); });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.ok(root && existsSync(root), 'a failing run keeps its root');
   assert.match(r.stdout, new RegExp(`kept .*${root.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}`));
+});
+
+test('imported by another module rather than started, the runner does nothing', (t) => {
+  // An empty folder as the working directory: if the guard failed, node --test would find no tests to run here.
+  const { dir } = fixture(t, 'empty.txt', '');
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(RUNNER).href)});`],
+    { encoding: 'utf8', env, cwd: dir, timeout: 60000 });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(r.stdout, '');
+});
+
+test('a node --test killed by a signal exits 128 plus the signal number', { skip: process.platform === 'win32' && 'Windows reports a process killed by another as exit 1, with no signal' }, (t) => {
+  // The test file's parent is the node --test process the runner started.
+  const { file } = fixture(t, 'kill.test.mjs', `import { test } from 'node:test';
+test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
+`);
+  const r = run([file]);
+  const root = rootOf(r.stdout);
+  t.after(() => root && rmSync(root, { recursive: true, force: true }));
+  assert.equal(r.status, 128 + 9, r.stdout + r.stderr);
 });
 
 test('loaded as a test file by node --test, the runner does nothing', () => {

@@ -70,12 +70,22 @@ test('several directories are scanned in one run', (t) => {
   assert.match(r.stdout, /b\.md:1: wiki-master:wiki-health is not a current skill; use wiki-master:wiki-setup/);
 });
 
-test('no directory, or one that does not exist, is a usage error with exit 2', (t) => {
+test('no directory, or a file given as one, is a usage error with exit 2', (t) => {
   const none = scan();
   assert.equal(none.status, 2);
   assert.match(none.stderr, /usage: node scripts\/check-skill-citations\.mjs/);
-  const missing = join(plugin(t, {}), 'not-here');
-  const r = scan(missing);
+  const file = join(plugin(t, { 'a.md': 'Text.\n' }), 'a.md');
+  const r = scan(file);
   assert.equal(r.status, 2);
   assert.match(r.stderr, /not a directory/);
+});
+
+test('a directory that cannot be read exits 2 with one line naming it, not a stack trace', (t) => {
+  const missing = join(plugin(t, {}), 'not-here');
+  const r = scan(missing);
+  assert.equal(r.status, 2, r.stderr);
+  const lines = r.stderr.trim().split(/\r?\n/);
+  assert.equal(lines.length, 1, r.stderr);
+  assert.match(lines[0], /^check-skill-citations: cannot read /);
+  assert.ok(lines[0].includes(missing), lines[0]);
 });

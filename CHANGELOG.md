@@ -4,10 +4,10 @@
 
 - **Breaking, removed command:** `backfill-authored-metadata.mjs`, a one-time migration that read only the top level of `wiki/authored/`; add `project` and `kind` by hand and check with `validate-authored.mjs`. An earlier release has the script.
 - `doctor.mjs` reports how the HTML runtime is reached: a local copy, first use through `npx`, or missing. A copy with no `node_modules` no longer reports `clip` as not ready when `npx` is on the path; `npx` is found, never started.
-- The Obsidian helper treats a refusal the CLI prints with exit 0 (such as `Vault not found.`) as an error, so `obsidian.mjs` exits 1 with the CLI's words and `stale.mjs` names the real cause instead of reporting invalid JSON.
+- The Obsidian helper treats a refusal the CLI prints with exit 0 (such as `Vault not found.`) as an error, so `obsidian.mjs` exits 1 with the CLI's words and `stale.mjs` names the real cause instead of reporting invalid JSON; a one-line answer that merely begins with the word Error is still returned.
 - A new vault's `.gitattributes` and the setup reference point at the `-text` rule that byte-exact, hashed evidence needs.
 - A test keeps the CI job names that branch protection relies on, and the workflow comment says where required checks are set.
-- The process-tree termination test for the PDF doctor gives the stop budget room on a loaded machine.
+- The PDF doctor's process-tree test calls the owned-process runner directly with a 10-second deadline, so it no longer depends on machine load; the 5-second probe budget is unchanged.
 - Add `check-skill-citations.mjs <dir>...`, which reports citations of retired wiki-master skill names in other plugins and names the replacement from `docs/skill-migration.md`; historical design notes are skipped unless `--include-history` is passed.
 - `health.mjs` names `repair-missing-hash.mjs` when clippings lack a `source-hash`, and `docs/scripts.md` indexes every script with its purpose; a test fails when a script is added without an entry.
 - A test-side skill audit checks description lengths, reference depth and `--apply` scripts that no skill or document names.
