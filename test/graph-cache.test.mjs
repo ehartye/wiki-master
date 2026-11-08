@@ -225,6 +225,41 @@ test('an entry of the wrong shape is a miss, read from disk, never an exception'
   assert.deepEqual(w.scan, cold(root));
 });
 
+// An entry is an object with the right size and time but contents that do not have the shape markdownPage and
+// deriveIntegrity give: it is a miss, so that one file is read again, and nothing throws.
+test('an entry whose page or extra has the wrong inner shape is a miss: that file alone is read, the output equals --no-cache', t => {
+  const { root } = fixture(t);
+  const ledgerDir = mkdtempSync(join(realpathSync(tmpdir()), 'wm-graph-cache-ledger-'));
+  t.after(() => rmSync(ledgerDir, { recursive: true, force: true }));
+  const ledger = join(ledgerDir, 'ledger.json');
+  const guide = 'wiki/authored/demo/guide.md';
+  writeFileSync(ledger, JSON.stringify([guide, 'wiki/authored/demo/overview.md']));
+  writeCache(root);
+  const good = readCacheJson(root);
+  const damage = {
+    'extra {}': (e) => { e.extra = {}; },
+    'a body link that is not an object': (e) => { e.extra.bodyLinks = [7]; },
+    'sourceLinks not an array': (e) => { e.extra.sourceLinks = 'x'; },
+    'words not a number': (e) => { e.extra.words = '3'; },
+    'page without outTargets': (e) => { delete e.page.outTargets; },
+    'page aliases not an array': (e) => { e.page.aliases = 'alias'; },
+    'page metadata null': (e) => { e.page.metadata = null; },
+  };
+  const expected = cli(root, 'validate-authored.mjs', ['--paths-file', ledger, '--json', '--no-cache']);
+  assert.equal(expected.status, 0, expected.stderr);
+  for (const [label, edit] of Object.entries(damage)) {
+    const data = structuredClone(good);
+    edit(data.entries[guide]);
+    writeFileSync(cacheFile(root), JSON.stringify(data));
+    const w = warm(root);
+    assert.deepEqual(w.reads, [guide], label);
+    assert.deepEqual(w.scan, cold(root), label);
+    const r = cli(root, 'validate-authored.mjs', ['--paths-file', ledger, '--json']);
+    assert.equal(r.status, expected.status, `${label}: ${r.stderr}`);
+    assert.equal(r.stdout, expected.stdout, label);
+  }
+});
+
 // ----------------------------------------------------------------- writer --
 
 test('the writer stores entries as a cold read gives them, and drops the paths it is told were written', t => {
