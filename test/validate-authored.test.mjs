@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync, symlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -465,6 +465,25 @@ test('--json emits the same defects as data, sorted by path then line', t => {
   const clean = v.runLedger([`${DEMO}/overview.md`], ['--json']);
   assert.equal(clean.status, 0);
   assert.deepEqual(JSON.parse(clean.stdout), { version: 1, checked: 1, skipped: 0, defects: [] });
+});
+
+test('a link cycle in the vault is a skipped path on stderr and in --json, never exit 2; skipped still counts ledger entries', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/overview.md`, page({ kind: 'overview' }, '# Demo overview\n\nA short body.\n'));
+  v.put('raw/clippings/clip.md', '# Clip\n');
+  // A junction back to the vault root (no privilege needed on Windows; an ordinary link elsewhere).
+  symlinkSync(v.root, join(v.root, 'wiki', 'authored', 'loop'), 'junction');
+  const ledger = [`${DEMO}/overview.md`, 'raw/clippings/clip.md'];
+  const text = v.runLedger(ledger);
+  assert.ok([0, 1].includes(text.status), `exit ${text.status}: ${text.stderr}`);
+  assert.match(text.stderr, /^validate-authored: skipped path wiki\/authored\/loop \(link-cycle\)$/m);
+  const json = v.runLedger(ledger, ['--json']);
+  assert.equal(json.status, text.status);
+  const data = JSON.parse(json.stdout);
+  assert.deepEqual(data.skippedPaths, [{ path: 'wiki/authored/loop', reason: 'link-cycle' }]);
+  assert.equal(data.skipped, 1, 'the raw ledger entry, as before');
+  assert.equal(data.checked, 1);
+  assert.match(text.stdout, /1 pages checked, 0 defects, 1 skipped$/m);
 });
 
 test('bad input exits 2 with a message on stderr and nothing on stdout', t => {
