@@ -50,6 +50,26 @@ test('a new vault gets .gitattributes with the union rules, and says what clears
   assert.equal(existsSync(join(vault, '.git')), false, 'init still creates no repository');
 });
 
+test('the scaffolded .gitattributes points at the -text rule that byte-exact evidence needs, and adds no rule for it', () => {
+  const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
+  const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
+  const r = runInit(vault, home);
+  assert.equal(r.status, 0, r.stderr);
+  const text = readFileSync(join(vault, '.gitattributes'), 'utf8');
+  const lines = text.split(/\r?\n/);
+  const comment = lines.filter((line) => line.startsWith('#')).join(' ');
+  assert.match(comment, /-text/);
+  assert.match(comment, /hash/);
+  assert.match(comment, /line.ending/i);
+  assert.doesNotMatch(lines.filter((line) => line && !line.startsWith('#')).join(' '), /-text/, 'the pointer is a comment; the owner scopes the rule');
+});
+
+test('initialization.md tells the agent to point a vault owner at a scoped -text rule for hashed evidence', () => {
+  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8');
+  assert.match(text, /-text/);
+  assert.match(text, /hash/i);
+});
+
 // A timer commits whatever changed, and using the app changes these on every machine.
 const PER_MACHINE = ['.obsidian/workspace.json', '.obsidian/workspace-mobile.json', '.obsidian/app.json', '.obsidian/graph.json', '.obsidian/types.json'];
 
