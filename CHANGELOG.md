@@ -6,7 +6,7 @@
 - `validate-authored.mjs` checks the key with six rules, `specced-in-dangling`, `-cross-project`, `-self`, `-cycle`, `-malformed` and `-misplaced`, reading only the item's own project backlog folder, like `depends-on`.
 - Project roadmaps gain a `## Specced work` section inside the generated fence: each spec, "covers N item(s), M closed", and its items with their labels. A group is left out once the spec and all its items are closed. A roadmap with no `specced-in` key renders exactly as before.
 - `backlog-list.mjs --json` rows gain `speccedIn`, and `--specced-in <slug>` lists the items a spec covers. Text output is unchanged.
-- Fix: `validate-authored.mjs` no longer throws when two ledger pages in the same folder are backlog items with `depends-on` that the folder read did not include.
+- Fix: `validate-authored.mjs` no longer throws when one ledger holds two backlog items with `depends-on` that sit outside their project's `backlog/` folder.
 
 ## 0.94.0 — 2026-11-08
 
