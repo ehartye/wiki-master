@@ -264,26 +264,43 @@ const LICENSE = {
 };
 
 const CONNECTIVES = /\b(however|but|despite|yet)\b/i;
-// Uses of these words that are not a contrast: a time word ("not yet built", "yet to ship") and "but" meaning "except"
-// ("nothing but a stub"). They are taken out of a sentence before it is tested for a contrast connective.
-const NOT_A_CONTRAST = /\bnot yet\b|\byet to\b|\bas yet\b|\b(?:nothing|anything|none|all|everyone|everybody|anyone|no one|nobody)\s+but\b/gi;
+// Uses of these words that are not a contrast: a time word ("not yet built", "as yet", "is yet to ship", "have yet to"),
+// "yet" meaning "again" or "in addition" ("yet another example"), and "but" meaning "except" ("nothing but a stub").
+// They are taken out of a sentence before it is tested for a contrast connective. "yet to" is removed only after a verb
+// of being or having, so "cheap, yet to many it is slow" is still a contrast.
+const NOT_A_CONTRAST = /\bnot yet\b|\bas yet\b|\byet (?:another|again|more)\b|\b(?:is|are|was|were|be|been|has|have|had|remains?|remained)\s+yet\s+to\b|\b(?:nothing|anything|none|all|everyone|everybody|anyone|no one|nobody)\s+but\b/gi;
 // A paragraph ends at a blank line and also where a list item, heading or table row starts: a citation after a list item
-// does not cover the item before it.
+// does not cover the item before it. A heading line is a paragraph of its own (see styleParagraphs).
 const STYLE_PARAGRAPH_BREAK = /\r?\n[ \t]*\r?\n|\r?\n(?=[ \t]*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|))/;
 const SENTENCE_BREAK = /(?<=[.!?])\s+/;
 
-// A contrast connective in a sentence is covered when that sentence, or a later sentence of its paragraph, carries a
-// [[citation]]: pages cite at the end of a paragraph, and that citation stands for what precedes it. A citation only
-// BEFORE the sentence does not cover it, which is the unsourced joint this check exists to find.
-export function uncoveredContrasts(body) {
+// The page body as paragraphs. A heading line followed by text is split off, so a heading never becomes the front of the
+// next sentence: renaming it must not change that sentence's identity.
+function styleParagraphs(body) {
   const out = [];
   for (const paragraph of body.split(STYLE_PARAGRAPH_BREAK)) {
+    const heading = /^([ \t]*#{1,6}[ \t][^\r\n]*)\r?\n([\s\S]+)$/.exec(paragraph);
+    if (heading) out.push(heading[1], heading[2]);
+    else out.push(paragraph);
+  }
+  return out;
+}
+
+// A contrast connective in a sentence is covered when that sentence, or a later sentence of its paragraph, carries a
+// [[wikilink]] (the vault's citation form): pages cite at the end of a paragraph, and that citation stands for what
+// precedes it. A link only BEFORE the sentence does not cover it, which is the unsourced joint this check exists to find.
+// One pass from the end of each paragraph keeps the check linear in the number of sentences.
+export function uncoveredContrasts(body) {
+  const out = [];
+  for (const paragraph of styleParagraphs(body)) {
     const sentences = paragraph.split(SENTENCE_BREAK);
-    sentences.forEach((s, i) => {
-      if (!CONNECTIVES.test(s.replace(NOT_A_CONTRAST, ' '))) return;
-      if (sentences.slice(i).some((x) => x.includes('[['))) return;
-      out.push(s.trim());
-    });
+    const found = [];
+    let covered = false;
+    for (let i = sentences.length - 1; i >= 0; i--) {
+      if (sentences[i].includes('[[')) covered = true;
+      if (!covered && CONNECTIVES.test(sentences[i].replace(NOT_A_CONTRAST, ' '))) found.push(sentences[i].trim());
+    }
+    out.push(...found.reverse());
   }
   return out;
 }
@@ -305,7 +322,9 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
     // Quotation exemption: nothing inside quotation marks is ever flagged.
     body = body.replace(/["“][^"“”]*["”]/g, '""');
-    const sentences = body.split(SENTENCE_BREAK);
+    // The text a tone flag is raised on is the sentence(s) holding the word, taken inside one paragraph, so editing a
+    // neighbouring list item or a heading line does not change the flag's identity.
+    const sentences = styleParagraphs(body).flatMap((paragraph) => paragraph.split(SENTENCE_BREAK));
     for (const cat of LICENSE[dir]) {
       for (const w of STYLE[cat]) {
         const re = new RegExp(`(?<![\\w-])${w.replace(/[- ]/g, '[- ]')}(?![\\w-])`, 'i');
@@ -452,8 +471,13 @@ Near matches (--near): ${near.listed.length} unverified quote(s) of ${near.minWo
 Style flags: ${shownStyle.length}${tiers.styleReviewed && !args.includeReviewed ? ` (${tiers.styleReviewed} more with a recorded verdict, not listed)` : ''}`);
   for (const [cat, fs] of Object.entries(byCat)) {
     console.log(`  ${cat}: ${fs.length}`);
-    for (const f of fs.slice(0, 5)) console.log(`    ${f.page} — ${f.word}${args.ids ? ` [${f.id}]` : ''}`);
-    if (fs.length > 5) console.log(`    ... and ${fs.length - 5} more`);
+    // With --ids every flag is listed, because the ids are what a reviewer needs; otherwise five per category.
+    const shown = args.ids ? fs : fs.slice(0, 5);
+    for (const f of shown) {
+      console.log(`    ${f.page} — ${f.word}${args.ids ? ` [${f.id}]` : ''}`);
+      if (f.reviewed) console.log(`      reviewed: ${f.reviewed.disposition} by ${f.reviewed.reviewer} on ${f.reviewed.date}${f.reviewed.note ? ` (${f.reviewed.note})` : ''}`);
+    }
+    if (fs.length > shown.length) console.log(`    ... and ${fs.length - shown.length} more`);
   }
   return { findings: listed.map(shape), tiers, ...(scope ? { scope: scope.info } : {}), style: shownStyle };
 }
