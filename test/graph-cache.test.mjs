@@ -260,6 +260,28 @@ test('an entry whose page or extra has the wrong inner shape is a miss: that fil
   }
 });
 
+test('the writer removes leftover temp files older than ten minutes and keeps a newer one, another write in progress', t => {
+  const { root } = fixture(t);
+  const dir = dirname(cacheFile(root));
+  mkdirSync(dir, { recursive: true });
+  const stale = join(dir, 'graph-cache.json.111.1000.tmp'), fresh = join(dir, 'graph-cache.json.222.2000.tmp');
+  const other = join(dir, 'chunks.json.tmp-333');
+  for (const file of [stale, fresh, other]) writeFileSync(file, 'partial');
+  const now = Date.now();
+  const eleven = new Date(now - 11 * 60_000), nine = new Date(now - 9 * 60_000);
+  utimesSync(stale, eleven, eleven);
+  utimesSync(fresh, nine, nine);
+  utimesSync(other, eleven, eleven);
+  writeCache(root, { clock: () => now });
+  assert.equal(existsSync(stale), false, 'older than ten minutes: an interrupted write');
+  assert.equal(existsSync(fresh), true, 'newer: perhaps another session writing now');
+  assert.equal(existsSync(other), true, 'not a graph cache temp file');
+  // An unchanged cache is not rewritten, but leftovers are still removed; a later clock makes the newer one stale.
+  writeCache(root, { clock: () => now + 2 * 60_000 });
+  assert.equal(existsSync(fresh), false);
+  assert.ok(existsSync(cacheFile(root)));
+});
+
 // ----------------------------------------------------------------- writer --
 
 test('the writer stores entries as a cold read gives them, and drops the paths it is told were written', t => {
