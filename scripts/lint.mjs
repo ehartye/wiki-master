@@ -276,11 +276,12 @@ const NOT_A_CONTRAST = /\bnot yet\b|\bas yet\b|\byet (?:another|again|more)\b|\b
 // or directly after a conjunction, verb, pronoun or "there"/"here" ("This is, of course, wrong", "It is of course wrong",
 // "And of course it fails"). Elsewhere it is part of a noun phrase ("a list of course concepts", "as a matter of course").
 // A line still starts after indentation, any run of list, heading and blockquote marks each followed by whitespace, and
-// then emphasis marks ("- Of course", "## Of course", "> Of course", "**Of course**,", "1) Of course").
+// then `*` emphasis marks ("- Of course", "## Of course", "> Of course", "**Of course**,", "1) Of course"). `_Of course_`
+// is not flagged: `_` is a word character to the flag-word match, and changing that match would change hashed sentences.
 const DISCOURSE_LEAD = 'and|but|or|so|yet|then|is|are|was|were|be|been|being|am|will|would|can|could|should|shall|may|might|must|do|does|did|has|have|had|it|this|that|these|those|which|who|we|they|you|he|she|i|there|here';
-const LINE_START = String.raw`^[ \t]*(?:(?:[-*+>]|#{1,6}|\d+[.)])[ \t]+)*[*_]*`;
+const LINE_START = String.raw`^[ \t]*(?:(?:[-*+>]|#{1,6}|\d+[.)])[ \t]+)*\**`;
 const NOT_A_TONE = {
-  'of course': new RegExp(`(?<!(?:${LINE_START}|[.!?,;:(—–])\\s*)(?<!\\b(?:${DISCOURSE_LEAD})\\s+)(?<![\\w-])of[- ]course(?![\\w-])`, 'gim'),
+  'of course': new RegExp(`(?<!${LINE_START}|[.!?,;:(—–]\\s*)(?<!\\b(?:${DISCOURSE_LEAD})\\s+)(?<![\\w-])of[- ]course(?![\\w-])`, 'gim'),
 };
 // A paragraph ends at a blank line and also where a list item, heading or table row starts: a citation after a list item
 // does not cover the item before it. A heading line is a paragraph of its own (see styleParagraphs).
