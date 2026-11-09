@@ -9,6 +9,8 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    and [content lint](../../wiki-setup/references/checks.md#content-lint-report).
    Stop for an empty wiki; a clean graph still needs bounded claim review during
    substantive maintenance. Report the actual sample and failed/skipped coverage.
+   When verdicts are to be recorded, save the `findings` array of
+   `lint.mjs --json` to a file outside the vault now, before any repair (step 5).
 2. Read flagged pages and exact supporting clippings. Check the citation trail
    before correcting a quote: an ambiguous or misrouted citation can produce the
    apparent mismatch. Inspect contradictions, superseded claims, unwritten
@@ -23,19 +25,40 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    `reviewed` only for claims actually checked against evidence or project behavior. Mechanical links, aliases and formatting preserve factual dates.
    For original authored documentation, use [project authoring](../../wiki-project/references/authoring.md).
 5. Persist reviewed dispositions when requested, so the same finding is not
-   repeatedly presented as new. Obtain IDs through the linked lint procedure,
-   then run:
+   repeatedly presented as new. Read the findings first, repair what needs it,
+   then record by quote: a repair that adds a source to a page gives every quote
+   finding on that page a new id, so ids read before the repair no longer match.
+   - **Quote findings, after the repair:** keep, in the file saved at step 1,
+     only the findings that share one verdict, and run:
 
-   ```sh
-   node "<absolute-plugin-root>/scripts/lint-disposition.mjs" record --ids=<id>,<id> --disposition=own-wording --reviewer=<name> --page=<path>
-   ```
+     ```sh
+     node "<absolute-plugin-root>/scripts/lint-disposition.mjs" record --by-quote=<file> --disposition=accepted --reviewer=<name>
+     ```
 
-   Select the actual verdict: `own-wording`, `mention`, `title`, `markup` or
-   `accepted`; use `fixed` only for a quote actually corrected. The supported
-   scope choices are `--page=<path>`, `--paths-file=<ledger>` or `--whole-vault`;
-   select only the authorized scope. A changed quote or replaced clipping is a new finding and needs a new
-   reading; a finding still present after `fixed` is listed again. A style flag takes
-   the same command with its own id; reword its sentence and it is a new flag.
+     Each entry needs a string `page` and `quote`; other fields are ignored.
+     `record` finds each entry's current id on its page and needs no scope. An
+     entry that matches more than one finding is refused, so give each quote in
+     full, not shortened with `...`.
+   - **Style flags, and findings whose ids are still current:** record by id
+     with one authorized scope, `--page=<path>`, `--paths-file=<ledger>` or
+     `--whole-vault`:
+
+     ```sh
+     node "<absolute-plugin-root>/scripts/lint-disposition.mjs" record --ids=<id>,<id> --disposition=own-wording --reviewer=<name> --page=<path>
+     ```
+
+   - **Verdict:** `own-wording`, `mention`, `title`, `markup` or `accepted`;
+     `fixed` only for a quote actually corrected; `source-wording` for style
+     flags only, when the flagged word or contrast is the cited source's wording
+     kept without quotation marks.
+   - **Misses:** a call fails whole and writes nothing when any id or entry
+     matches nothing or is refused. Add `--skip-missing` to record the rest.
+
+   Done when the `recorded N verdict(s)` line names every finding you decided,
+   and each skipped or refused one it names is decided again or reported. A
+   changed quote or replaced clipping is a new finding and needs a new reading;
+   a finding still present after `fixed` is listed again. Reword a style flag's
+   sentence and it is a new flag.
 6. Recheck the affected findings, then follow [completion](operations.md) with
    `--op lint`. If no edit or disposition was applied, return the report with no log
    or refresh.

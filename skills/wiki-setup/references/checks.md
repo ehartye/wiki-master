@@ -69,9 +69,10 @@ Run `node "<absolute-plugin-root>/scripts/lint.mjs"` for warn-only findings,
 `--json` for the full list. Scope to requested work using `--page=<substr>`,
 `--updated-since=<YYYY-MM-DD>` or `--paths-file=<ledger>`; date and ledger may be
 combined. The graph is still whole-vault; scope saves quote checks, not graph scan.
-Use `--tier=convention|gapped|unverified`, `--full` for untruncated quotations,
-`--ids` for finding identities and `--include-reviewed` for prior dispositions.
-These reporting options do not record new verdicts.
+Use `--tier=convention|extraction-noted|gapped|unverified|all`, `--full` for
+untruncated quotations and an `evidence:` line per quote fragment, `--ids` for
+finding identities and `--include-reviewed` for prior dispositions. These
+reporting options do not record new verdicts.
 
 - **convention:** same words and order, markup/punctuation/extraction spacing
   differs. Counted rather than listed; inspect unusual jumps instead of assuming
@@ -84,6 +85,23 @@ These reporting options do not record new verdicts.
   words aligning with raw at 0.85 or better: `[-word-]` is page-only, `{+word+}` is
   clipping-only. A typo correction may be benign; a changed meaning is not. A
   low match is no proof of error. Two-column interleaving can also trigger this.
+- **extraction-noted:** would be unverified, but every word is in order in one
+  raw clipping marked `layout-risk: columns` (the PDF clipper's mark for
+  interleaved columns), with the other column's words skipped. Listed in
+  `--json`, with `--tier=extraction-noted` and with `--tier=all`, not listed by
+  default. Read the skipped words: the other column's text is expected, an
+  omitted clause is not. A dropped negation never lands here.
+
+In `--json`, each listed quote finding has an `evidence` array, one entry per
+quote fragment: `document` (`null` when no evidence document holds even a near
+window), `kind`, `match` (`convention`, `gapped`, `extraction-noted`, or `near`
+for an unverified fragment's best window, with `score` and `diff`) and `lines`,
+the file's first and last line, counted from 1 with frontmatter included. Read
+the evidence at those lines before judging the finding. When a line-by-line
+reading of the document gives other words than the whole text (a tag or link
+spanning a line), `lines` is absent and `linesUnavailable` is true: open the
+document and search for the words. A near window shows where to look, not that
+the quote is wrong.
 
 Read a bounded sample and the exact evidence trail before judging quotations.
 Check ambiguous/misrouted citations first. Distinguish own wording, mention/title
@@ -92,7 +110,9 @@ review pointers, not scored violations; each has an id (`--ids`) and a reviewed 
 recorded like a quote and left out of the listing. The
 [content-lint contract](../../../README.md#content-lint) describes mark pairing
 (curly marks nest; straight marks pair by where they sit, and alternate only
-where their place is ambiguous) and skipped style spans.
+where their place is ambiguous), the marks that are not quotation syntax (a
+measurement such as `7'6"`, a mark inside a code span or fenced code), how a
+bracket glued to a word (`[E]ach`) is compared, and skipped style spans.
 
 Report evaluated findings and remaining uncertainty. A reporting request never
 runs `lint-disposition.mjs record` or edits dates/content. Authorized factual
