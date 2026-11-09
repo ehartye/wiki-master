@@ -123,16 +123,25 @@ test('an alias change on another clipping that makes a link name the target is c
   assert.deepEqual(restrictedPages(root), [...CITERS, 'wiki/concepts/by-alias.md'].sort());
 });
 
+// A stat as a file system whose change time never moves would report it, so only size and modification time are seen.
+const pinnedChangeTime = (root, path) => {
+  let ctimeMs;
+  return p => { const s = statSync(p); return relative(root, p).replaceAll('\\', '/') === path ? { size: s.size, mtimeMs: s.mtimeMs, ctimeMs: ctimeMs ??= s.ctimeMs } : s; };
+};
+
 test('a same-size edit inside the racy window that keeps the file time is re-read and caught', async t => {
   const { root, put, abs } = vault(t);
   const page = 'wiki/concepts/fresh.md', before = `${fm('type: concept')}# Fresh\n\nSee [[raw/clippings/zzzzzz]].\n`;
   const after = before.replace('zzzzzz', 'target');
   assert.equal(after.length, before.length);
-  // A whole second just past, so the restored time is bit-for-bit the same and is inside the window of the first read.
-  const stamp = Math.floor(Date.now() / 1000);
+  // A whole second, so the restored time is bit-for-bit the same. The passes run on an injected clock 500 ms after it,
+  // so the file is inside the window however long the machine takes, and the change time is pinned so that only the
+  // racy window can tell the edit apart.
+  const stamp = Math.floor(Date.now() / 1000) - 60;
   put(page, before, { old: false }); utimesSync(abs(page), stamp, stamp);
   const kept = statSync(abs(page));
   const result = await runReclips({ vaultPath: root, apply: true, targets: [TARGET], quarantineReason: 'Unverified rows',
+    now: () => stamp * 1000 + 500, stat: pinnedChangeTime(root, page),
     write: writeThen(root, atFirstPage, () => {
       writeFileSync(abs(page), after); utimesSync(abs(page), stamp, stamp); // a clock too coarse to see the edit
       const now = statSync(abs(page));

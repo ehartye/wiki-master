@@ -120,7 +120,7 @@ export async function runReclips(options={}) {
   }
   try {return await runReclipsOwned(options);} finally {await release();}
 }
-async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',kind='auto',onFailure='reopen',limit=Infinity,from,sourceFile,quarantineReason,obtain=obtainSource,extract=extractForReclip,readPage=readPageForReclip,write=atomic}={}) {
+async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targets,mode='auto',kind='auto',onFailure='reopen',limit=Infinity,from,sourceFile,quarantineReason,obtain=obtainSource,extract=extractForReclip,readPage=readPageForReclip,write=atomic,now=Date.now,stat=statSync}={}) {
   if (!['auto','reading-order','table'].includes(mode)) throw new Error('Invalid reading mode');
   if (!['auto','pdf','html'].includes(kind)) throw new Error('Invalid kind (auto, pdf or html)');
   if (!['reopen','quarantine'].includes(onFailure)) throw new Error('Invalid failure policy');
@@ -166,21 +166,22 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   // it, so a same-size edit inside one tick of a coarse clock is still seen. The change time catches an edit that
   // restores the old modification time (utimes cannot set it), since a quarantine has no --no-cache escape. A deleted
   // file drops out. The name index is rebuilt from the
-  // snapshot each pass. The snapshot lives for one transaction of this run and is never stored.
+  // snapshot each pass. The snapshot lives for one transaction of this run and is never stored. `now` (the pass start)
+  // and `stat` are injectable so tests can place a file inside the window without depending on the wall clock.
   let snapshot;
   const identity=(p,top)=>{const parsed=parseNote(top),path=rel(p);return {path,name:path.split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};};
-  const entry=(p,stat,readAtMs,wikiPage)=>{
-    if(!wikiPage)return {size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,readAtMs,identity:identity(p,head(p))};
+  const entry=(p,st,readAtMs,wikiPage)=>{
+    if(!wikiPage)return {size:st.size,mtimeMs:st.mtimeMs,ctimeMs:st.ctimeMs,readAtMs,identity:identity(p,head(p))};
     const bytes=readFileSync(p),text=bytes.toString('utf8');
-    return {size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,readAtMs,text,identity:identity(p,headOf(bytes)),links:wikilinks(text)};
+    return {size:st.size,mtimeMs:st.mtimeMs,ctimeMs:st.ctimeMs,readAtMs,text,identity:identity(p,headOf(bytes)),links:wikilinks(text)};
   };
   const citing=(text,path)=>{
-    const readAtMs=Date.now(),next=new Map(),wiki=[];
+    const readAtMs=now(),next=new Map(),wiki=[];
     const scan=(from,wikiPage)=>{
       for(const p of markdown(from)){
-        const key=rel(p),stat=statSync(p),kept=snapshot?.get(key);
-        const trusted=kept&&kept.size===stat.size&&kept.mtimeMs===stat.mtimeMs&&kept.ctimeMs===stat.ctimeMs&&kept.mtimeMs<=kept.readAtMs-GRAPH_CACHE_RACY_MS;
-        const e=trusted?kept:entry(p,stat,readAtMs,wikiPage);
+        const key=rel(p),st=stat(p),kept=snapshot?.get(key);
+        const trusted=kept&&kept.size===st.size&&kept.mtimeMs===st.mtimeMs&&kept.ctimeMs===st.ctimeMs&&kept.mtimeMs<=kept.readAtMs-GRAPH_CACHE_RACY_MS;
+        const e=trusted?kept:entry(p,st,readAtMs,wikiPage);
         next.set(key,e);if(wikiPage)wiki.push([p,e]);
       }
     };
