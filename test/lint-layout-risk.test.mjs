@@ -14,7 +14,8 @@ import { buildGraph } from '../scripts/lib/graph.mjs';
 import { DISPOSITIONS_FILE, appendDispositions, recordFor } from '../scripts/lib/lint-dispositions.mjs';
 
 // A clipping whose extraction interleaves two columns holds a quotation's words in order, but with a line of the other
-// column between each pair of lines. The PDF clipper marks such a clipping `layout-risk: columns` in its frontmatter.
+// column between each pair of lines. Such a clipping can carry `layout-risk: columns` in its frontmatter (no clipper
+// writes the mark yet).
 // A quotation that would be unverified, and whose words all place in order in one marked clipping with the other
 // column's lines skipped, is in the `extraction-noted` tier: still listed with --json and --tier, with the skipped
 // words to read, but no longer reported as unverifiable. Nothing else changes tier, and no id changes.
