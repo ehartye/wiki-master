@@ -11,8 +11,12 @@ import { appendFileSync, existsSync, readFileSync, renameSync, writeFileSync } f
 
 export const DISPOSITIONS_FILE = 'lint-dispositions.jsonl';
 // own-wording: the page's own words in quotation marks; mention: the quote names or discusses a phrase; title: the quoted
-// text is a title; markup: only markup or extraction spacing differs; accepted: read and kept; fixed: the page was corrected.
-export const DISPOSITIONS = ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed'];
+// text is a title; markup: only markup or extraction spacing differs; accepted: read and kept; fixed: the page was corrected;
+// source-wording (style flags only): the flagged word or contrast is the cited source's wording, kept without quotation
+// marks. A reader that does not know a verdict still hides its finding, because only `fixed` lists it again.
+export const DISPOSITIONS = ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed', 'source-wording'];
+// The verdicts that only a style flag may carry.
+export const STYLE_ONLY_DISPOSITIONS = ['source-wording'];
 const VERSION = 1;
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');

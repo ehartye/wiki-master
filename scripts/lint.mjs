@@ -267,8 +267,18 @@ const CONNECTIVES = /\b(however|but|despite|yet)\b/i;
 // Uses of these words that are not a contrast: a time word ("not yet built", "as yet", "is yet to ship", "have yet to"),
 // "yet" meaning "again" or "in addition" ("yet another example"), and "but" meaning "except" ("nothing but a stub").
 // They are taken out of a sentence before it is tested for a contrast connective. "yet to" is removed only after a verb
-// of being or having, so "cheap, yet to many it is slow" is still a contrast.
-const NOT_A_CONTRAST = /\bnot yet\b|\bas yet\b|\byet (?:another|again|more)\b|\b(?:is|are|was|were|be|been|has|have|had|remains?|remained)\s+yet\s+to\b|\b(?:nothing|anything|none|all|everyone|everybody|anyone|no one|nobody)\s+but\b/gi;
+// of being or having, so "cheap, yet to many it is slow" is still a contrast. "however" directly before a degree word
+// ("however many clauses it takes") means "to whatever degree"; with a comma between ("However, many disagree") it is a
+// contrast again.
+const NOT_A_CONTRAST = /\bnot yet\b|\bas yet\b|\byet (?:another|again|more)\b|\b(?:is|are|was|were|be|been|has|have|had|remains?|remained)\s+yet\s+to\b|\b(?:nothing|anything|none|all|everyone|everybody|anyone|no one|nobody)\s+but\b|\bhowever (?:many|much|few|little|long|often|far|hard|large|small|big|great|high|low|good|bad|well|soon|late|early|fast|slow)\b/gi;
+// Uses of a tone phrase that are not the flagged use, taken out of the tested copy of a sentence the same way: "of course"
+// is a tone word only as a discourse marker: at the start of the text or a line, after sentence or clause punctuation,
+// or directly after a conjunction, verb, pronoun or "there"/"here" ("This is, of course, wrong", "It is of course wrong",
+// "And of course it fails"). Elsewhere it is part of a noun phrase ("a list of course concepts", "as a matter of course").
+const DISCOURSE_LEAD = 'and|but|or|so|yet|then|is|are|was|were|be|been|being|am|will|would|can|could|should|shall|may|might|must|do|does|did|has|have|had|it|this|that|these|those|which|who|we|they|you|he|she|i|there|here';
+const NOT_A_TONE = {
+  'of course': new RegExp(`(?<!(?:^|[.!?,;:(—–])\\s*)(?<!\\b(?:${DISCOURSE_LEAD})\\s+)(?<![\\w-])of[- ]course(?![\\w-])`, 'gim'),
+};
 // A paragraph ends at a blank line and also where a list item, heading or table row starts: a citation after a list item
 // does not cover the item before it. A heading line is a paragraph of its own (see styleParagraphs).
 const STYLE_PARAGRAPH_BREAK = /\r?\n[ \t]*\r?\n|\r?\n(?=[ \t]*(?:[-*+]\s|\d+[.)]\s|#{1,6}\s|\|))/;
@@ -331,7 +341,10 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     for (const cat of LICENSE[dir]) {
       for (const w of STYLE[cat]) {
         const re = new RegExp(`(?<![\\w-])${w.replace(/[- ]/g, '[- ]')}(?![\\w-])`, 'i');
-        if (re.test(body)) findings.push(styleFinding(p.path, cat, w, sentences.filter((s) => re.test(s)).join('\n') || w));
+        // A use that is not the tone word is removed from the tested copy only. The flag's text is still every sentence
+        // holding the words, unedited, so a rule that removes flags gives the flags that stay the ids they had.
+        const fires = NOT_A_TONE[w] ? re.test(body.replace(NOT_A_TONE[w], ' ')) : re.test(body);
+        if (fires) findings.push(styleFinding(p.path, cat, w, sentences.filter((s) => re.test(s)).join('\n') || w));
       }
     }
     // Connective-SYNTH weak signal, syntheses only: a contrast connective in a

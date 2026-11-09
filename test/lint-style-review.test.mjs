@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { checkStyle } from '../scripts/lint.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
-import { DISPOSITIONS_FILE, findingId, contextHashOf } from '../scripts/lib/lint-dispositions.mjs';
+import { DISPOSITIONS, DISPOSITIONS_FILE, findingId, contextHashOf, loadDispositions, reviewedBy } from '../scripts/lib/lint-dispositions.mjs';
 
 // Style flags are review pointers. Two things made them useless to review: most connective flags were sentences whose
 // paragraph ends in the citation (the trailing-citation convention), and a pointer someone had read came back on every
@@ -277,4 +277,97 @@ test('a lone carriage return is not a line break: paragraphs, flags and ids are 
   // The flags and ids the same pages gave before line endings were normalized.
   assert.deepEqual(flags, ['wiki/concepts/lone-cr-tone.md editorializing clearly 9c6bbe14781b']);
   assert.equal(flags[0].split(' ').pop(), findingId({ page: 'wiki/concepts/lone-cr-tone.md', quote: 'editorializing: clearly', evidenceHash: contextHashOf('- alpha\r- this is clearly wrong\r- gamma') }));
+});
+
+// ---- Word senses that are not the flagged use, and the source-wording verdict. ----
+
+const flagsOf = (root, page) => checkStyle(root, buildGraph(root)).filter((f) => f.page === page).map((f) => `${f.category} ${f.word}`);
+
+test('"of course" is flagged only as a discourse marker, not inside a noun phrase or "as a matter of course"', (t) => {
+  const v = vault(t);
+  v.concept('quiet-course', 'A list of course concepts follows.\n\nIt happened as a matter of course.');
+  v.concept('loud-comma', 'This is, of course, wrong.');
+  v.concept('loud-verb', 'It is of course wrong.');
+  v.concept('loud-and', 'And of course it fails.');
+  assert.deepEqual(flagsOf(v.root, 'wiki/concepts/quiet-course.md'), []);
+  for (const page of ['loud-comma', 'loud-verb', 'loud-and']) assert.deepEqual(flagsOf(v.root, `wiki/concepts/${page}.md`), ['editorializing of course'], page);
+});
+
+test('"however" before a degree word is not a connective, and "However," before the same word still is', (t) => {
+  const v = vault(t);
+  v.synth('degree', 'It splits however many clauses it takes.');
+  v.synth('contrast', 'However, many disagree.');
+  assert.deepEqual(connective(v.root).map((f) => `${f.page} ${f.word}`), ['wiki/syntheses/contrast.md However, many disagree.']);
+});
+
+test('the sense rules remove flags and change no other flag\'s id', (t) => {
+  const v = vault(t);
+  // Each page mixes removed phrases with flags that stay. The ids that stay are those the build before the rules gave.
+  v.concept('mixed-tone', 'Of course, the rule is clearly simple. A list of course concepts follows. As a matter of course, it is notably fine.');
+  v.concept('course-list', 'This is clearly a list of course concepts.');
+  v.synth('mixed-joint', 'However many clauses it takes, the rule holds, but lists fail.\n\nHowever much it costs, it ships.\n\nThe tool works, but slowly.\n\nHowever, many disagree.');
+  const flags = checkStyle(v.root, buildGraph(v.root)).map((f) => `${f.page} ${f.category} ${f.word} ${f.id}`);
+  assert.deepEqual(flags, [
+    'wiki/concepts/course-list.md editorializing clearly 12493312cb4a',
+    'wiki/concepts/mixed-tone.md editorializing clearly 9c27e76e68c2',
+    'wiki/concepts/mixed-tone.md editorializing notably 83e3929965d8',
+    // Still a discourse marker in the first sentence: its id still covers every sentence holding the words.
+    'wiki/concepts/mixed-tone.md editorializing of course 2583463cac2e',
+    'wiki/syntheses/mixed-joint.md connective However many clauses it takes, the rule holds, but lists fail. b6579e5eb46e',
+    'wiki/syntheses/mixed-joint.md connective The tool works, but slowly. e3ce1a536840',
+    'wiki/syntheses/mixed-joint.md connective However, many disagree. 01a18c15cfbf',
+  ]);
+});
+
+test('a sentence holding a removed phrase and a flag that stays keeps that flag, with the id of the unedited sentence', (t) => {
+  const v = vault(t);
+  const joint = 'However many clauses it takes, the rule holds, but lists fail.';
+  const tone = 'This is clearly a list of course concepts.';
+  v.synth('joint', joint);
+  v.concept('tone', tone);
+  const synthPage = 'wiki/syntheses/joint.md';
+  const conceptPage = 'wiki/concepts/tone.md';
+  const flags = checkStyle(v.root, buildGraph(v.root));
+  const [c] = flags.filter((f) => f.page === synthPage);
+  assert.equal(c.category, 'connective', 'the real "but" stays flagged');
+  assert.equal(c.word, joint.slice(0, 70));
+  assert.equal(c.id, findingId({ page: synthPage, quote: `connective: ${joint.slice(0, 70)}`, evidenceHash: contextHashOf(joint) }));
+  assert.deepEqual(flags.filter((f) => f.page === conceptPage).map((f) => [f.word, f.id]), [
+    ['clearly', findingId({ page: conceptPage, quote: 'editorializing: clearly', evidenceHash: contextHashOf(tone) })],
+  ]);
+});
+
+test('source-wording is recorded for a style flag and hides it', (t) => {
+  const v = vault(t);
+  v.synth('joint', 'It rose, but only slightly.');
+  const [flag] = lintJson(v.root, ['--ids']).style;
+  const done = record(v.root, [`--ids=${flag.id}`, '--disposition=source-wording', '--reviewer=tester', '--page=wiki/syntheses/joint.md']);
+  assert.equal(done.status, 0, done.stderr);
+  const lines = readFileSync(v.file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0].id, flag.id);
+  assert.equal(lines[0].disposition, 'source-wording');
+  assert.equal(lines[0].tier, 'style');
+  const after = lintJson(v.root, ['--ids']);
+  assert.deepEqual(after.style, []);
+  assert.equal(after.tiers.styleReviewed, 1);
+});
+
+test('source-wording on a quote finding exits 2 and writes nothing', (t) => {
+  const v = vault(t);
+  v.concept('quoted', 'It says "a totally invented sentence about foxes and rivers" here.');
+  const [quote] = lintJson(v.root, ['--ids']).findings;
+  const out = record(v.root, [`--ids=${quote.id}`, '--disposition=source-wording', '--reviewer=tester', '--whole-vault']);
+  assert.equal(out.status, 2);
+  assert.match(out.stderr, new RegExp(`source-wording.*${quote.id}`));
+  assert.throws(() => readFileSync(v.file), /ENOENT/);
+});
+
+test('a dispositions file holding a source-wording line is read, and the verdict hides its finding', (t) => {
+  const v = vault(t);
+  assert.ok(DISPOSITIONS.includes('source-wording'));
+  writeFileSync(v.file, `${JSON.stringify({ v: 1, id: 'abcdef012345', page: 'wiki/syntheses/joint.md', quote: 'connective: It rose, but only slightly.', evidence: '0123456789abcdef', tier: 'style', disposition: 'source-wording', reviewer: 'tester', date: '2026-11-08' })}\n`);
+  const read = loadDispositions(v.file);
+  assert.equal(read.get('abcdef012345').disposition, 'source-wording');
+  assert.equal(reviewedBy(read, { id: 'abcdef012345' }).disposition, 'source-wording');
 });

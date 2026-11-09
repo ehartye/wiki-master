@@ -7,7 +7,7 @@ import { buildGraph } from './lib/graph.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { classifyQuotes, checkStyle } from './lint.mjs';
 import {
-  DISPOSITIONS, DISPOSITIONS_FILE, appendDispositions, pruneDispositions, recordFor,
+  DISPOSITIONS, DISPOSITIONS_FILE, STYLE_ONLY_DISPOSITIONS, appendDispositions, pruneDispositions, recordFor,
 } from './lib/lint-dispositions.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -36,6 +36,10 @@ function record(values, vaultPath) {
   const byId = new Map([...style, ...findings].map((f) => [f.id, f]));
   const missing = ids.filter((id) => !byId.has(id));
   if (missing.length) throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote, the flagged sentence or the evidence may have changed, or its page is outside the scope; run lint.mjs --ids again)`);
+  if (STYLE_ONLY_DISPOSITIONS.includes(values.disposition)) {
+    const quotes = ids.filter((id) => byId.get(id).tier !== 'style');
+    if (quotes.length) throw new InputError(`${values.disposition} is a verdict for style flags only, and ${quotes.join(', ')} ${quotes.length === 1 ? 'is a quote finding' : 'are quote findings'}`);
+  }
   const date = new Date().toISOString().slice(0, 10);
   appendDispositions(join(vaultPath, DISPOSITIONS_FILE), ids.map((id) => recordFor(byId.get(id), { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
   return `recorded ${ids.length} verdict(s) in ${DISPOSITIONS_FILE} (${values.disposition}): ${ids.join(', ')}`;

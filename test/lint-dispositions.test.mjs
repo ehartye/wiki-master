@@ -76,7 +76,7 @@ test('appendDispositions refuses a verdict outside the vocabulary and a missing 
   assert.throws(() => appendDispositions(v.file, [{ v: 1, id: 'a', disposition: 'looks-fine', reviewer: 'r', date: '2026-10-26' }]), /disposition/);
   assert.throws(() => appendDispositions(v.file, [{ v: 1, id: 'a', disposition: 'accepted', reviewer: '', date: '2026-10-26' }]), /reviewer/);
   assert.equal(existsSync(v.file), false);
-  assert.deepEqual(DISPOSITIONS, ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed']);
+  assert.deepEqual(DISPOSITIONS, ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed', 'source-wording']);
 });
 
 test('reviewedBy: a verdict suppresses a finding unless it says "fixed", which a still-present finding contradicts', () => {
