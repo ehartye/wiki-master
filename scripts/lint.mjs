@@ -36,9 +36,35 @@ export function normalize(s) {
 // A quoted span may contain the page author's own editorial marks — elisions
 // ("...") and bracketed insertions ("[the player]"). Those are NOT source
 // text: split on them and verify each remaining fragment independently.
+//   - A bracket standing as its own word ("[the player]", "[sic]") is cut out.
+//   - A bracket glued to a letter or digit on either side ("[E]ach", "pi[ne]cones",
+//     "borrow\[ing\]") is an edit of that word: the whole run of non-space
+//     characters holding it is cut out, so no stub ("ach") is left to fail.
+//   - A citation or footnote mark ("cells[12]", "cells[^1]") is cut out alone, so
+//     the word before it keeps its letters, as flattenMarkdown strips it.
+//   - A Markdown link ("[text](url)") or a wikilink ("[[page]]") is not an edit: it
+//     stays in its fragment, and the tiered match reads it as the text a reader sees.
+const EDITORIAL_MARK = /\[\[[^\]]*\]\]|\[[^\]]*\]\(|\\\[[^\]]*?\\\]|\[[^\]]*\]|\.\.\.|…/g;
+const CITATION_MARK = /^\[(?:\d+|\^[^\]]+)\]$/;
+const WORD_CHAR = /[\p{L}\p{N}]/u;
 export function quoteFragments(q) {
-  return q
-    .split(/\.\.\.|…|\[[^\]]*\]/)
+  const out = [];
+  let from = 0; // where the fragment being built starts
+  for (const m of q.matchAll(EDITORIAL_MARK)) {
+    const mark = m[0];
+    let start = m.index, end = start + mark.length;
+    if (start < from) continue; // inside a word already cut out
+    if (mark.startsWith('[[') || mark.endsWith('(')) continue; // a wikilink or a Markdown link stays
+    const bracket = mark.startsWith('[') || mark.startsWith('\\');
+    if (bracket && !CITATION_MARK.test(mark) && (WORD_CHAR.test(q[start - 1] ?? '') || WORD_CHAR.test(q[end] ?? ''))) {
+      while (start > from && !/\s/.test(q[start - 1])) start--;
+      while (end < q.length && !/\s/.test(q[end])) end++;
+    }
+    out.push(q.slice(from, start));
+    from = end;
+  }
+  out.push(q.slice(from));
+  return out
     .map((f) => f.trim())
     .filter((f) => (f.match(/\S+/g) || []).length >= 3);
 }
@@ -61,21 +87,96 @@ function splitFm(md) {
 //   - Quotes shorter than MIN_QUOTE_WORDS are consumed but not returned: a short
 //     quote ("Adaptive") must still take its closing mark, or parity flips and
 //     the text BETWEEN two quotes is captured.
-// Each span is { start, text, raw }: text has the inner marks removed for
+//   - Some marks are not quotation syntax and are taken out of play first:
+//       - a mark inside code (codeRanges) is code;
+//       - a straight mark ending a measurement (7'6", 4'33") is never a delimiter;
+//       - a straight mark directly after a digit (5" pipe) opens nothing, but it
+//         still closes an open straight quotation, since quotations often end in a
+//         number ("in 1999"). So "use a 5" pipe here" still closes early.
+//     A mark out of play stays in the quotation's text as written.
+// Each span is { start, text, raw }: text has the delimiting marks removed for
 // matching, raw is the page text as written, for locating its sentence.
 const PARAGRAPH_BREAK = /[ \t\r]*\n/y;
+const MEASUREMENT = /\d['’]\s?\d+$/;
+
+// Where code is in a body, as sorted [start, end) ranges, found once before pairing:
+//   - a fenced block, from its opening ``` or ~~~ line to a closing line of the
+//     same character at least as long (an unclosed fence hides nothing);
+//   - an inline code span, from a backtick run to the next run of the same length
+//     in the same paragraph, outside fenced blocks. A backtick fence whose info
+//     string holds a backtick is not a fence (```x```), as in CommonMark.
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+const BLANK_LINE = /\n[ \t\r]*\n/g;
+function codeRanges(body) {
+  const fences = [];
+  let fence = null; // { at, ch, len }
+  for (let pos = 0; pos < body.length;) {
+    const nl = body.indexOf('\n', pos);
+    const lineEnd = nl < 0 ? body.length : nl;
+    const line = body.slice(pos, lineEnd).replace(/\r$/, '');
+    if (!fence) {
+      const m = FENCE_OPEN.exec(line);
+      if (m && !(m[1][0] === '`' && m[2].includes('`'))) fence = { at: pos, ch: m[1][0], len: m[1].length };
+    } else {
+      const m = FENCE_CLOSE.exec(line);
+      if (m && m[1][0] === fence.ch && m[1].length >= fence.len) { fences.push([fence.at, lineEnd]); fence = null; }
+    }
+    pos = lineEnd + 1;
+  }
+  const ranges = [];
+  const spansIn = (from, to) => {
+    const runs = [];
+    for (const m of body.slice(from, to).matchAll(/`+/g)) runs.push({ at: from + m.index, len: m[0].length });
+    const next = new Array(runs.length).fill(-1);
+    const seen = new Map();
+    for (let i = runs.length - 1; i >= 0; i--) { next[i] = seen.get(runs[i].len) ?? -1; seen.set(runs[i].len, i); }
+    for (let i = 0; i < runs.length;) {
+      const j = next[i];
+      if (j < 0) { i++; continue; }
+      ranges.push([runs[i].at, runs[j].at + runs[j].len]);
+      i = j + 1;
+    }
+  };
+  const paragraphsIn = (from, to) => {
+    let at = from;
+    for (const m of body.slice(from, to).matchAll(BLANK_LINE)) { spansIn(at, from + m.index); at = from + m.index + m[0].length; }
+    spansIn(at, to);
+  };
+  let at = 0;
+  for (const [s, e] of fences) { paragraphsIn(at, s); ranges.push([s, e]); at = e; }
+  paragraphsIn(at, body.length);
+  return ranges.sort((a, b) => a[0] - b[0]);
+}
 
 function scanQuotes(body) {
   const found = [];
   const open = []; // { curly, at } — at is the index just after the opening mark
   let settled = 0; // open[0..settled) holds only curly openers carried across a blank line
+  const code = codeRanges(body);
+  const literal = new Set(); // straight marks taken out of play by the measurement and digit rules
+  const inCode = (pos) => {
+    let lo = 0, hi = code.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (code[mid][1] <= pos) lo = mid + 1;
+      else if (code[mid][0] > pos) hi = mid - 1;
+      else return true;
+    }
+    return false;
+  };
   const close = (at, end) => {
     const raw = body.slice(at, end);
-    const text = raw.replace(/["“”]/g, '');
+    const text = raw.replace(/["“”]/g, (mark, off) => (literal.has(at + off) || inCode(at + off) ? mark : ''));
     if ((text.match(/\S+/g) || []).length >= MIN_QUOTE_WORDS) found.push({ start: at, text, raw });
   };
+  let r = 0; // the first code range that does not end before i
   for (let i = 0; i < body.length; i++) {
     const c = body[i];
+    if (c === '"' || c === '“' || c === '”') {
+      while (r < code.length && code[r][1] <= i) r++;
+      if (r < code.length && code[r][0] <= i) continue;
+    }
     if (c === '\n') {
       PARAGRAPH_BREAK.lastIndex = i + 1;
       if (!PARAGRAPH_BREAK.test(body)) continue;
@@ -93,7 +194,10 @@ function scanQuotes(body) {
       settled = Math.min(settled, k);
     } else if (c === '"') {
       const top = open[open.length - 1];
-      if (top && !top.curly) { close(top.at, i); open.pop(); }
+      const afterDigit = /\d/.test(body[i - 1] ?? '');
+      if (afterDigit && MEASUREMENT.test(body.slice(Math.max(0, i - 24), i))) literal.add(i);
+      else if (top && !top.curly) { close(top.at, i); open.pop(); }
+      else if (afterDigit) literal.add(i);
       else open.push({ curly: false, at: i + 1 });
     }
   }
@@ -217,7 +321,8 @@ export function nearMatches(vaultPath, graph, findings) {
   let summaryOnly = 0;
   for (const f of findings) {
     if (f.tier !== 'unverified') continue;
-    const q = tokenize(f.quote);
+    // The fragments, not the whole quote: an editorial bracket is not source text, so it is not a diff word either.
+    const q = tokenize(quoteFragments(f.quote).join(' '));
     if (q.length < NEAR_MIN_WORDS) continue;
     if (!evidenceFor.has(f.page)) evidenceFor.set(f.page, evidencePaths(pages.get(f.page), byName, pages).sort());
     let raw = null, other = null;
