@@ -131,3 +131,14 @@ test('scanIntegrity passes skippedPaths through only when there are some, and th
   assert.match(integrityReport(r), /^Skipped paths: 1 \(unscored\)/m);
   assert.equal(r.defectCount, clean.defectCount, 'a skipped path is a notice, not a defect');
 });
+
+test('a native real-path call that fails with an unexpected code falls back instead of stopping the walk', t => {
+  // Some virtual drives make the native real-path call fail (for example with EISDIR) on paths that exist.
+  // The walk then uses the portable real-path call, so the vault is still read and cycles are still found.
+  const { root, link } = fixture(t);
+  link('wiki/concepts/loop', root);
+  t.mock.method(realpathSync, 'native', () => { throw Object.assign(new Error('native real path failed'), { code: 'EISDIR' }); });
+  const graph = buildGraph(root);
+  assert.deepEqual(graph.pages.map(p => p.path).sort(), ['moc/project.md', 'raw/clippings/clip.md', 'wiki/concepts/alpha.md', 'wiki/sources/beta.md']);
+  assert.deepEqual(graph.skippedPaths, [{ path: 'wiki/concepts/loop', reason: 'link-cycle' }]);
+});
