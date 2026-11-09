@@ -256,8 +256,11 @@ function makeDocCache(vaultPath) {
   return (path) => {
     const hit = cache.get(path);
     if (hit) { cache.delete(path); cache.set(path, hit); return hit.doc; }
-    const text = splitFm(readFileSync(join(vaultPath, path), 'utf8'));
-    const doc = prepareDocument(text);
+    const md = readFileSync(join(vaultPath, path), 'utf8');
+    const text = splitFm(md);
+    // The frontmatter's lines, so a located match names the file's own line numbers.
+    const lineOffset = (md.slice(0, md.length - text.length).match(/\n/g) ?? []).length;
+    const doc = prepareDocument(text, { lineOffset });
     cache.set(path, { doc, size: text.length * DOC_WEIGHT });
     held += text.length * DOC_WEIGHT;
     for (const [k, v] of cache) {
@@ -266,6 +269,45 @@ function makeDocCache(vaultPath) {
     }
     return doc;
   };
+}
+
+const kindOf = (path) => (path.startsWith('raw/') ? 'raw clipping' : 'wiki page');
+
+// Where each fragment of a finding's quote is, in fragment order (classifyQuotes). A convention or gapped fragment is
+// located where its tier came from; a gapped entry's diff shows the skipped evidence words in place as {+word+}. An
+// unverified fragment gets its best near window over the page's evidence documents, with no word floor and no
+// threshold, a raw clipping winning a tie, and a null document when no window exists. Lines are the file's, 1-based,
+// and are left out (linesUnavailable) where a per-line reading of the document gives other words than the whole text.
+function locateFragments(raw, matches, paths, docs) {
+  const order = paths.map((_, i) => i).sort((a, b) => (paths[a] < paths[b] ? -1 : paths[a] > paths[b] ? 1 : 0));
+  const at = (entry, doc, start, end, rest) => {
+    const lines = doc.lineSpan(start, end);
+    return { ...entry, ...(lines ? { lines } : { linesUnavailable: true }), ...rest };
+  };
+  return raw.map((fragment, i) => {
+    const m = matches[i];
+    if (m.tier !== null) {
+      if (m.doc === null) return { fragment: i, document: null, match: m.tier };
+      const doc = docs[m.doc], path = paths[m.doc];
+      const entry = { fragment: i, document: path, kind: kindOf(path) };
+      if (m.tier === 'convention') return at(entry, doc, m.start, m.end, { match: 'convention' });
+      const placed = new Set(m.at);
+      const diff = doc.tokens.slice(m.start, m.end).map((w, k) => (placed.has(m.start + k) ? w : `{+${w}+}`)).join(' ');
+      return at(entry, doc, m.start, m.end, { match: 'gapped', diff });
+    }
+    const q = tokenize(fragment);
+    let best = null;
+    for (const j of order) {
+      const w = bestWindow(q, docs[j]);
+      if (!w) continue;
+      const isRaw = paths[j].startsWith('raw/');
+      if (!best || w.score > best.w.score || (w.score === best.w.score && isRaw && !best.isRaw)) best = { j, w, isRaw };
+    }
+    if (!best) return { fragment: i, document: null, match: 'near' };
+    const path = paths[best.j];
+    return at({ fragment: i, document: path, kind: kindOf(path) }, docs[best.j], best.w.start, best.w.end,
+      { match: 'near', score: Math.round(best.w.score * 100) / 100, diff: renderDiff(best.w.ops) });
+  });
 }
 
 // Every quote the verbatim check cannot place, sorted into the tier that says why.
@@ -277,7 +319,8 @@ function makeDocCache(vaultPath) {
 // has at least MIN_QUOTE_WORDS, so no quote can be a substring of one.
 // `pages`, a Set of vault-relative paths, limits the work to those pages (the graph is still built whole, because a
 // page's evidence is found through it). Every finding carries `evidenceHash` (the raw documents behind the page's
-// quotes) and `id`, which names the finding for a recorded verdict (lib/lint-dispositions.mjs).
+// quotes) and `id`, which names the finding for a recorded verdict (lib/lint-dispositions.mjs), and `evidence`, where
+// each fragment of the quote is (locateFragments).
 export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
   const byName = buildNameIndex(graph.pages);
   const pages = new Map(graph.pages.map((p) => [p.path, p]));
@@ -315,7 +358,7 @@ export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
       examined++;
       if (fragments.every((f) => evidence.some((e) => e.includes(f)))) { verbatim++; continue; }
       docs ??= paths.map(docFor);
-      const { tier, inserted } = classifyFragments(raw, docs);
+      const { tier, inserted, matches } = classifyFragments(raw, docs);
       if (tier === 'unverified') {
         titles ??= paths.filter((path) => path.startsWith('raw/')).map((path) => pages.get(path)?.metadata?.title).filter((x) => typeof x === 'string' && x).map(normalize);
         if (fragments.every((f) => titles.some((t) => t.includes(f)))) { title++; continue; }
@@ -324,7 +367,7 @@ export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
       // see the whole span, or a quote whose tail diverges verifies on its prefix.
       evidenceHash ??= evidenceHashOf(paths, evidence);
       const finding = { page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}), evidenceHash };
-      findings.push({ ...finding, id: findingId(finding) });
+      findings.push({ ...finding, id: findingId(finding), evidence: locateFragments(raw, matches, paths, docs) });
     }
   }
   return { examined, verbatim, title, findings };
@@ -511,6 +554,9 @@ function parseArgs(argv) {
   };
 }
 
+// One evidence entry as the --full listing prints it: <document>:<first>-<last>.
+const whereIs = (e) => (e.document === null ? 'none' : e.lines ? `${e.document}:${e.lines[0]}-${e.lines[1]}` : `${e.document} (lines unavailable)`);
+
 const clip = (q, full, n = 80) => (full || q.length <= n ? q : `${q.slice(0, n)}...`);
 
 // The pages a run is limited to, or null for the whole vault: those a ledger names, those whose `updated` is on or
@@ -605,6 +651,7 @@ ${label}: ${args.page ? `${rows.length} on matching pages (${tiers[tier]} vault-
       console.log(`  ${f.page}${args.ids ? ` [${f.id}]` : ''}
     "${clip(f.quote, args.full)}" (checked ${f.checked} sources)`);
       if (f.tier === 'gapped') console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
+      if (args.full) for (const e of f.evidence) console.log(`    evidence: ${whereIs(e)}`);
       const v = args.includeReviewed ? verdict(f) : null;
       if (v) console.log(`    reviewed: ${v.disposition} by ${v.reviewer} on ${v.date}${v.note ? ` (${v.note})` : ''}`);
     }
@@ -642,7 +689,7 @@ const USAGE = [
   '',
   'Content lint: warn-only flags for review (quotes, run-of-spaces, near matches), never scored.',
   '  --json         machine-readable output',
-  '  --full         do not shorten quotes in the listing',
+  '  --full         do not shorten quotes in the listing, and print where each quote fragment is (evidence: <document>:<lines>)',
   '  --near         add the word diff of each unverified quote against its raw clipping',
   '  --tier=<name>  list one quote tier only',
   '  --page=<path>  limit the report to pages whose path contains this text (the whole vault is still examined)',

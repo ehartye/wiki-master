@@ -106,9 +106,11 @@ export const tokenize = (text) => flattenMarkdown(text).toLowerCase().replace(/\
 
 // One evidence document, prepared lazily: a page with 80 evidence documents only
 // pays for the ones a failing quote actually needs, and the representations
-// (word string, compact string, word index) are built on first use.
-export function prepareDocument(text) {
-  let str, tokens, index, compact;
+// (word string, compact string, word index, line map) are built on first use.
+// `lineOffset` is the number of file lines before `text` (a frontmatter block the
+// caller removed), so line numbers count from the top of the file.
+export function prepareDocument(text, { lineOffset = 0 } = {}) {
+  let str, tokens, index, compact, lineOf;
   const self = {
     // " w1 w2 w3 " — a word-bounded search is `str.includes(" w2 w3 ")`.
     get str() { return str ??= ` ${tokenize(text).join(' ')} `; },
@@ -141,19 +143,58 @@ export function prepareDocument(text) {
       }
       return compact;
     },
+    get lineMapBuilt() { return lineOf !== undefined; },
+    // The 1-based file lines holding tokens [start, end), or null. Each line is
+    // tokenized alone, and the map is used only when those tokens are exactly the
+    // whole text's: a construct that spans a line (a tag, a link) can make them
+    // differ, and then no token has a line it can be trusted to sit on.
+    lineSpan(start, end) {
+      if (lineOf === undefined) lineOf = lineMap(String(text), self.tokens);
+      if (!lineOf || !(start >= 0 && end > start && end <= lineOf.length)) return null;
+      return [lineOf[start] + 1 + lineOffset, lineOf[end - 1] + 1 + lineOffset];
+    },
   };
   return self;
 }
 
+// Token index -> 0-based line of `text`, or null when a line-by-line reading
+// does not give the same tokens as the whole text.
+function lineMap(text, whole) {
+  const map = new Uint32Array(whole.length);
+  let at = 0, line = 0;
+  for (let from = 0; from <= text.length; line++) {
+    const nl = text.indexOf('\n', from);
+    const to = nl < 0 ? text.length : nl;
+    for (const t of tokenize(text.slice(from, to))) {
+      if (at >= whole.length || whole[at] !== t) return null;
+      map[at++] = line;
+    }
+    if (nl < 0) break;
+    from = nl + 1;
+  }
+  return at === whole.length ? map : null;
+}
+
+// The token range [start, end) of the first convention match, or null.
 function conventionMatch(q, doc) {
-  if (doc.str.includes(` ${q.join(' ')} `)) return true;
+  const at = doc.str.indexOf(` ${q.join(' ')} `);
+  if (at !== -1) {
+    // Each space after the string's first, up to the match's leading space, ends one earlier token.
+    let start = 0;
+    for (let i = doc.str.indexOf(' ', 1); i !== -1 && i <= at; i = doc.str.indexOf(' ', i + 1)) start++;
+    return { start, end: start + q.length };
+  }
   const qc = q.join('');
-  if (qc.length < MIN_COMPACT) return false;
+  if (qc.length < MIN_COMPACT) return null;
   const { text, starts, ends } = doc.compact;
   for (let i = text.indexOf(qc); i !== -1; i = text.indexOf(qc, i + 1)) {
-    if (starts[i] && ends[i + qc.length - 1]) return true;
+    if (starts[i] && ends[i + qc.length - 1]) {
+      let start = -1, end = 0;
+      for (let c = 0; c < i + qc.length; c++) if (starts[c]) { end++; if (c <= i) start++; }
+      return { start, end };
+    }
   }
-  return false;
+  return null;
 }
 
 // Cheapest in-order placement of every quote word in the document, or null.
@@ -237,32 +278,42 @@ function gappedMatch(q, doc) {
   for (let j = 0; j < n - 1; j++) {
     if (at[j + 1] - at[j] > 1) inserted.push(T.slice(at[j] + 1, at[j + 1]).join(' '));
   }
-  return { cost: bestCost, inserted };
+  return { cost: bestCost, inserted, at };
 }
 
 // Classify one quoted fragment against the evidence documents of its page.
 // Convention in ANY document beats gapped; among gapped matches the cheapest wins.
+// Where the match is: `doc`, the index in `docs` of the document the tier came
+// from (null with no match, or for a fragment with no words), and the token range
+// [start, end) it covers in that document; a gapped match adds `at`, the evidence
+// position of each quote word.
 export function matchFragment(fragment, docs) {
   const q = tokenize(fragment);
-  if (!q.length) return { tier: 'convention', inserted: [] };
-  for (const d of docs) if (conventionMatch(q, d)) return { tier: 'convention', inserted: [] };
-  let best = null;
-  for (const d of docs) {
-    const g = gappedMatch(q, d);
-    if (g && (!best || g.cost < best.cost)) best = g;
+  if (!q.length) return { tier: 'convention', inserted: [], doc: null };
+  for (let i = 0; i < docs.length; i++) {
+    const c = conventionMatch(q, docs[i]);
+    if (c) return { tier: 'convention', inserted: [], doc: i, start: c.start, end: c.end };
   }
-  return best ? { tier: 'gapped', inserted: best.inserted } : { tier: null, inserted: [] };
+  let best = null, bestDoc = -1;
+  for (let i = 0; i < docs.length; i++) {
+    const g = gappedMatch(q, docs[i]);
+    if (g && (!best || g.cost < best.cost)) { best = g; bestDoc = i; }
+  }
+  if (!best) return { tier: null, inserted: [], doc: null };
+  return { tier: 'gapped', inserted: best.inserted, doc: bestDoc, start: best.at[0], end: best.at[best.at.length - 1] + 1, at: best.at };
 }
 
 // A quote is as weak as its weakest fragment (fragments are the pieces between
 // the page's own ellipses and bracketed insertions; each is checked alone).
+// `matches` holds every fragment's matchFragment result, in order, so each
+// fragment can be located, including those after an unverified one.
 export function classifyFragments(fragments, docs) {
   let tier = 'convention';
   const inserted = [];
-  for (const f of fragments) {
-    const m = matchFragment(f, docs);
-    if (m.tier === null) return { tier: 'unverified', inserted: [] };
+  const matches = fragments.map((f) => matchFragment(f, docs));
+  for (const m of matches) {
+    if (m.tier === null) return { tier: 'unverified', inserted: [], matches };
     if (m.tier === 'gapped') { tier = 'gapped'; inserted.push(...m.inserted); }
   }
-  return { tier, inserted };
+  return { tier, inserted, matches };
 }
