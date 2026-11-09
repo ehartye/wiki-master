@@ -67,12 +67,14 @@ const writeThen = (root, when, change) => {
 };
 const atRaw = path => path === TARGET, atFirstPage = path => path.startsWith('wiki/');
 
-// Counts every read of a vault file by path: whole-file reads and the descriptor opens of header reads.
+// Counts every read of a vault file by path: whole-file reads and the descriptor opens of header reads. A whole-file
+// read without an encoding opens its file through fs.openSync, so an open inside a whole-file read is not counted again.
 async function countReads(root, run) {
+  let depth = 0;
   const counts = new Map(), bump = p => { if (typeof p !== 'string') return; const r = relative(root, p).replaceAll('\\', '/'); if (!r.startsWith('..')) counts.set(r, (counts.get(r) ?? 0) + 1); };
   const { readFileSync: readFile, openSync: open } = fs;
-  fs.readFileSync = function (p, ...rest) { bump(p); return readFile.call(this, p, ...rest); };
-  fs.openSync = function (p, ...rest) { bump(p); return open.call(this, p, ...rest); };
+  fs.readFileSync = function (p, ...rest) { bump(p); depth++; try { return readFile.call(this, p, ...rest); } finally { depth--; } };
+  fs.openSync = function (p, ...rest) { if (!depth) bump(p); return open.call(this, p, ...rest); };
   syncBuiltinESMExports();
   try { return { result: await run(), counts }; }
   finally { fs.readFileSync = readFile; fs.openSync = open; syncBuiltinESMExports(); }
@@ -110,7 +112,7 @@ test('a citer added between the raw write and the last pass is caught, journaled
 test('an alias change on another clipping that makes a link name the target is caught by the next pass', async t => {
   const { root, put } = vault(t);
   const result = await runReclips({ vaultPath: root, apply: true, targets: [TARGET], quarantineReason: 'Unverified rows',
-    write: writeThen(root, atFirstPage, () => put(OTHER, FILES[OTHER].replace('aliases: ["Shared Label"]', 'aliases: ["Others Label"]'))) });
+    write: writeThen(root, atFirstPage, () => put(OTHER, FILES[OTHER].replace('aliases: ["Shared Label"]', 'aliases: ["Others Label"]'), { old: false })) });
   assert.equal(result.quarantined, 0);
   assert.deepEqual(result.conflictDetails, [{ path: TARGET, reason: 'Citation membership changed; pending repair retained', pending: true }]);
   assert.ok(journal(root).pages.includes('wiki/concepts/by-alias.md'));

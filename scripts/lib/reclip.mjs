@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync, rmSync, rmdirSync, openSync, readSync, closeSync, renameSync, realpathSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync, rmSync, rmdirSync, openSync, readSync, closeSync, renameSync, realpathSync, mkdirSync, statSync } from 'node:fs';
 import { join, extname, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
@@ -9,7 +9,7 @@ import { loadIssueLog, pendingReclips, recordIssue, disposeIssue, openIssues, is
 import { matchLocalFile } from './migrate.mjs';
 import { swapSourceHash } from './repoint.mjs';
 import { parseNote } from './note.mjs';
-import { buildNameIndex, resolveLinkTarget, wikilinks } from './graph.mjs';
+import { buildNameIndex, resolveLinkTarget, wikilinks, GRAPH_CACHE_RACY_MS } from './graph.mjs';
 import { acquireGate, lockAddress } from './cli-transport.mjs';
 import { clippingKind, readPageForReclip, retainedShare, MIN_RETAINED } from './reclip-html.mjs';
 import { olderCaptures } from './topic.mjs';
@@ -66,6 +66,12 @@ function head(path) {
     return Buffer.concat(chunks).toString('utf8');
   }
   finally {closeSync(fd);}
+}
+// What head() returns for a file holding these bytes, so a page read whole yields the same header identity.
+function headOf(bytes) {
+  let size=0;
+  while(size<1024*1024){const n=Math.min(4096,bytes.length-size);if(!n)break;size+=n;const text=bytes.subarray(0,size).toString('utf8');if(block(text))return text;}
+  return bytes.subarray(0,size).toString('utf8');
 }
 function atomic(path,text) {
   const tmp=`${path}.${randomUUID()}.tmp`;
@@ -153,12 +159,34 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   const report={...emptyReport(),selected:selected.length,refused};
   for(const r of refused)report.results.push({path:r.path,url:r.url,status:'refused',reason:r.reason});
   const changed=new Set(),mark=path=>changed.add(rel(path));
-  let names;
+  // A quarantine asks up to four times which wiki pages cite the clipping. The first pass of a transaction reads every
+  // raw and wiki file into a snapshot: each file's header identity, and each wiki page's whole text (so the hash test
+  // stays an exact substring test) and links. A later pass stats every file again and re-reads only a file that is new,
+  // changed size or time, or was modified within GRAPH_CACHE_RACY_MS of the pass that read it, so a same-size edit
+  // inside one tick of a coarse clock is still seen; a deleted file drops out. The name index is rebuilt from the
+  // snapshot each pass. The snapshot lives for one transaction of this run and is never stored.
+  let snapshot;
+  const identity=(p,top)=>{const parsed=parseNote(top),path=rel(p);return {path,name:path.split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};};
+  const entry=(p,stat,readAtMs,wikiPage)=>{
+    if(!wikiPage)return {size:stat.size,mtimeMs:stat.mtimeMs,readAtMs,identity:identity(p,head(p))};
+    const bytes=readFileSync(p),text=bytes.toString('utf8');
+    return {size:stat.size,mtimeMs:stat.mtimeMs,readAtMs,text,identity:identity(p,headOf(bytes)),links:wikilinks(text)};
+  };
   const citing=(text,path)=>{
-    const wiki=[...markdown(join(root,'wiki'))];
-    if(!names)names=buildNameIndex([...markdown(dir),...wiki].map(p=>{const parsed=parseNote(head(p));return {path:rel(p),name:rel(p).split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};}));
+    const readAtMs=Date.now(),next=new Map(),wiki=[];
+    const scan=(from,wikiPage)=>{
+      for(const p of markdown(from)){
+        const key=rel(p),stat=statSync(p),kept=snapshot?.get(key);
+        const trusted=kept&&kept.size===stat.size&&kept.mtimeMs===stat.mtimeMs&&kept.mtimeMs<=kept.readAtMs-GRAPH_CACHE_RACY_MS;
+        const e=trusted?kept:entry(p,stat,readAtMs,wikiPage);
+        next.set(key,e);if(wikiPage)wiki.push([p,e]);
+      }
+    };
+    scan(dir,false);scan(join(root,'wiki'),true);
+    snapshot=next;
+    const names=buildNameIndex([...next.values()].map(e=>e.identity));
     const hash=scalar(text,'source-hash'),raw=rel(path);
-    return wiki.filter(p=>{const value=readFileSync(p,'utf8');return (hash&&value.includes(hash))||wikilinks(value).some(t=>{const hit=resolveLinkTarget(names,t);return Array.isArray(hit)?hit.includes(raw):hit===raw;});});
+    return wiki.filter(([,e])=>(hash&&e.text.includes(hash))||e.links.some(t=>{const hit=resolveLinkTarget(names,t);return Array.isArray(hit)?hit.includes(raw):hit===raw;})).map(([p])=>p);
   };
   const restrict=(value,path,reason)=>{
     const warning=`> Do not cite ${rel(path)}: ${reason}`;
@@ -203,10 +231,7 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
     if(state.rawPath!==rel(path)||!['repair','quarantine'].includes(state.kind))throw new Error('Invalid repair journal');
     const raw=readFileSync(path,'utf8');
     if(raw!==state.rawBefore&&raw!==state.rawAfter)conflict('Concurrent raw edit; pending repair retained');
-    const dependencies=()=>{
-      names=undefined;
-      return state.kind==='quarantine'?citing(state.rawBefore,path):[...markdown(join(root,'wiki','sources'))].filter(p=>state.fromHash&&readFileSync(p,'utf8').includes(state.fromHash));
-    };
+    const dependencies=()=>state.kind==='quarantine'?citing(state.rawBefore,path):[...markdown(join(root,'wiki','sources'))].filter(p=>state.fromHash&&readFileSync(p,'utf8').includes(state.fromHash));
     state.pages=[...new Set([...state.pages,...dependencies().map(rel)])];
     save(path,state);
     const pages=state.pages.map(p=>resolve(root,p));
@@ -277,7 +302,7 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
         try{finish(path,quarantineState(path,text,url,reason));}
         catch(qerr){if(qerr.code==='CONFLICT'||existsSync(statePath(path))){report.conflicts.push(rel(path));report.conflictDetails.push({path:rel(path),reason:String(qerr.message),pending:existsSync(statePath(path))});}else report.failed.push({path:rel(path),url,reason:String(qerr.message)});}
       }else{report.failed.push({path:rel(path),url,reason});recordIssue(root,{url,kind:'fidelity',source:rel(path),reason:`Re-clip failed: ${reason}`});}
-    }finally{resource?.cleanup?.();}
+    }finally{resource?.cleanup?.();snapshot=undefined;}
   }
   report.changed=[...changed];return report;
 }
