@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync, realpathSync, mkdtempSync, openSync, closeSync, fsyncSync, linkSync, unlinkSync, rmdirSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { buildFrontmatter, slugify } from '../clip.mjs';
+import { QUALITY_TIERS } from './quality-tiers.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const MAX_FILE = 256 * 1024, MAX_TOTAL = 8 * 1024 * 1024;
@@ -34,7 +35,7 @@ export function selectionOptions(argv) {
   if (paths.length > 32 || paths.some(p => !validSelectedPath(p))) throw failure('Select at most 32 exact repo-relative paths (no empty/dot segments, backslashes, colons or controls; depth <=16, length <=512)');
   if (new Set(paths).size !== paths.length) throw failure('Duplicate selected path');
   const quality = argv.find(a => a.startsWith('--quality='))?.slice(10) ?? 'medium';
-  if (!['high', 'medium', 'low'].includes(quality)) throw failure('Invalid capture quality');
+  if (!QUALITY_TIERS.includes(quality)) throw failure('Invalid capture quality');
   return { paths: paths.sort(), readmeOnly, ref };
 }
 
