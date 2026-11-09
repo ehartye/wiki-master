@@ -64,8 +64,9 @@ export const NO_SKIP = new Set([
 // is marked before the tag strip and the marker rules skip it; other tag-led lines are unchanged.
 const TABLE_LINE = /(^|\n)(?=[ \t]*<(?:table|thead|tbody|tr|td|th)[\s>/])/gi;
 const TABLE_MARK = '\u0000';
-// The mark is removed wherever a NUL starts a line. A NUL the input already had there is removed the same way, and
-// that line, like a table line, skipped the marker rules. A NUL anywhere else in the input stays, and separates words.
+// One NUL is removed where it starts a line once list and quote markers are stripped, so a NUL the input already
+// had there goes the same way, and a line it leads skips the marker rules like a table line. Any other NUL stays and
+// separates words.
 const TABLE_MARK_AT_LINE_START = /(^|\n)\u0000/g;
 
 // Reduce markdown to the words a reader sees. Applied to the quote AND the
