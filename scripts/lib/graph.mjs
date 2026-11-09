@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, resolve } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 import { parseNote, normalizeIdentity } from './note.mjs';
 
@@ -214,9 +214,16 @@ export function markdownPage(path, markdown) {
 // The errors a vault walk survives: a dangling or self-referential link, a file a pull removed or replaced while
 // the walk ran, a name the platform cannot open, a file the user may not read. Anything else is rethrown.
 const SKIPPED_WALK_CODES = new Set(['ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EACCES', 'EPERM']);
+// The native call is preferred; on a drive where it fails for a path that exists (some virtual drives report
+// EISDIR or UNKNOWN), the portable call is tried, then the resolved path. A skippable code still means the entry is gone.
+function realPath(abs) {
+  try { return realpathSync.native(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
+  try { return realpathSync(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
+  return resolve(abs);
+}
 const realPathKey = process.platform === 'win32' || process.platform === 'darwin'
-  ? abs => realpathSync.native(abs).toLowerCase()
-  : abs => realpathSync.native(abs);
+  ? abs => realPath(abs).toLowerCase()
+  : abs => realPath(abs);
 
 // The vault walk shared by buildGraph and walkVault (lib/embedding.mjs). Links are followed, so a vault reached
 // through a junction keeps working, and a directory reached twice through different paths (an alias) is walked
