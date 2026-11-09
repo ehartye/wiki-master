@@ -350,7 +350,7 @@ test('quotedSpans: a closing curly mark with no curly opener is ignored without 
 
 test('quotedSpans: a straight mark never pairs across a blank line', () => {
   assert.deepEqual(
-    quotedSpans('The 5" pipe is wide.\n\nHe said "one two three four five" plainly.'),
+    quotedSpans('The five" pipe is wide.\n\nHe said "one two three four five" plainly.'),
     ['one two three four five'],
   );
 });

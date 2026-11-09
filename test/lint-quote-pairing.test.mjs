@@ -34,7 +34,7 @@ test('a closing curly mark with no curly opener is ignored and does not disturb 
 });
 
 test('a straight mark never pairs across a blank line, a curly quotation may', () => {
-  assert.deepEqual(quotedSpans('A 5" pipe is long.\n\nLater "one two three four five six" was said.'), ['one two three four five six']);
+  assert.deepEqual(quotedSpans('A five" pipe is long.\n\nLater "one two three four five six" was said.'), ['one two three four five six']);
   assert.deepEqual(quotedSpans(`He said ${C_OPEN}one two three four five\n\nsix seven eight nine ten${C_CLOSE} then left.`), ['one two three four five\n\nsix seven eight nine ten']);
 });
 

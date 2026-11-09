@@ -32,6 +32,9 @@ test('a straight mark after a digit still closes an open straight quotation', ()
 
 test('a measurement inside a quotation stays part of it and does not close it', () => {
   assert.deepEqual(quotedSpans(`They wrote "the player is 7'6" tall and very fast" today.`), [`the player is 7'6" tall and very fast`]);
+  // A space after the foot mark, and a curly foot mark, are measurements too: the digit rule alone would close here.
+  assert.deepEqual(quotedSpans(`They wrote "the player is 5' 11" tall and very fast" today.`), [`the player is 5' 11" tall and very fast`]);
+  assert.deepEqual(quotedSpans(`They wrote "the player is 7’6" tall and very fast" today.`), [`the player is 7’6" tall and very fast`]);
 });
 
 test('a stray straight mark that is not after a digit still never pairs across a blank line', () => {
@@ -56,6 +59,21 @@ test('a fenced code block yields no quotation, and the text after it is still re
   assert.deepEqual(quotedSpans('Example:\n\n```python\nprint("one two three four five six seven")\n```\n\nDone.'), []);
   assert.deepEqual(quotedSpans('Example:\n\n~~~\nprint("one two three four five six seven")\n~~~\n'), []);
   assert.deepEqual(quotedSpans(`\`\`\`\nx = "a"\n\`\`\`\nThen "${SIX}" was said.`), [SIX]);
+});
+
+test('a fence closes on a longer fence of the same character', () => {
+  assert.deepEqual(quotedSpans(`\`\`\`\nprint("one two three four five six seven")\n\`\`\`\`\n\nThen "${SIX}" was said.`), [SIX]);
+  assert.deepEqual(quotedSpans(`~~~\nprint("one two three four five six seven")\n~~~~~\n\nThen "${SIX}" was said.`), [SIX]);
+});
+
+test('a fence indented one to three spaces is a fence', () => {
+  // The blank line inside keeps the backtick runs from pairing as an inline code span instead.
+  assert.deepEqual(quotedSpans(' ```\n x = 1\n\n print("one two three four five six seven")\n ```\n'), []);
+  assert.deepEqual(quotedSpans('   ~~~\n   print("one two three four five six seven")\n   ~~~\n'), []);
+});
+
+test('an unclosed fence hides nothing', () => {
+  assert.deepEqual(quotedSpans(`\`\`\`python\nNo closing fence follows.\n\nThen "${SIX}" was said.`), [SIX]);
 });
 
 test('quoteFragments: a glued bracket removes the word it edits; a link and a wikilink are kept', () => {
@@ -87,6 +105,8 @@ const CLIPPING = [
 const QUOTES = {
   each: '"[E]ach vertex is typically influenced by no more than four joints"',
   pinecones: '"Find sand, construction paper, pi[ne]cones, and cornflakes"',
+  // Its stub "hen" is not in the clipping, so a split on the bracket alone would leave it unverified.
+  when: '"[W]hen each vertex is typically influenced by no more than four joints"',
   eachChanged: '"[E]ach vertex is rarely influenced by no more than four joints"',
   link: '"See [the docs](https://example.test/d) for more on this topic today"',
   wholeWord: '"Web Audio [fixes] the latency problem in browsers"',
@@ -119,6 +139,7 @@ test('a glued bracket is an edit of its word: the rest of the quotation verifies
   const r = classifyQuotes(root, buildGraph(root));
   assert.deepEqual(tierOf(r, 'each'), []);
   assert.deepEqual(tierOf(r, 'pinecones'), []);
+  assert.deepEqual(tierOf(r, 'when'), []);
 });
 
 test('a changed word next to a glued bracket is still unverified', t => {

@@ -39,10 +39,14 @@ for (const p of graph.pages) {
 }
 
 // Attribution needs DISTINCTIVE text. quoteFragments splits a quote on bracketed
-// insertions, so `"what comes after [[Some Page]]"` reduces to the fragment "what
-// comes after" — which occurs in any prose and matched an unrelated textbook.
-// Citing on that would fabricate provenance, the precise failure guardrail #2
-// exists to prevent. Require one long verbatim run before believing a match.
+// insertions, and it once split on a wikilink too: `"what comes after [[Some Page]]"`
+// reduced to the fragment "what comes after", which occurs in any prose and
+// matched an unrelated textbook. Citing on that would fabricate provenance, the
+// precise failure guardrail #2 exists to prevent. A wikilink now stays in its
+// fragment and normalize keeps its brackets, so that fragment is found in no
+// clipping: it counts as unmatched (or as too generic, below MIN_ANCHOR) and is
+// left for review, not attributed. Other short fragments remain, so still
+// require one long verbatim run before believing a match.
 const MIN_ANCHOR = 40;
 
 const wanted = new Map(); // page -> Map(clipping -> link to record)
