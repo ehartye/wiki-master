@@ -127,7 +127,7 @@ either an established executable identity or an explicit unresolved-identity
 limit. A nonzero exit is `unusable` with one exception: Xpdf's `pdftotext`
 exits 99 after printing its help or version banner, so `pdftotext -h` and
 `pdftotext -v` with exit 99 and an Xpdf banner report `passed; exit=99` with
-the note `exit 99 is normal for Xpdf help and version output` (JSON `outcome:
+the note `exit 99 is normal for Xpdf help and version output` (`diagnosePdf` result `outcome:
 "passed"` plus `note`). Exit 99 from another flag or tool, or without an Xpdf
 banner, stays `unusable`. Version/help results are separate from rendering.
 In particular, a successful raster probe does not override the unchanged

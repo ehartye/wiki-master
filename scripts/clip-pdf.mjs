@@ -447,9 +447,15 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
 }
 
 // The Title: line pdfinfo prints for a PDF, when that optional tool is installed; null otherwise, or when the PDF has none.
+// Asked in UTF-8 (Xpdf's pdfinfo defaults to Latin-1), bounded by a timeout so a hung pdfinfo cannot block the clip, and
+// with its stderr dropped so a damaged PDF's parser messages do not reach the clip's output.
+const PDFINFO_TIMEOUT_MS = 10000;
 export function pdfinfoTitle(pdfPath, { tool = resolveTool('pdfinfo'), run = execFileSync } = {}) {
   if (!tool) return null;
-  try { return /^Title:[ \t]*(.+)$/m.exec(run(tool, [pdfPath], { encoding: 'utf8' }))?.[1].trim() || null; } catch { return null; }
+  try {
+    const out = run(tool, ['-enc', 'UTF-8', pdfPath], { encoding: 'utf8', timeout: PDFINFO_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'ignore'] });
+    return /^Title:[ \t]*(.+)$/m.exec(out)?.[1].trim() || null;
+  } catch { return null; }
 }
 
 // A PDF's own Title is often an authoring tool's leftover: a placeholder, an Office export prefix, a file name or a path,

@@ -164,6 +164,13 @@ test('pdfinfoTitle reads the Title: line, and is null without the tool, without 
   assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: info('Title:   \nPages: 3\n') }), null);
   assert.equal(pdfinfoTitle('x.pdf', { tool: null, run: () => assert.fail('no tool, no run') }), null);
   assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: () => { throw new Error('damaged'); } }), null);
+  // Every local clip now asks pdfinfo, so a hung or noisy pdfinfo must not block the clip or print its parser errors,
+  // and the title is asked for in UTF-8 (Xpdf's pdfinfo defaults to Latin-1).
+  const calls = [];
+  pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: (tool, args, options) => { calls.push({ args, options }); return 'Title: T T T T\n'; } });
+  assert.deepEqual(calls[0].args, ['-enc', 'UTF-8', 'x.pdf']);
+  assert.ok(calls[0].options.timeout > 0 && calls[0].options.timeout <= 30000, 'a bounded timeout');
+  assert.equal(calls[0].options.stdio?.[2], 'ignore', 'stderr is not inherited');
 });
 
 const pdfinfo = resolveTool('pdfinfo');
