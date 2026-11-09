@@ -21,11 +21,12 @@ import {
 } from './lib/pdf-figures.mjs';
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 import { diagnosePdf, formatPdfDoctor } from './lib/pdf-doctor.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 
 // A PDF has no HTML <title>; derive a human title from the filename. Split on
 // both separators, not node:path basename — basename only honors `\` on Windows,

@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { localDate } from './local-date.mjs';
 
 export const FIGURE_DPI = 200;
 export const DEFAULT_FIGURES_MAX = 40;
@@ -368,7 +369,7 @@ export function readFigureIndex(figuresDir) {
 }
 
 const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => localDate();
 
 // Render the chosen pages into <vault>/raw/figures and return the sidecar paths
 // that belong to this clipping. Never throws for a missing tool: returns

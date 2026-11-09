@@ -12,6 +12,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -51,7 +52,7 @@ export function overridesDecline(entry, { allowShort = false } = {}) {
 }
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 
 // A Word document has no HTML <title>; derive a human title from the filename.
 // Handles both .docx (modern) and .doc (legacy) extensions. Split on both

@@ -13,6 +13,7 @@ import { declineGate } from './lib/decline-gate.mjs';
 import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -20,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const HELPER = join(__dirname, 'lib', 'pptx-extract.py');
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 
 // A slide deck has no title worth trusting; derive one from the filename, as the
 // PDF/DOCX/XLSX clippers do. Split on both separators, not node:path basename —

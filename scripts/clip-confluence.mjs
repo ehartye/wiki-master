@@ -13,12 +13,13 @@ import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 const THIN_WORD_FLOOR = 100;
 const THIN_PLACEHOLDER = /this page has no readable content/i;
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 
 // Locate an installed confluencer plugin's scripts/ dir. wiki-master and
 // confluencer are SEPARATE, independently-installed plugins -- unlike

@@ -14,6 +14,7 @@ import { parseTopicArg } from './lib/topic.mjs';
 import { looksBinaryBytes } from './lib/binary-content.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
 // real source file (a config, a short script) is still worth a clipping.
@@ -21,7 +22,7 @@ const DEFAULT_MAX_FILES = 300;
 const DEFAULT_MAX_FILE_SIZE = 256 * 1024;
 
 function wordCount(md) { return (md.match(/\S+/g) || []).length; }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 
 // A GitHub repo is pasted in every shape a user has ever copied one in:
 // bare `owner/repo`, a full https URL (`.git` suffix optional), or an ssh
