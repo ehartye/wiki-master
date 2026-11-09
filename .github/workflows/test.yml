@@ -57,6 +57,21 @@ jobs:
             exit 1
           fi
 
+  # The plugin ships to Windows too. This is a separate job, not a matrix entry on `test`: a matrix would rename the
+  # required check `test` to `test (ubuntu-latest)` and break branch protection. Which checks a merge needs is a
+  # repository setting, not something this file decides. Read it with
+  # `gh api repos/<owner>/<repo>/branches/main/protection/required_status_checks --jq .contexts`.
+  # It runs the vault walk, validator and cache tests, not npm test: the browser stub above is a shell script.
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node --test test/validate-authored.test.mjs test/integrity.test.mjs test/graph.test.mjs test/graph-walk.test.mjs test/graph-cache.test.mjs test/quote-match.test.mjs test/drift.test.mjs
+
   # Real-browser tests. A separate job that is not a required check, so a flake cannot block a merge; it can become
   # required once it has been green for a while. The render is headful, so it needs a display.
   test-browser:
