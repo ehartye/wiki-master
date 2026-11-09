@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { checkStyle } from '../scripts/lint.mjs';
 import { buildGraph } from '../scripts/lib/graph.mjs';
-import { DISPOSITIONS_FILE } from '../scripts/lib/lint-dispositions.mjs';
+import { DISPOSITIONS_FILE, findingId, contextHashOf } from '../scripts/lib/lint-dispositions.mjs';
 
 // Style flags are review pointers. Two things made them useless to review: most connective flags were sentences whose
 // paragraph ends in the citation (the trailing-citation convention), and a pointer someone had read came back on every
@@ -21,7 +21,7 @@ function vault(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const d of ['raw/clippings', 'wiki/concepts', 'wiki/sources', 'wiki/syntheses']) mkdirSync(join(root, d), { recursive: true });
   writeFileSync(join(root, 'index.md'), '---\ntype: synthesis\n---\n# Index\n');
-  writeFileSync(join(root, 'raw/clippings/fox.md'), '---\ntitle: "Fox"\nsource: "https://example.com/fox"\ncreated: 2026-10-26\nquality: high\n---\nThe quick brown fox.\n');
+  writeFileSync(join(root, 'raw/clippings/fox.md'), '---\ntitle: "Fox"\nsource: "https://example.test/fox"\ncreated: 2026-10-26\nquality: high\n---\nThe quick brown fox.\n');
   writeFileSync(join(root, 'wiki/sources/fox-page.md'), '---\ntype: source\ncreated: 2026-10-26\nstatus: maintained\nsources: ["[[fox]]"]\nai-generated: true\n---\n# Fox page\nA summary.\n');
   const synth = (name, body) => writeFileSync(join(root, `wiki/syntheses/${name}.md`), `${FM('synthesis')}# ${name}\n${body}\n`);
   const concept = (name, body) => writeFileSync(join(root, `wiki/concepts/${name}.md`), `${FM('concept')}# ${name}\n${body}\n`);
@@ -211,4 +211,59 @@ test('the text listing shows style ids on request, counts reviewed pointers, and
   assert.equal(record(v.root, [`--ids=${ids[0]}`, '--disposition=accepted', '--reviewer=tester', '--whole-vault']).status, 0);
   assert.match(lintText(v.root), /\(1 more with a recorded verdict, not listed\)/);
   assert.match(lintText(v.root, ['--include-reviewed']), /reviewed: accepted by tester/);
+});
+
+// ---- Found in review of the adopted version. ----
+
+test('a page with CRLF line endings gives every style flag the same id as its LF copy', (t) => {
+  const v = vault(t);
+  // A line break inside the first 70 characters of the flagged sentence: those 70 characters are the recorded words.
+  const synth = '# wrapped\nThe score rose sharply over the first quarter,\nbut only slightly across the whole long year.\n';
+  const concept = '# wrapped-tone\nThis is clearly\nwrong for most readers. Some say\nit works.\n';
+  const write = (eol) => {
+    const to = (text) => (eol === 'crlf' ? text.replace(/\r?\n/g, '\r\n') : text);
+    writeFileSync(join(v.root, 'wiki/syntheses/wrapped.md'), to(`${FM('synthesis')}${synth}`));
+    writeFileSync(join(v.root, 'wiki/concepts/wrapped-tone.md'), to(`${FM('concept')}${concept}`));
+  };
+  const ids = () => checkStyle(v.root, buildGraph(v.root)).map((f) => `${f.page} ${f.category} ${f.id}`).sort();
+  write('lf');
+  const lf = ids();
+  write('crlf');
+  assert.deepEqual(ids(), lf, 'the line endings of a page do not change its style ids');
+  // The LF ids as they were before line endings were normalized: existing verdicts keep matching.
+  assert.deepEqual(lf, [
+    'wiki/concepts/wrapped-tone.md editorializing 40f03bfbc736',
+    'wiki/concepts/wrapped-tone.md weasel ff2a7400deff',
+    'wiki/syntheses/wrapped.md connective 8546c7e5b9a4',
+  ]);
+});
+
+test('a heading line ends the paragraph, so a citation under the heading does not cover the contrast above it', (t) => {
+  const v = vault(t);
+  v.synth('above', 'It rose, but slowly.\n## Next\nCited [[fox-page]].');
+  assert.equal(connective(v.root).length, 1);
+});
+
+test('an excluded phrase changes only the tested copy: the id is built from the unedited sentence', (t) => {
+  const v = vault(t);
+  v.synth('mixed', 'The tool is not yet built, but it works.');
+  const flagged = connective(v.root);
+  assert.equal(flagged.length, 1, 'the real "but" is still flagged');
+  const sentence = 'The tool is not yet built, but it works.';
+  const page = 'wiki/syntheses/mixed.md';
+  assert.equal(flagged[0].word, sentence.slice(0, 70));
+  assert.equal(flagged[0].id, findingId({ page, quote: `connective: ${sentence.slice(0, 70)}`, evidenceHash: contextHashOf(sentence) }));
+});
+
+test('the count of reviewed style flags follows --page, as the listing above it does', (t) => {
+  const v = vault(t);
+  v.synth('joint', 'It rose, but only slightly.');
+  v.synth('second', 'It fell, but only slightly.');
+  const joint = lintJson(v.root, ['--ids']).style.find((f) => f.page === 'wiki/syntheses/joint.md');
+  assert.equal(record(v.root, [`--ids=${joint.id}`, '--disposition=accepted', '--reviewer=tester', '--whole-vault']).status, 0);
+  assert.equal(lintJson(v.root).tiers.styleReviewed, 1, 'without --page every reviewed flag is counted');
+  assert.equal(lintJson(v.root, ['--page=joint']).tiers.styleReviewed, 1);
+  assert.equal(lintJson(v.root, ['--page=second']).tiers.styleReviewed, 0);
+  assert.match(lintText(v.root, ['--page=joint']), /\(1 more with a recorded verdict, not listed\)/);
+  assert.doesNotMatch(lintText(v.root, ['--page=second']), /more with a recorded verdict/);
 });

@@ -319,7 +319,9 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     if (scope && !scope.has(p.path)) continue;
     const dir = Object.keys(LICENSE).find((d) => p.path.startsWith(d));
     if (dir === undefined) continue;
-    let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
+    // Line endings are made LF first: the recorded words of a connective flag are the first 70 characters of its
+    // sentence, so a CR inside them would give a CRLF copy of a page different ids from the LF copy.
+    let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8')).replace(/\r\n?/g, '\n');
     // Quotation exemption: nothing inside quotation marks is ever flagged.
     body = body.replace(/["“][^"“”]*["”]/g, '""');
     // The text a tone flag is raised on is the sentence(s) holding the word, taken inside one paragraph, so editing a
@@ -395,14 +397,15 @@ export function main(argv = process.argv.slice(2)) {
   const dispositionsFile = join(vaultPath, DISPOSITIONS_FILE);
   const dispositions = existsSync(dispositionsFile) ? loadDispositions(dispositionsFile) : null;
   const verdict = (f) => (dispositions ? reviewedBy(dispositions, f) : null);
+  const inPage = (x) => !args.page || x.page.includes(args.page);
   if (dispositions) {
     const per = (reviewed) => Object.fromEntries(TIERS.map((t) => [t, findings.filter((f) => f.tier === t && !!verdict(f) === reviewed).length]));
     tiers.reviewed = per(true);
     tiers.unreviewed = per(false);
-    tiers.styleReviewed = style.filter((f) => reviewedBy(dispositions, f)).length;
+    // Counted on the pages --page lists, like the style listing it is printed under.
+    tiers.styleReviewed = style.filter((f) => inPage(f) && reviewedBy(dispositions, f)).length;
   }
   const wanted = args.tier && args.tier !== 'all' ? [args.tier] : (args.json || args.tier === 'all' ? TIERS : SHOW_BY_DEFAULT);
-  const inPage = (x) => !args.page || x.page.includes(args.page);
   const visible = (f) => args.includeReviewed || !verdict(f);
   // What a finding looks like outside this script: the evidence hash is internal, the id only when asked for, and a
   // reviewed finding that is listed on request carries its verdict.
