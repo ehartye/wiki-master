@@ -9,7 +9,9 @@ import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { classifyQuotes, quoteFragments } from '../scripts/lint.mjs';
-import { buildGraph } from '../scripts/lib/graph.mjs';
+import { prepareDocument, tokenize } from '../scripts/lib/quote-match.mjs';
+import { bestWindow } from '../scripts/lib/near-match.mjs';
+import { buildGraph, buildNameIndex, evidencePaths } from '../scripts/lib/graph.mjs';
 
 // Every listed quote finding names where its evidence is: one `evidence` entry per fragment, in fragment order, with
 // the document, its kind, the 1-based file lines (frontmatter counted) and how the fragment matched. Convention and
@@ -153,4 +155,91 @@ test('--full prints an evidence line under each finding; the listing without --f
   // Apart from the evidence lines and the unshortened quotes, --full lists the same lines in the same order.
   const strip = (s) => s.split('\n').filter((l) => !/^ {4}evidence: /.test(l) && !/^ {4}"/.test(l)).join('\n');
   assert.equal(strip(full), strip(plain));
+});
+
+// A vault of just the given files (vault-relative path -> text), for the cases below that need their own evidence.
+function vaultOf(t, files) {
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-lint-evidence-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const [p, text] of Object.entries({ 'index.md': '---\ntype: synthesis\n---\n# Index\n', ...files })) {
+    mkdirSync(dirname(join(root, p)), { recursive: true });
+    writeFileSync(join(root, p), text);
+  }
+  return root;
+}
+const linksTo = (cites) => `[${cites.map((c) => `"[[${c}]]"`).join(', ')}]`;
+const sourcePage = (cites, body) => `---\ntype: source\ncreated: 2026-10-26\nstatus: maintained\nsources: ${linksTo(cites)}\nai-generated: true\n---\n${body}\n`;
+const conceptPage = (cites, body) => `---\ntype: concept\ncreated: 2026-10-26\nstatus: maintained\nsources: ${linksTo(cites)}\nai-generated: true\n---\n# Concept\n${body}\n`;
+const evidenceOrder = (root, page) => {
+  const graph = buildGraph(root);
+  const pages = new Map(graph.pages.map((p) => [p.path, p]));
+  return evidencePaths(pages.get(page), buildNameIndex(graph.pages), pages);
+};
+
+const SURVEY = '# Delta survey\nThe survey found that rainfall rather than soil shaped the harvest each year.';
+// A fragment of three words with one changed (the bracketed insertion brings the quote to the five-word minimum): no
+// convention or gapped match anywhere, so the fragment is located by its near window.
+const NEAR_QUOTE = 'The survey says "[The team] rainfall mistake shaped" in brief.';
+
+test('a raw clipping wins a near-window tie with a wiki page that holds the same words, even when the wiki page is cited first', (t) => {
+  const root = vaultOf(t, {
+    'raw/clippings/delta.md': `${FM('Delta')}${SURVEY}\n`,
+    'wiki/sources/delta-src.md': sourcePage(['delta'], SURVEY),
+    // The wiki page is cited first, so it is the first evidence document the near search meets.
+    'wiki/concepts/tie.md': conceptPage(['delta-src', 'delta'], NEAR_QUOTE),
+  });
+  assert.deepEqual(evidenceOrder(root, 'wiki/concepts/tie.md'), ['wiki/sources/delta-src.md', 'raw/clippings/delta.md']);
+  const q = tokenize('rainfall mistake shaped');
+  const [inWiki, inRaw] = ['wiki/sources/delta-src.md', 'raw/clippings/delta.md']
+    .map((p) => bestWindow(q, prepareDocument(readFileSync(join(root, p), 'utf8').replace(/^---\n[\s\S]*?\n---\n/, ''))).score);
+  assert.equal(inWiki, inRaw, 'both documents give the same best score');
+  const f = findingsOf(root).tie;
+  assert.equal(f.tier, 'unverified');
+  const [e] = f.evidence;
+  assert.equal(e.match, 'near');
+  assert.equal(e.document, 'raw/clippings/delta.md');
+  assert.equal(e.kind, 'raw clipping');
+});
+
+test('among equally good near windows of one kind, the citation order does not choose the document', (t) => {
+  const root = vaultOf(t, {
+    'raw/clippings/delta.md': `${FM('Delta')}${SURVEY}\n`,
+    'raw/clippings/echo.md': `${FM('Echo')}${SURVEY}\n`,
+    'wiki/concepts/delta-first.md': conceptPage(['delta', 'echo'], NEAR_QUOTE),
+    'wiki/concepts/echo-first.md': conceptPage(['echo', 'delta'], NEAR_QUOTE),
+  });
+  assert.deepEqual(evidenceOrder(root, 'wiki/concepts/echo-first.md'), ['raw/clippings/echo.md', 'raw/clippings/delta.md']);
+  const by = findingsOf(root);
+  for (const page of ['delta-first', 'echo-first']) {
+    assert.equal(by[page].evidence[0].match, 'near', page);
+    assert.equal(by[page].evidence[0].document, 'raw/clippings/delta.md', page);
+  }
+});
+
+test('line numbers count a frontmatter saved with CRLF line endings', (t) => {
+  const crlf = ALPHA.replace(/\n/g, '\r\n');
+  const root = vaultOf(t, {
+    'raw/clippings/alpha.md': crlf,
+    'wiki/concepts/convention.md': conceptPage(['alpha'], PAGES.convention.body),
+  });
+  assert.ok(crlf.startsWith('---\r\ntitle:'), 'the frontmatter itself has CRLF endings');
+  const f = findingsOf(root).convention;
+  assert.equal(f.tier, 'convention');
+  const [e] = f.evidence;
+  assert.equal(e.document, 'raw/clippings/alpha.md');
+  const lines = [lineOf(root, 'raw/clippings/alpha.md', 'The committee concluded'), lineOf(root, 'raw/clippings/alpha.md', 'than bias explained')];
+  assert.deepEqual(lines, [10, 11]);
+  assert.deepEqual(e.lines, lines);
+});
+
+test('a fragment found in a wiki page reports kind "wiki page"', (t) => {
+  const root = vaultOf(t, {
+    'raw/clippings/foxtrot.md': `${FM('Foxtrot')}# Foxtrot\nA clipping about an unrelated topic entirely.\n`,
+    'wiki/sources/foxtrot-src.md': sourcePage(['foxtrot'], '# Foxtrot source\nThe summary records that the bridge reopened after the long spring repairs.'),
+    'wiki/concepts/bridge.md': conceptPage(['foxtrot-src'], 'The summary says "The bridge reopened, after the long spring repairs" in passing.'),
+  });
+  const f = findingsOf(root).bridge;
+  assert.equal(f.tier, 'convention');
+  const line = lineOf(root, 'wiki/sources/foxtrot-src.md', 'the bridge reopened');
+  assert.deepEqual(f.evidence, [{ fragment: 0, document: 'wiki/sources/foxtrot-src.md', kind: 'wiki page', lines: [line, line], match: 'convention' }]);
 });
