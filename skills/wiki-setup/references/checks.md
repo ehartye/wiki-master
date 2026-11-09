@@ -95,7 +95,8 @@ reporting options do not record new verdicts.
 In `--json`, each listed quote finding has an `evidence` array, one entry per
 quote fragment: `document` (`null` when no evidence document holds even a near
 window), `kind`, `match` (`convention`, `gapped`, `extraction-noted`, or `near`
-for an unverified fragment's best window, with `score` and `diff`) and `lines`,
+for an unverified fragment's best window, with `score`; gapped, extraction-noted
+and near entries carry a word `diff`) and `lines`,
 the file's first and last line, counted from 1 with frontmatter included. Read
 the evidence at those lines before judging the finding. When a line-by-line
 reading of the document gives other words than the whole text (a tag or link

@@ -10,7 +10,8 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
    Stop for an empty wiki; a clean graph still needs bounded claim review during
    substantive maintenance. Report the actual sample and failed/skipped coverage.
    When verdicts are to be recorded, save the `findings` array of
-   `lint.mjs --json` to a file outside the vault now, before any repair (step 5).
+   `lint.mjs --json` to a file outside the vault now, before any repair in
+   step 3; step 5 records from it.
 2. Read flagged pages and exact supporting clippings. Check the citation trail
    before correcting a quote: an ambiguous or misrouted citation can produce the
    apparent mismatch. Inspect contradictions, superseded claims, unwritten
@@ -47,6 +48,10 @@ and persisted dispositions. A report-only request uses [setup lint reporting](..
      node "<absolute-plugin-root>/scripts/lint-disposition.mjs" record --ids=<id>,<id> --disposition=own-wording --reviewer=<name> --page=<path>
      ```
 
+   - **Corrected quotes:** a quote you corrected so it verifies leaves the
+     listing on its own and needs no record; leave it out of the file, since its
+     old text matches nothing. To keep a record of the correction, record
+     `fixed` by id before editing the quote, while its id still matches.
    - **Verdict:** `own-wording`, `mention`, `title`, `markup` or `accepted`;
      `fixed` only for a quote actually corrected; `source-wording` for style
      flags only, when the flagged word or contrast is the cited source's wording
