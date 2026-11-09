@@ -181,6 +181,51 @@ test('human report distinguishes failed versions and untested prerequisites', as
   assert.match(report, /pdftotext -v: unusable.*exit=99/);
 });
 
+const XPDF_BANNER = 'pdftotext version 4.06 [www.xpdfreader.com]\nCopyright 1996-2025 Glyph & Cog, LLC\n';
+const XPDF_NOTE = 'exit 99 is normal for Xpdf help and version output';
+
+test('Xpdf exit 99 on help and version is a pass with a note', async t => {
+  const { formatPdfDoctor } = await import('../scripts/lib/pdf-doctor.mjs');
+  const { result } = await fixture(t, 'valid', { respond: (cmd, args) => cmd === 'pdftotext' && (args[0] === '-h' || args[0] === '-v')
+    ? { status: 99, signal: null, stdout: args[0] === '-h' ? '' : XPDF_BANNER, stderr: args[0] === '-h' ? `${XPDF_BANNER}Usage: pdftotext [options] <PDF-file>\n  -table\n` : '' } : null });
+  const probes = result.capabilities.text.probes;
+  assert.deepEqual(probes.map(p => [p.args[0], p.outcome, p.status, p.note]), [['-h', 'passed', 99, XPDF_NOTE], ['-v', 'passed', 99, XPDF_NOTE]]);
+  assert.ok(probes.every(p => p.reason === undefined), 'a passed probe carries no failure reason');
+  assert.equal(result.capabilities.text.flavor, 'xpdf');
+  const report = formatPdfDoctor(result);
+  for (const flag of ['-h', '-v']) assert.match(report, new RegExp(`^  pdftotext ${flag}: passed; exit=99; signal=null; note: ${XPDF_NOTE}$`, 'm'));
+  assert.doesNotMatch(report, /pdftotext .*unusable/);
+});
+
+test('exit 99 without an Xpdf banner stays unusable', async () => {
+  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+  for (const output of [{ stdout: '', stderr: '' }, { stdout: 'pdftotext version 26.01.0\nCopyright 2005-2026 The Poppler Developers\nCopyright 1996-2011 Glyph & Cog, LLC\n', stderr: '' }, { stdout: '', stderr: 'pdftotext: something failed\n' }]) {
+    for (const flag of ['-h', '-v']) {
+      const r = await createProbeRunner({ run: () => ({ status: 99, signal: null, ...output }) })('pdftotext', [flag]);
+      assert.equal(r.outcome, 'unusable', JSON.stringify({ flag, output }));
+      assert.equal(r.note, undefined);
+    }
+  }
+  const spawnFailed = await createProbeRunner({ run: () => ({ status: 99, signal: null, error: { code: 'EACCES' }, stdout: XPDF_BANNER }) })('pdftotext', ['-v']);
+  assert.equal(spawnFailed.outcome, 'unusable', 'a spawn error is never excused by the banner');
+});
+
+test('a nonzero exit on any other flag stays unusable', async () => {
+  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+  const cases = [
+    ['pdftotext', ['-table', 'fixture.pdf', '-'], 99],
+    ['pdftotext', ['-h'], 1],
+    ['pdftotext', ['-v'], 2],
+    ['pdftoppm', ['-v'], 99],
+    ['pdfinfo', ['-v'], 99],
+  ];
+  for (const [cmd, args, status] of cases) {
+    const r = await createProbeRunner({ run: () => ({ status, signal: null, stdout: XPDF_BANNER, stderr: '' }) })(cmd, args);
+    assert.equal(r.outcome, 'unusable', JSON.stringify({ cmd, args, status }));
+    assert.equal(r.note, undefined);
+  }
+});
+
 test('figure probe cannot accept the OCR output and reports missing detection prerequisites separately', async t => {
   const { result } = await fixture(t, 'valid', { respond: (cmd, args) => {
     if (args.includes('-singlefile')) return { status: 0 };
