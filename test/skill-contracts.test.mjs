@@ -9,6 +9,9 @@ import { newestCapture } from '../scripts/lib/known-urls.mjs';
 import { SECRET_QUERY_NAMES, secretRefusal } from '../scripts/lib/url-safety.mjs';
 import { unopenedTabsNote, retryKeptNote, shortfallNote } from '../scripts/lib/clip-notes.mjs';
 import { buildFrontmatter, duplicateResult } from '../scripts/clip.mjs';
+import { CLI_SPECS } from '../scripts/lib/cli-specs.mjs';
+import { DISPOSITIONS, STYLE_ONLY_DISPOSITIONS } from '../scripts/lib/lint-dispositions.mjs';
+import { LAYOUT_RISK_KEY, INTERLEAVED_LAYOUT } from '../scripts/lint.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const expected = ['wiki-maintainer', 'wiki-project', 'wiki-purge', 'wiki-researcher', 'wiki-search', 'wiki-setup'];
@@ -196,6 +199,55 @@ test('the clip usage text says a secret query parameter is refused, as the code 
   assert.match(usage, /carries a username, password or secret query parameter, is an error outcome/);
   assert.doesNotMatch(usage, /carries a username or password/);
   assert.match(usage, /address with a username, password or secret query parameter is refused/);
+});
+
+// Lint review records: what the docs say about recording verdicts, the quote scanner, evidence locations and the
+// extraction-noted tier is checked against the constants the code uses.
+const lintMaintainer = 'skills/wiki-maintainer/references/lint.md';
+const layoutMark = '`' + LAYOUT_RISK_KEY + ': ' + INTERLEAVED_LAYOUT + '`';
+
+test('the maintainer lint procedure names every verdict, --skip-missing and --by-quote, and records by quote after the repair', () => {
+  const text = flat(read(lintMaintainer));
+  assert.deepEqual(DISPOSITIONS.filter(verdict => !text.includes('`' + verdict + '`')), [], 'every verdict is named');
+  for (const verdict of STYLE_ONLY_DISPOSITIONS) assert.match(text, new RegExp('`' + verdict + '`[^.]*style flags? only'), verdict + ' is for style flags only');
+  assert.ok(text.includes('`--skip-missing`'), '--skip-missing');
+  assert.match(text, /record --by-quote=/, 'a --by-quote command');
+  assert.match(text, /read the findings[^.]*, repair[^.]*, then record (?:them )?by quote/i, 'the order: read, repair, record by quote');
+  assert.match(text, /outside the vault/, 'the --by-quote file is outside the vault');
+  assert.match(text, /more than one finding[^.]*refused|refused[^.]*more than one finding/, 'an ambiguous entry is refused');
+});
+
+test('the content lint report names the extraction-noted tier, its mark and the evidence field', () => {
+  const text = flat(sectionOf('skills/wiki-setup/references/checks.md', 'Content lint report'));
+  assert.ok(text.includes('`--tier=convention|extraction-noted|gapped|unverified|all`'), 'every tier name, and all');
+  assert.match(text, /\*\*extraction-noted:\*\*/, 'the tier is described');
+  assert.ok(text.includes(layoutMark), 'the frontmatter mark it reads');
+  assert.match(text, /not (?:listed|shown) by default/, 'extraction-noted is not listed by default');
+  assert.ok(text.includes('`evidence`'), 'the evidence field');
+  assert.ok(text.includes('`linesUnavailable`'), 'when lines are unavailable');
+  assert.match(text, /`--full`[^.]*`evidence:/, '--full prints the evidence line');
+});
+
+test('the README content lint section describes the scanner rules, recording by quote, evidence and extraction-noted', () => {
+  const text = flat(sectionOf('README.md', 'Content lint'));
+  assert.match(text, /`7'6"`[^.]*`4'33"`/, 'measurement marks');
+  assert.match(text, /code span[^.]*fenced code block|fenced code block[^.]*code span/, 'code spans and fences');
+  assert.match(text, /`\[E\]ach`[^.]*`pi\[ne\]cones`/, 'glued brackets');
+  assert.match(text, /A straight mark is read by where it sits/, 'direction pairing');
+  assert.match(text, /"of course"[^.]*discourse marker/, 'the "of course" sense rule');
+  for (const option of ['`--skip-missing`', 'record --by-quote=<file>', '`source-wording`', '**extraction-noted**', '`--tier=all`', layoutMark]) assert.ok(text.includes(option), option);
+  for (const field of ['fragment', 'document', 'kind', 'lines', 'linesUnavailable', 'match', 'score', 'diff']) assert.ok(text.includes('`' + field + '`'), 'evidence field ' + field);
+  for (const line of ['`evidence: <document>:<first>-<last>`', '`evidence: none`', '`evidence: <document> (lines unavailable)`']) assert.ok(text.includes(line), line);
+  assert.match(text, /bare `\.\.\.` matches nothing/, 'a bare ... entry matches nothing');
+});
+
+test('the lint-disposition usage lists the new options and every verdict', () => {
+  const spec = CLI_SPECS['lint-disposition'];
+  for (const option of ['skip-missing', 'by-quote']) assert.ok(spec.options.includes(option), option);
+  const usage = flat(spec.usage.join(' '));
+  assert.deepEqual(DISPOSITIONS.filter(verdict => !usage.includes(verdict)), []);
+  assert.match(usage, /--by-quote=<file>/);
+  assert.match(usage, /--skip-missing/);
 });
 
 test('a twin must come back from the address that was asked for, and the docs say requested, not the page', () => {

@@ -244,3 +244,61 @@ test('DECLARES_ABSENT matches the page saying the text is not in the source, in 
     assert.ok(!DECLARES_ABSENT.test(s), s);
   }
 });
+
+// ── where a match is: document index, token range, placement and lines ──────
+
+test('matchFragment: a convention match names its document and the token range it occupies', () => {
+  const miss = doc('Nothing here resembles the quotation at all.');
+  const hit = doc('Intro words. The committee concluded that sampling error rather than bias explained it.');
+  const m = matchFragment('The committee concluded that sampling error, rather than bias', [miss, hit]);
+  assert.equal(m.tier, 'convention');
+  assert.equal(m.doc, 1);
+  assert.deepEqual(hit.tokens.slice(m.start, m.end), tokenize('The committee concluded that sampling error rather than bias'));
+});
+
+test('matchFragment: a space-free convention match covers every split evidence word', () => {
+  const d = doc('first ensur ing that multiplica tive concepts hold last');
+  const m = matchFragment('ensuring that multiplicative concepts hold', [d]);
+  assert.equal(m.tier, 'convention');
+  assert.deepEqual([m.doc, m.start, m.end], [0, 1, 8]);
+});
+
+test('matchFragment: a gapped match returns its placement, one evidence position per quote word', () => {
+  const d = doc('The pipeline runs each stage in order 148 Chapter 8 and then hands the result to the next stage without delay');
+  const q = 'The pipeline runs each stage in order and then hands the result to the next stage without delay';
+  const m = matchFragment(q, [d]);
+  assert.equal(m.tier, 'gapped');
+  assert.equal(m.doc, 0);
+  assert.deepEqual(m.at.map((p) => d.tokens[p]), tokenize(q));
+  assert.deepEqual([m.start, m.end], [m.at[0], m.at[m.at.length - 1] + 1]);
+  assert.deepEqual(m.inserted, ['148 chapter 8'], 'the existing field is unchanged');
+});
+
+test('matchFragment: no match names no document', () => {
+  const m = matchFragment('The sample showed a fifty percent improvement across all tested configurations', [doc('Something else entirely.')]);
+  assert.equal(m.tier, null);
+  assert.equal(m.doc, null);
+});
+
+test('classifyFragments: every fragment has its match in order, also after an unverified one', () => {
+  const d = doc('First the pipeline runs each stage and then the result is checked. Second the audit finds the real cause.');
+  const r = classifyFragments(['Third the invented claim appears nowhere', 'Second the audit finds the real cause'], [d]);
+  assert.equal(r.tier, 'unverified');
+  assert.deepEqual(r.inserted, []);
+  assert.deepEqual(r.matches.map((m) => m.tier), [null, 'convention']);
+});
+
+test('prepareDocument: lineSpan gives 1-based lines of a token range, shifted by lineOffset, built lazily', () => {
+  const d = prepareDocument('alpha beta\ngamma delta\n\nepsilon zeta', { lineOffset: 3 });
+  assert.equal(d.lineMapBuilt, false);
+  assert.deepEqual(d.lineSpan(1, 4), [4, 5]);
+  assert.deepEqual(d.lineSpan(4, 6), [7, 7]);
+  assert.equal(d.lineMapBuilt, true);
+  assert.deepEqual(prepareDocument('alpha beta\r\ngamma delta').lineSpan(0, 4), [1, 2], 'CRLF lines; default lineOffset 0');
+});
+
+test('prepareDocument: lineSpan is null when a line-by-line reading gives other words than the whole text', () => {
+  const d = prepareDocument('A <span\nclass="note">marked</span> passage');
+  assert.deepEqual(d.tokens, ['a', 'marked', 'passage']);
+  assert.equal(d.lineSpan(0, 3), null);
+});

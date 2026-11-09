@@ -76,7 +76,7 @@ test('appendDispositions refuses a verdict outside the vocabulary and a missing 
   assert.throws(() => appendDispositions(v.file, [{ v: 1, id: 'a', disposition: 'looks-fine', reviewer: 'r', date: '2026-10-26' }]), /disposition/);
   assert.throws(() => appendDispositions(v.file, [{ v: 1, id: 'a', disposition: 'accepted', reviewer: '', date: '2026-10-26' }]), /reviewer/);
   assert.equal(existsSync(v.file), false);
-  assert.deepEqual(DISPOSITIONS, ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed']);
+  assert.deepEqual(DISPOSITIONS, ['own-wording', 'mention', 'title', 'markup', 'accepted', 'fixed', 'source-wording']);
 });
 
 test('reviewedBy: a verdict suppresses a finding unless it says "fixed", which a still-present finding contradicts', () => {
@@ -110,8 +110,8 @@ test('recording a verdict hides the finding on the next run, counts it, and list
   assert.match(r.stdout, /recorded 1 verdict/);
   const j = lintJson(v.root);
   assert.deepEqual(j.findings.map((f) => f.page), ['wiki/concepts/beta.md']);
-  assert.deepEqual(j.tiers.reviewed, { convention: 0, gapped: 0, unverified: 1 });
-  assert.deepEqual(j.tiers.unreviewed, { convention: 0, gapped: 0, unverified: 1 });
+  assert.deepEqual(j.tiers.reviewed, { convention: 0, 'extraction-noted': 0, gapped: 0, unverified: 1 });
+  assert.deepEqual(j.tiers.unreviewed, { convention: 0, 'extraction-noted': 0, gapped: 0, unverified: 1 });
   assert.equal(j.tiers.unverified, 2, 'the tier total still counts the reviewed finding');
   const text = lintRun(v.root).stdout;
   assert.match(text, /Reviewed \(lint-dispositions\.jsonl\): unverified 1; not yet reviewed: unverified 1/);

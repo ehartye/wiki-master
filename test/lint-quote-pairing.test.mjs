@@ -12,11 +12,14 @@ import { buildGraph } from '../scripts/lib/graph.mjs';
 
 const C_OPEN = '“', C_CLOSE = '”';
 
-test('straight marks alternate: they do not nest, so a straight phrase inside a straight quotation is outside both', () => {
-  // The marks are read in order: open, close, open, close. "one ... five " is one quote and the middle
-  // phrase sits between the two quotes; the second quote is too short to be returned.
+test('straight marks pair by direction: an opener inside an open straight quotation nests', () => {
+  // `"one` and `"six` follow a space and precede a word, so both open; `ten"` and `thirteen"` follow a word and
+  // precede a space, so they close the nearest open quotation. The outer quote keeps the inner words without
+  // their marks, and the inner phrase is also returned on its own.
   const spans = quotedSpans('He said "one two three four five "six seven eight nine ten" eleven twelve thirteen" then left.');
-  assert.deepEqual(spans, ['one two three four five ']);
+  assert.deepEqual(spans, ['one two three four five six seven eight nine ten eleven twelve thirteen', 'six seven eight nine ten']);
+  // A mark whose place says neither (a"b) still alternates: it closes the open straight quotation.
+  assert.deepEqual(quotedSpans('He said "one two three four five six a"b then left.'), ['one two three four five six a']);
 });
 
 test('a curly quotation nests: a straight or curly phrase inside it stays in the outer quote and is also returned on its own', () => {
@@ -34,7 +37,7 @@ test('a closing curly mark with no curly opener is ignored and does not disturb 
 });
 
 test('a straight mark never pairs across a blank line, a curly quotation may', () => {
-  assert.deepEqual(quotedSpans('A 5" pipe is long.\n\nLater "one two three four five six" was said.'), ['one two three four five six']);
+  assert.deepEqual(quotedSpans('A five" pipe is long.\n\nLater "one two three four five six" was said.'), ['one two three four five six']);
   assert.deepEqual(quotedSpans(`He said ${C_OPEN}one two three four five\n\nsix seven eight nine ten${C_CLOSE} then left.`), ['one two three four five\n\nsix seven eight nine ten']);
 });
 
