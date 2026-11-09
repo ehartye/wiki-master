@@ -35,14 +35,20 @@ function record(values, vaultPath) {
   const style = checkStyle(vaultPath, graph, pages ? { pages } : {}).map((f) => ({ id: f.id, page: f.page, quote: `${f.category}: ${f.word}`, evidenceHash: f.evidenceHash, tier: 'style' }));
   const byId = new Map([...style, ...findings].map((f) => [f.id, f]));
   const missing = ids.filter((id) => !byId.has(id));
-  if (missing.length) throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote, the flagged sentence or the evidence may have changed, or its page is outside the scope; run lint.mjs --ids again)`);
+  // Without --skip-missing one miss fails the call and nothing is written, as before; with it the others are recorded.
+  if (missing.length && !values['skip-missing']) {
+    throw new InputError(`no finding with id ${missing.join(', ')} in that scope (the quote, the flagged sentence or the evidence may have changed, or its page is outside the scope; run lint.mjs --ids again); nothing was recorded (--skip-missing records the others)`);
+  }
+  const found = ids.filter((id) => byId.has(id));
+  const skipped = missing.length ? [`skipped ${missing.length} id(s) with no current finding in that scope: ${missing.join(', ')}`] : [];
+  if (!found.length) throw new InputError(['nothing recorded', ...skipped].join('\n'));
   if (STYLE_ONLY_DISPOSITIONS.includes(values.disposition)) {
-    const quotes = ids.filter((id) => byId.get(id).tier !== 'style');
+    const quotes = found.filter((id) => byId.get(id).tier !== 'style');
     if (quotes.length) throw new InputError(`${values.disposition} is a verdict for style flags only, and ${quotes.join(', ')} ${quotes.length === 1 ? 'is a quote finding' : 'are quote findings'}`);
   }
   const date = new Date().toISOString().slice(0, 10);
-  appendDispositions(join(vaultPath, DISPOSITIONS_FILE), ids.map((id) => recordFor(byId.get(id), { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
-  return `recorded ${ids.length} verdict(s) in ${DISPOSITIONS_FILE} (${values.disposition}): ${ids.join(', ')}`;
+  appendDispositions(join(vaultPath, DISPOSITIONS_FILE), found.map((id) => recordFor(byId.get(id), { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
+  return [`recorded ${found.length} verdict(s) in ${DISPOSITIONS_FILE} (${values.disposition}): ${found.join(', ')}`, ...skipped].join('\n');
 }
 
 function prune(values, vaultPath) {
@@ -59,6 +65,7 @@ export function main(argv = process.argv.slice(2)) {
     parsed = parseArgs({ args: argv, allowPositionals: true, options: {
       ids: { type: 'string' }, disposition: { type: 'string' }, reviewer: { type: 'string' }, note: { type: 'string' },
       page: { type: 'string' }, 'paths-file': { type: 'string' }, 'whole-vault': { type: 'boolean' }, apply: { type: 'boolean' },
+      'skip-missing': { type: 'boolean' },
     } });
   } catch (error) { throw new InputError(error.message.split('\n')[0]); }
   const [command, ...extra] = parsed.positionals;
