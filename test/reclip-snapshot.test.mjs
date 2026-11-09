@@ -173,6 +173,47 @@ test('a same-size edit outside the racy window that restores the old file time i
   assert.deepEqual(restrictedPages(root), [...CITERS, page].sort());
 });
 
+test('an edit that keeps the file time but changes the size is re-read and caught', async t => {
+  const { root, put, abs } = vault(t);
+  const page = 'wiki/concepts/grown.md', before = `${fm('type: concept')}# Grown\n\nNothing cited yet.\n`;
+  put(page, before);
+  const kept = statSync(abs(page));
+  let edited;
+  const result = await runReclips({ vaultPath: root, apply: true, targets: [TARGET], quarantineReason: 'Unverified rows', stat: pinnedChangeTime(root, page),
+    write: writeThen(root, atFirstPage, () => { writeFileSync(abs(page), before + `Now cites ${H}.\n`); utimesSync(abs(page), OLD, OLD); edited = statSync(abs(page)); }) });
+  assert.equal(edited.mtimeMs, kept.mtimeMs, 'only the size tells the edit apart');
+  assert.notEqual(edited.size, kept.size);
+  assert.deepEqual(result.conflictDetails, [{ path: TARGET, reason: 'Citation membership changed; pending repair retained', pending: true }]);
+  assert.ok(journal(root).pages.includes(page));
+  const retry = await runReclips({ vaultPath: root, apply: true, targets: [TARGET] });
+  assert.equal(retry.quarantined, 1);
+  assert.deepEqual(restrictedPages(root), [...CITERS, page].sort());
+});
+
+test('a clipping deleted between passes leaves the index, so the alias it shared now names the target', async t => {
+  const { root, abs } = vault(t);
+  const result = await runReclips({ vaultPath: root, apply: true, targets: [TARGET], quarantineReason: 'Unverified rows',
+    write: writeThen(root, atFirstPage, () => rmSync(abs(OTHER))) });
+  assert.deepEqual(result.conflictDetails, [{ path: TARGET, reason: 'Citation membership changed; pending repair retained', pending: true }]);
+  assert.ok(journal(root).pages.includes('wiki/concepts/by-alias.md'));
+  const retry = await runReclips({ vaultPath: root, apply: true, targets: [TARGET] });
+  assert.equal(retry.quarantined, 1);
+  assert.deepEqual(restrictedPages(root), [...CITERS, 'wiki/concepts/by-alias.md'].sort());
+});
+
+test('each target of a run builds its own snapshot', async t => {
+  const { root, put, read } = vault(t);
+  const SECOND = 'raw/clippings/second.md', H3 = hash('second'), summary = 'wiki/sources/second-summary.md';
+  put(SECOND, `${fm(`title: "Second capture"\nsource: "https://example.test/second.pdf"\nsource-hash: ${H3}`)}Second words.\n`);
+  put(summary, `${fm(`type: source\nsource-hashes: [${H3}]`)}# Second summary\n`);
+  const { result, counts } = await countReads(root, () => runReclips({ vaultPath: root, apply: true, targets: [TARGET, SECOND], quarantineReason: 'Unverified rows' }));
+  assert.equal(result.quarantined, 2);
+  assert.deepEqual(restrictedPages(root), [...CITERS].sort());
+  assert.ok(read(summary).includes(`Do not cite ${SECOND}:`));
+  assert.equal(read(CITERS[0]).includes(`Do not cite ${SECOND}:`), false);
+  for (const page of ['wiki/concepts/by-alias.md', 'wiki/concepts/bystander.md']) assert.equal(counts.get(page), 2, `${page} is read once by each transaction`);
+});
+
 test('a concurrent edit of a pending page stops the transaction, and the retry keeps the edit', async t => {
   const { root, abs, read } = vault(t);
   const edited = 'wiki/sources/by-hash.md';
