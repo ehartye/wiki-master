@@ -290,14 +290,35 @@ test('"of course" is flagged only as a discourse marker, not inside a noun phras
   v.concept('loud-verb', 'It is of course wrong.');
   v.concept('loud-and', 'And of course it fails.');
   assert.deepEqual(flagsOf(v.root, 'wiki/concepts/quiet-course.md'), []);
-  for (const page of ['loud-comma', 'loud-verb', 'loud-and']) assert.deepEqual(flagsOf(v.root, `wiki/concepts/${page}.md`), ['editorializing of course'], page);
+  v.concept('loud-paren', '(of course)');
+  v.concept('loud-dash', 'It works — of course — well.');
+  for (const page of ['loud-comma', 'loud-verb', 'loud-and', 'loud-paren', 'loud-dash']) assert.deepEqual(flagsOf(v.root, `wiki/concepts/${page}.md`), ['editorializing of course'], page);
+});
+
+test('"of course" at the start of a Markdown line is a discourse marker after list, heading, quote and emphasis marks', (t) => {
+  const v = vault(t);
+  const loud = {
+    'line-bullet': '- Of course it fails.',
+    'line-heading': '## Of course',
+    'line-quote': '> Of course it fails.',
+    'line-strong': '**Of course**, it fails.',
+    'line-em': '*Of course* it fails.',
+    'line-numbered': '1. Of course it fails.',
+  };
+  for (const [name, body] of Object.entries(loud)) v.concept(name, body);
+  v.concept('quiet-list', 'Here is a list of course concepts.');
+  v.concept('quiet-name', 'Students of Course 101 passed.');
+  for (const name of Object.keys(loud)) assert.deepEqual(flagsOf(v.root, `wiki/concepts/${name}.md`), ['editorializing of course'], name);
+  for (const name of ['quiet-list', 'quiet-name']) assert.deepEqual(flagsOf(v.root, `wiki/concepts/${name}.md`), [], name);
 });
 
 test('"however" before a degree word is not a connective, and "However," before the same word still is', (t) => {
   const v = vault(t);
   v.synth('degree', 'It splits however many clauses it takes.');
   v.synth('contrast', 'However, many disagree.');
-  assert.deepEqual(connective(v.root).map((f) => `${f.page} ${f.word}`), ['wiki/syntheses/contrast.md However, many disagree.']);
+  // Only one space counts: across a line break "however" is read as a contrast again.
+  v.synth('line-break', 'however\nmany clauses it takes.');
+  assert.deepEqual(connective(v.root).map((f) => `${f.page} ${f.word}`), ['wiki/syntheses/contrast.md However, many disagree.', 'wiki/syntheses/line-break.md however\nmany clauses it takes.']);
 });
 
 test('the sense rules remove flags and change no other flag\'s id', (t) => {
