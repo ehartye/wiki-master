@@ -198,6 +198,24 @@ test('direction: a closer closes the nearest open straight quotation, and a nest
 
 test('direction: a closer with no open straight quotation opens nothing', () => {
   assert.deepEqual(quotedSpans(`It was fine" and then "${SIX}" was said.`), [SIX]);
+  // With nothing open, a mark followed by each closer character opens nothing, so the closer later in the line has
+  // nothing to close. Read as ambiguous instead, the first mark would open and the span between would be returned.
+  for (const c of ['.', ',', ';', ':', '!', '?', ')', ']', '}', '—', '–']) {
+    assert.deepEqual(quotedSpans(`It was fine"${c} then ${SIX}" end`), [], c);
+  }
+});
+
+test('direction: a mark after each opener character nests inside an open straight quotation', () => {
+  // Read as ambiguous instead, the mark would close the outer quotation and the inner phrase would be lost.
+  for (const [o, c] of [['(', ')'], ['[', ']'], ['{', '}'], ['—', '—'], ['–', '–'], ['/', '/']]) {
+    assert.deepEqual(quotedSpans(`He said "one two three four five ${o}"six seven eight nine ten"${c} eleven twelve" then left.`),
+      [`one two three four five ${o}six seven eight nine ten${c} eleven twelve`, 'six seven eight nine ten'], o);
+  }
+});
+
+test('direction: a straight closer skips a curly quotation opened inside its quotation, which stays open', () => {
+  assert.deepEqual(quotedSpans('He said "one two three four five “six seven eight" nine ten” eleven twelve then left.'),
+    ['one two three four five six seven eight', 'six seven eight nine ten']);
 });
 
 test('direction: an ambiguous mark (a"b) alternates as before', () => {
