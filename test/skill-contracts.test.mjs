@@ -382,7 +382,7 @@ test('capture-prerequisites.md reports Xpdf exit 99 on help and version as passe
   const doc = flat(read('skills/wiki-setup/references/capture-prerequisites.md'));
   assert.ok(doc.includes('`' + XPDF_EXIT_99_NOTE + '`'), 'the note, as the code has it');
   assert.match(doc, /`pdftotext -h` and `pdftotext -v` with exit 99 and an Xpdf banner report `passed; exit=99`/);
-  assert.match(doc, /JSON `outcome: "passed"` plus `note`/);
+  assert.match(doc, /`diagnosePdf` result `outcome: "passed"` plus `note`/);
   assert.match(doc, /Exit 99 from another flag or tool, or without an Xpdf banner, stays `unusable`/);
   assert.match(read('scripts/lib/pdf-doctor.mjs'), /p\.note \? `; note: \$\{p\.note\}`/, 'formatPdfDoctor appends the note');
 });
