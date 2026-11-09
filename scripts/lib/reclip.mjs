@@ -162,22 +162,24 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   // A quarantine asks up to four times which wiki pages cite the clipping. The first pass of a transaction reads every
   // raw and wiki file into a snapshot: each file's header identity, and each wiki page's whole text (so the hash test
   // stays an exact substring test) and links. A later pass stats every file again and re-reads only a file that is new,
-  // changed size or time, or was modified within GRAPH_CACHE_RACY_MS of the pass that read it, so a same-size edit
-  // inside one tick of a coarse clock is still seen; a deleted file drops out. The name index is rebuilt from the
+  // changed size, modification time or change time, or was modified within GRAPH_CACHE_RACY_MS of the pass that read
+  // it, so a same-size edit inside one tick of a coarse clock is still seen. The change time catches an edit that
+  // restores the old modification time (utimes cannot set it), since a quarantine has no --no-cache escape. A deleted
+  // file drops out. The name index is rebuilt from the
   // snapshot each pass. The snapshot lives for one transaction of this run and is never stored.
   let snapshot;
   const identity=(p,top)=>{const parsed=parseNote(top),path=rel(p);return {path,name:path.split('/').pop().slice(0,-3).toLowerCase(),metadata:parsed.metadata,aliases:parsed.aliases};};
   const entry=(p,stat,readAtMs,wikiPage)=>{
-    if(!wikiPage)return {size:stat.size,mtimeMs:stat.mtimeMs,readAtMs,identity:identity(p,head(p))};
+    if(!wikiPage)return {size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,readAtMs,identity:identity(p,head(p))};
     const bytes=readFileSync(p),text=bytes.toString('utf8');
-    return {size:stat.size,mtimeMs:stat.mtimeMs,readAtMs,text,identity:identity(p,headOf(bytes)),links:wikilinks(text)};
+    return {size:stat.size,mtimeMs:stat.mtimeMs,ctimeMs:stat.ctimeMs,readAtMs,text,identity:identity(p,headOf(bytes)),links:wikilinks(text)};
   };
   const citing=(text,path)=>{
     const readAtMs=Date.now(),next=new Map(),wiki=[];
     const scan=(from,wikiPage)=>{
       for(const p of markdown(from)){
         const key=rel(p),stat=statSync(p),kept=snapshot?.get(key);
-        const trusted=kept&&kept.size===stat.size&&kept.mtimeMs===stat.mtimeMs&&kept.mtimeMs<=kept.readAtMs-GRAPH_CACHE_RACY_MS;
+        const trusted=kept&&kept.size===stat.size&&kept.mtimeMs===stat.mtimeMs&&kept.ctimeMs===stat.ctimeMs&&kept.mtimeMs<=kept.readAtMs-GRAPH_CACHE_RACY_MS;
         const e=trusted?kept:entry(p,stat,readAtMs,wikiPage);
         next.set(key,e);if(wikiPage)wiki.push([p,e]);
       }

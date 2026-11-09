@@ -145,6 +145,25 @@ test('a same-size edit inside the racy window that keeps the file time is re-rea
   assert.deepEqual(restrictedPages(root), [...CITERS, page].sort());
 });
 
+test('a same-size edit outside the racy window that restores the old file time is re-read, because its change time moved', async t => {
+  const { root, put, abs } = vault(t);
+  const page = 'wiki/concepts/quiet.md', before = `${fm('type: concept')}# Quiet\n\nSee [[raw/clippings/zzzzzz]].\n`;
+  const after = before.replace('zzzzzz', 'target');
+  put(page, before);
+  const kept = statSync(abs(page));
+  let edited;
+  const result = await runReclips({ vaultPath: root, apply: true, targets: [TARGET], quarantineReason: 'Unverified rows',
+    write: writeThen(root, atFirstPage, () => { writeFileSync(abs(page), after); utimesSync(abs(page), OLD, OLD); edited = statSync(abs(page)); }) });
+  assert.deepEqual([edited.size, edited.mtimeMs], [kept.size, kept.mtimeMs], 'the edit keeps size and modification time');
+  // utimes cannot set the change time; a file system that leaves it alone gives this test nothing to see.
+  if (edited.ctimeMs === kept.ctimeMs) { t.skip('this file system kept the change time across a rewrite and utimes'); return; }
+  assert.deepEqual(result.conflictDetails, [{ path: TARGET, reason: 'Citation membership changed; pending repair retained', pending: true }]);
+  assert.ok(journal(root).pages.includes(page));
+  const retry = await runReclips({ vaultPath: root, apply: true, targets: [TARGET] });
+  assert.equal(retry.quarantined, 1);
+  assert.deepEqual(restrictedPages(root), [...CITERS, page].sort());
+});
+
 test('a concurrent edit of a pending page stops the transaction, and the retry keeps the edit', async t => {
   const { root, abs, read } = vault(t);
   const edited = 'wiki/sources/by-hash.md';
