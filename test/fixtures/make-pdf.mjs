@@ -7,7 +7,8 @@ import { writeFileSync } from 'node:fs';
 const esc = (s) => s.replace(/([\()])/g, '\$1');
 
 // pages: [ [ { x, y, size?, text }, ... ], ... ]
-export function makePdf(pages, out) {
+// info: { title } writes an /Info dictionary, so pdfinfo has a Title: line to print.
+export function makePdf(pages, out, { info } = {}) {
   const objs = [];
   const FIRST_PAGE_OBJ = 4; // 1 catalog, 2 pages, 3 font
   objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
@@ -21,6 +22,9 @@ export function makePdf(pages, out) {
     };
   });
 
+  const infoObj = info?.title === undefined ? null : objs.length;
+  if (infoObj) objs[infoObj] = `<< /Title (${esc(info.title)}) >>`;
+
   let pdf = '%PDF-1.4\n';
   const offsets = [];
   for (let i = 1; i < objs.length; i++) {
@@ -33,7 +37,7 @@ export function makePdf(pages, out) {
   const xref = pdf.length;
   pdf += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
   for (let i = 1; i < objs.length; i++) pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
-  pdf += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  pdf += `trailer\n<< /Size ${objs.length} /Root 1 0 R${infoObj ? ` /Info ${infoObj} 0 R` : ''} >>\nstartxref\n${xref}\n%%EOF\n`;
   writeFileSync(out, pdf, 'latin1');
   return out;
 }

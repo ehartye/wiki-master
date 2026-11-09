@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { main, pdfinfoTitle } from '../scripts/clip-pdf.mjs';
+import { main } from '../scripts/clip-pdf.mjs';
 import * as pdfDownload from '../scripts/lib/pdf-download.mjs';
 const { downloadPdf, streamPdf } = pdfDownload;
 const openFile = (...a) => pdfDownload.openFile(...a);
@@ -97,27 +97,13 @@ test('a PDF address is downloaded, clipped with the address as its source, and n
   const text = v.clipping(`${result.slug}.md`);
   assert.match(text, new RegExp(`^source: "${url}"$`, 'm'));
   assert.match(text, /^title: "Guide to the Setup"$/m);
+  assert.equal(result.titleSource, 'pdfinfo');
   assert.equal(scratch.length, 1);
   assert.ok(gone(scratch), 'the temp folder is removed');
   const shown = lines.join('\n');
   assert.ok(shown.includes('clipped: raw/clippings/'));
   assert.ok(!shown.includes(scratch[0]), 'the output names the address, not the deleted temp path');
 });
-
-const TITLES = [
-  ['--title', ['--title=Chosen'], () => 'From pdfinfo', 'Chosen'],
-  ['the pdfinfo Title', [], () => 'From pdfinfo', 'From pdfinfo'],
-  ['the last path segment of the address, without its query', [], noTitle, 'guide v2'],
-];
-for (const [name, extra, pdfTitle, expected] of TITLES) {
-  test(`the title is ${name}, and never the temp file's name`, async (t) => {
-    const base = await fixtureServer(t);
-    const v = vault(t);
-    const { result } = clip([`${base}/files/guide_v2.pdf?download=1`, ...extra], { pdfTitle });
-    assert.equal(result.status, 'clipped');
-    assert.match(v.clipping(`${result.slug}.md`), new RegExp(`^title: "${expected}"$`, 'm'));
-  });
-}
 
 test('a redirect is followed, and the source stays the address that was asked for', async (t) => {
   const base = await fixtureServer(t);
@@ -222,15 +208,6 @@ test('a process.exit after the download still leaves no temp file', async (t) =>
 test('clip-pdf accepts an address as its target and says so in its usage', () => {
   assert.deepEqual(checkClipArgs(['https://docs.example.test/a.pdf', '--topic=T', '--title=T'], CLIP_SPECS['clip-pdf']), { ok: true });
   assert.match(CLIP_SPECS['clip-pdf'].usage.join(' '), /usage: clip-pdf\.mjs <file\.pdf \| https-url>/);
-});
-
-test('pdfinfoTitle reads the Title: line, and is null without the tool, without a title, or when pdfinfo fails', () => {
-  const info = (text) => () => text;
-  assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: info('Title:          Setup Guide\nPages:          3\n') }), 'Setup Guide');
-  assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: info('Pages:          3\n') }), null);
-  assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: info('Title:   \nPages: 3\n') }), null);
-  assert.equal(pdfinfoTitle('x.pdf', { tool: null, run: () => assert.fail('no tool, no run') }), null);
-  assert.equal(pdfinfoTitle('x.pdf', { tool: 'pdfinfo', run: () => { throw new Error('damaged'); } }), null);
 });
 
 // ---------------------------------------------------------------- review findings
