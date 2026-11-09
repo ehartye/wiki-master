@@ -400,7 +400,7 @@ test('no doc says a clipper writes layout-risk, and the lint comment says none d
   assert.deepEqual(claims, []);
   const lint = read('scripts/lint.mjs');
   const comment = lint.slice(0, lint.indexOf('export const LAYOUT_RISK_KEY')).split('\n').reverse();
-  const block = comment.slice(1, comment.findIndex((line, i) => i > 0 && !line.startsWith('//'))).reverse().join(' ');
+  const block = comment.slice(1, comment.findIndex((line, i) => i > 0 && !line.startsWith('//'))).reverse().map(line => line.replace(/^\/\/ ?/, '')).join(' ');
   assert.doesNotMatch(block, affirmsClipperMark, 'the comment above LAYOUT_RISK_KEY');
   assert.match(block, /no clipper writes/i, 'the comment says no clipper writes the mark yet');
   for (const f of ['README.md', 'skills/wiki-setup/references/checks.md']) assert.match(flat(read(f)), /no clipper writes (?:the|this) mark yet/i, f);
