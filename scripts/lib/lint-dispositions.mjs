@@ -78,8 +78,9 @@ export function recordFor(finding, { disposition, reviewer, note, date }) {
 // Finds the current quote finding for each { page, quote } entry, so a verdict read before a page's evidence changed (and
 // its ids with it) can still be recorded. An entry matches the quote findings on its page whose quote, whitespace
 // collapsed, equals its own; when none does and its quote ends in "..." (lint.mjs's shortened listing), those whose quote
-// starts with what comes before. One distinct id is a match (equal quotes on a page share an id); none is missing; more
-// than one is ambiguous and is never guessed. Style flags are not quote findings and never match.
+// starts with what comes before, when something does (a bare "..." matches nothing). One distinct id is a match (equal
+// quotes on a page share an id); none is missing; more than one is ambiguous and is never guessed. Style flags are not
+// quote findings and never match.
 export function matchByQuote(findings, entries) {
   const byPage = new Map();
   for (const f of findings) if (f.tier !== 'style') (byPage.get(f.page) ?? byPage.set(f.page, []).get(f.page)).push(f);
@@ -88,7 +89,8 @@ export function matchByQuote(findings, entries) {
     const quote = collapse(entry.quote);
     const onPage = byPage.get(entry.page) ?? [];
     let hits = onPage.filter((f) => collapse(f.quote) === quote);
-    if (!hits.length && quote.endsWith('...')) hits = onPage.filter((f) => collapse(f.quote).startsWith(quote.slice(0, -3)));
+    const prefix = quote.endsWith('...') ? quote.slice(0, -3) : '';
+    if (!hits.length && prefix.trim()) hits = onPage.filter((f) => collapse(f.quote).startsWith(prefix));
     const ids = new Map(hits.map((f) => [f.id, f]));
     if (ids.size === 1) out.matched.push({ index, entry, finding: [...ids.values()][0] });
     else if (ids.size === 0) out.missing.push({ index, entry, count: 0 });

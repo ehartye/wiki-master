@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -230,6 +230,33 @@ test('a --by-quote file inside the vault is refused with exit 2 and the disposit
   assert.equal(r.status, 2, r.stdout);
   assert.equal(r.stderr.trim(), `lint-disposition: --by-quote file must be outside the vault: ${inside}`);
   assert.equal(readFileSync(v.file, 'utf8'), SEED);
+});
+
+test('a --by-quote file reached through a directory link into the vault is refused by its real path', (t) => {
+  const v = vault(t);
+  writeFileSync(v.file, SEED);
+  mkdirSync(join(v.root, 'scratch'));
+  writeFileSync(join(v.root, 'scratch', 'entries.json'), JSON.stringify(lintJson(v.root).findings.map(pick)));
+  const outside = mkdtempSync(join(TEMP, 'wm-lint-record-link-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  const link = join(outside, 'link');
+  symlinkSync(join(v.root, 'scratch'), link, 'junction');
+  const viaLink = join(link, 'entries.json');
+  const r = record(v.root, [`--by-quote=${viaLink}`]);
+  assert.equal(r.status, 2, r.stdout);
+  assert.equal(r.stderr.trim(), `lint-disposition: --by-quote file must be outside the vault: ${viaLink}`);
+  assert.equal(readFileSync(v.file, 'utf8'), SEED);
+});
+
+test('an entry whose quote is only "..." matches nothing, even on a page with one finding', (t) => {
+  const v = vault(t);
+  v.concept('solo', 'Solo says "The quick brown fox jumps over the lazy hound near the river" once.');
+  assert.equal(lintJson(v.root).findings.filter((f) => f.page === 'wiki/concepts/solo.md').length, 1, 'the page has one finding');
+  const file = entriesFile(t, [{ page: 'wiki/concepts/solo.md', quote: '...' }]);
+  const r = record(v.root, [`--by-quote=${file}`]);
+  assert.equal(r.status, 2, r.stdout);
+  assert.match(r.stderr, /entry 0 \(wiki\/concepts\/solo\.md: "\.\.\.", 0 matches\)/);
+  assert.throws(() => readFileSync(v.file), /ENOENT/, 'nothing was written');
 });
 
 test('a --by-quote file that is not an array of {page, quote} objects exits 2, names the bad entry, and writes nothing', (t) => {
