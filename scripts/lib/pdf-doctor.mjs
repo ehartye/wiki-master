@@ -3,11 +3,21 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, openSync, readSync, closeSync, lstatSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, isAbsolute } from 'node:path';
-import { pdftotextCapabilities, dependencyReport } from './pdf-extract.mjs';
+import { pdftotextCapabilities, parsePdftotextCapabilities, dependencyReport } from './pdf-extract.mjs';
 import { resolveFigureTools } from './pdf-figures.mjs';
 import { reapProbeDescendants } from './posix-probe-cleanup.mjs';
 
 const OUTPUT_LIMIT = 64 * 1024;
+export const XPDF_EXIT_99_NOTE = 'exit 99 is normal for Xpdf help and version output';
+// Xpdf's pdftotext exits 99 after printing its help or version banner. Only
+// that exact case is excused: the help or version flag, status 99, no spawn
+// error, and output that identifies itself as Xpdf. Any other nonzero exit,
+// including exit 99 from another flag, tool or banner, stays unusable.
+function isXpdfHelpExit(command, args, result, code) {
+  return !code && result.status === 99 && ['-h', '-v'].includes(args?.[0]) &&
+    /^pdftotext(\.exe)?$/i.test(String(command).split(/[\\/]/).pop()) &&
+    parsePdftotextCapabilities(`${result.stdout || ''}${result.stderr || ''}`).flavor === 'xpdf';
+}
 // Reserve time inside each probe deadline for terminating its tree. On Windows,
 // taskkill must see the live parent to find even detached descendants. POSIX
 // probes own a process group; a bounded descendant snapshot also catches a
@@ -98,10 +108,11 @@ export function createProbeRunner({ run = runOwnedProcess, now = () => performan
     spent += Math.max(0, now() - started);
     if (result.termination?.outcome === 'unusable') terminationFailed = true;
     const code = result.error?.code;
+    const xpdfHelp = isXpdfHelpExit(command, args, result, code);
     const outcome = code === 'ENOENT' ? 'missing' : code === 'ETIMEDOUT' ? 'timeout'
-      : code || result.status !== 0 ? 'unusable' : 'passed';
+      : xpdfHelp ? 'passed' : code || result.status !== 0 ? 'unusable' : 'passed';
     return { ...base, outcome, status: result.status ?? null, signal: result.signal ?? null,
-      pid: result.pid ?? null, ...(code ? { code } : {}),
+      pid: result.pid ?? null, ...(code ? { code } : {}), ...(xpdfHelp ? { note: XPDF_EXIT_99_NOTE } : {}),
       ...(result.termination ? { termination: result.termination } : {}),
       ...(outcome !== 'passed' ? { reason: code || `process exited ${result.status ?? result.signal ?? 'without status'}` } : {}),
       stdout: String(result.stdout || '').slice(0, OUTPUT_LIMIT), stderr: String(result.stderr || '').slice(0, OUTPUT_LIMIT) };
@@ -213,7 +224,7 @@ export function formatPdfDoctor(result) {
   return [
     `clip-pdf legacy dependency-only summary: ok=${result.ok}; missing=${result.missing.join(', ') || 'none'} (not rendering readiness)`,
     `text: ${c.text.flavor}; -table advertised=${c.text.table}; table rows not verified`,
-    ...c.text.probes.map(p => `  pdftotext ${p.args[0]}: ${p.outcome}; exit=${p.status}; signal=${p.signal}`),
+    ...c.text.probes.map(p => `  pdftotext ${p.args[0]}: ${p.outcome}; exit=${p.status}; signal=${p.signal}${p.note ? `; note: ${p.note}` : ''}`),
     ...['ocrRaster', 'figureRaster'].flatMap(key => {
       const r = c[key];
       return [`${key}: ${r.outcome}${r.reason ? ` (${r.reason})` : ''}`, `  command: ${JSON.stringify(r.command)} ${r.args.map(a => JSON.stringify(a)).join(' ')}`, `  identity: ${r.identity || r.identityLimitation || 'not resolved'}`, `  exit: ${r.status}; signal: ${r.signal}; output contract: PNG IHDR with positive dimensions`, ...(r.termination ? [`  process-tree termination: ${r.termination.outcome} (${r.termination.method || r.termination.reason})`] : [])];
