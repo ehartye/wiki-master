@@ -20,6 +20,7 @@ export const STYLE_ONLY_DISPOSITIONS = ['source-wording'];
 const VERSION = 1;
 
 const sha = (text) => createHash('sha256').update(text).digest('hex');
+const collapse = (text) => String(text).replace(/\s+/g, ' ').trim();
 
 // Only raw clippings count: a wiki page used as a route to evidence is edited for other reasons, and a verdict about a
 // quote should not lapse each time a summary is touched. Order does not matter.
@@ -31,11 +32,11 @@ export function evidenceHashOf(paths, bodies) {
 // A style pointer has no raw evidence behind it: what it points at is the sentence(s) it was raised on. Its "evidence" is a
 // hash of that text, so rewording the sentence gives the pointer a new identity and it is read again.
 export function contextHashOf(text) {
-  return sha(String(text).replace(/\s+/g, ' ').trim()).slice(0, 16);
+  return sha(collapse(text)).slice(0, 16);
 }
 
 export function findingId({ page, quote, evidenceHash }) {
-  return sha(`${page}\0${String(quote).replace(/\s+/g, ' ').trim()}\0${evidenceHash}`).slice(0, 12);
+  return sha(`${page}\0${collapse(quote)}\0${evidenceHash}`).slice(0, 12);
 }
 
 // id -> the latest record. A line that is not JSON, has another version, or lacks an id is skipped, never fatal.
@@ -72,6 +73,28 @@ export function recordFor(finding, { disposition, reviewer, note, date }) {
     v: VERSION, id: finding.id, page: finding.page, quote: finding.quote, evidence: finding.evidenceHash, tier: finding.tier,
     disposition, reviewer: reviewer.trim(), date, ...(note ? { note } : {}),
   };
+}
+
+// Finds the current quote finding for each { page, quote } entry, so a verdict read before a page's evidence changed (and
+// its ids with it) can still be recorded. An entry matches the quote findings on its page whose quote, whitespace
+// collapsed, equals its own; when none does and its quote ends in "..." (lint.mjs's shortened listing), those whose quote
+// starts with what comes before. One distinct id is a match (equal quotes on a page share an id); none is missing; more
+// than one is ambiguous and is never guessed. Style flags are not quote findings and never match.
+export function matchByQuote(findings, entries) {
+  const byPage = new Map();
+  for (const f of findings) if (f.tier !== 'style') (byPage.get(f.page) ?? byPage.set(f.page, []).get(f.page)).push(f);
+  const out = { matched: [], missing: [], ambiguous: [] };
+  entries.forEach((entry, index) => {
+    const quote = collapse(entry.quote);
+    const onPage = byPage.get(entry.page) ?? [];
+    let hits = onPage.filter((f) => collapse(f.quote) === quote);
+    if (!hits.length && quote.endsWith('...')) hits = onPage.filter((f) => collapse(f.quote).startsWith(quote.slice(0, -3)));
+    const ids = new Map(hits.map((f) => [f.id, f]));
+    if (ids.size === 1) out.matched.push({ index, entry, finding: [...ids.values()][0] });
+    else if (ids.size === 0) out.missing.push({ index, entry, count: 0 });
+    else out.ambiguous.push({ index, entry, count: ids.size });
+  });
+  return out;
 }
 
 // Removes the lines of a page that is gone. Dry by default. Every other line is kept as it is.
