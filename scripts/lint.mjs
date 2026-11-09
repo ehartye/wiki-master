@@ -320,8 +320,9 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     const dir = Object.keys(LICENSE).find((d) => p.path.startsWith(d));
     if (dir === undefined) continue;
     // Line endings are made LF first: the recorded words of a connective flag are the first 70 characters of its
-    // sentence, so a CR inside them would give a CRLF copy of a page different ids from the LF copy.
-    let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8')).replace(/\r\n?/g, '\n');
+    // sentence, so a CR inside them would give a CRLF copy of a page different ids from the LF copy. Only CRLF is changed:
+    // a lone CR was never a line break here, and making it one would move paragraph boundaries and so flags and ids.
+    let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8')).replace(/\r\n/g, '\n');
     // Quotation exemption: nothing inside quotation marks is ever flagged.
     body = body.replace(/["“][^"“”]*["”]/g, '""');
     // The text a tone flag is raised on is the sentence(s) holding the word, taken inside one paragraph, so editing a

@@ -267,3 +267,14 @@ test('the count of reviewed style flags follows --page, as the listing above it 
   assert.match(lintText(v.root, ['--page=joint']), /\(1 more with a recorded verdict, not listed\)/);
   assert.doesNotMatch(lintText(v.root, ['--page=second']), /more with a recorded verdict/);
 });
+
+test('a lone carriage return is not a line break: paragraphs, flags and ids are as before line endings were normalized', (t) => {
+  const v = vault(t);
+  // A lone CR before a list marker or after a heading must not start a new paragraph: only CRLF is made LF.
+  writeFileSync(join(v.root, 'wiki/syntheses/lone-cr.md'), `${FM('synthesis')}# lone-cr\nIt rose, but slowly.\r- item [[fox-page]].\n\n## H\rIt fell, but [[fox-page]] later.\n`);
+  writeFileSync(join(v.root, 'wiki/concepts/lone-cr-tone.md'), `${FM('concept')}# lone-cr-tone\n- alpha\r- this is clearly wrong\r- gamma\n`);
+  const flags = checkStyle(v.root, buildGraph(v.root)).map((f) => `${f.page} ${f.category} ${f.word} ${f.id}`);
+  // The flags and ids the same pages gave before line endings were normalized.
+  assert.deepEqual(flags, ['wiki/concepts/lone-cr-tone.md editorializing clearly 9c6bbe14781b']);
+  assert.equal(flags[0].split(' ').pop(), findingId({ page: 'wiki/concepts/lone-cr-tone.md', quote: 'editorializing: clearly', evidenceHash: contextHashOf('- alpha\r- this is clearly wrong\r- gamma') }));
+});
