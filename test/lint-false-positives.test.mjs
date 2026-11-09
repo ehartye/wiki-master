@@ -176,3 +176,53 @@ test('the ids of quotes no rule touches are unchanged', t => {
   const ids = Object.fromEntries(r.findings.filter((f) => ['plain', 'elided'].some((n) => f.page.endsWith(`/${n}.md`))).map((f) => [f.page.split('/').pop(), f.id]));
   assert.deepEqual(ids, { 'plain.md': 'fd9b45959e73', 'elided.md': '4a9c0c720f49' });
 });
+
+// Direction-aware straight marks. A straight mark after the start of text, whitespace or ( [ { — – / and before a
+// non-space character opens; one after a non-space character and before the end, whitespace or . , ; : ! ? ) ] } — –
+// closes; any other mark alternates as before. An opener inside an open straight quotation nests, and a closer closes
+// the nearest open straight quotation. Measurement and code marks are out of play before direction is judged.
+
+test('direction: a straight quotation nests straight phrases inside it', () => {
+  assert.deepEqual(quotedSpans('"Click "visit site", then "sign up" to finish the order"'),
+    ['Click visit site, then sign up to finish the order']);
+  const inner = 'six seven eight nine ten';
+  assert.deepEqual(quotedSpans(`He said "one two three four five "${inner}" eleven twelve" then left.`),
+    [`one two three four five ${inner} eleven twelve`, inner]);
+});
+
+test('direction: a closer closes the nearest open straight quotation, and a nested quote ending the outer one still closes both', () => {
+  // The inner quotation's closer is followed by the outer one's: ' "1/4"' then ')"'.
+  assert.deepEqual(quotedSpans(`He wrote "we call it "one-fourth" and write it "1/4")" in the table cell | next cell "${SIX}" ends.`),
+    ['we call it one-fourth and write it 1/4)', SIX]);
+});
+
+test('direction: a closer with no open straight quotation opens nothing', () => {
+  assert.deepEqual(quotedSpans(`It was fine" and then "${SIX}" was said.`), [SIX]);
+});
+
+test('direction: an ambiguous mark (a"b) alternates as before', () => {
+  // No quotation is open, so it opens; one is open, so it closes.
+  assert.deepEqual(quotedSpans(`The code a"${SIX}"b ends here.`), [SIX]);
+  assert.deepEqual(quotedSpans(`He said "${SIX} a"b then left.`), [`${SIX} a`]);
+});
+
+test('direction: curly quotations are unaffected', () => {
+  const C_OPEN = '“', C_CLOSE = '”';
+  // Curly marks pair by glyph, wherever they sit.
+  assert.deepEqual(quotedSpans(`He said${C_OPEN}${SIX}${C_CLOSE}then left.`), [SIX]);
+  assert.deepEqual(quotedSpans(`He said ${C_OPEN}one two ${C_OPEN}three four five six seven${C_CLOSE} eight${C_CLOSE} then left.`),
+    ['one two three four five six seven eight', 'three four five six seven']);
+  // A closing curly mark with no curly opener is still ignored, even inside a straight quotation.
+  assert.deepEqual(quotedSpans(`He said "one two three ${C_CLOSE} four five six" then left.`), ['one two three  four five six']);
+  // A curly quotation still spans a blank line.
+  assert.deepEqual(quotedSpans(`He said ${C_OPEN}one two three\n\nfour five six${C_CLOSE} then left.`), ['one two three\n\nfour five six']);
+});
+
+test('direction: a measurement or code mark inside a nested straight quotation is out of play before direction is judged', () => {
+  // 7'6" is followed by a space, so by position alone it would close the inner quotation.
+  assert.deepEqual(quotedSpans(`He wrote "the guide says "the player is 7'6" tall and fast" in its notes" today.`),
+    [`the guide says the player is 7'6" tall and fast in its notes`, `the player is 7'6" tall and fast`]);
+  // The mark inside the code span is followed by a space, so by position alone it would close the inner quotation.
+  assert.deepEqual(quotedSpans('He wrote "the docs say "type `a" b` to start the run" in the guide" today.'),
+    ['the docs say type `a" b` to start the run in the guide', 'type `a" b` to start the run']);
+});

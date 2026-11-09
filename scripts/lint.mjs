@@ -81,8 +81,16 @@ function splitFm(md) {
 // words kept) and is also checked on its own when it is long enough:
 //   - “ opens a curly quotation; ” closes the nearest open one, discarding any
 //     straight opener still open above it. A ” with no curly opener is ignored.
-//   - " closes the straight opener on top of the stack, else opens a new one. A
-//     straight mark never pairs across a blank line, so a stray one (5" pipe)
+//   - A straight " is read by where it sits (straightDirection):
+//       - after the start, whitespace or ( [ { — – / and before a non-space
+//         character, it opens, nesting inside any open straight quotation;
+//       - after a non-space character and before the end, whitespace or
+//         . , ; : ! ? ) ] } — –, it closes the nearest open straight quotation
+//         (any curly opener above it stays open), and with none open it opens
+//         nothing;
+//       - anywhere else (a"b) it alternates: it closes the straight opener on
+//         top of the stack, else opens a new one.
+//     A straight mark never pairs across a blank line, so a stray one (5" pipe)
 //     cannot swallow a later paragraph; a curly quotation may span one.
 //   - Quotes shorter than MIN_QUOTE_WORDS are consumed but not returned: a short
 //     quote ("Adaptive") must still take its closing mark, or parity flips and
@@ -93,11 +101,21 @@ function splitFm(md) {
 //       - a straight mark directly after a digit (5" pipe) opens nothing, but it
 //         still closes an open straight quotation, since quotations often end in a
 //         number ("in 1999"). So "use a 5" pipe here" still closes early.
-//     A mark out of play stays in the quotation's text as written.
+//     A mark out of play stays in the quotation's text as written. Direction is
+//     judged only for the straight marks still in play.
 // Each span is { start, text, raw }: text has the delimiting marks removed for
 // matching, raw is the page text as written, for locating its sentence.
 const PARAGRAPH_BREAK = /[ \t\r]*\n/y;
 const MEASUREMENT = /\d['’]\s?\d+$/;
+const BEFORE_OPENER = /[\s([{—–/]/u;
+const AFTER_CLOSER = /[\s.,;:!?)\]}—–]/u;
+// 'open', 'close', or null when the mark's place says neither or both.
+function straightDirection(body, i) {
+  const before = body[i - 1], after = body[i + 1];
+  const opens = (before === undefined || BEFORE_OPENER.test(before)) && after !== undefined && !/\s/u.test(after);
+  const closes = before !== undefined && !/\s/u.test(before) && (after === undefined || AFTER_CLOSER.test(after));
+  return opens === closes ? null : opens ? 'open' : 'close';
+}
 
 // Where code is in a body, as sorted [start, end) ranges, found once before pairing:
 //   - a fenced block, from its opening ``` or ~~~ line to a closing line of the
@@ -193,12 +211,22 @@ function scanQuotes(body) {
       open.length = k;
       settled = Math.min(settled, k);
     } else if (c === '"') {
-      const top = open[open.length - 1];
       const afterDigit = /\d/.test(body[i - 1] ?? '');
-      if (afterDigit && MEASUREMENT.test(body.slice(Math.max(0, i - 24), i))) literal.add(i);
-      else if (top && !top.curly) { close(top.at, i); open.pop(); }
-      else if (afterDigit) literal.add(i);
-      else open.push({ curly: false, at: i + 1 });
+      if (afterDigit && MEASUREMENT.test(body.slice(Math.max(0, i - 24), i))) { literal.add(i); continue; }
+      const direction = straightDirection(body, i);
+      if (direction === 'open') {
+        open.push({ curly: false, at: i + 1 });
+      } else if (direction === 'close') {
+        let k = open.length - 1;
+        while (k >= 0 && open[k].curly) k--;
+        if (k >= 0) { close(open[k].at, i); open.splice(k, 1); }
+        else if (afterDigit) literal.add(i);
+      } else {
+        const top = open[open.length - 1];
+        if (top && !top.curly) { close(top.at, i); open.pop(); }
+        else if (afterDigit) literal.add(i);
+        else open.push({ curly: false, at: i + 1 });
+      }
     }
   }
   return found.sort((a, b) => a.start - b.start);
