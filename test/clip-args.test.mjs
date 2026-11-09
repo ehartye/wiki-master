@@ -57,6 +57,22 @@ test('a value option written without its value, and a spaced option missing its 
   assert.match(checkClipArgs(['a.pdf', '--clipping', '--ocr'], CLIP_SPECS['clip-pdf']).error, /--clipping needs a value/);
 });
 
+// `--quality=official` was written into frontmatter as it was. Every clipper takes the same three tiers, lowercase.
+test('every clipper accepts --quality=high, medium and low, and refuses any other value by name', () => {
+  for (const [name, spec] of Object.entries(CLIP_SPECS)) {
+    assert.deepEqual(spec.enums?.quality, ['high', 'medium', 'low'], `${name} lists the tiers`);
+    for (const value of ['high', 'medium', 'low']) {
+      assert.deepEqual(checkClipArgs(['target', `--quality=${value}`], spec), { ok: true }, `${name} ${value}`);
+    }
+    for (const value of ['official', '', 'High', 'MEDIUM', 'primary', ' low', 'high=1']) {
+      assert.deepEqual(checkClipArgs(['target', `--quality=${value}`], spec),
+        { error: `--quality must be high, medium or low (got "${value}")` }, `${name} ${JSON.stringify(value)}`);
+    }
+    // A later bad value is refused too, whatever came first.
+    assert.match(checkClipArgs(['target', '--quality=high', '--quality=official'], spec).error, /got "official"/, name);
+  }
+});
+
 test('a lead option such as --doctor is accepted first only where the clipper has one', () => {
   assert.deepEqual(checkClipArgs(['--doctor'], CLIP_SPECS['clip-gh']), { ok: true });
   assert.match(checkClipArgs(['--doctor'], CLIP_SPECS.clip).error, /unknown option --doctor/);
