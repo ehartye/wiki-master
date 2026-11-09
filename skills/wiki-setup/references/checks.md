@@ -91,7 +91,8 @@ quotes, retracted claims, real drift and unsupported claims. Style flags are
 review pointers, not scored violations; each has an id (`--ids`) and a reviewed one is
 recorded like a quote and left out of the listing. The
 [content-lint contract](../../../README.md#content-lint) describes mark pairing
-(curly marks nest; straight marks alternate) and skipped style spans.
+(curly marks nest; straight marks pair by where they sit, and alternate only
+where their place is ambiguous) and skipped style spans.
 
 Report evaluated findings and remaining uncertainty. A reporting request never
 runs `lint-disposition.mjs record` or edits dates/content. Authorized factual
