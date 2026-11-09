@@ -206,3 +206,84 @@ test('gappedMatch keeps its defaults and takes maxRun and budget as options', ()
   const negated = tokenize('Designers of the period wrote melodies around the limits of three voices and a noise channel');
   assert.equal(gappedMatch(negated, doc, { maxRun: 40, budget: 200 }), null, 'a negator is never skipped');
 });
+
+// Bounds of the placement. Each case is its own clipping, cited through its own source page, with a quotation whose
+// words are in order in the clipping and runs of the other column's words between them. The skipped words are
+// numbered placeholders (one token each, as `tokenize` counts them), none a negator or symbol, so NO_SKIP never stops
+// a run and only the run bound and the fragment's budget decide the tier. Every run is over the gapped tier's 12.
+const other = (n, tag) => Array.from({ length: n }, (_, i) => `${tag}${i}`).join(' ');
+const interleave = (parts) => parts.map((p) => (typeof p === 'number' ? other(p, `w${p}x`) : p)).join('\n');
+
+function boundsVault(t, cases) {
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-lint-layout-bounds-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const d of ['raw/clippings', 'wiki/concepts', 'wiki/sources']) mkdirSync(join(root, d), { recursive: true });
+  const put = (p, text) => writeFileSync(join(root, p), text);
+  put('index.md', '---\ntype: synthesis\n---\n# Index\n');
+  put('raw/clippings/plain.md', `${FM('Plain', null)}# Plain notes\nA short note about a quiet garden path.\n`);
+  for (const [name, { title = `Case ${name}`, layout = 'columns', body, quote, onSourcePage = false }] of Object.entries(cases)) {
+    const sourceFm = `---\ntype: source\ncreated: 2026-10-26\nstatus: maintained\n${onSourcePage ? `${LAYOUT_RISK_KEY}: ${layout}\n` : ''}sources: ["[[${onSourcePage ? 'plain' : name}]]"]\nai-generated: true\n---\n`;
+    if (onSourcePage) put(`wiki/sources/${name}-src.md`, `${sourceFm}${body}\n`);
+    else {
+      put(`raw/clippings/${name}.md`, `---\ntitle: "${title}"\nsource: "https://example.test/${name}"\ncreated: 2026-10-26\ntags: [clippings]\nquality: high\n${layout ? `${LAYOUT_RISK_KEY}: ${layout}\n` : ''}---\n${body}\n`);
+      put(`wiki/sources/${name}-src.md`, `${sourceFm}# ${name} source\nA summary of an unrelated topic about gardens.\n`);
+    }
+    put(`wiki/concepts/${name}.md`, `---\ntype: concept\ncreated: 2026-10-26\nstatus: maintained\nsources: ["[[${name}-src]]"]\nai-generated: true\n---\n# ${name}\nThe paper says "${quote}" in passing.\n`);
+  }
+  return root;
+}
+
+// Ten quoted words, one skipped run between the fifth and the sixth: budget 3 × 10 + 40 = 70, so only the run bound
+// can decide.
+const RUN_QUOTE = 'Small boats leave the harbour before dawn each calm morning';
+const runCase = (run) => ({ quote: RUN_QUOTE, body: interleave(['Small boats leave the harbour', run, 'before dawn each calm morning']) });
+
+test('a skipped run of up to 40 words places in a marked clipping; a run of 41 does not', (t) => {
+  assert.equal(tokenize(RUN_QUOTE).length, 10);
+  const by = findingsOf(boundsVault(t, { run20: runCase(20), run40: runCase(40), run41: runCase(41) }));
+  assert.equal(by.run20.tier, 'extraction-noted', 'a 20-word run');
+  assert.deepEqual(by.run20.inserted.map((r) => r.split(' ').length), [20]);
+  assert.equal(by.run40.tier, 'extraction-noted', 'a 40-word run is the bound');
+  assert.deepEqual(by.run40.inserted.map((r) => r.split(' ').length), [40]);
+  assert.equal(by.run41.tier, 'unverified', 'a 41-word run is over it');
+  assert.equal(by.run41.layoutRisk, undefined);
+});
+
+// Five quoted words, so the budget is 3 × 5 + 40 = 55; two runs of 28 and 27 (55) fit, two of 28 (56) do not, though
+// each run is within 40.
+const BUDGET_QUOTE = 'Herons wade slowly through reeds';
+const budgetCase = (a, b) => ({ quote: BUDGET_QUOTE, body: interleave(['Herons wade', a, 'slowly through', b, 'reeds']) });
+
+test('the skipped words of one fragment total at most three per quoted word plus 40', (t) => {
+  assert.equal(tokenize(BUDGET_QUOTE).length, 5);
+  const by = findingsOf(boundsVault(t, { within: budgetCase(28, 27), over: budgetCase(28, 28) }));
+  assert.equal(by.within.tier, 'extraction-noted', '55 skipped words: the budget');
+  assert.deepEqual(by.within.inserted.map((r) => r.split(' ').length), [28, 27]);
+  assert.equal(by.over.tier, 'unverified', '56 skipped words: over the budget, though each run is within 40');
+});
+
+test('only a raw clipping is read for the mark: a marked wiki page on the evidence path moves nothing', (t) => {
+  const f = findingsOf(boundsVault(t, { wikimarked: { ...runCase(20), onSourcePage: true } })).wikimarked;
+  assert.equal(f.tier, 'unverified');
+  assert.equal(f.layoutRisk, undefined);
+  assert.equal(f.evidence[0].document, 'wiki/sources/wikimarked-src.md', 'the marked wiki page is on the evidence path');
+  assert.equal(f.evidence[0].kind, 'wiki page');
+});
+
+// A quotation that is wholly a cited clipping's title, whose words also place across that marked clipping's columns.
+const TITLE_QUOTE = 'Tidal pools hold small crabs and bright anemones';
+const titleBody = interleave(['# Shore survey', 'Tidal pools hold small crabs', 20, 'and bright anemones']);
+
+test('a quotation that is wholly a cited clipping title stays in the title count, ahead of the placement', (t) => {
+  const root = boundsVault(t, {
+    titled: { title: TITLE_QUOTE, quote: TITLE_QUOTE, body: titleBody },
+    untitled: { title: 'Shore survey', quote: TITLE_QUOTE, body: titleBody },
+  });
+  const { title, findings } = classifyQuotes(root, buildGraph(root));
+  assert.equal(title, 1, 'the titled page is counted as a title match');
+  assert.deepEqual(findings.map((f) => [f.page, f.tier]), [['wiki/concepts/untitled.md', 'extraction-noted']],
+    'the same quotation and body without the title places; the titled page is not listed');
+  const out = json(root);
+  assert.equal(out.tiers.title, 1);
+  assert.equal(out.tiers['extraction-noted'], 1);
+});
