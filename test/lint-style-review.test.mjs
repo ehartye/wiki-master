@@ -309,6 +309,9 @@ test('"of course" at the start of a Markdown line is a discourse marker after li
     'line-indented': 'Text first.\n\n  - Of course it fails.',
     'line-nbsp': 'Text first.\n Of course it fails.',
     'line-strong-space': '** Of course it fails.',
+    'line-marker-nbsp': '+  Of course it fails.',
+    'line-strong-nbsp': '** Of course it fails.',
+    'line-emphasis-ff': '*\fOf course it fails.',
   };
   for (const [name, body] of Object.entries(loud)) v.concept(name, body);
   v.concept('quiet-list', 'Here is a list of course concepts.');

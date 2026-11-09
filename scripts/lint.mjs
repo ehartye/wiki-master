@@ -279,7 +279,7 @@ const NOT_A_CONTRAST = /\bnot yet\b|\bas yet\b|\byet (?:another|again|more)\b|\b
 // then `*` emphasis marks ("- Of course", "## Of course", "> Of course", "**Of course**,", "1) Of course"). `_Of course_`
 // is not flagged: `_` is a word character to the flag-word match, and changing that match would change hashed sentences.
 const DISCOURSE_LEAD = 'and|but|or|so|yet|then|is|are|was|were|be|been|being|am|will|would|can|could|should|shall|may|might|must|do|does|did|has|have|had|it|this|that|these|those|which|who|we|they|you|he|she|i|there|here';
-const LINE_START = String.raw`^[^\S\n]*(?:(?:[-*+>]|#{1,6}|\d+[.)])[ \t]+)*(?:\*+[ \t]*)?`;
+const LINE_START = String.raw`^[^\S\n]*(?:(?:[-*+>]|#{1,6}|\d+[.)])[ \t][^\S\n]*)*(?:\*+[^\S\n]*)?`;
 const NOT_A_TONE = {
   'of course': new RegExp(`(?<!${LINE_START}|[.!?,;:(—–]\\s*)(?<!\\b(?:${DISCOURSE_LEAD})\\s+)(?<![\\w-])of[- ]course(?![\\w-])`, 'gim'),
 };
