@@ -4,7 +4,8 @@
 // detector exists to make. Generated at test time so no binary lands in the repo.
 import { writeFileSync } from 'node:fs';
 
-const esc = (s) => s.replace(/([\()])/g, '\$1');
+// A PDF literal string escapes a backslash and both parentheses with a backslash.
+const esc = (s) => s.replace(/([\\()])/g, '\\$1');
 
 // pages: [ [ { x, y, size?, text }, ... ], ... ]
 // info: { title } writes an /Info dictionary, so pdfinfo has a Title: line to print.

@@ -174,6 +174,9 @@ test('a generated PDF with an /Info title is named by the real pdfinfo, and one 
   const bare = makePdf(prosePages(1), join(dir, 'bare_scan.pdf'));
   assert.equal(pdfinfoTitle(titled), 'A Plausible Report Title');
   assert.equal(pdfinfoTitle(bare), null);
+  // Parentheses and a backslash in a title are escaped in the PDF string, so the file stays valid.
+  const marked = makePdf(prosePages(1), join(dir, 'marked_scan.pdf'), { info: { title: 'A Report (Draft) on A\\B Methods' } });
+  assert.equal(pdfinfoTitle(marked), 'A Report (Draft) on A\\B Methods');
   // The default pdfTitle dependency is the real pdfinfo, for a local file too.
   const named = clip(t, titled, [], {});
   assert.equal(named.title, 'A Plausible Report Title');
@@ -181,5 +184,5 @@ test('a generated PDF with an /Info title is named by the real pdfinfo, and one 
   const stem = clip(t, bare, [], {});
   assert.equal(stem.title, 'bare scan');
   assert.deepEqual(stem.err, [warning('bare scan', 'the file name')]);
-  assert.deepEqual(readdirSync(dir).sort(), ['bare_scan.pdf', 'titled_scan.pdf']);
+  assert.deepEqual(readdirSync(dir).sort(), ['bare_scan.pdf', 'marked_scan.pdf', 'titled_scan.pdf']);
 });
