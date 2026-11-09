@@ -311,9 +311,9 @@ function locateFragments(raw, matches, paths, docs) {
   });
 }
 
-// The frontmatter mark the PDF clipper writes on a clipping whose extracted text interleaves the columns of a
-// multi-column page: the key and value are its contract (decision 6 of the PDF clipper's specification). Only this
-// exact value is read; any other value, `grid` included, is treated as unmarked.
+// The frontmatter mark for a clipping whose extracted text interleaves the columns of a multi-column page. No clipper
+// writes it yet, so the extraction-noted tier stays empty unless a clipping carries it; the key and value stay the
+// contract the lint reads. Only this exact value is read; any other value, `grid` included, is treated as unmarked.
 export const LAYOUT_RISK_KEY = 'layout-risk';
 export const INTERLEAVED_LAYOUT = 'columns';
 // Bounds of the extraction-noted placement: a skipped run may hold one interleaved line of the other column plus a

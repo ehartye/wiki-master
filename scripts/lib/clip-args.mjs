@@ -68,7 +68,7 @@ export const CLIP_SPECS = {
       "           reading-order and table override it when it gets a document wrong.",
       "  --topic  the research run this clip belongs to. Recorded going forward only:",
       "           without it, wiki-maintainer triage can never group this clipping by run.",
-      "  --title  the clipping title. Default: derived from the file name.",
+      "  --title  the clipping title. Default: the PDF's pdfinfo title when plausible, else the file name or the address's last segment, with a warning.",
       "  --slug   the file name, without .md. A name that is taken is a clash: nothing is written and nothing is suffixed.",
       "  --figures render figure pages to raw/figures (poppler pdftoppm). auto = pages with embedded",
       "           rasters or vector drawings; all = every page; or a page list. Cap 40 (--figures-max).",

@@ -447,9 +447,41 @@ function runFiguresOnly(pdfPath, fig, vaultPath) {
 }
 
 // The Title: line pdfinfo prints for a PDF, when that optional tool is installed; null otherwise, or when the PDF has none.
+// Asked in UTF-8 (Xpdf's pdfinfo defaults to Latin-1), bounded by a timeout so a hung pdfinfo cannot block the clip, and
+// with its stderr dropped so a damaged PDF's parser messages do not reach the clip's output.
+const PDFINFO_TIMEOUT_MS = 10000;
 export function pdfinfoTitle(pdfPath, { tool = resolveTool('pdfinfo'), run = execFileSync } = {}) {
   if (!tool) return null;
-  try { return /^Title:[ \t]*(.+)$/m.exec(run(tool, [pdfPath], { encoding: 'utf8' }))?.[1].trim() || null; } catch { return null; }
+  try {
+    const out = run(tool, ['-enc', 'UTF-8', pdfPath], { encoding: 'utf8', timeout: PDFINFO_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'ignore'] });
+    return /^Title:[ \t]*(.+)$/m.exec(out)?.[1].trim() || null;
+  } catch { return null; }
+}
+
+// A PDF's own Title is often an authoring tool's leftover: a placeholder, an Office export prefix, a file name or a path,
+// or a bare number. Any of those is worse than the file name, so it is not used.
+const JUNK_TITLE = [
+  /^(untitled|document|title|none|null|unknown|no title)\d*$/i,
+  /^Microsoft (Word|PowerPoint|Excel) -/i,
+  /\.(doc|docx|ppt|pptx|xls|xlsx|pdf|tex|rtf|odt|indd)$/i,
+  /^([A-Za-z]:|\/)/,
+  /^[\d.-]+$/,
+];
+const plausibleTitle = (text) => text.length >= 4 && !JUNK_TITLE.some((re) => re.test(text));
+
+// The clipping's title, and where it came from: a non-empty --title, then a plausible pdfinfo Title, then the stem (the
+// file name, or the address's last segment). A stem is a guess, so it comes with a warning that says how to replace it:
+// a title cannot be changed once the clipping is written.
+export function choosePdfTitle({ option, pdfinfo, stem, fromAddress = false } = {}) {
+  const chosen = String(option ?? '').trim();
+  if (chosen) return { title: chosen, titleSource: 'option', warning: null };
+  const own = String(pdfinfo ?? '').trim();
+  if (plausibleTitle(own)) return { title: own, titleSource: 'pdfinfo', warning: null };
+  return {
+    title: stem,
+    titleSource: 'stem',
+    warning: `WARNING: no usable title in the PDF; the clipping is titled "${stem}" from ${fromAddress ? 'the address' : 'the file name'}. Pass --title=<text> to name it`,
+  };
 }
 
 // What an address says the document is called: its last path segment, without the query, as a file name would be.
@@ -572,7 +604,12 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     }
   } else if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
 
-  const title = titleFromArgs(argv, isUrl ? (pdfTitle(pdfPath) || titleFromUrl(arg)) : titleFromPdf(pdfPath));
+  // pdfinfo is asked only when --title does not already decide, for a local file as for a download.
+  const option = titleFromArgs(argv, '');
+  const named = choosePdfTitle({
+    option, pdfinfo: option ? null : pdfTitle(pdfPath), stem: isUrl ? titleFromUrl(arg) : titleFromPdf(pdfPath), fromAddress: isUrl,
+  });
+  const { title } = named;
   const forceOcr = argv.includes('--ocr');
   const langArg = argv.find((a) => a.startsWith('--ocr-lang='));
   const lang = langArg ? langArg.split('=')[1] : 'eng';
@@ -661,6 +698,8 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     : clip.extraction === 'reading-order-forced' ? 'text, reading-order (forced)'
     : 'text';
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, ${how}${clip.fidelity !== 'high' ? `, fidelity=${clip.fidelity}` : ''})`);
+  // Only once a clipping carries the stem: a duplicate or a thin run names nothing.
+  if (named.warning) console.error(named.warning);
   let figures;
   if (fig.enabled) {
     // The clipping is already safely on disk; a figure failure must not undo it.
@@ -668,7 +707,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     catch (e) { console.error(`WARNING: figures failed (clipping kept): ${e.message}`); }
   }
   gate.finish();
-  return { status: 'clipped', slug, file, figures };
+  return { status: 'clipped', slug, file, figures, titleSource: named.titleSource };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

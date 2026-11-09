@@ -1,15 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { titleFromPdf, pdfClipContent, stripRunningHeadersFooters, assessFidelity, shouldTryOcr } from '../scripts/clip-pdf.mjs';
-
-test('titleFromPdf humanizes the filename, drops extension', () => {
-  assert.equal(titleFromPdf('/a/b/Abdellatif_MultiState_DOT_Cost_Estimation_ML.pdf'),
-    'Abdellatif MultiState DOT Cost Estimation ML');
-  assert.equal(titleFromPdf('paper.PDF'), 'paper');
-  // Windows-style path on any platform — the case that caught titleFromXlsx.
-  assert.equal(titleFromPdf('C:\\x\\Bid_Tabs_2025.pdf'), 'Bid Tabs 2025');
-  assert.equal(titleFromPdf('/x/.pdf'), 'untitled');
-});
+import { pdfClipContent, stripRunningHeadersFooters, assessFidelity, shouldTryOcr } from '../scripts/clip-pdf.mjs';
 
 test('stripRunningHeadersFooters drops the repeated title header and page-number footer', () => {
   // Four pages (form-feed separated), each wrapped in a running header + a

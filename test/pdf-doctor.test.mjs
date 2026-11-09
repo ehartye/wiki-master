@@ -141,14 +141,31 @@ test('combined budget includes presence/help and marks remaining probes unexerci
   assert.match(result.capabilities.ocrRaster.reason, /budget/);
 });
 
-test('real bounded runner kills a hanging owned child and caps output', async t => {
-  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
-  const run = createProbeRunner({ perProcessMs: 150, totalMs: 1000 });
-  const r = await run(process.execPath, ['-e', 'setInterval(()=>{},1000)']);
-  assert.equal(r.outcome, 'timeout');
-  assert.throws(() => process.kill(r.pid, 0), /ESRCH|EINVAL/);
-  const flood = await createProbeRunner({ perProcessMs: 1000 })(process.execPath, ['-e', 'process.stdout.write("x".repeat(1000000))']);
-  assert.ok(flood.stdout.length <= 65536); assert.equal(flood.outcome, 'unusable');
+// Real-process cases keep the probe runner's classification but give the owned
+// process a longer deadline through runOwnedProcess, because the runner caps
+// every probe at five seconds and a loaded machine can spend most of that
+// starting a child or enumerating its tree. They assert on process state and
+// the output cap, never on elapsed time; the budget arithmetic is covered by
+// the injected-runner tests.
+const REAL_PROCESS_DEADLINE = 10000;
+async function realRunner() {
+  const { createProbeRunner, runOwnedProcess } = await import('../scripts/lib/pdf-doctor.mjs');
+  return createProbeRunner({ run: (cmd, args, options) => runOwnedProcess(cmd, args, { ...options, timeout: REAL_PROCESS_DEADLINE }) });
+}
+const gone = pid => assert.throws(() => process.kill(pid, 0), /ESRCH|EINVAL/, `process ${pid} must not survive`);
+
+test('real bounded runner kills a hanging owned child and caps output', { timeout: 30000 }, async () => {
+  const [hung, flood] = await Promise.all([
+    (await realRunner())(process.execPath, ['-e', 'setInterval(()=>{},1000)']),
+    (await realRunner())(process.execPath, ['-e', 'process.stdout.write("x".repeat(1000000))']),
+  ]);
+  assert.equal(hung.outcome, 'timeout'); assert.equal(hung.code, 'ETIMEDOUT');
+  assert.equal(hung.termination?.outcome, 'passed', JSON.stringify(hung.termination));
+  gone(hung.pid);
+  assert.equal(flood.outcome, 'unusable', JSON.stringify({ code: flood.code, termination: flood.termination }));
+  assert.equal(flood.code, 'ENOBUFS', 'the output cap, not the deadline, stopped the flood');
+  assert.ok(flood.stdout.length > 0 && flood.stdout.length + flood.stderr.length <= 65536, `captured ${flood.stdout.length} bytes`);
+  gone(flood.pid);
 });
 
 test('cleanup failure is exposed in the report', async t => {
@@ -179,6 +196,56 @@ test('human report distinguishes failed versions and untested prerequisites', as
   const report = formatPdfDoctor(result);
   assert.match(report, /tesseract version\/presence: unusable.*exit=99/);
   assert.match(report, /pdftotext -v: unusable.*exit=99/);
+});
+
+const XPDF_BANNER = 'pdftotext version 4.06 [www.xpdfreader.com]\nCopyright 1996-2025 Glyph & Cog, LLC\n';
+const XPDF_NOTE = 'exit 99 is normal for Xpdf help and version output';
+
+test('Xpdf exit 99 on help and version is a pass with a note', async t => {
+  const { formatPdfDoctor } = await import('../scripts/lib/pdf-doctor.mjs');
+  const { result } = await fixture(t, 'valid', { respond: (cmd, args) => cmd === 'pdftotext' && (args[0] === '-h' || args[0] === '-v')
+    ? { status: 99, signal: null, stdout: args[0] === '-h' ? '' : XPDF_BANNER, stderr: args[0] === '-h' ? `${XPDF_BANNER}Usage: pdftotext [options] <PDF-file>\n  -table\n` : '' } : null });
+  const probes = result.capabilities.text.probes;
+  assert.deepEqual(probes.map(p => [p.args[0], p.outcome, p.status, p.note]), [['-h', 'passed', 99, XPDF_NOTE], ['-v', 'passed', 99, XPDF_NOTE]]);
+  assert.ok(probes.every(p => p.reason === undefined), 'a passed probe carries no failure reason');
+  assert.equal(result.capabilities.text.flavor, 'xpdf');
+  const report = formatPdfDoctor(result);
+  for (const flag of ['-h', '-v']) assert.match(report, new RegExp(`^  pdftotext ${flag}: passed; exit=99; signal=null; note: ${XPDF_NOTE}$`, 'm'));
+  assert.doesNotMatch(report, /pdftotext .*unusable/);
+  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+  for (const command of [join('fixture-bin', 'pdftotext.exe'), 'fixture-bin/pdftotext']) {
+    const r = await createProbeRunner({ run: () => ({ status: 99, signal: null, stdout: XPDF_BANNER, stderr: '' }) })(command, ['-v']);
+    assert.equal(r.outcome, 'passed', command); assert.equal(r.note, XPDF_NOTE);
+  }
+});
+
+test('exit 99 without an Xpdf banner stays unusable', async () => {
+  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+  for (const output of [{ stdout: '', stderr: '' }, { stdout: 'pdftotext version 26.01.0\nCopyright 2005-2026 The Poppler Developers\nCopyright 1996-2011 Glyph & Cog, LLC\n', stderr: '' }, { stdout: '', stderr: 'pdftotext: something failed\n' }]) {
+    for (const flag of ['-h', '-v']) {
+      const r = await createProbeRunner({ run: () => ({ status: 99, signal: null, ...output }) })('pdftotext', [flag]);
+      assert.equal(r.outcome, 'unusable', JSON.stringify({ flag, output }));
+      assert.equal(r.note, undefined);
+    }
+  }
+  const spawnFailed = await createProbeRunner({ run: () => ({ status: 99, signal: null, error: { code: 'EACCES' }, stdout: XPDF_BANNER }) })('pdftotext', ['-v']);
+  assert.equal(spawnFailed.outcome, 'unusable', 'a spawn error is never excused by the banner');
+});
+
+test('a nonzero exit on any other flag stays unusable', async () => {
+  const { createProbeRunner } = await import('../scripts/lib/pdf-doctor.mjs');
+  const cases = [
+    ['pdftotext', ['-table', 'fixture.pdf', '-'], 99],
+    ['pdftotext', ['-h'], 1],
+    ['pdftotext', ['-v'], 2],
+    ['pdftoppm', ['-v'], 99],
+    ['pdfinfo', ['-v'], 99],
+  ];
+  for (const [cmd, args, status] of cases) {
+    const r = await createProbeRunner({ run: () => ({ status, signal: null, stdout: XPDF_BANNER, stderr: '' }) })(cmd, args);
+    assert.equal(r.outcome, 'unusable', JSON.stringify({ cmd, args, status }));
+    assert.equal(r.note, undefined);
+  }
 });
 
 test('figure probe cannot accept the OCR output and reports missing detection prerequisites separately', async t => {
@@ -277,8 +344,7 @@ test('root exit with held stdio invalidates ownership before close', async () =>
   child.stdout.write(Buffer.alloc(65537));assert.equal((await result).termination.outcome,'unusable');assert.equal(groups,0);
 });
 
-test('multilevel detached descendants are reaped while an unrelated sentinel stays alive', {timeout:15000}, async t=>{
-  const { createProbeRunner }=await import('../scripts/lib/pdf-doctor.mjs');
+test('multilevel detached descendants are reaped while an unrelated sentinel stays alive', {timeout:30000}, async t=>{
   const root=mkdtempSync(join(tmpdir(),'doctor-levels-'));let verified=false;
   t.after(()=>{if(verified)rmSync(root,{recursive:true,force:true});else t.diagnostic(`unconfirmed cleanup evidence retained: ${root}`);});
   const sentinel=childProcess.spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore',windowsHide:true});
@@ -286,8 +352,9 @@ test('multilevel detached descendants are reaped while an unrelated sentinel sta
   const pidFile=join(root,'pids.json');
   const middle=`const {spawn}=require('node:child_process');const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'});require('node:fs').writeFileSync(process.argv[1],JSON.stringify([process.pid,c.pid]));setInterval(()=>{},1000);`;
   const outer=`require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(middle)},process.argv[1]],{detached:true,stdio:'ignore'});setInterval(()=>{},1000);`;
-  const result=await createProbeRunner()(process.execPath,['-e',outer,pidFile]);
+  const result=await (await realRunner())(process.execPath,['-e',outer,pidFile]);
+  assert.equal(result.outcome,'timeout');
   assert.equal(result.termination?.outcome,'passed',JSON.stringify(result.termination));
-  for(const pid of JSON.parse(readFileSync(pidFile,'utf8')))assert.throws(()=>process.kill(pid,0),/ESRCH|EINVAL/);
+  gone(result.pid);for(const pid of JSON.parse(readFileSync(pidFile,'utf8')))gone(pid);
   assert.equal(sentinel.exitCode,null);assert.equal(sentinel.signalCode,null);assert.doesNotThrow(()=>process.kill(sentinel.pid,0));verified=true;
 });

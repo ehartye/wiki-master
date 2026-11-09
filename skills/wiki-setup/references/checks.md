@@ -86,8 +86,9 @@ reporting options do not record new verdicts.
   clipping-only. A typo correction may be benign; a changed meaning is not. A
   low match is no proof of error. Two-column interleaving can also trigger this.
 - **extraction-noted:** would be unverified, but every word is in order in one
-  raw clipping marked `layout-risk: columns` (the PDF clipper's mark for
-  interleaved columns), with the other column's words skipped. Listed in
+  raw clipping marked `layout-risk: columns` (the mark for interleaved
+  columns), with the other column's words skipped. No clipper writes the mark
+  yet, so the tier stays empty unless a clipping carries it. Listed in
   `--json`, with `--tier=extraction-noted` and with `--tier=all`, not listed by
   default. Read the skipped words: the other column's text is expected, an
   omitted clause is not. A dropped negation never lands here.

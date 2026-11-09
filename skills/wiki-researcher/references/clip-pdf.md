@@ -90,6 +90,32 @@ Extraction is tuned for academic PDFs:
   clean prose), so clippings carrying `extraction: table-aware` or `table-flattened`
   are preserved rather than cleared.
 
+## The clipping's title
+
+A title cannot be changed once the clipping is written: clipping the same `source`
+again is a `duplicate`. So the clipper takes the first of these that holds, for a
+local file and for an address alike:
+
+1. `--title=<text>`, when it is not empty.
+2. The `Title:` line `pdfinfo` prints (an optional tool, see
+   [PDF prerequisites](../../wiki-setup/references/capture-prerequisites.md#pdf)), when it is
+   plausible. Authoring tools leave junk there, so a title is rejected when, trimmed, it is
+   shorter than 4 characters, is a placeholder such as `Untitled`, `Document1` or `No title`,
+   starts with `Microsoft Word -`, `Microsoft PowerPoint -` or `Microsoft Excel -`, ends in a
+   file extension such as `.docx`, `.pdf` or `.tex`, looks like a path (`C:\reports\a`,
+   `/home/a`), or is only digits, dots and dashes (`2019-04.1`).
+3. The stem: the file name without `.pdf`, underscores read as spaces; for an address, its
+   last path segment, decoded and without the query.
+
+A stem is a guess, so stderr names it:
+`WARNING: no usable title in the PDF; the clipping is titled "<stem>" from the file name. Pass --title=<text> to name it`
+("from the address" for a URL). The clipping is still written. Report the warning with
+the clip. When a file name or address says little about the document (`report_final`,
+`download`), pass `--title` on the first clip instead.
+
+A caller that imports `clip-pdf.mjs` gets `titleSource` on a clipped result: `option`,
+`pdfinfo` or `stem`.
+
 ## A PDF by address
 
 `node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<url>" --quality=<tier> --topic="<topic>"` clips a PDF from an http or https
@@ -101,8 +127,8 @@ address, so a landing page's `document-link` or a `.pdf` URL needs no separate d
   local file; instead the download stops when the first bytes are not `%PDF-` (the rest is never read), when no data has arrived
   for 60 seconds (a slow download that keeps moving finishes), or when the disk is full, which is named as its own error.
 - A failed download queues a `failed` row and records no decline: it is a fact about one attempt.
-- `source` is the address unless `--source` says otherwise. The title is `--title`, then the PDF's own title from `pdfinfo` when that
-  optional tool is found, then the last part of the address without its query. It is never the temp file's name.
+- `source` is the address unless `--source` says otherwise. The title follows the [title chain](#the-clippings-title), with the
+  address's last segment as the stem. It is never the temp file's name.
 - Any other scheme (`file:`, `ftp:`) exits 2, and so does an address with a username, password or secret query parameter, in the address or in
   `--source=`: nothing is written, queued or printed from it ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)). Download the file with your own credentials and run `clip-pdf.mjs` on the file.
 - `--figures-only` needs the local PDF file, so it exits 2 with an address. Download the file first, then use the
@@ -124,6 +150,9 @@ address, so a landing page's `document-link` or a `.pdf` URL needs no separate d
      only for a one-off clip with no research run behind it — an invented topic
      is worse than none, because it files the row under a heading the user has
      already worked through.
+   - `--title="<text>"` names the clipping. Pass it when the PDF has no usable title of its own
+     and the file name or address says little; otherwise the [title chain](#the-clippings-title)
+     falls to the stem and warns. Report that warning with the clip: the title cannot be fixed later.
    - `--figures[=auto|all|3,5-7]` also renders figure pages (see **Preserving figures**).
      Pass it whenever the PDF's value is in graphs, diagrams or photos.
    - `--mode=auto|reading-order|table` overrides the reading-mode detector for a

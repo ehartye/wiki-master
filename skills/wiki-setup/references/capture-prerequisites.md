@@ -124,8 +124,14 @@ representative contract, not arbitrary PDFs or a full PNG pixel decode.
 Read each outcome: `passed`, `missing`, `unusable`, `timeout`, `invalid-output`
 or `not-exercised`. The report includes invocation arguments, exit/signal and
 either an established executable identity or an explicit unresolved-identity
-limit. Version/help results are separate from rendering. In particular, a
-successful raster probe does not override the unchanged runtime OCR version
+limit. A nonzero exit is `unusable` with one exception: Xpdf's `pdftotext`
+exits 99 after printing its help or version banner, so `pdftotext -h` and
+`pdftotext -v` with exit 99 and an Xpdf banner report `passed; exit=99` with
+the note `exit 99 is normal for Xpdf help and version output` (`diagnosePdf` result `outcome:
+"passed"` plus `note`). Exit 99 from another flag or tool, or without an Xpdf
+banner, stays `unusable`. Version/help results are separate from rendering.
+In particular, a successful raster probe does not override the unchanged
+runtime OCR version
 gate: both `pdftoppm -v` and `tesseract --version` must succeed. Tesseract
 availability does not test recognition accuracy; advertised `-table` support
 does not verify table rows; figure rasterization does not test automatic figure

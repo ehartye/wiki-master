@@ -12,6 +12,8 @@ import { buildFrontmatter, duplicateResult } from '../scripts/clip.mjs';
 import { CLI_SPECS } from '../scripts/lib/cli-specs.mjs';
 import { DISPOSITIONS, STYLE_ONLY_DISPOSITIONS } from '../scripts/lib/lint-dispositions.mjs';
 import { LAYOUT_RISK_KEY, INTERLEAVED_LAYOUT } from '../scripts/lint.mjs';
+import { choosePdfTitle } from '../scripts/clip-pdf.mjs';
+import { XPDF_EXIT_99_NOTE } from '../scripts/lib/pdf-doctor.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const expected = ['wiki-maintainer', 'wiki-project', 'wiki-purge', 'wiki-researcher', 'wiki-search', 'wiki-setup'];
@@ -343,6 +345,71 @@ test('clip-pdf.md says the dedup and decline checks run on the source, which is 
   const doc = flat(read('skills/wiki-researcher/references/clip-pdf.md'));
   assert.match(doc, /dedup and decline checks run on the `source` \(the address, or the `--source` when one is given\)/);
   assert.match(doc, /a PDF whose `source` is already in the vault is a `duplicate`/);
+});
+
+// The PDF title chain and the doctor's exit-99 note: the docs are read against the values the code produces.
+const pdfRoute = 'skills/wiki-researcher/references/clip-pdf.md';
+
+test('clip-pdf.md gives the title chain in order, the stem warning the code prints and every titleSource', () => {
+  const doc = flat(sectionOf(pdfRoute, "The clipping's title"));
+  assert.match(doc, /1\. `--title=<text>`[^]*2\. [^]*`pdfinfo`[^]*3\. [^]*stem/, 'the order: --title, pdfinfo, stem');
+  const local = choosePdfTitle({ stem: '<stem>' }).warning;
+  assert.ok(doc.includes('`' + local + '`'), 'the local-file warning as printed: ' + local);
+  assert.equal(choosePdfTitle({ stem: '<stem>', fromAddress: true }).warning, local.replace('from the file name', 'from the address'));
+  assert.ok(doc.includes('"from the address"'), 'the address variant');
+  const sources = [choosePdfTitle({ option: 'Named', stem: 'x' }), choosePdfTitle({ pdfinfo: 'Field Survey Methods', stem: 'x' }), choosePdfTitle({ stem: 'x' })].map(r => r.titleSource);
+  assert.deepEqual(sources, ['option', 'pdfinfo', 'stem']);
+  assert.ok(doc.includes('`titleSource`'), 'titleSource is named');
+  for (const value of sources) assert.ok(doc.includes('`' + value + '`'), 'titleSource value ' + value);
+  // Every example the doc gives of a rejected title is rejected by the code, and the length floor is the code's.
+  const rejected = sectionOf(pdfRoute, "The clipping's title").match(/rejected when[^]*?\n\d\./)?.[0] ?? '';
+  // An extension (`.docx`) or an export prefix (`Microsoft Word -`) is tried on a name; every other example as written.
+  const examples = [...rejected.matchAll(/`([^`]+)`/g)].map(m => m[1]).map(e => e.startsWith('.') ? 'Survey report' + e : e.endsWith('-') ? e + ' Survey report' : e);
+  assert.ok(examples.length >= 3, 'the doc gives rejected examples: ' + examples.join());
+  for (const example of examples) assert.equal(choosePdfTitle({ pdfinfo: example, stem: 'x' }).titleSource, 'stem', example + ' is rejected');
+  assert.match(flat(rejected), /shorter than 4 characters/);
+  assert.equal(choosePdfTitle({ pdfinfo: 'Abc', stem: 'x' }).titleSource, 'stem');
+  assert.equal(choosePdfTitle({ pdfinfo: 'Abcd', stem: 'x' }).titleSource, 'pdfinfo');
+});
+
+test('the address section points at the title chain rather than restating it', () => {
+  const doc = flat(sectionOf(pdfRoute, 'A PDF by address'));
+  assert.match(doc, /\[title chain\]\(#the-clippings-title\)/);
+  assert.match(doc, /never the temp file's name/i);
+});
+
+test('capture-prerequisites.md reports Xpdf exit 99 on help and version as passed, with the note the doctor prints', () => {
+  const doc = flat(read('skills/wiki-setup/references/capture-prerequisites.md'));
+  assert.ok(doc.includes('`' + XPDF_EXIT_99_NOTE + '`'), 'the note, as the code has it');
+  assert.match(doc, /`pdftotext -h` and `pdftotext -v` with exit 99 and an Xpdf banner report `passed; exit=99`/);
+  assert.match(doc, /`diagnosePdf` result `outcome: "passed"` plus `note`/);
+  assert.match(doc, /Exit 99 from another flag or tool, or without an Xpdf banner, stays `unusable`/);
+  assert.match(read('scripts/lib/pdf-doctor.mjs'), /p\.note \? `; note: \$\{p\.note\}`/, 'formatPdfDoctor appends the note');
+});
+
+// No clipper writes `layout-risk` yet (its calibration did not ship), so no doc may say one does; the key and value stay
+// the contract the lint reads. An affirmative phrase is any "clipper writes / marks / will write / clipper's mark" that is
+// not preceded by "no".
+const affirmsClipperMark = /(?<!\bno (?:PDF )?)\bclipper(?:'s mark\b| writes\b| marks\b| will write\b)/i;
+const markdownUnder = dir => readdirSync(join(root, dir), { recursive: true }).map(f => (dir + '/' + f).replaceAll('\\', '/')).filter(f => f.endsWith('.md'));
+
+test('no doc says a clipper writes layout-risk, and the lint comment says none does yet', () => {
+  const files = ['README.md', ...markdownUnder('skills'), ...markdownUnder('docs')].filter(f => read(f).includes(LAYOUT_RISK_KEY));
+  assert.ok(files.includes('README.md') && files.includes('skills/wiki-setup/references/checks.md'), 'the scan reaches the docs that name the key');
+  const claims = files.flatMap(f => (flat(read(f)).match(new RegExp('[^.]*' + affirmsClipperMark.source + '[^.]*', 'gi')) ?? []).map(s => f + ': ' + s.trim()));
+  assert.deepEqual(claims, []);
+  const lint = read('scripts/lint.mjs');
+  const comment = lint.slice(0, lint.indexOf('export const LAYOUT_RISK_KEY')).split('\n').reverse();
+  const block = comment.slice(1, comment.findIndex((line, i) => i > 0 && !line.startsWith('//'))).reverse().map(line => line.replace(/^\/\/ ?/, '')).join(' ');
+  assert.doesNotMatch(block, affirmsClipperMark, 'the comment above LAYOUT_RISK_KEY');
+  assert.match(block, /no clipper writes/i, 'the comment says no clipper writes the mark yet');
+  for (const f of ['README.md', 'skills/wiki-setup/references/checks.md']) assert.match(flat(read(f)), /no clipper writes (?:the|this) mark yet/i, f);
+});
+
+test('the clipper-mark check catches the affirmative forms and clears the negated one', () => {
+  for (const s of ['the mark the PDF clipper writes', "the PDF clipper's mark for columns", 'clippings the PDF clipper marks', 'which the clipper will write'])
+    assert.match(s, affirmsClipperMark, s);
+  for (const s of ['no clipper writes the mark yet', 'no PDF clipper writes it']) assert.doesNotMatch(s, affirmsClipperMark, s);
 });
 
 // The frontmatter keys the web clipper writes, read off buildFrontmatter, are the ones the references name.
