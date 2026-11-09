@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
-import { prepareDocument, classifyFragments, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
+import { prepareDocument, classifyFragments, gappedMatch, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
 import { bestWindow, renderDiff, NEAR_MIN_WORDS, NEAR_THRESHOLD } from './lib/near-match.mjs';
 import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
@@ -273,11 +273,12 @@ function makeDocCache(vaultPath) {
 
 const kindOf = (path) => (path.startsWith('raw/') ? 'raw clipping' : 'wiki page');
 
-// Where each fragment of a finding's quote is, in fragment order (classifyQuotes). A convention or gapped fragment is
-// located where its tier came from; a gapped entry's diff shows the skipped evidence words in place as {+word+}. An
-// unverified fragment gets its best near window over the page's evidence documents, with no word floor and no
-// threshold, a raw clipping winning a tie, and a null document when no window exists. Lines are the file's, 1-based,
-// and are left out (linesUnavailable) where a per-line reading of the document gives other words than the whole text.
+// Where each fragment of a finding's quote is, in fragment order (classifyQuotes). A convention, gapped or
+// extraction-noted fragment is located where its tier came from; a gapped or extraction-noted entry's diff shows the
+// skipped evidence words in place as {+word+}. An unverified fragment gets its best near window over the page's
+// evidence documents, with no word floor and no threshold, a raw clipping winning a tie, and a null document when no
+// window exists. Lines are the file's, 1-based, and are left out (linesUnavailable) where a per-line reading of the
+// document gives other words than the whole text.
 function locateFragments(raw, matches, paths, docs) {
   const order = paths.map((_, i) => i).sort((a, b) => (paths[a] < paths[b] ? -1 : paths[a] > paths[b] ? 1 : 0));
   const at = (entry, doc, start, end, rest) => {
@@ -293,7 +294,7 @@ function locateFragments(raw, matches, paths, docs) {
       if (m.tier === 'convention') return at(entry, doc, m.start, m.end, { match: 'convention' });
       const placed = new Set(m.at);
       const diff = doc.tokens.slice(m.start, m.end).map((w, k) => (placed.has(m.start + k) ? w : `{+${w}+}`)).join(' ');
-      return at(entry, doc, m.start, m.end, { match: 'gapped', diff });
+      return at(entry, doc, m.start, m.end, { match: m.tier, diff }); // gapped, or extraction-noted
     }
     const q = tokenize(fragment);
     let best = null;
@@ -310,10 +311,46 @@ function locateFragments(raw, matches, paths, docs) {
   });
 }
 
+// The frontmatter mark the PDF clipper writes on a clipping whose extracted text interleaves the columns of a
+// multi-column page: the key and value are its contract (decision 6 of the PDF clipper's specification). Only this
+// exact value is read; any other value, `grid` included, is treated as unmarked.
+export const LAYOUT_RISK_KEY = 'layout-risk';
+export const INTERLEAVED_LAYOUT = 'columns';
+// Bounds of the extraction-noted placement: a skipped run may hold one interleaved line of the other column plus a
+// page header, and the whole fragment may skip three words for each of its own plus one such run. A negator or symbol
+// is still never skipped (NO_SKIP), so a dropped "not" never leaves the unverified tier.
+const NOTED_MAX_RUN = 40;
+const notedBudget = (n) => 3 * n + NOTED_MAX_RUN;
+
+// A quote that would be unverified, placed in one raw clipping on the page's evidence path that is marked as
+// interleaving its columns: every fragment in order in that same clipping, with the other column's words skipped.
+// The cheapest such clipping wins (the first by path on a tie); null when none places every fragment.
+function notedPlacement(raw, paths, docs, pages) {
+  let best = null;
+  const order = paths.map((_, i) => i).sort((a, b) => (paths[a] < paths[b] ? -1 : paths[a] > paths[b] ? 1 : 0));
+  for (const i of order) {
+    if (!paths[i].startsWith('raw/') || pages.get(paths[i])?.metadata?.[LAYOUT_RISK_KEY] !== INTERLEAVED_LAYOUT) continue;
+    const matches = [];
+    let cost = 0;
+    for (const fragment of raw) {
+      const q = tokenize(fragment);
+      const g = gappedMatch(q, docs[i], { maxRun: NOTED_MAX_RUN, budget: notedBudget(q.length) });
+      if (!g) { cost = Infinity; break; }
+      cost += g.cost;
+      matches.push({ tier: 'extraction-noted', inserted: g.inserted, doc: i, start: g.at[0], end: g.at[g.at.length - 1] + 1, at: g.at });
+    }
+    if (cost < (best?.cost ?? Infinity)) best = { cost, doc: i, matches };
+  }
+  return best;
+}
+
 // Every quote the verbatim check cannot place, sorted into the tier that says why.
 // Returns { examined, verbatim, title, findings }; verbatim and title quotes are counted, not listed.
 // A quote that would be unverified but is wholly the title of a clipping the page cites is a title
 // match: the title is part of the captured record, though it is not in the body the check searches.
+// A quote that would still be unverified is extraction-noted when every fragment places in one clipping marked
+// `layout-risk: columns` (notedPlacement); it carries `layoutRisk`, the clipping as `document` and the skipped runs as
+// `inserted`, and keeps its id, so a recorded verdict still applies.
 // Only the unverified tier is reconsidered, so no verbatim, convention or gapped quote changes tier. A
 // clipping's `source:` URL is not matched: a URL is one whitespace-separated word and a returned quote
 // has at least MIN_QUOTE_WORDS, so no quote can be a substring of one.
@@ -358,15 +395,25 @@ export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
       examined++;
       if (fragments.every((f) => evidence.some((e) => e.includes(f)))) { verbatim++; continue; }
       docs ??= paths.map(docFor);
-      const { tier, inserted, matches } = classifyFragments(raw, docs);
+      let { tier, inserted, matches } = classifyFragments(raw, docs);
+      let noted = null;
       if (tier === 'unverified') {
         titles ??= paths.filter((path) => path.startsWith('raw/')).map((path) => pages.get(path)?.metadata?.title).filter((x) => typeof x === 'string' && x).map(normalize);
         if (fragments.every((f) => titles.some((t) => t.includes(f)))) { title++; continue; }
+        noted = notedPlacement(raw, paths, docs, pages);
+        if (noted) {
+          tier = 'extraction-noted';
+          matches = noted.matches;
+          inserted = matches.flatMap((m) => m.inserted);
+        }
       }
       // Full quote, never truncated: a repair tool re-checking this finding must
       // see the whole span, or a quote whose tail diverges verifies on its prefix.
       evidenceHash ??= evidenceHashOf(paths, evidence);
-      const finding = { page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}), evidenceHash };
+      const finding = {
+        page: p.path, quote: q, tier, checked: evidence.length, ...(tier === 'gapped' ? { inserted } : {}),
+        ...(noted ? { layoutRisk: INTERLEAVED_LAYOUT, document: paths[noted.doc], inserted } : {}), evidenceHash,
+      };
       findings.push({ ...finding, id: findingId(finding), evidence: locateFragments(raw, matches, paths, docs) });
     }
   }
@@ -537,7 +584,7 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
   return findings;
 }
 
-const TIERS = ['convention', 'gapped', 'unverified'];
+const TIERS = ['convention', 'extraction-noted', 'gapped', 'unverified'];
 const SHOW_BY_DEFAULT = ['gapped', 'unverified'];
 
 function parseArgs(argv) {
@@ -589,7 +636,7 @@ export function main(argv = process.argv.slice(2)) {
   const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph, scope ? { pages: scope.pages } : {});
   const style = checkStyle(vaultPath, graph, scope ? { pages: scope.pages } : {});
   const count = (t) => findings.filter((f) => f.tier === t).length;
-  const tiers = { examined, verbatim, title, convention: count('convention'), gapped: count('gapped'), unverified: count('unverified') };
+  const tiers = { examined, verbatim, title, ...Object.fromEntries(TIERS.map((t) => [t, count(t)])) };
   // Verdicts a reviewer recorded (lint-disposition.mjs). Without the file nothing below changes.
   const dispositionsFile = join(vaultPath, DISPOSITIONS_FILE);
   const dispositions = existsSync(dispositionsFile) ? loadDispositions(dispositionsFile) : null;
@@ -624,7 +671,7 @@ export function main(argv = process.argv.slice(2)) {
   const near = args.near ? nearMatches(vaultPath, graph, findings.filter((f) => inPage(f) && visible(f))) : null;
 
   if (args.json) {
-    const out = listed.map((f) => (f.tier === 'gapped' ? { ...shape(f), insertedWords: skipped(f) } : shape(f)));
+    const out = listed.map((f) => (f.inserted ? { ...shape(f), insertedWords: skipped(f) } : shape(f)));
     console.log(JSON.stringify({ tiers, ...(scope ? { scope: scope.info } : {}), findings: out, style: shownStyle, ...(near ? { near } : {}) }, null, 2));
     return { findings: out, tiers, ...(scope ? { scope: scope.info } : {}), style: shownStyle, ...(near ? { near } : {}) };
   }
@@ -632,13 +679,14 @@ export function main(argv = process.argv.slice(2)) {
   console.log(`Content lint (warn-only — flags for review, never scored)`);
   if (scope) console.log(`Scope: ${scope.text}`);
   console.log(`
-Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${tiers.convention} convention, ${tiers.gapped} gapped, ${tiers.unverified} unverified`);
+Quote tiers: ${tiers.examined} examined, ${tiers.verbatim} verbatim, ${TIERS.filter((t) => t !== 'extraction-noted' || tiers[t]).map((t) => `${tiers[t]} ${t}`).join(', ')}`);
   if (dispositions) {
     const part = (o) => TIERS.filter((t) => o[t]).map((t) => `${t} ${o[t]}`).join(', ') || 'none';
     console.log(`Reviewed (${DISPOSITIONS_FILE}): ${part(tiers.reviewed)}; not yet reviewed: ${part(tiers.unreviewed)}`);
   }
   console.log(`  matched a clipping title: ${tiers.title} (counted, not listed; the quote is wholly the title of a clipping the page cites, which the body check cannot see)`);
   console.log(`  convention: the evidence has these words in this order; markup, punctuation or extraction spacing differ (counted, listed with --tier=convention)`);
+  console.log(`  extraction-noted: every word is in a clipping marked layout-risk: columns, in order across its interleaved columns; read the skipped words`);
   console.log(`  gapped: every word is in the evidence in order, with extra evidence words between them — extraction noise, or a silent omission; read the inserted words`);
   console.log(`  unverified: a word is changed, added, reordered or negated, or the evidence trail does not hold the text`);
   for (const tier of TIERS) {
@@ -650,7 +698,8 @@ ${label}: ${args.page ? `${rows.length} on matching pages (${tiers[tier]} vault-
     for (const f of rows) {
       console.log(`  ${f.page}${args.ids ? ` [${f.id}]` : ''}
     "${clip(f.quote, args.full)}" (checked ${f.checked} sources)`);
-      if (f.tier === 'gapped') console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
+      if (f.tier === 'extraction-noted') console.log(`    clipping: ${f.document} (${LAYOUT_RISK_KEY}: ${f.layoutRisk})`);
+      if (f.inserted) console.log(`    inserted: ${f.inserted.map((x) => clip(x, args.full, 120)).join(' | ')}`);
       if (args.full) for (const e of f.evidence) console.log(`    evidence: ${whereIs(e)}`);
       const v = args.includeReviewed ? verdict(f) : null;
       if (v) console.log(`    reviewed: ${v.disposition} by ${v.reviewer} on ${v.date}${v.note ? ` (${v.note})` : ''}`);

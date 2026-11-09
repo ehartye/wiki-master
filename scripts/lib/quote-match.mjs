@@ -199,9 +199,11 @@ function conventionMatch(q, doc) {
 
 // Cheapest in-order placement of every quote word in the document, or null.
 // Choose the rarest quote word, then extend left and right from each of its
-// positions: each step may skip up to GAP_MAX_RUN evidence words, never a
-// negator, and the skipped words are the cost.
-function gappedMatch(q, doc) {
+// positions: each step may skip up to `maxRun` evidence words, never a
+// negator, and the skipped words are the cost, at most `budget`. The defaults
+// are the gapped tier's bounds; the lint's extraction-noted placement passes
+// wider ones for a clipping marked as interleaving its columns.
+export function gappedMatch(q, doc, { maxRun = GAP_MAX_RUN, budget = maxInserted(q.length) } = {}) {
   const n = q.length;
   if (n < 3 || n > GAP_MAX_QUOTE_TOKENS) return null;
   // Cheapest rejection first: every quoted word must occur in the document. A string
@@ -213,7 +215,6 @@ function gappedMatch(q, doc) {
   for (let j = 1; j < n; j++) if (idx.get(q[j]).length < idx.get(q[k]).length) k = j;
   const anchors = idx.get(q[k]);
   if (anchors.length > MAX_ANCHORS) return null;
-  const budget = maxInserted(n);
 
   const memoR = new Map(), memoL = new Map();
   // Min skipped words to place q[j+1..] after position p, where q[j] sits at p.
@@ -223,7 +224,7 @@ function gappedMatch(q, doc) {
     const hit = memoR.get(key);
     if (hit !== undefined) return hit;
     let best = Infinity;
-    for (let s = 1; s <= GAP_MAX_RUN + 1 && p + s < len; s++) {
+    for (let s = 1; s <= maxRun + 1 && p + s < len; s++) {
       const w = T[p + s];
       if (w === q[j + 1]) { const c = (s - 1) + R(j + 1, p + s); if (c < best) best = c; }
       if (NO_SKIP.has(w)) break; // would have to skip it to go further
@@ -237,7 +238,7 @@ function gappedMatch(q, doc) {
     const hit = memoL.get(key);
     if (hit !== undefined) return hit;
     let best = Infinity;
-    for (let s = 1; s <= GAP_MAX_RUN + 1 && p - s >= 0; s++) {
+    for (let s = 1; s <= maxRun + 1 && p - s >= 0; s++) {
       const w = T[p - s];
       if (w === q[j - 1]) { const c = (s - 1) + L(j - 1, p - s); if (c < best) best = c; }
       if (NO_SKIP.has(w)) break;
@@ -258,7 +259,7 @@ function gappedMatch(q, doc) {
   at[k] = bestAt;
   for (let j = k; j < n - 1; j++) {
     let pick = -1, cost = Infinity;
-    for (let s = 1; s <= GAP_MAX_RUN + 1 && at[j] + s < len; s++) {
+    for (let s = 1; s <= maxRun + 1 && at[j] + s < len; s++) {
       const w = T[at[j] + s];
       if (w === q[j + 1]) { const c = (s - 1) + R(j + 1, at[j] + s); if (c < cost) { cost = c; pick = at[j] + s; } }
       if (NO_SKIP.has(w)) break;
@@ -267,7 +268,7 @@ function gappedMatch(q, doc) {
   }
   for (let j = k; j > 0; j--) {
     let pick = -1, cost = Infinity;
-    for (let s = 1; s <= GAP_MAX_RUN + 1 && at[j] - s >= 0; s++) {
+    for (let s = 1; s <= maxRun + 1 && at[j] - s >= 0; s++) {
       const w = T[at[j] - s];
       if (w === q[j - 1]) { const c = (s - 1) + L(j - 1, at[j] - s); if (c < cost) { cost = c; pick = at[j] - s; } }
       if (NO_SKIP.has(w)) break;
