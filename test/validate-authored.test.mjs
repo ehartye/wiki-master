@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, existsSync, symlinkSync, utimesSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateAuthored } from '../scripts/validate-authored.mjs';
+import { buildGraph } from '../scripts/lib/graph.mjs';
+import { deriveIntegrity } from '../scripts/lib/integrity.mjs';
+import { writeGraphCache } from '../scripts/lib/graph-cache-write.mjs';
 import * as contract from '../scripts/lib/authored-contract.mjs';
 import { BACKLOG_STATUS_ORDER, KIND_ORDER } from '../scripts/lib/authored-group.mjs';
 
@@ -47,7 +50,7 @@ function vault(t) {
     cwd: scratch, encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: root },
   });
   const runLedger = (paths, extra = []) => run(['--paths-file', ledger(paths), ...extra]);
-  return { root, scratch, put, ledger, ledgerText, run, runLedger, validate: paths => validateAuthored(root, paths) };
+  return { root, scratch, put, ledger, ledgerText, run, runLedger, validate: (paths, options) => validateAuthored(root, paths, options) };
 }
 
 const rules = (result, path) => result.defects.filter(d => !path || d.path === path).map(d => d.rule);
@@ -405,9 +408,33 @@ test('the vault is byte-for-byte unchanged after a run: no write, no timestamp c
 
 test('the validator source has no write, delete, rename or directory-creating call', () => {
   const forbidden = /\b(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|mkdtemp|mkdtempSync|rm|rmSync|rmdir|unlink|unlinkSync|rename|renameSync|copyFile|copyFileSync|createWriteStream|utimes|utimesSync|chmod|openSync|truncate)\(/;
-  for (const file of ['scripts/validate-authored.mjs', 'scripts/lib/authored-contract.mjs']) {
+  for (const file of ['scripts/validate-authored.mjs', 'scripts/lib/authored-contract.mjs', 'scripts/lib/graph-cache-read.mjs']) {
     assert.doesNotMatch(readFileSync(join(ROOT, file), 'utf8'), forbidden, file);
   }
+});
+
+test('validate-authored and health import the graph cache reader and never the writer', () => {
+  for (const file of ['scripts/validate-authored.mjs', 'scripts/health.mjs']) {
+    const source = readFileSync(join(ROOT, file), 'utf8');
+    assert.match(source, /from '\.\/lib\/graph-cache-read\.mjs'/, file);
+    assert.doesNotMatch(source, /['"][^'"]*graph-cache-write(?:\.mjs)?['"]/, file);
+  }
+});
+
+test('a valid graph cache in the vault is read, not written: its bytes and time are unchanged and no file appears', t => {
+  const v = exampleFixture(t);
+  const old = new Date(Date.now() - 3600_000);
+  for (const path of [...v.ledgerPaths, `${DEMO}/notes/outside-broken.md`, 'wiki/authored/other/roadmap.md']) utimesSync(join(v.root, path), old, old);
+  const graph = buildGraph(v.root, { derive: deriveIntegrity });
+  writeGraphCache(v.root, graph.records, { builtAtMs: Date.now() });
+  const cache = join(v.root, '.wiki-master', 'graph-cache.json');
+  assert.ok(Object.keys(JSON.parse(readFileSync(cache, 'utf8')).entries).length > 0, 'the cache holds entries');
+  const before = snapshot(v.root);
+  const json = v.runLedger(v.ledgerPaths, ['--json']);
+  const text = v.runLedger(v.ledgerPaths);
+  assert.deepEqual([json.status, text.status], [1, 1]);
+  assert.deepEqual(JSON.parse(json.stdout), v.validate(v.ledgerPaths, { noCache: true }), 'the same result as a cold run');
+  assert.deepEqual([...snapshot(v.root)], [...before]);
 });
 
 // ------------------------------------------------------------ ledger shape --
@@ -444,6 +471,50 @@ test('a ledger path whose letter case differs from the file is missing-file, nev
   assert.deepEqual(v.validate([`${DEMO}/notes/Case.md`]).defects.map(d => d.rule), ['bad-value']);
 });
 
+// A name typed or pasted in one Unicode normalization does not open a file stored in the other on most file systems,
+// and where it does the scan still keys the page by its stored spelling. The message names what the directory holds.
+test('a ledger path in another Unicode normalization or letter case is missing-file and names the stored name', t => {
+  const v = vault(t);
+  const composed = 'café.md', decomposed = 'café.md';
+  v.put(`${DEMO}/notes/${composed}`, page());
+  v.put(`${DEMO}/other/${decomposed}`, page());
+  v.put(`${DEMO}/notes/Case.md`, page());
+  const cases = [
+    [`${DEMO}/notes/${decomposed}`, composed],
+    [`${DEMO}/other/${composed}`, decomposed],
+    [`${DEMO}/notes/case.md`, 'Case.md'],
+    [`${DEMO}/Notes/Case.md`, 'notes'],
+  ];
+  for (const [wrong, stored] of cases) {
+    const d = only(v.validate([wrong]), wrong);
+    assert.equal(d.rule, 'missing-file', wrong);
+    assert.equal(d.message, `no file at this exact path (the letter case and Unicode normalization must match too); the directory holds ${JSON.stringify(stored)}`, wrong);
+  }
+  for (const right of [`${DEMO}/notes/${composed}`, `${DEMO}/other/${decomposed}`]) assert.deepEqual(v.validate([right]).defects, [], right);
+});
+
+test('a ledger path with no near match keeps the plain missing-file message and exits 1', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/notes/a.md`, page());
+  const gone = `${DEMO}/notes/elsewhere.md`;
+  assert.deepEqual(only(v.validate([gone]), gone), { path: gone, line: 1, rule: 'missing-file', message: 'no file at this exact path (the letter case and Unicode normalization must match too)' });
+  const cli = v.runLedger([gone]);
+  assert.equal(cli.status, 1);
+  assert.match(cli.stdout, /missing-file no file at this exact path \(the letter case and Unicode normalization must match too\)\n/);
+});
+
+test('a ledger path that is a symbolic link to a page validates as that page', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/notes/target.md`, page({ 'ai-generated': 'maybe' }));
+  try { symlinkSync(join(v.root, DEMO, 'notes', 'target.md'), join(v.root, DEMO, 'notes', 'alias.md'), 'file'); } catch (error) {
+    if (error.code === 'EPERM' || error.code === 'EACCES') { t.skip(`this platform refuses a file symbolic link (${error.code})`); return; }
+    throw error;
+  }
+  const r = v.validate([`${DEMO}/notes/alias.md`]);
+  assert.equal(r.checked, 1);
+  assert.deepEqual(r.defects.map(d => [d.path, d.rule]), [[`${DEMO}/notes/alias.md`, 'bad-value']]);
+});
+
 test('duplicate ledger entries are checked once', t => {
   const v = vault(t);
   v.put(`${DEMO}/notes/a.md`, page());
@@ -465,6 +536,25 @@ test('--json emits the same defects as data, sorted by path then line', t => {
   const clean = v.runLedger([`${DEMO}/overview.md`], ['--json']);
   assert.equal(clean.status, 0);
   assert.deepEqual(JSON.parse(clean.stdout), { version: 1, checked: 1, skipped: 0, defects: [] });
+});
+
+test('a link cycle in the vault is a skipped path on stderr and in --json, never exit 2; skipped still counts ledger entries', t => {
+  const v = vault(t);
+  v.put(`${DEMO}/overview.md`, page({ kind: 'overview' }, '# Demo overview\n\nA short body.\n'));
+  v.put('raw/clippings/clip.md', '# Clip\n');
+  // A junction back to the vault root (no privilege needed on Windows; an ordinary link elsewhere).
+  symlinkSync(v.root, join(v.root, 'wiki', 'authored', 'loop'), 'junction');
+  const ledger = [`${DEMO}/overview.md`, 'raw/clippings/clip.md'];
+  const text = v.runLedger(ledger);
+  assert.ok([0, 1].includes(text.status), `exit ${text.status}: ${text.stderr}`);
+  assert.match(text.stderr, /^validate-authored: skipped path wiki\/authored\/loop \(link-cycle\)$/m);
+  const json = v.runLedger(ledger, ['--json']);
+  assert.equal(json.status, text.status);
+  const data = JSON.parse(json.stdout);
+  assert.deepEqual(data.skippedPaths, [{ path: 'wiki/authored/loop', reason: 'link-cycle' }]);
+  assert.equal(data.skipped, 1, 'the raw ledger entry, as before');
+  assert.equal(data.checked, 1);
+  assert.match(text.stdout, /1 pages checked, 0 defects, 1 skipped$/m);
 });
 
 test('bad input exits 2 with a message on stderr and nothing on stdout', t => {

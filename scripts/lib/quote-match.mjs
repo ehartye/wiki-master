@@ -59,11 +59,22 @@ export const NO_SKIP = new Set([
   ...SYMBOLS,
 ]);
 
+// A line that opens (after indentation) with an HTML table tag. Once its tags are stripped, its first cell sits at
+// the start of the line, where "1790." or "+" would read as a list marker and ">" as a quote marker. Such a line
+// is marked before the tag strip and the marker rules skip it; other tag-led lines are unchanged.
+const TABLE_LINE = /(^|\n)(?=[ \t]*<(?:table|thead|tbody|tr|td|th)[\s>/])/gi;
+const TABLE_MARK = '\u0000';
+// One NUL is removed where it starts a line once list and quote markers are stripped, so a NUL the input already
+// had there goes the same way, and a line it leads skips the marker rules like a table line. Any other NUL stays and
+// separates words.
+const TABLE_MARK_AT_LINE_START = /(^|\n)\u0000/g;
+
 // Reduce markdown to the words a reader sees. Applied to the quote AND the
 // evidence, so author-added markup and clipper-added markup cancel out.
 export function flattenMarkdown(text) {
   return String(text)
     .normalize('NFKC') // ligatures (ﬁ), full-width and other compatibility forms
+    .replace(TABLE_LINE, `$1${TABLE_MARK}`)                 // table rows: exempt from the marker rules below
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')                  // images
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')                // [text](url) -> text
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')       // [[target|label]] -> label
@@ -74,6 +85,7 @@ export function flattenMarkdown(text) {
     .replace(/\\([_*\[\]()#>.\-!~`|])/g, '$1')              // backslash escapes
     .replace(/(^|\n)[ \t]*>[ \t>]*/g, '$1')                 // blockquote markers
     .replace(/(^|\n)[ \t]*(?:[-*+]|\d+[.)])[ \t]+/g, '$1')  // list markers
+    .replace(TABLE_MARK_AT_LINE_START, '$1')               // a NUL at a line start: the mark, or one the input had
     .replace(/\[\d+\]|\[\^[^\]]+\]/g, ' ');                 // footnote / citation numbers
 }
 

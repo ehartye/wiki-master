@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 import { scanIntegrity, integrityReport } from './lib/integrity.mjs';
+import { readGraphCache } from './lib/graph-cache-read.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 export { scanIntegrity };
@@ -122,12 +123,17 @@ export function backlogReport({ unparsedSources = [], unsummarizedSources = [], 
   );
 }
 
-export function main(args = process.argv.slice(2)) {
-  const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, legacy: { type: 'boolean' }, backlog: { type: 'boolean' } } });
-  if (Object.values(values).filter(Boolean).length > 1) throw new Error('Choose one of --json, --legacy or --backlog');
+// The integrity report reads the graph cache refresh-index.mjs writes (read-only), so it re-reads only the files that
+// changed since the last refresh; --no-cache reads every file. --legacy and --backlog never read the cache, so
+// --no-cache changes nothing there. `readFile` replaces the read of the cache and of the vault's files, for tests.
+export function main(args = process.argv.slice(2), { readFile } = {}) {
+  const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, legacy: { type: 'boolean' }, backlog: { type: 'boolean' }, 'no-cache': { type: 'boolean' } } });
+  const { 'no-cache': noCache, ...modes } = values;
+  if (Object.values(modes).filter(Boolean).length > 1) throw new Error('Choose one of --json, --legacy or --backlog');
   const { path: vaultPath } = resolveVault();
   if (!values.legacy && !values.backlog) {
-    const result = scanIntegrity(vaultPath);
+    const cache = noCache ? null : readGraphCache(vaultPath, { readFile });
+    const result = scanIntegrity(vaultPath, { cache, readFile });
     console.log(values.json ? JSON.stringify(result, null, 2) : integrityReport(result));
     return result;
   }

@@ -14,16 +14,42 @@ with your file tool, listing each page you wrote, and keep it under `.wiki-maste
 outside the vault. A path with no file at that exact spelling is reported as `missing-file`: a page that
 does not exist, or one whose letter case or Unicode form differs from the file on disk,
 because a case-insensitive disk would otherwise drop that page's link checks without a word.
+When a directory entry differs only in letter case or Unicode normalization, the message
+ends `the directory holds "<name>"`, naming the entry on disk that matches the first path
+segment the directory lacks, which may be a folder. A ledger path that is a symbolic link
+validates as the page it points to; a file symlink needs developer mode or an elevated shell
+on Windows; a directory junction does not.
 
-**The result.** The command writes nothing and reads the whole vault (ambiguity is
-vault-wide), but reports only ledger pages; `health.mjs` stays the whole-vault check.
+**The result.** The command writes nothing; it may read the graph cache (below). It reads
+the whole vault (ambiguity is vault-wide), but reports only ledger pages; `health.mjs`
+stays the whole-vault check.
 Exit 0 is clean, 1 means defects (fix and rerun), 2 means an unusable ledger, unknown
 flag or missing vault. The text report is one `path:line rule message` line per defect,
 sorted by path then line, then `validate-authored: N pages checked, M defects`, with
 `, K skipped` appended only when K is above zero (checked plus skipped is the number of
 distinct ledger paths). `--json` prints
-`{"version":1,"checked":N,"skipped":K,"defects":[{"path","line","rule","message"}]}`
-instead, which is exactly what `validateAuthored()` in `scripts/validate-authored.mjs` returns. An absent frontmatter key is reported at line 1; a blank key at its own line.
+`{"version":1,"checked":N,"skipped":K,"defects":[{"path","line","rule","message"}],"skippedPaths":[{"path","reason"}]}`
+instead, which is exactly what `validateAuthored()` in `scripts/validate-authored.mjs` returns;
+`skippedPaths` is present only when it is not empty. An absent frontmatter key is reported at line 1; a blank key at its own line.
+
+**Skipped paths.** A vault entry the walk cannot follow is skipped, not fatal. Each one
+prints `validate-authored: skipped path <path> (<reason>)` on stderr and is listed in
+`skippedPaths`. The reason is `link-cycle` for a directory link back to one of its own
+ancestors (other links, junctions included, are followed), or the error code `ENOENT`,
+`ENOTDIR`, `ELOOP`, `ENAMETOOLONG`, `EACCES` or `EPERM`, as when another process removes
+a file mid-walk. Skipped paths are notices: they change neither the exit code nor `K skipped`,
+which counts only ledger entries that are not content. Report them with the result.
+
+**The graph cache.** `.wiki-master/graph-cache.json` is machine-local (gitignored) and safe to
+delete. `refresh-index.mjs` writes it on every run that refreshes the catalogs;
+`validate-authored.mjs` and `health.mjs` read it and never write it. Without it, or after a
+plugin update or a move of the vault, they read every file until the next refresh. Only a
+file last modified at least 2 s before the refresh began gets an entry, and an entry is used
+only while its file's size and modification time are unchanged. An edit that keeps both size and time
+(`touch -r`, `rsync -t`) is read stale until the next refresh: pass `--no-cache`
+to either reader after a bulk copy or restore, or when a result disagrees with a file you
+just changed. `--no-cache` reads every file and changes nothing in `health.mjs --legacy` or
+`--backlog`, which never read the cache.
 
 **Public pages.** A page written for a plugin's public repository must not name other projects or machines. `--terms-file <path>` (the owner's private list, kept outside every repository; the file `scripts/scan-private-terms.mjs` reads) adds a `private-term` defect for each ledger page whose text matches a term or a built-in machine pattern (a home-directory path, a GPU model, an invisible character), at its line, naming the rule number and never the text. `--terms-projects a,b` limits the check to pages whose `project:` (first segment) is listed, so a private project's own pages may name themselves. Without `--terms-file` the output is unchanged.
 
