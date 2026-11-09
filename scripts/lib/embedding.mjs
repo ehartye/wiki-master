@@ -14,10 +14,10 @@
 // descending only into wiki/ and moc/, so raw/ is never even read.
 
 import {
-  readFileSync, readdirSync, statSync, existsSync, writeFileSync, renameSync, mkdirSync,
+  readFileSync, existsSync, writeFileSync, renameSync, mkdirSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
-import { isContent } from './graph.mjs';
+import { isContent, walkVaultEntries } from './graph.mjs';
 import { chunkMarkdown } from './chunk.mjs';
 import { hash } from './embed-cache.mjs';
 import { isAvailable, modelPresent, EMBED_MODEL } from './embed.mjs';
@@ -30,21 +30,19 @@ const VECTORS_IDX = 'vectors.idx.json';
 
 // Descend only into wiki/ and moc/. Skip dot directories at every level;
 // raw/, log/, templates and system pages never enter the retrieval index.
-export function walkVault(vaultPath) {
+// The walk is buildGraph's (walkVaultEntries): a link cycle or an entry that vanished is skipped, not fatal, and
+// pushed as { path, reason } onto the optional skippedPaths array.
+export function walkVault(vaultPath, skippedPaths = []) {
   const files = [];
-  (function walk(dir, rel) {
-    for (const e of readdirSync(dir)) {
-      if (e.startsWith('.')) continue;
-      if (!rel && !['wiki', 'moc'].includes(e)) continue;
-      const abs = join(dir, e);
-      const r = rel ? `${rel}/${e}` : e;
-      const st = statSync(abs);
-      if (st.isDirectory()) { walk(abs, r); continue; }
+  walkVaultEntries(vaultPath, {
+    skippedPaths,
+    enter: (e, rel) => Boolean(rel) || ['wiki', 'moc'].includes(e),
+    file(abs, r, _e, st) {
       if (inScope(r) && isContent(r)) {
         files.push({ path: r, abs, mtimeMs: st.mtimeMs, size: st.size });
       }
-    }
-  })(vaultPath, '');
+    },
+  });
   return files;
 }
 

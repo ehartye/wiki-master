@@ -1,0 +1,655 @@
+{
+  "format": 1,
+  "derive": "integrity-prepare-1",
+  "cases": [
+    {
+      "path": "wiki/concepts/plain.md",
+      "text": "# Plain\n\nNo frontmatter, one [[link]].\n",
+      "page": {
+        "path": "wiki/concepts/plain.md",
+        "name": "plain",
+        "title": "plain",
+        "metadata": {},
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 6,
+        "outTargets": [
+          "link"
+        ],
+        "evidenceTargets": [
+          "link"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "link",
+            "malformed": false,
+            "line": 3,
+            "text": "[[link]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "link"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "link"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 6,
+        "provenanceLine": 1
+      }
+    },
+    {
+      "path": "wiki/concepts/fm.md",
+      "text": "---\ntype: concept\nstatus: maintained\ntitle: \"A Title\"\naliases: [one, \"two words\"]\n---\n# Body\n",
+      "page": {
+        "path": "wiki/concepts/fm.md",
+        "name": "fm",
+        "title": "fm",
+        "status": "maintained",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "status": "maintained",
+          "title": "A Title",
+          "aliases": [
+            "one",
+            "two words"
+          ]
+        },
+        "sources": [],
+        "aliases": [
+          "one",
+          "two words"
+        ],
+        "updateCalloutCount": 0,
+        "words": 2,
+        "outTargets": [],
+        "evidenceTargets": [],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [],
+        "sourceLinks": [],
+        "outTargets": [],
+        "fmTargets": [],
+        "evidenceTargets": [],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 2,
+        "provenanceLine": 7
+      }
+    },
+    {
+      "path": "wiki/concepts/sources-inline.md",
+      "text": "---\ntype: concept\nsources: [\"[[raw/clippings/a.md]]\", \"[[b]]\"]\n---\nText citing [[raw/clippings/a.md]].\n",
+      "page": {
+        "path": "wiki/concepts/sources-inline.md",
+        "name": "sources-inline",
+        "title": "sources-inline",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "sources": [
+            "[[raw/clippings/a.md]]",
+            "[[b]]"
+          ]
+        },
+        "sources": [
+          "[[raw/clippings/a.md]]",
+          "[[b]]"
+        ],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 3,
+        "outTargets": [
+          "raw/clippings/a.md"
+        ],
+        "evidenceTargets": [
+          "raw/clippings/a.md"
+        ],
+        "fmTargets": [
+          "raw/clippings/a.md",
+          "b"
+        ],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "raw/clippings/a.md",
+            "malformed": false,
+            "line": 5,
+            "text": "[[raw/clippings/a.md]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [
+          {
+            "target": "raw/clippings/a.md",
+            "malformed": false,
+            "line": 3,
+            "text": "[[raw/clippings/a.md]]"
+          },
+          {
+            "target": "b",
+            "malformed": false,
+            "line": 3,
+            "text": "[[b]]"
+          }
+        ],
+        "outTargets": [
+          "raw/clippings/a.md"
+        ],
+        "fmTargets": [
+          "raw/clippings/a.md",
+          "b"
+        ],
+        "evidenceTargets": [
+          "raw/clippings/a.md"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 3,
+        "provenanceLine": 3
+      }
+    },
+    {
+      "path": "wiki/concepts/sources-block.md",
+      "text": "---\ntype: concept\nsources:\n  - \"[[raw/clippings/a.md]]\"  # a comment\n  - \"[[wiki/sources/s.md|alias]]\"\n---\nBody.\n",
+      "page": {
+        "path": "wiki/concepts/sources-block.md",
+        "name": "sources-block",
+        "title": "sources-block",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "sources": [
+            "[[raw/clippings/a.md]]",
+            "[[wiki/sources/s.md|alias]]"
+          ]
+        },
+        "sources": [
+          "[[raw/clippings/a.md]]",
+          "[[wiki/sources/s.md|alias]]"
+        ],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 1,
+        "outTargets": [],
+        "evidenceTargets": [],
+        "fmTargets": [
+          "raw/clippings/a.md",
+          "wiki/sources/s.md"
+        ],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [],
+        "sourceLinks": [
+          {
+            "target": "raw/clippings/a.md",
+            "malformed": false,
+            "line": 4,
+            "text": "[[raw/clippings/a.md]]"
+          },
+          {
+            "target": "wiki/sources/s.md",
+            "malformed": false,
+            "line": 5,
+            "text": "[[wiki/sources/s.md|alias]]"
+          }
+        ],
+        "outTargets": [],
+        "fmTargets": [
+          "raw/clippings/a.md",
+          "wiki/sources/s.md"
+        ],
+        "evidenceTargets": [],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 1,
+        "provenanceLine": 3
+      }
+    },
+    {
+      "path": "wiki/concepts/sources-empty.md",
+      "text": "---\ntype: concept\nsources: []\n---\nA derived page.\n",
+      "page": {
+        "path": "wiki/concepts/sources-empty.md",
+        "name": "sources-empty",
+        "title": "sources-empty",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "sources": []
+        },
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 3,
+        "outTargets": [],
+        "evidenceTargets": [],
+        "fmTargets": [],
+        "declaresNoSources": true
+      },
+      "extra": {
+        "bodyLinks": [],
+        "sourceLinks": [],
+        "outTargets": [],
+        "fmTargets": [],
+        "evidenceTargets": [],
+        "declaresNoSources": true,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 3,
+        "provenanceLine": 3
+      }
+    },
+    {
+      "path": "wiki/concepts/links.md",
+      "text": "# Links\n\n[[a|alias]] [[b#heading]] [[c\\|table]] ![[embed.png]] \\[[escaped]] [[unclosed\nnext line]] [[]]\n",
+      "page": {
+        "path": "wiki/concepts/links.md",
+        "name": "links",
+        "title": "links",
+        "metadata": {},
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 11,
+        "outTargets": [
+          "a",
+          "b",
+          "c\\",
+          "embed.png",
+          "escaped",
+          "unclosed\nnext line"
+        ],
+        "evidenceTargets": [
+          "a",
+          "b",
+          "c\\",
+          "embed.png",
+          "escaped",
+          "unclosed\nnext line"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "a",
+            "malformed": false,
+            "line": 3,
+            "text": "[[a|alias]]",
+            "factual": true
+          },
+          {
+            "target": "b",
+            "malformed": false,
+            "line": 3,
+            "text": "[[b#heading]]",
+            "factual": true
+          },
+          {
+            "target": "c",
+            "malformed": false,
+            "line": 3,
+            "text": "[[c\\|table]]",
+            "factual": true
+          },
+          {
+            "target": "unclosed\nnext line",
+            "malformed": true,
+            "line": 3,
+            "text": "[[unclosed\nnext line]]",
+            "factual": true
+          },
+          {
+            "target": "",
+            "malformed": true,
+            "line": 4,
+            "text": "[[]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "a",
+          "b",
+          "c"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "a",
+          "b",
+          "c"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 11,
+        "provenanceLine": 1
+      }
+    },
+    {
+      "path": "wiki/concepts/code.md",
+      "text": "# Code\n\n`[[span]]` and\n\n```\n[[fenced]]\n```\n\n[[real]]\n",
+      "page": {
+        "path": "wiki/concepts/code.md",
+        "name": "code",
+        "title": "code",
+        "metadata": {},
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 8,
+        "outTargets": [
+          "span",
+          "fenced",
+          "real"
+        ],
+        "evidenceTargets": [
+          "span",
+          "fenced",
+          "real"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "real",
+            "malformed": false,
+            "line": 9,
+            "text": "[[real]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "real"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "real"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 4,
+        "provenanceLine": 1
+      }
+    },
+    {
+      "path": "wiki/concepts/crlf.md",
+      "text": "---\r\ntype: concept\r\nsources: []\r\n---\r\n# CRLF\r\n\r\nA [[crlf link]].\r\n",
+      "page": {
+        "path": "wiki/concepts/crlf.md",
+        "name": "crlf",
+        "title": "crlf",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "sources": []
+        },
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 5,
+        "outTargets": [
+          "crlf link"
+        ],
+        "evidenceTargets": [
+          "crlf link"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": true
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "crlf link",
+            "malformed": false,
+            "line": 7,
+            "text": "[[crlf link]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "crlf link"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "crlf link"
+        ],
+        "declaresNoSources": true,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 5,
+        "provenanceLine": 3
+      }
+    },
+    {
+      "path": "wiki/concepts/bom.md",
+      "text": "\ufeff---\ntype: concept\nsources: []\n---\n# BOM\n\n[[bom link]]\n",
+      "page": {
+        "path": "wiki/concepts/bom.md",
+        "name": "bom",
+        "title": "bom",
+        "type": "concept",
+        "metadata": {
+          "type": "concept",
+          "sources": []
+        },
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 4,
+        "outTargets": [
+          "bom link"
+        ],
+        "evidenceTargets": [
+          "bom link"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "bom link",
+            "malformed": false,
+            "line": 7,
+            "text": "[[bom link]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "bom link"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "bom link"
+        ],
+        "declaresNoSources": true,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 4,
+        "provenanceLine": 3
+      }
+    },
+    {
+      "path": "wiki/concepts/damaged.md",
+      "text": "---\ntype: concept\rstatus: draft\n---\nStray \r return.\n",
+      "page": {
+        "path": "wiki/concepts/damaged.md",
+        "name": "damaged",
+        "title": "damaged",
+        "metadata": {},
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "words": 2,
+        "outTargets": [],
+        "evidenceTargets": [],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [],
+        "sourceLinks": [],
+        "outTargets": [],
+        "fmTargets": [],
+        "evidenceTargets": [],
+        "declaresNoSources": false,
+        "frontmatterDamage": {
+          "line": 2,
+          "text": "Frontmatter has a carriage return that is not part of a CRLF line ending (line 2); the block may be read wrongly."
+        },
+        "strayCarriageReturn": 2,
+        "words": 2,
+        "provenanceLine": 4
+      }
+    },
+    {
+      "path": "wiki/authored/demo/backlog/item.md",
+      "text": "---\ntype: authored\nproject: demo\nkind: backlog-item\nbacklog-status: planned\nsource-hash: ABCDEF12\n---\n# Item\n\n> [!update] one\n\nWork on [[raw/clippings/c.md]] per [[other]].\n",
+      "page": {
+        "path": "wiki/authored/demo/backlog/item.md",
+        "name": "item",
+        "title": "item",
+        "type": "authored",
+        "project": "demo",
+        "kind": "backlog-item",
+        "backlogStatus": "planned",
+        "metadata": {
+          "type": "authored",
+          "project": "demo",
+          "kind": "backlog-item",
+          "backlog-status": "planned",
+          "source-hash": "ABCDEF12"
+        },
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "sourceHash": "abcdef12",
+        "words": 10,
+        "outTargets": [
+          "raw/clippings/c.md",
+          "other"
+        ],
+        "evidenceTargets": [
+          "raw/clippings/c.md",
+          "other"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "raw/clippings/c.md",
+            "malformed": false,
+            "line": 12,
+            "text": "[[raw/clippings/c.md]]",
+            "factual": true
+          },
+          {
+            "target": "other",
+            "malformed": false,
+            "line": 12,
+            "text": "[[other]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "raw/clippings/c.md",
+          "other"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "raw/clippings/c.md",
+          "other"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 10,
+        "provenanceLine": 8
+      }
+    },
+    {
+      "path": "raw/clippings/clip.md",
+      "text": "---\nsource: \"https://example.test/x\"\nsource-hash: \"0123456789abcdef\"\ntags: [clippings]\n---\nCaptured [[not a link to follow]].\n",
+      "page": {
+        "path": "raw/clippings/clip.md",
+        "name": "clip",
+        "title": "clip",
+        "metadata": {
+          "source": "https://example.test/x",
+          "source-hash": "0123456789abcdef",
+          "tags": [
+            "clippings"
+          ]
+        },
+        "sources": [],
+        "aliases": [],
+        "updateCalloutCount": 0,
+        "sourceHash": "0123456789abcdef",
+        "words": 6,
+        "outTargets": [
+          "not a link to follow"
+        ],
+        "evidenceTargets": [
+          "not a link to follow"
+        ],
+        "fmTargets": [],
+        "declaresNoSources": false
+      },
+      "extra": {
+        "bodyLinks": [
+          {
+            "target": "not a link to follow",
+            "malformed": false,
+            "line": 6,
+            "text": "[[not a link to follow]]",
+            "factual": true
+          }
+        ],
+        "sourceLinks": [],
+        "outTargets": [
+          "not a link to follow"
+        ],
+        "fmTargets": [],
+        "evidenceTargets": [
+          "not a link to follow"
+        ],
+        "declaresNoSources": false,
+        "frontmatterDamage": null,
+        "strayCarriageReturn": 0,
+        "words": 6,
+        "provenanceLine": 6
+      }
+    }
+  ]
+}

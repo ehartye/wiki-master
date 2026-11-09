@@ -377,6 +377,51 @@ test('checks and original documentation have canonical owners with direct task o
   assert.match(setup, /does\s+not authorize installing tools, rebuilding indexes, editing content or adding a remote/);
 });
 
+test('validation names the skipped-path notice, symlinks, the graph cache and --no-cache, and its read-only sentence reads the cache', () => {
+  const text = flat(read('skills/wiki-setup/references/validation.md'));
+  assert.doesNotMatch(text, /The command writes nothing and reads the whole vault/, 'the old read-only sentence is gone');
+  assert.match(text, /writes nothing; it may read the graph cache/, 'the read-only sentence names the cache it reads');
+  assert.ok(text.includes('`validate-authored: skipped path <path> (<reason>)`'), 'the stderr notice');
+  assert.ok(text.includes('"skippedPaths":[{"path","reason"}]'), 'the --json field');
+  assert.match(text, /`skippedPaths`[^.]*only when (?:it is )?not empty|omitted when (?:it is )?empty/, 'the field is omitted when empty');
+  for (const reason of ['link-cycle', 'ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EACCES', 'EPERM']) assert.ok(text.includes('`' + reason + '`'), reason);
+  assert.match(text, /symbolic link[^.]*validates as[^.]*(?:target|points to)/i, 'a symlinked ledger path validates as its target');
+  assert.match(text, /developer mode[^.]*junction/i, 'a file link needs developer mode on Windows; a junction does not');
+  assert.match(text, /letter case or Unicode normalization[^.]*folder/i, 'the near match names a folder segment too');
+  assert.ok(text.includes('`.wiki-master/graph-cache.json`'), 'the cache file');
+  assert.match(text, /machine-local/);
+  assert.match(text, /safe to delete/);
+  assert.match(text, /`refresh-index\.mjs` writes it|written by `refresh-index\.mjs`/, 'the refresh is the only writer');
+  assert.match(text, /`health\.mjs`[^.]*read/, 'health reads it too');
+  assert.match(text, /2 s|2,000 ms|two seconds/, 'the racy window');
+  assert.match(text, /`touch -r`[^.]*`rsync -t`/, 'an edit that keeps size and time');
+  assert.match(text, /`--no-cache`[^.]*(?:bulk copy|restore)/, 'when to use --no-cache');
+  assert.match(text, /read it and never write it/, 'the readers never write the cache');
+  assert.match(text, /naming the entry on disk that matches the first path segment the directory lacks, which may be a folder/, 'the near match is the stored entry');
+  assert.match(text, /a file symlink needs developer mode or an elevated shell on Windows; a directory junction does not/);
+  assert.doesNotMatch(text, /therefore read stale/, 'staleness follows from the size-and-time rule, not the 2 s rule');
+  assert.match(text, /size and modification time[^.]*\. An edit that keeps both size and time/, 'the stale case follows the hit rule');
+});
+
+test('skipped-path codes, the cache file and the --json fields are stated once, in the validation reference', () => {
+  for (const file of ['README.md', 'docs/wiki-integrity.md']) {
+    const text = read(file);
+    for (const fact of ['ENAMETOOLONG', 'graph-cache.json', 'safe to delete', '`skippedPaths` (`{ path, reason }`', "prints `version`, `checked`, `skipped`"]) assert.ok(!text.includes(fact), file + ' repeats ' + fact);
+    assert.ok(localLinks(text).some(link => link.split('#')[0].endsWith('skills/wiki-setup/references/validation.md')), file + ' links the validation reference');
+  }
+});
+
+test('the drift checks name the selection rule, its state file and the ledger option', () => {
+  const text = flat(read('skills/wiki-setup/references/checks.md'));
+  assert.match(text, /never evaluated[^.]*then[^.]*changed[^.]*then[^.]*oldest/i, 'the selection rule');
+  assert.ok(text.includes('`.wiki-master/drift-state.json`'), 'the state file');
+  assert.match(text, /`root`/, 'the state file is tied to its vault root');
+  assert.match(text, /drift\.mjs[^.]*--paths-file|--paths-file[^.]*drift/, 'a ledger restricts the pool');
+  assert.ok(text.includes('`selection`') && text.includes('`everEvaluated`'), 'the --json fields');
+  assert.match(text, /drift: selection:/, 'the report line');
+  assert.ok(text.includes('`--no-cache`'), 'health points at --no-cache');
+});
+
 test('the completion contract is one short page, in the order every authoring task follows', () => {
   const text = read('skills/wiki-maintainer/references/operations.md');
   assert.ok(text.trimEnd().split('\n').length <= 60, 'about a screen long');

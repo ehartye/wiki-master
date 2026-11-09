@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent, findAmbiguousNames, wikilinkTarget } from '../scripts/lib/graph.mjs';
+import { buildGraph, computeGraphMetrics, isStub, classifyBrokenLinks, resolveLinkTarget, buildNameIndex, isContent, isEvidencePath, isMoc, findAmbiguousNames, wikilinkTarget } from '../scripts/lib/graph.mjs';
+import { normalizeIdentity } from '../scripts/lib/note.mjs';
+import { syntheticVault, syntheticPages, writeSyntheticVault } from './helpers/synthetic-vault.mjs';
 
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'vault');
 
@@ -714,4 +716,104 @@ test('buildNameIndex: in navigation a generated MOC loses to a content page of t
   assert.equal(resolveLinkTarget(buildNameIndex([moc, entity]), 'proj', { nav: true }), 'wiki/entities/proj.md');
   assert.equal(resolveLinkTarget(buildNameIndex([entity, moc]), 'proj', { nav: true }), 'wiki/entities/proj.md');
   assert.equal(resolveLinkTarget(buildNameIndex([moc, entity]), 'moc/proj', { nav: true }), 'moc/proj.md');
+});
+
+// ─── buildNameIndex: linear lookups, same output ───
+// The label loop used to scan every identity page for each title or alias label (labels times pages: tens of
+// seconds on a vault of 25,000 pages). It now looks each label up in two precomputed tables. The old algorithm is
+// kept here verbatim as the reference; the new one must give the same Map, entry order included.
+function referenceNameIndex(pages) {
+  const NAV = '\u0000nav';
+  const EXACT = '\u0000path';
+  const byName = new Map();
+  for (const p of pages) {
+    const name = normalizeIdentity(p.name);
+    if (!byName.has(name)) byName.set(name, p.path);
+    const exactKey = p.path.toLowerCase() + EXACT;
+    if (!byName.has(exactKey)) byName.set(exactKey, p.path);
+    const navKey = name + NAV;
+    const navPrior = byName.get(navKey);
+    if (navPrior === undefined || (!isContent(navPrior) && isContent(p.path)) || (isMoc(navPrior) && isContent(p.path) && !isMoc(p.path))) byName.set(navKey, p.path);
+    const fullKey = p.path.replace(/\.md$/i, '').toLowerCase();
+    if (!byName.has(fullKey)) byName.set(fullKey, p.path);
+  }
+  const labels = new Map();
+  const stemOf = new Map(pages.map(p => [p.path, normalizeIdentity(p.name)]));
+  const identityPages = pages.filter(p => isContent(p.path) || isEvidencePath(p.path));
+  for (const p of identityPages) {
+    const additional = [...(p.aliases ?? [])];
+    if (p.metadata?.title && normalizeIdentity(p.metadata.title) !== normalizeIdentity(p.name)) additional.push(p.metadata.title);
+    for (const label of additional) {
+      const key = normalizeIdentity(label);
+      if (!key) continue;
+      if (!labels.has(key)) labels.set(key, new Set());
+      labels.get(key).add(p.path);
+    }
+  }
+  for (const [key, paths] of labels) {
+    for (const p of identityPages) if (normalizeIdentity(p.name) === key) paths.add(p.path);
+    if (pages.some(p => p.path.replace(/\.md$/i, '').toLowerCase() === key.replace(/\.md$/i, ''))) continue;
+    const raw = [...paths].filter(path => path.startsWith('raw/'));
+    const content = [...paths].filter(isContent);
+    const unique = (candidates, nav) => {
+      let c = candidates;
+      if (nav && c.length > 1) { const real = c.filter(path => !isMoc(path)); if (real.length) c = real; }
+      if (c.length === 1) return c[0];
+      const named = c.filter(path => stemOf.get(path) === key);
+      return named.length === 1 ? named[0] : undefined;
+    };
+    byName.set(key, unique(raw.length ? raw : content, false));
+    byName.set(key + NAV, unique(content.length ? content : raw, true));
+  }
+  return byName;
+}
+
+const sameIndex = (actual, expected, label) => {
+  assert.equal(actual.size, expected.size, `${label}: key count`);
+  assert.deepEqual([...actual.entries()], [...expected.entries()], `${label}: keys, values and entry order`);
+};
+
+test('buildNameIndex equals the reference algorithm on a synthetic vault built from disk', () => {
+  const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-name-index-'));
+  try {
+    writeSyntheticVault(root, syntheticVault({ pages: 600, labels: 250, seed: 1 }));
+    const { pages } = buildGraph(root);
+    assert.equal(pages.length, 600);
+    assert.ok(pages.some(p => p.path.endsWith('.md.md')) && pages.some(p => p.path.startsWith('moc/')));
+    const expected = referenceNameIndex(pages);
+    // The fixture must exercise the label rules, not only the per-page keys.
+    const labelKeys = [...expected.keys()].filter(k => !pages.some(p => normalizeIdentity(p.name) === k.replace(/\u0000nav$/, '')) && !k.endsWith('\u0000path'));
+    assert.ok(labelKeys.length >= 200, `labels reach the index (${labelKeys.length})`);
+    sameIndex(buildNameIndex(pages), expected, 'disk');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('buildNameIndex equals the reference algorithm for other seeds and page orders', () => {
+  for (let seed = 2; seed <= 13; seed++) {
+    const pages = syntheticPages({ pages: 300, labels: 150, seed });
+    sameIndex(buildNameIndex(pages), referenceNameIndex(pages), `seed ${seed}`);
+    const reversed = [...pages].reverse();
+    sameIndex(buildNameIndex(reversed), referenceNameIndex(reversed), `seed ${seed} reversed`);
+  }
+});
+
+// Counts, not seconds: with few labels a timing ratio cannot tell the shapes apart, and file opens cost very
+// different amounts on different systems. Every page is under wiki/, so every page is an identity page and the old
+// per-label scan read each page's name once per label.
+test('buildNameIndex reads each page name a bounded number of times, however many labels there are', () => {
+  const pages = syntheticPages({ pages: 4000, labels: 2000, seed: 7, folders: ['wiki/concepts', 'wiki/sources', 'wiki/entities'] });
+  const labels = new Set(pages.flatMap(p => [...p.aliases, ...(p.metadata.title ? [p.metadata.title] : [])].map(normalizeIdentity)));
+  assert.ok(labels.size >= 2000, `distinct labels: ${labels.size}`);
+  assert.ok(pages.every(p => p.path.startsWith('wiki/')));
+  const reads = new Map();
+  const counted = pages.map((p) => {
+    const { name, ...rest } = p;
+    reads.set(p.path, 0);
+    return Object.defineProperty(rest, 'name', { enumerable: true, get() { reads.set(p.path, reads.get(p.path) + 1); return name; } });
+  });
+  buildNameIndex(counted);
+  const most = Math.max(...reads.values());
+  assert.ok(most <= 20, `a page name was read ${most} times (labels: ${labels.size})`);
 });

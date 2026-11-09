@@ -52,8 +52,8 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/dedupe-clippings.mjs [--apply]', '', 'Removes raw clippings that duplicate another clipping\'s content hash, keeping the copy the vault cites. Groups without a clear keeper are reported, never guessed at.', DRY, VAULT],
   },
   health: {
-    options: ['json', 'legacy', 'backlog'],
-    usage: ['usage: node scripts/health.mjs [--json | --legacy | --backlog]', '', 'Reports wiki integrity: open defects, unresolved navigation and the unscored notes. --json prints the full worklist, --legacy the historical score, --backlog only the ingest backlog. Choose one.', 'Read-only.', VAULT],
+    options: ['json', 'legacy', 'backlog', 'no-cache'],
+    usage: ['usage: node scripts/health.mjs [--json | --legacy | --backlog] [--no-cache]', '', 'Reports wiki integrity: open defects, unresolved navigation and the unscored notes. --json prints the full worklist, --legacy the historical score, --backlog only the ingest backlog. Choose one.', 'The integrity report reads the graph cache that refresh-index.mjs writes and re-reads only the files changed since; --no-cache reads every file (use it after a bulk copy or restore). It has no effect with --legacy or --backlog.', 'Read-only.', VAULT],
   },
   'known-urls': {
     options: ['count', 'check', 'summary', 'topic'],
@@ -148,7 +148,7 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/backlog-list.mjs [--project <slug>] [--backlog-status <list>] [--startable] [--specced-in <name>] [--json]', '', 'Lists backlog items by lifecycle status, one row per item (project, status, path, title, what it waits on). --startable lists the planned items whose prerequisites are all closed; --backlog-status takes in-progress, planned, blocked, shipped, dropped or unrecognized, comma separated; --specced-in keeps the items whose specced-in names that spec (a name or a path), and --json rows list each item\'s specs under speccedIn.', 'Read-only.', VAULT],
   },
   drift: {
-    usage: ['usage: node scripts/drift.mjs [--coverage] [--json] [--limit <n>]', '', 'Checks wiki pages against their sources for drift using the embedding index. --coverage reports how many pages were evaluated; zero evaluated pages cannot show that the wiki has no drift. --limit caps the pages checked.', 'Read-only.', VAULT],
+    usage: ['usage: node scripts/drift.mjs [--coverage] [--json] [--limit <n>] [--paths-file <ledger.json>]', '', 'Checks wiki pages against their sources for drift using the embedding index. --coverage reports how many pages were evaluated; zero evaluated pages cannot show that the wiki has no drift. --limit caps the pages checked, taking pages never evaluated on this machine first, then pages changed since their evaluation, then the oldest evaluated. --paths-file checks only the pages a ledger names (a JSON array of vault-relative paths).', 'Pages are never changed; an embedding run records what it evaluated in .wiki-master/drift-state.json (machine-local, safe to delete).', VAULT],
   },
   'evaluate-retrieval': {
     usage: ['usage: node scripts/evaluate-retrieval.mjs --questions <file> [--vault <dir>] [--split all|development|heldout] [--search-module <file>] [--output <file>] [--json] [--keyword-only]', '', 'Scores search against a labelled question set: page recall, precision, reciprocal rank, passage hit rate and evidence recall. --keyword-only builds the search context as if the semantic service were down.', 'Read-only on the vault.'],
@@ -169,7 +169,7 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw]', '       node scripts/search.mjs --health | --setup', '', 'Searches the wiki with keyword, identity and semantic channels and prints ranked pages with citations. --health reports which channels are available; --setup prints how to enable the missing ones.', 'Read-only.', VAULT],
   },
   'validate-authored': {
-    usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'Read-only.', VAULT],
+    usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'It reads the graph cache that refresh-index.mjs writes and re-reads only the files changed since; --no-cache reads every file (use it after a bulk copy or restore).', 'Read-only.', VAULT],
   },
   triage: { options: ['remote'] },
   init: { options: [] },

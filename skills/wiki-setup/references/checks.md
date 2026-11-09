@@ -10,7 +10,8 @@ every command below, as in [name the vault](initialization.md#name-the-vault).
 ## Health and ingest backlog
 
 1. Run `node "<absolute-plugin-root>/scripts/health.mjs"`. Use `--json` for versioned
-   issues with stable IDs, exact locations, evidence and verification conditions.
+   issues with stable IDs, exact locations, evidence and verification conditions. It reads
+   the [graph cache](validation.md) the refresh leaves; that page says when to add `--no-cache`.
 2. Report uncapped open integrity defects with scanned-page coverage. Intentional
    forward links, orphan/dead-end opportunities and stubs do not increase that
    count. Required citations remain required on stubs. Age, unresolved navigation
@@ -111,7 +112,16 @@ neither equivalence nor causality. Adding links belongs to authorized maintainer
 During requested substantive maintenance, start with health and stop for an empty
 wiki. A clean graph still needs bounded review of changed/high-use pages. Run
 drift `--coverage` first, then `drift.mjs --limit=10` only when the maintenance
-scope permits its machine-local embedding cache. Report eligible, evaluated,
+scope permits its machine-local embedding cache and state file. A run takes eligible pages
+never evaluated on this machine first, then pages whose own text changed since their
+evaluation, then the oldest evaluated, ties by path; an edit to a page's evidence alone is
+not a change. `drift.mjs --paths-file <ledger>` limits the pool to the named pages (a named
+page that is not eligible is skipped as `not-eligible`), and `--limit` then applies within
+them. The `drift: selection:` report line and the `--json` fields `selection` (the rule,
+the counts and each picked page with its reason) and `everEvaluated` show what was chosen.
+Only an embedding run records its evaluated pages, in `.wiki-master/drift-state.json`;
+the file is machine-local and safe to delete, and one whose `root` is another vault path
+is ignored. Report eligible, evaluated,
 skipped and failed counts, document/chunk sampling and backend failures. Cosine
 drift measures topical change, never truth or contradiction. A page evaluated
 through sampled chunks has not received an exhaustive factual review.

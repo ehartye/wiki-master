@@ -34,6 +34,8 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 
 **Scoped scans.** `scanIntegrity(vaultPath, { sources })` takes a Set of vault-relative paths and reports only those pages' issues, forward links, stray returns and unrecognized statuses. It still reads the whole vault, because a link is ambiguous only against every page. With `sources` the result also has `pages`: the named paths that are scanned content pages, so a caller can see a path the scan never read. Without it the result is the whole-vault one. `validate-authored.mjs` uses it for its ledger.
 
+**Skipped paths (unscored).** A vault entry the walk cannot follow, such as a directory link back to one of its own ancestors or a file removed mid-walk, is skipped instead of ending the scan. The result lists it in `skippedPaths` and the report adds `Skipped paths: N (unscored)` with the first five; the reasons are listed in [scoped validation](../skills/wiki-setup/references/validation.md). It is not a defect and does not move the count or the status.
+
 Actual citation defects apply even to stubs. Missing-evidence checks exempt declared
 stubs, pages under the existing ten-word stub floor, MOCs, and original authored
 pages explicitly declaring `sources: []`. A substantive concept or source cannot
@@ -60,8 +62,9 @@ integrity scanner reads current content with its stricter syntax and ambiguity r
 `node scripts/validate-authored.mjs --paths-file <ledger>` checks only the pages in a
 ledger, a hand-written JSON array of the paths one task wrote. It prints
 `path:line rule message` per defect, exits 0 when clean, 1 on any defect and 2 for
-unusable input, and writes nothing (`--json` prints `version`, `checked`, `skipped` and
-`defects`). It applies this scan's link rules plus authoring rules `health.mjs` does not
+unusable input, and writes nothing, though it may read the graph cache that `refresh-index.mjs`
+leaves. Its `--json` shape and the cache are described in
+[scoped validation](../skills/wiki-setup/references/validation.md). It applies this scan's link rules plus authoring rules `health.mjs` does not
 know: frontmatter keys, `kind` and `project` against the folder, and the `kind`,
 `decision-status` and `backlog-status` vocabularies. An unresolved wikilink on a ledger page is an error there, although health
 keeps it as an unscored forward link. The scan still reads the whole vault because

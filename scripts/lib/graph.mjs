@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { join, basename, resolve } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 import { parseNote, normalizeIdentity } from './note.mjs';
 
@@ -211,17 +211,105 @@ export function markdownPage(path, markdown) {
   };
 }
 
-export function buildGraph(vaultPath) {
-  const pages = [];
+// The errors a vault walk survives: a dangling or self-referential link, a file a pull removed or replaced while
+// the walk ran, a name the platform cannot open, a file the user may not read. Anything else is rethrown.
+const SKIPPED_WALK_CODES = new Set(['ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EACCES', 'EPERM']);
+// The native call is preferred; on a drive where it fails for a path that exists (some virtual drives report
+// EISDIR or UNKNOWN), the portable call is tried, then the resolved path. A skippable code still means the entry is gone.
+function realPath(abs) {
+  try { return realpathSync.native(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
+  try { return realpathSync(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
+  return resolve(abs);
+}
+const realPathKey = process.platform === 'win32' || process.platform === 'darwin'
+  ? abs => realPath(abs).toLowerCase()
+  : abs => realPath(abs);
+
+// The vault walk shared by buildGraph and walkVault (lib/embedding.mjs). Links are followed, so a vault reached
+// through a junction keeps working, and a directory reached twice through different paths (an alias) is walked
+// under each. Only a directory whose real path is one of its own ancestors' is skipped, as `link-cycle`. An entry
+// that fails with a code in SKIPPED_WALK_CODES is skipped with that code. Every skip is pushed onto skippedPaths as
+// { path, reason }. `enter(name, rel)` is asked before an entry is looked at; `file(abs, rel, name, stat, skip)` is
+// called for every entry that is not a directory, and passes a read error to `skip` to record or rethrow it.
+// The vault root itself is never skipped: a missing or unreadable vault still throws.
+export function walkVaultEntries(vaultPath, { enter = () => true, file, skippedPaths = [] }) {
+  const skip = (path, error) => {
+    if (!SKIPPED_WALK_CODES.has(error?.code)) throw error;
+    skippedPaths.push({ path, reason: error.code });
+  };
+  const ancestors = [];
   (function walk(dir, rel) {
-    for (const e of readdirSync(dir)) {
-      if (e.startsWith('.')) continue;
+    let names;
+    try { names = readdirSync(dir); } catch (error) { if (!rel) throw error; skip(rel, error); return; }
+    if (!rel) ancestors.push(realPathKey(dir));
+    for (const e of names) {
+      if (e.startsWith('.') || !enter(e, rel)) continue;
       const abs = join(dir, e);
       const r = rel ? `${rel}/${e}` : e;
-      if (statSync(abs).isDirectory()) walk(abs, r);
-      else if (e.endsWith('.md')) {
-        const markdown = readFileSync(abs, 'utf8');
-        pages.push(markdownPage(r, markdown));
+      let stat;
+      try { stat = statSync(abs); } catch (error) { skip(r, error); continue; }
+      if (!stat.isDirectory()) { file(abs, r, e, stat, error => skip(r, error)); continue; }
+      let real;
+      try { real = realPathKey(abs); } catch (error) { skip(r, error); continue; }
+      if (ancestors.includes(real)) { skippedPaths.push({ path: r, reason: 'link-cycle' }); continue; }
+      ancestors.push(real);
+      walk(abs, r);
+      ancestors.pop();
+    }
+  })(vaultPath, '');
+  return skippedPaths;
+}
+
+// The graph record cache (.wiki-master/graph-cache.json, machine-local): for each Markdown file, the size and
+// modification time it was read under, what markdownPage made of its text, and, for content pages, what a caller's
+// `derive` made of it. refresh-index.mjs writes it from a cold build (lib/graph-cache-write.mjs); validate-authored.mjs
+// and health.mjs read it (lib/graph-cache-read.mjs). Bump GRAPH_CACHE_FORMAT by hand in the same change that alters
+// markdownPage's output or the entry shape; test/graph-cache.test.mjs holds a golden fixture that fails until it is.
+export const GRAPH_CACHE_FORMAT = 1;
+export const GRAPH_CACHE_FILE = '.wiki-master/graph-cache.json';
+// An entry is stored only for a file last modified at least this long before its build began, so an edit within the
+// clock's granularity of the build, which could keep both size and time, is read again next time.
+export const GRAPH_CACHE_RACY_MS = 2000;
+
+function readPluginVersion() {
+  for (const file of ['../../plugin.json', '../../package.json']) {
+    try { return String(JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8')).version); } catch { /* the next one */ }
+  }
+  return 'unknown';
+}
+const PLUGIN_VERSION = readPluginVersion();
+
+// What a cache must match to be used at all. The plugin version discards every cache at a release.
+export function graphCacheKey(vaultPath, derive) {
+  let root;
+  try { root = realpathSync.native(vaultPath); } catch { root = vaultPath; }
+  return { format: GRAPH_CACHE_FORMAT, plugin: PLUGIN_VERSION, derive, root };
+}
+
+// `readFile` is the read used for each Markdown file (readFileSync by default); a test injects one to count reads
+// or to remove a file between the listing and the read. `derive(path, markdown, page)`, when given, runs on the same
+// text for each content page; its result is kept in the page's record as `extra`, never merged into the page.
+// `cache` (from readGraphCache) supplies the page and extra of a file whose size and time it matches, so that file
+// is not read. `records` maps each Markdown path to { size, mtimeMs, page, extra? }: the stat the file was read under
+// and the results at that moment, which is what the cache writer stores.
+export function buildGraph(vaultPath, { readFile = readFileSync, cache = null, derive = null } = {}) {
+  const pages = [];
+  const records = new Map();
+  const skippedPaths = walkVaultEntries(vaultPath, {
+    file(abs, r, e, stat, skip) {
+      if (e.endsWith('.md')) {
+        const wantExtra = Boolean(derive) && isContent(r);
+        const hit = cache?.lookup(r, stat, wantExtra) ?? null;
+        let record;
+        if (hit) record = { size: stat.size, mtimeMs: stat.mtimeMs, ...hit };
+        else {
+          let markdown;
+          try { markdown = readFile(abs, 'utf8'); } catch (error) { skip(error); return; }
+          const page = markdownPage(r, markdown);
+          record = { size: stat.size, mtimeMs: stat.mtimeMs, page, ...(wantExtra ? { extra: derive(r, markdown, page) } : {}) };
+        }
+        records.set(r, record);
+        pages.push(record.page);
       } else {
         // Non-markdown files are Obsidian attachments (PDFs, docx, images, …).
         // They emit no links and are never scored as content, but they ARE
@@ -237,9 +325,9 @@ export function buildGraph(vaultPath) {
           fmTargets: [],
         });
       }
-    }
-  })(vaultPath, '');
-  return { pages };
+    },
+  });
+  return { pages, skippedPaths, records };
 }
 
 export function normalizeName(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
@@ -388,10 +476,19 @@ export function buildNameIndex(pages) {
       labels.get(key).add(p.path);
     }
   }
+  // Both per-label lookups are built once (a scan per label cost labels times pages). The stem table keeps page
+  // order, so each label's `paths` Set gains its same-named pages in the order the scan gave them.
+  const identityByStem = new Map();
+  for (const p of identityPages) {
+    const stem = normalizeIdentity(p.name);
+    if (!identityByStem.has(stem)) identityByStem.set(stem, []);
+    identityByStem.get(stem).push(p.path);
+  }
+  const strippedPaths = new Set(pages.map(p => p.path.replace(/\.md$/i, '').toLowerCase()));
   for (const [key, paths] of labels) {
-    for (const p of identityPages) if (normalizeIdentity(p.name) === key) paths.add(p.path);
+    for (const path of identityByStem.get(key) ?? []) paths.add(path);
     // Full canonical paths always win over title/alias labels.
-    if (pages.some(p => p.path.replace(/\.md$/i, '').toLowerCase() === key.replace(/\.md$/i, ''))) continue;
+    if (strippedPaths.has(key.replace(/\.md$/i, ''))) continue;
     const raw = [...paths].filter(path => path.startsWith('raw/'));
     const content = [...paths].filter(isContent);
     // Within one channel: a generated MOC yields to real content in navigation, and a file whose
