@@ -12,6 +12,7 @@ import { declineFlags, declineGate } from '../scripts/lib/decline-gate.mjs';
 import { THIN_DECLINE_REASON } from '../scripts/clip-docx.mjs';
 import { thinOutcome } from '../scripts/clip-pdf.mjs';
 import { classifyShortExtraction } from '../scripts/clip.mjs';
+import { localDate } from '../scripts/lib/local-date.mjs';
 
 // A decline can be wrong, or stop being true. Two ways out, both applied only after a clip is written so a failed clip
 // leaves the decline in place: --override-decline lifts a decline the clippers recorded themselves (a thin or
@@ -146,7 +147,7 @@ test('declineGate: a decline blocks, with the message the clippers always printe
   recordDecline(v, URL1, 'off-topic');
   const g = declineGate(v, URL1, [], { log: () => {} });
   assert.equal(g.blocked, true);
-  assert.equal(g.message, `declined previously (${new Date().toISOString().slice(0, 10)}: off-topic): ${URL1}`);
+  assert.equal(g.message, `declined previously (${localDate()}: off-topic): ${URL1}`);
 });
 
 test('declineGate: --override-decline lifts an automatic decline, only when finish runs', (t) => {
