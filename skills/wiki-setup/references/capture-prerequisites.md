@@ -160,12 +160,25 @@ row pairings; poppler lacks it. Missing `pdftoppm` or Tesseract prevents OCR of
 scanned pages. An `ocr-unavailable` result means the PDF was not read and creates
 no decline; a `thin` result means extraction and available OCR could not recover
 useful content and records a decline. Do not treat those outcomes alike.
+A third outcome, `clip failed — OCR failed: ...`, means an OCR tool itself failed
+(`pdftoppm` could not open or rasterize the file, or Tesseract rejected a page): the
+line carries the tool's own error, a `failed` row is queued and no decline is recorded.
+A damaged PDF reads this way (`Couldn't read xref table`); try another copy of the
+document, and run the doctor only when the error points at the tool, not the file.
 
 A PDF clipped by address (`clip-pdf.mjs "<url>"`) can also end `download failed: ...`:
 the server answered an error status, the response did not start with `%PDF-` (often an HTML
 page), no data arrived for 60 seconds, the disk was full, or the fetch itself failed. It
 queues a `failed` row and records no decline. A retry needs capture scope; for a document
 behind a login, download the file with the user's own credentials and run `clip-pdf.mjs` on it.
+`download failed: the server's certificate chain is incomplete ...` means the server does not
+send its intermediate certificate. On Windows and macOS the clipper has already retried once
+through the operating system's `curl`, which completes and verifies the chain; this message
+means that retry was not possible or failed too. Have a person download the file in a browser
+and clip the saved file with `--source=<address>`. Never relax certificate verification, and
+Node's `--use-system-ca` does not help: the root is trusted, the intermediate is missing.
+An HTML page on such a server needs nothing extra: `clip.mjs` falls to its browser render,
+which completes the chain as any browser does.
 An address with a username, password or secret query parameter, or a scheme other than
 http or https, exits 2 before anything is written.
 

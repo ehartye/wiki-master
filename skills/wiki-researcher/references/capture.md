@@ -137,7 +137,7 @@ were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
 maintainer triage and report their counts.
 
 **Report a capture limit only from a clipper outcome,** and name the helper that printed it:
-`blocked`, `thin`, `failed` or `gone` from `clip.mjs`, `thin` or `ocr-unavailable` from
+`blocked`, `thin`, `failed` or `gone` from `clip.mjs`, `thin`, `failed` or `ocr-unavailable` from
 `clip-pdf.mjs`, or a recorded decline. A finder's failed fetch is not a capture limit. A
 candidate no clipper has tried is reported as unverified by the finder and not yet attempted,
 never as blocked, scanned or too large. A real `blocked` outcome is not worked around and

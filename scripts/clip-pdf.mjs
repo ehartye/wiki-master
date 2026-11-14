@@ -277,22 +277,40 @@ export function ocrReachable() {
   } catch { return false; }
 }
 
+// What a failed OCR tool said, as one line: how it ended, then its own error text with repeated lines dropped. The PDF path and
+// the temp folder are left out, because the line is stored in the triage log.
+export function toolFailure(tool, action, error, hide = []) {
+  const how = error?.code === 'ENOENT' ? 'not found'
+    : typeof error?.status === 'number' ? `exit ${error.status}`
+    : error?.signal ? `stopped by ${error.signal}`
+    : String(error?.code ?? 'failed');
+  let said = [...new Set(String(error?.stderr ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean))].join('; ');
+  for (const path of hide) said = said.split(path).join('<temp>');
+  return `${tool} could not ${action} (${how})${said ? `: ${said.slice(0, 200)}` : ''}`;
+}
+
 // OCR path: rasterize each page with poppler's pdftoppm, then recognize with
 // Tesseract. Recovers text the embedded-font layer mangles — dropped accents
 // ("Béthune" → "B?thune"), symbol-font math, and fully scanned/image PDFs — at
 // the cost of speed and OCR's own (different) error modes. Pages are joined with
 // a form-feed so header/footer stripping still applies. Tesseract's automatic
 // page segmentation handles columns, so this also survives two-column layouts.
-export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng' } = {}) {
+//
+// A tool that fails (a damaged PDF the rasterizer cannot open, a page Tesseract rejects) throws an Error whose message is
+// toolFailure's line; the caller reports it as an outcome. `run` is execFileSync; a test supplies its own.
+export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng', run = execFileSync } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'clip-ocr-'));
+  const hide = [dir, pdfPath];
   try {
-    execFileSync('pdftoppm', ['-png', '-r', String(dpi), pdfPath, join(dir, 'page')], { stdio: 'ignore' });
+    try { run('pdftoppm', ['-png', '-r', String(dpi), pdfPath, join(dir, 'page')], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] }); }
+    catch (e) { throw new Error(toolFailure('pdftoppm', 'rasterize the PDF', e, hide)); }
     const imgs = readdirSync(dir)
       .filter((f) => f.endsWith('.png'))
       .sort((a, b) => (+(a.match(/-(\d+)\.png$/)?.[1] || 0)) - (+(b.match(/-(\d+)\.png$/)?.[1] || 0)));
-    const pages = imgs.map((f) =>
-      execFileSync('tesseract', [join(dir, f), 'stdout', '-l', lang], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-    );
+    const pages = imgs.map((f, i) => {
+      try { return run('tesseract', [join(dir, f), 'stdout', '-l', lang], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }); }
+      catch (e) { throw new Error(toolFailure('tesseract', `recognize page ${i + 1} of ${imgs.length}`, e, hide)); }
+    });
     return pages.join('\f');
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -496,7 +514,8 @@ function titleFromUrl(url) {
 
 // A download needs a folder, and every way out of the run removes it, process.exit included.
 // `download(url, dest)` fetches the PDF, `toolchain` reports the external tools, `extractText(pdfPath)` reads the text layer and
-// `pdfTitle(pdfPath)` the document's own title; a test supplies them, so it needs no network, pdftotext or pdfinfo.
+// `pdfTitle(pdfPath)` the document's own title, and `ocrAvailable()` and `ocrText(pdfPath, { lang })` are the OCR fallback; a test
+// supplies them, so it needs no network, pdftotext, pdfinfo, pdftoppm or Tesseract.
 export function main(argv, deps = {}) {
   const scratch = { dir: null };
   const cleanup = () => {
@@ -508,7 +527,7 @@ export function main(argv, deps = {}) {
   finally { cleanup(); process.off('exit', cleanup); }
 }
 
-function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle } = {}, scratch) {
+function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle, ocrAvailable = ocrReachable, ocrText = pdfToTextOcr } = {}, scratch) {
   const arg = argv[0];
   const isUrl = /^https?:\/\//i.test(arg ?? '');
   let pdfPath = arg;
@@ -603,6 +622,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
       console.log(`clip failed — ${reason} (queued for triage): ${source}`);
       return { status: 'failed', reason };
     }
+    if (got.via === 'system-downloader') console.log("note: the server's certificate chain is incomplete; the system downloader completed and verified it");
   } else if (!existsSync(pdfPath)) { console.error(`file not found: ${pdfPath}`); process.exit(2); }
 
   // pdfinfo is asked only when --title does not already decide, for a local file as for a download.
@@ -615,14 +635,29 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   const langArg = argv.find((a) => a.startsWith('--ocr-lang='));
   const lang = langArg ? langArg.split('=')[1] : 'eng';
 
+  // An OCR tool that fails is a fact about one attempt (a damaged file, a full disk, a tool that broke), like a failed
+  // download: one line with the tool's own words, a `failed` row, no decline.
+  const readOcr = () => {
+    try { return { text: ocrText(pdfPath, { lang }) }; }
+    catch (e) { return { failure: String(e?.message ?? e) }; }
+  };
+  const ocrFailed = (failure) => {
+    const reason = `OCR failed: ${failure}`;
+    recordIssue(vaultPath, { url: source, kind: 'failed', reason, topic });
+    console.log(`clip failed — ${reason} (queued for triage): ${source}`);
+    return { status: 'failed', reason };
+  };
+
   let clip;
   if (forceOcr) {
-    if (!ocrReachable()) {
+    if (!ocrAvailable()) {
       console.error('OCR needs poppler (pdftoppm) + Tesseract. Install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki');
       process.exit(1);
     }
     console.log('OCR: rasterizing + recognizing pages (this is slow)…');
-    clip = buildOcrClip({ title, source, ocrText: pdfToTextOcr(pdfPath, { lang }), quality, topic });
+    const read = readOcr();
+    if (read.failure) return ocrFailed(read.failure);
+    clip = buildOcrClip({ title, source, ocrText: read.text, quality, topic });
   } else {
     // Choose the reading mode for THIS document before reading it in full.
     // Reading-order mode flattens a table column-block-wise and the damage is
@@ -653,14 +688,19 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     // PDF; an abundant-but-degraded layer means a broken/symbol font (equations
     // decoding to U+FFFD). Both are exactly OCR's job. Keep whichever pass reads
     // better so escalation can never make the clipping worse.
-    if (shouldTryOcr(clip) && ocrReachable()) {
-      console.log(`${clip.wordCount < THIN_WORD_FLOOR ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
-      clip = preferBetterExtraction(clip, buildOcrClip({ title, source, ocrText: pdfToTextOcr(pdfPath, { lang }), quality, topic, modeFloor: mode.fidelityFloor }));
+    if (shouldTryOcr(clip) && ocrAvailable()) {
+      const thin = clip.wordCount < THIN_WORD_FLOOR;
+      console.log(`${thin ? 'thin' : 'degraded'} text layer — trying OCR (slow)…`);
+      const read = readOcr();
+      // Without OCR a thin layer leaves nothing to write. A degraded one is still the document's text, so it is kept as it is.
+      if (read.failure && thin) return ocrFailed(read.failure);
+      if (read.failure) console.error(`WARNING: OCR failed, so the degraded text layer is kept: ${read.failure}`);
+      else clip = preferBetterExtraction(clip, buildOcrClip({ title, source, ocrText: read.text, quality, topic, modeFloor: mode.fidelityFloor }));
     }
   }
 
   if (clip.wordCount < THIN_WORD_FLOOR) {
-    const outcome = thinOutcome({ ocrAvailable: ocrReachable() });
+    const outcome = thinOutcome({ ocrAvailable: ocrAvailable() });
     if (outcome.decline) recordDecline(vaultPath, source, outcome.reason);
     console.log(`thin text layer: ${arg}`);
     console.log(outcome.message);

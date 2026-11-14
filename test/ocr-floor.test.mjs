@@ -54,11 +54,12 @@ test('a clean text layer still omits the field', () => {
 
 test('both first-clip OCR paths (--ocr and the automatic fallback) build their clipping through buildOcrClip', () => {
   const src = readFileSync(join(root, 'scripts', 'clip-pdf.mjs'), 'utf8');
-  assert.match(src, /clip = buildOcrClip\(\{ title, source, ocrText: pdfToTextOcr\(pdfPath, \{ lang \}\), quality, topic \}\)/);
+  // Both read the pages through readOcr, which turns a failed OCR tool into an outcome instead of a thrown error.
+  assert.match(src, /clip = buildOcrClip\(\{ title, source, ocrText: read\.text, quality, topic \}\)/);
   assert.match(src, /clip = preferBetterExtraction\(clip, buildOcrClip\(/);
   // The fallback runs after a reading mode was chosen, so it hands that mode's floor down; a table-flattened
   // document must not come out of OCR better than its mode said.
-  assert.match(src, /buildOcrClip\(\{ title, source, ocrText: pdfToTextOcr\(pdfPath, \{ lang \}\), quality, topic, modeFloor: mode\.fidelityFloor \}\)/);
+  assert.match(src, /buildOcrClip\(\{ title, source, ocrText: read\.text, quality, topic, modeFloor: mode\.fidelityFloor \}\)/);
   // The helper is the only place that names the extraction, so no path can build an OCR clipping without a floor.
   assert.equal(src.split("extraction: 'ocr'").length - 1, 1);
 });

@@ -63,6 +63,14 @@ Extraction is tuned for academic PDFs:
   its own error modes (superscripts, math), so it is a fallback, not the default;
   OCR'd clippings are tagged `extraction: ocr` in frontmatter. Optional
   `--ocr-lang=<code>` (default `eng`).
+- **An OCR tool that fails is a `failed` capture, not a crash and not a decline.** When
+  `pdftoppm` cannot rasterize the file (a damaged or unreadable PDF) or Tesseract rejects
+  a page, the run prints one line,
+  `clip failed — OCR failed: pdftoppm could not rasterize the PDF (exit 1): <the tool's own error> (queued for triage): <source>`,
+  queues a `failed` row with the run's topic, records no decline, writes nothing and exits 0
+  like a failed download. It is a fact about one attempt: another copy of the document
+  may read. A degraded text layer whose OCR fails is still clipped as `fidelity: degraded`,
+  with a `WARNING: OCR failed, so the degraded text layer is kept` line on stderr.
 - **Running headers/footers stripped.** The repeated title line and page-number
   footer at each page boundary are detected (a boundary line recurring on ≥ half
   the pages, with digits masked so `5-70`/`5-71` collapse) and removed — otherwise
@@ -127,6 +135,14 @@ address, so a landing page's `document-link` or a `.pdf` URL needs no separate d
   local file; instead the download stops when the first bytes are not `%PDF-` (the rest is never read), when no data has arrived
   for 60 seconds (a slow download that keeps moving finishes), or when the disk is full, which is named as its own error.
 - A failed download queues a `failed` row and records no decline: it is a fact about one attempt.
+- A server that does not send its intermediate certificate (an incomplete chain, which a browser completes by itself) is
+  downloaded once more by the operating system's own `curl` on Windows and macOS, which completes the chain and verifies it
+  against the system's trust; the run then prints `note: the server's certificate chain is incomplete; the system downloader completed and verified it`.
+  Verification is never turned off: an untrusted root, an expired certificate or a wrong host name still fails. Where there is no
+  such downloader (Linux), or it fails too, the run ends
+  `download failed: the server's certificate chain is incomplete ...`. The route that works then is the one the message
+  names: a person downloads the file in a browser, and `clip-pdf.mjs "<saved file>" --source="<address>"` clips it. Do not
+  retry with certificate checks relaxed, by any tool.
 - `source` is the address unless `--source` says otherwise. The title follows the [title chain](#the-clippings-title), with the
   address's last segment as the stem. It is never the temp file's name.
 - Any other scheme (`file:`, `ftp:`) exits 2, and so does an address with a username, password or secret query parameter, in the address or in
