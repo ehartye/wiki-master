@@ -67,11 +67,27 @@ nothing. Lenses:
 - **Contrarian** — critiques, failure modes, dissenting analysis.
 
 Each candidate: `{ title, url, quality_guess: high|medium|low, key_findings,
-why_ingest, adds_evidence, changes_page }`. `adds_evidence` names the unanswered
+why_ingest, adds_evidence, changes_page, verified: read|unverified by the finder }`. `adds_evidence` names the unanswered
 question it helps settle; `changes_page` names an existing or proposed concept
 or synthesis. More material on an already answered question is not automatically
 an improvement. Inspect existing high-use stubs and missing bridges before
 requesting another broad collection run.
+
+**A finder's failed fetch is not a capture result.** A finder reads with its host's
+generic fetch tool, which has no browser, no OCR and often a size limit. The clippers
+already do that work client-side: `clip.mjs` falls back to a render in a real
+browser ([the fetch ladder](clip-html.md#the-fetch-ladder)), and `clip-pdf.mjs`
+downloads a PDF with no size cap and reads a scanned one with Tesseract OCR
+([PDF capture](clip-pdf.md#how-it-works)). So:
+- A candidate the finder could not read is returned as `verified: unverified by the finder`
+  with the reason (refused, timed out, too large, no text seen) and is judged from its
+  title, search snippet and publisher. It is never dropped, ranked down or called
+  unreadable for that reason alone.
+- A scanned PDF and a large PDF are ordinary candidates.
+- The brief you write for a finder says both, and never tells finders to avoid a host or a
+  format because a generic fetch was refused. Only the blocklist and the decline log
+  exclude a source.
+- A finder does not start its own browser or OCR to get around a failed read.
 
 ## Phase 2 — independent select + credibility (do NOT let a finder grade itself)
 As the orchestrator (or a separate reviewer), over the pooled candidates:
@@ -86,6 +102,11 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    - +1 corroborated by another perspective's find (max +1)
    - −1 vendor-primary / promotional / single-blogger opinion
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
+   Score an `unverified by the finder` candidate on what is known. Unread by a finder
+   is not a reason to reject or decline it. When capture is authorized, send it to the
+   matching clipper like any other survivor: only the clipper's outcome says whether it
+   can be captured. In a candidates-only report, list it as unverified by the finder
+   with the finder's reason, as a limit of the finder's tool and not a fact about the source.
 3. Keep the top sources (favor `high`/`medium`; a few `low` are fine if on-topic).
    Reddit posts/comments and Medium articles are eligible; assess each source
    using the rubric, without treating votes as credibility. In the ranked report,

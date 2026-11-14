@@ -81,7 +81,10 @@ reason to skip this. The answer stays read-only unless filing is authorized.
 
 Prefer named source sets and coordinate shared concept edits. A capture's
 fidelity and its author's credibility are different judgments. Do not invent
-text when tools or authenticated access are unavailable. Source count is not a
+text when tools or authenticated access are unavailable. The clippers already render
+in a real browser and OCR scanned PDFs: never improvise a browser capture or call a
+source unreadable before its clipper has tried. A finder's failed fetch means
+unverified by the finder, not a capture limit; report limits only from clipper outcomes. Source count is not a
 quality target. Do not treat a backlog count as ingestion authorization.
 
 ## Advanced references

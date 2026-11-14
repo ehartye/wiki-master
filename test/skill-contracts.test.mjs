@@ -434,6 +434,28 @@ test('discover.md checks for a browser with doctor.mjs before a batch', () => {
   assert.deepEqual(missingFrom('skills/wiki-researcher/references/discover.md', ['scripts/doctor.mjs']), []);
 });
 
+// A finder reads with a generic fetch tool: no browser, no OCR. What it could not read is unverified, not rejected, and goes
+// to the clipper, which has both. Only a clipper outcome is reported as a capture limit.
+test('a candidate a finder could not read is unverified, not rejected, and only a clipper outcome is a capture limit', () => {
+  const file = 'skills/wiki-researcher/references/discover.md';
+  const discover = flat(read(file));
+  assert.match(discover, /failed fetch is not a capture result/);
+  assert.match(discover, /returned as `verified: unverified by the finder`[^.]*reason/);
+  assert.match(discover, /never dropped, ranked down or called unreadable for that reason alone/);
+  assert.match(discover, /scanned PDF and a large PDF are ordinary candidates/);
+  assert.match(discover, /never tells finders to avoid a host or a format because a generic fetch was refused/);
+  assert.match(discover, /not a reason to reject or decline/);
+  for (const link of ['clip-html.md#the-fetch-ladder', 'clip-pdf.md#how-it-works']) assert.ok(localLinks(read(file)).includes(link), link);
+  const finish = flat(sectionOf('skills/wiki-researcher/references/capture.md', 'Finish capture and report'));
+  assert.match(finish, /capture limit only from a clipper outcome/);
+  for (const outcome of ['blocked', 'thin', 'ocr-unavailable']) assert.ok(finish.includes('`' + outcome + '`'), outcome);
+  assert.match(finish, /finder's failed fetch is not a capture limit/);
+  assert.match(finish, /not worked around and nothing is fabricated[^.]*`--from-file`/);
+  assert.match(readFileSync(join(root, 'scripts/clip-pdf.mjs'), 'utf8'), /status: 'ocr-unavailable'/);
+  for (const text of [flat(read('skills/wiki-researcher/references/capture.md')), flat(read(entry('wiki-researcher')))])
+    assert.match(text, /clippers already render in a real browser and (?:run OCR|OCR scanned PDFs)[^.]*improvise[^.]*before its clipper has tried/);
+});
+
 test('every recursively reachable local file and Markdown heading exists', () => {
   const result = referenceProblems([...skills.map(entry), 'README.md', 'docs/codex.md',
     'docs/skill-migration.md', 'docs/skill-reliability.md', 'docs/wiki-integrity.md',
