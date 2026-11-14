@@ -55,6 +55,10 @@ broad coverage research.
 For each kept candidate:
 `node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --quality=<tier> --topic="<topic>"`
 
+A candidate that discovery marked `unverified by the finder` is clipped like the rest. The
+clippers already render in a real browser and run OCR, so do not improvise your own browser
+capture, and do not call a source unreadable before its clipper has tried.
+
 For a long list of web addresses, use `clip.mjs --list <file> --ledger <file>` instead of a
 loop ([lists](clip-html.md#lists-and-the-ledger)). Every clipper refuses an address with a username, password or secret query parameter with exit 2 ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
 
@@ -131,6 +135,13 @@ node "<absolute-plugin-root>/scripts/adopt-clipping.mjs" "raw/clippings/<name>.m
 Show the ranked list (title, url, quality, why), which clips succeeded, and which
 were skipped (blocked, duplicate, thin, failed). If issues were queued, mention
 maintainer triage and report their counts.
+
+**Report a capture limit only from a clipper outcome,** and name the helper that printed it:
+`blocked`, `thin`, `failed` or `gone` from `clip.mjs`, `thin` or `ocr-unavailable` from
+`clip-pdf.mjs`, or a recorded decline. A finder's failed fetch is not a capture limit. A
+candidate no clipper has tried is reported as unverified by the finder and not yet attempted,
+never as blocked, scanned or too large. A real `blocked` outcome is not worked around and
+nothing is fabricated; a page a person saves goes through `--from-file`.
 
 **The clipping set is what the clippers printed,** exactly as printed (a name with an em
 dash included): keep those paths for an ingest that follows. For a `--list` run the written set is the
