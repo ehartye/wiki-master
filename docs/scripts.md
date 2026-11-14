@@ -39,8 +39,8 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 
 | Script | Purpose |
 |---|---|
-| `clip.mjs` | Captures a web page (or a saved copy of one) into `raw/clippings/`. |
-| `clip-pdf.mjs` | Captures a PDF. |
+| `clip.mjs` | Captures a web page (or a saved copy of one) into `raw/clippings/`. `--probe` reports what a clip would do and writes nothing. |
+| `clip-pdf.mjs` | Captures a PDF. `--probe` reports what a clip would do and writes nothing. |
 | `clip-docx.mjs` | Captures a Word document. |
 | `clip-pptx.mjs` | Captures a PowerPoint deck. |
 | `clip-xlsx.mjs` | Captures a spreadsheet. |

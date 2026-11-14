@@ -57,7 +57,8 @@ For each kept candidate:
 
 A candidate that discovery marked `unverified by the finder` is clipped like the rest. The
 clippers already render in a real browser and run OCR, so do not improvise your own browser
-capture, and do not call a source unreadable before its clipper has tried.
+capture, and do not call a source unreadable before its clipper has tried. To ask a clipper
+what it would do without writing anything, add `--probe` ([a probe](clip-html.md#a-probe)).
 
 For a long list of web addresses, use `clip.mjs --list <file> --ledger <file>` instead of a
 loop ([lists](clip-html.md#lists-and-the-ledger)). Every clipper refuses an address with a username, password or secret query parameter with exit 2 ([addresses that carry a secret](clip-html.md#addresses-that-carry-a-secret)).
@@ -106,7 +107,9 @@ as sources. Use [HTML/supplied-page diagnosis](../../wiki-setup/references/captu
 
 `clip-pdf`, `clip-docx`, `clip-pptx` and `clip-xlsx` also take `--title="<text>"`, for a file whose name is not its title (`valve.pdf`), and `--slug=<name>`, which names the clipping file without `.md`; a taken name is a clash and is never suffixed. `clip.mjs` takes `--slug <name>` or `--slug=<name>` ([names](clip-html.md#names)).
 
-An option a clipper does not know exits 2 with its usage and clips nothing; `--help` prints the usage and clips nothing.
+An option a clipper does not know exits 2 with its usage and clips nothing; `--help` prints the usage and clips nothing. A `--quality` value other than `high`, `medium` or `low` (lowercase) exits 2 the same way in every clipper, before any network or vault activity: `--quality must be high, medium or low (got "<value>")`.
+
+`created` on a clipping, the date of a decline and `captured` on a figure sidecar are the local day on the machine that wrote them, not the UTC day, so an evening clip west of UTC is dated the day it was made.
 
 **Every unresolved link is queued for triage automatically.** `clip.mjs` records
 `failed`, `blocked`, `gone`, `thin`, `wrong-node` and `attention` outcomes to `.wiki-master/triage.jsonl`, so a

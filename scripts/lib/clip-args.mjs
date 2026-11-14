@@ -18,9 +18,15 @@ export const CLIP_SPECS = {
     name: "clip.mjs",
     usage: [
       "usage: clip.mjs <url> [--quality=high|medium|low] [--topic=\"...\"] [--decline=\"reason\"] [--slug <name>] [--recapture]",
-      "                [--from-file <path>] [--expand] [--find-twin] [--ledger <file>]",
-      "       clip.mjs --list <file> [--quality=...] [--topic=\"...\"] [--recapture] [--expand] [--find-twin] [--ledger <file>]",
+      "                [--from-file <path>] [--expand] [--find-twin] [--ledger <file>] [--probe]",
+      "       clip.mjs --list <file> [--quality=...] [--topic=\"...\"] [--recapture] [--expand] [--find-twin] [--ledger <file>] [--probe]",
       "",
+      "  --probe  what a clip of this address would do, with nothing written: the same fetch, browser render, extraction and thin,",
+      "           wrong-node and login-page checks, stopped before a file name is chosen. No clipping, decline, triage row or ledger line.",
+      "           Prints one JSON line on stdout (url, outcome, extraction, words, title, captured, existing, declined, declineReason, reason,",
+      "           wouldDecline, wouldQueue, ocr, estimate) and one line for a person on stderr. Exit 0 whatever the outcome, thin and blocked",
+      "           included. With --list, one JSON line per address. Not with --decline, --slug, --recapture, --ledger, --find-twin,",
+      "           --override-decline or --supersede-decline (exit 2).",
       "  A page that reads thin (or fails) is looked up as Markdown before the browser is tried: <page>.md.txt, <page>.md, a \"View page in",
       "           Markdown\" link, then the page's entry in the site's /llms.txt. A twin of at least 100 words is stored as it is, with",
       "           twin-url and extraction: plaintext-twin. No file, --expand, plain-text URL or PDF URL probes, and a healthy page is not probed.",
@@ -48,9 +54,10 @@ export const CLIP_SPECS = {
       "           login-form and decline checks apply. The clipping records extraction: manual and supplied-sha256 (the supplied bytes).",
     ],
     values: ["quality", "topic", "decline", "slug", "from-file", "ledger"],
-    flags: ["recapture", "expand", "find-twin"],
+    flags: ["recapture", "expand", "find-twin", "probe"],
     spaced: ["from-file", "slug", "ledger"],
     lead: ["--list"],
+    probeRefuses: ["decline", "slug", "recapture", "ledger", "find-twin", "override-decline", "supersede-decline"],
   },
   "clip-pdf": {
     name: "clip-pdf.mjs",
@@ -59,7 +66,7 @@ export const CLIP_SPECS = {
       "                          [--mode=auto|reading-order|table] [--ocr] [--ocr-lang=eng]",
       "                          [--topic=\"<research topic>\"] [--decline=\"reason\"] [--doctor]",
       "                          [--title=\"<text>\"] [--slug=<name>]",
-      "                          [--figures[=auto|all|3,5-7]] [--figures-max=N]",
+      "                          [--figures[=auto|all|3,5-7]] [--figures-max=N] [--probe]",
       "       clip-pdf.mjs <file.pdf> --figures-only --clipping <raw/clippings/x.md> [--figures=...]",
       "",
       "  <https-url>  the PDF is downloaded to a temp folder, clipped with the URL as its source, and removed. The dedup and decline checks",
@@ -76,11 +83,19 @@ export const CLIP_SPECS = {
       "           rasters or vector drawings; all = every page; or a page list. Cap 40 (--figures-max).",
       "  --figures-only  add figures to an EXISTING clipping from the PDF you supply (frontmatter only). Not for a URL: download the file first.",
       "  --doctor report dependencies and bounded synthetic PDF rendering probes, then exit.",
+      "  --probe  what a clip of this file or address would do, with nothing written: the same download, text layer and thin check. A PDF",
+      "           that would go to OCR has its first 2 pages recognised, not the whole document. No clipping, decline or triage row.",
+      "           Prints one JSON line on stdout (url, outcome, extraction, words, title, captured, existing, declined, declineReason, reason,",
+      "           wouldDecline, wouldQueue, ocr, estimate) and one line for a person on stderr. ocr is { pagesSampled, pages, words }; estimate",
+      "           is true when the outcome is projected from a sample that is not the whole document. Exit 0 whatever the outcome.",
+      "           Not with --decline, --slug, --figures, --figures-max, --figures-only, --clipping, --allow-pdf-mismatch, --doctor,",
+      "           --override-decline or --supersede-decline (exit 2).",
     ],
     values: ["source", "quality", "mode", "ocr-lang", "topic", "decline", "figures", "figures-max", "clipping", "title", "slug"],
-    flags: ["ocr", "doctor", "figures", "figures-only", "allow-pdf-mismatch"],
+    flags: ["ocr", "doctor", "figures", "figures-only", "allow-pdf-mismatch", "probe"],
     spaced: ["clipping"],
     lead: ["--doctor"],
+    probeRefuses: ["decline", "slug", "figures", "figures-max", "figures-only", "clipping", "allow-pdf-mismatch", "doctor", "override-decline", "supersede-decline"],
   },
   "clip-docx": {
     name: "clip-docx.mjs",
@@ -202,6 +217,19 @@ for (const spec of Object.values(CLIP_SPECS)) spec.enums = { quality: QUALITY_TI
 // "high, medium or low"
 const choices = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
 
+// `--probe` writes nothing, so an option that asks for a write, or names the file a write would make, is a contradiction and
+// not something to ignore. The first such option on the line as a one-line problem, or null. Shared by the command-line check
+// below and by each clipper's main(), so a programmatic call is refused the same way.
+export function probeConflict(argv, spec) {
+  if (!argv.includes('--probe')) return null;
+  for (const token of argv) {
+    if (typeof token !== 'string' || !token.startsWith('--')) continue;
+    const name = token.slice(2).split('=')[0];
+    if ((spec.probeRefuses ?? []).includes(name)) return `--probe cannot be used with --${name}: a probe writes nothing`;
+  }
+  return null;
+}
+
 // null-safe, side-effect free. Returns { ok: true }, { help: true } or { error }.
 export function checkClipArgs(argv, spec) {
   if (argv.some((a) => a === '--help' || a === '-h')) return { help: true };
@@ -229,6 +257,8 @@ export function checkClipArgs(argv, spec) {
     if (spec.values.includes(name)) return { error: `--${name} needs a value: --${name}=<value>` };
     return { error: `unknown option --${name}` };
   }
+  const conflict = probeConflict(argv, spec);
+  if (conflict) return { error: conflict };
   return { ok: true };
 }
 

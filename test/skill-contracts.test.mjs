@@ -456,6 +456,37 @@ test('a candidate a finder could not read is unverified, not rejected, and only 
     assert.match(text, /clippers already render in a real browser and (?:run OCR|OCR scanned PDFs)[^.]*improvise[^.]*before its clipper has tried/);
 });
 
+// The probe is the clipper's own read with nothing written, so it is what a finder verifies with. The brief carries both
+// commands in the absolute form, a finder that cannot run them falls back to unverified, and the option the references
+// name is one the clippers accept.
+test('discovery gives finders the clippers\' probe, and falls back to unverified by the finder', () => {
+  const file = 'skills/wiki-researcher/references/discover.md';
+  const discover = flat(read(file));
+  assert.match(discover, /Give every finder the clippers' probe/);
+  for (const script of ['clip.mjs', 'clip-pdf.mjs']) assert.ok(read(file).includes(`node "<absolute-plugin-root>/scripts/${script}" "<url>" --probe`), script);
+  assert.match(discover, /stops before anything is written: no clipping, no decline, no triage row, no ledger line/);
+  assert.match(discover, /verifies with the probe each candidate its own fetch could not read, one address at a time, and returns it as `verified: probed`/);
+  assert.match(discover, /finder that cannot run the probe returns the candidate as unverified by the finder/);
+  assert.match(discover, /outcome other than `clipped` is reported with the candidate and never drops it/);
+  assert.ok(localLinks(read(file)).includes('clip-html.md#a-probe'));
+  const probe = flat(sectionOf('skills/wiki-researcher/references/clip-html.md', 'A probe'));
+  for (const field of ['url', 'outcome', 'extraction', 'words', 'title', 'captured', 'existing', 'declined', 'declineReason', 'reason', 'wouldDecline', 'wouldQueue', 'ocr', 'estimate'])
+    assert.ok(probe.includes('`' + field + '`'), field);
+  const specs = readFileSync(join(root, 'scripts/lib/clip-args.mjs'), 'utf8');
+  for (const [name, reference] of [['clip', probe], ['clip-pdf', flat(read('skills/wiki-researcher/references/clip-pdf.md'))]]) {
+    const refused = new RegExp(`"${name}": \\{[\\s\\S]*?probeRefuses: \\[([^\\]]*)\\]`).exec(specs)[1].match(/[a-z-]+/g);
+    for (const option of refused) assert.ok(reference.includes('`--' + option + '`'), `${name}: --${option}`);
+  }
+});
+
+// Two behaviours of 0.99.0: a --quality value outside the three tiers is refused, and clippings and declines carry the local day.
+test('the references say that an unknown --quality value is refused and that dates are the local day', () => {
+  for (const file of ['capture.md', 'clip-html.md', 'clip-pdf.md', 'discover.md'].map((f) => `skills/wiki-researcher/references/${f}`))
+    assert.match(flat(read(file)), /`--quality` value[^.]*other than `high`, `medium` or `low`[^.]*exits? 2|`--quality` takes `high`, `medium` or `low`[^.]*exits 2/, file);
+  for (const file of ['skills/wiki-researcher/references/capture.md', 'skills/wiki-researcher/references/clip-html.md', 'skills/wiki-maintainer/references/evidence.md', 'docs/clipping-fidelity.md', 'README.md'])
+    assert.match(flat(read(file)), /local day[^.]*not the UTC day/, file);
+});
+
 test('every recursively reachable local file and Markdown heading exists', () => {
   const result = referenceProblems([...skills.map(entry), 'README.md', 'docs/codex.md',
     'docs/skill-migration.md', 'docs/skill-reliability.md', 'docs/wiki-integrity.md',

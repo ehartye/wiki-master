@@ -50,7 +50,8 @@ Converter invocation and failed/tiny-workbook diagnosis are in the direct
      is an *Unattributed* triage row permanently. Omit it only when there is no
      research run behind the clip; never invent one.
    - `--quality` is your credibility judgment of the workbook as a source, which
-     is separate from how cleanly it extracted.
+     is separate from how cleanly it extracted. It takes `high`, `medium` or `low`
+     (lowercase); any other value exits 2 and clips nothing.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and confirm the
    sheets came through as real tables with their labels still attached to their
    values. Conversion is lossy on formulas, merged cells, charts and multi-row

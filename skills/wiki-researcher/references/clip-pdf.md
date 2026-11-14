@@ -173,6 +173,14 @@ address, so a landing page's `document-link` or a `.pdf` URL needs no separate d
      Pass it whenever the PDF's value is in graphs, diagrams or photos.
    - `--mode=auto|reading-order|table` overrides the reading-mode detector for a
      document it gets wrong. See **Overriding the reading mode** below.
+   - `--quality` takes `high`, `medium` or `low` (lowercase); any other value exits 2 before the PDF is read. `created` is
+     the local day on the machine that clipped, not the UTC day, and so is a figure sidecar's `captured`.
+   - `--probe` reports what a clip of the file or address would do and writes nothing: one JSON line with the fields of
+     [a probe](clip-html.md#a-probe), exit 0 whatever the outcome. It runs the same download, text layer and thin check. A
+     PDF that would go to OCR has only its first 2 pages recognised: `ocr` is `{ pagesSampled, pages, words }`, `words` counts
+     the sampled pages, and `estimate: true` says the outcome was projected from a sample that is not the whole document.
+     It is refused with exit 2 beside `--decline`, `--slug`, `--figures`, `--figures-max`, `--figures-only`, `--clipping`,
+     `--allow-pdf-mismatch`, `--doctor`, `--override-decline` and `--supersede-decline`.
    - Distinguish actual `thin` extraction from `ocr-unavailable`: the latter learned nothing about the PDF and records no decline. Follow [PDF diagnosis](../../wiki-setup/references/capture-prerequisites.md#pdf); never invent missing text.
 3. **Verify** the clipping landed: read `raw/clippings/<slug>.md` and sanity-check
    that the extracted text is real prose, not garbled ligatures. `pdftotext`

@@ -67,7 +67,7 @@ nothing. Lenses:
 - **Contrarian** — critiques, failure modes, dissenting analysis.
 
 Each candidate: `{ title, url, quality_guess: high|medium|low, key_findings,
-why_ingest, adds_evidence, changes_page, verified: read|unverified by the finder }`. `adds_evidence` names the unanswered
+why_ingest, adds_evidence, changes_page, verified: read|probed|unverified by the finder }`. `adds_evidence` names the unanswered
 question it helps settle; `changes_page` names an existing or proposed concept
 or synthesis. More material on an already answered question is not automatically
 an improvement. Inspect existing high-use stubs and missing bridges before
@@ -87,7 +87,27 @@ downloads a PDF with no size cap and reads a scanned one with Tesseract OCR
 - The brief you write for a finder says both, and never tells finders to avoid a host or a
   format because a generic fetch was refused. Only the blocklist and the decline log
   exclude a source.
-- A finder does not start its own browser or OCR to get around a failed read.
+- A finder does not start its own browser or OCR to get around a failed read. The probe
+  below is the clipper's own read, not the finder's.
+
+**Give every finder the clippers' probe.** `--probe` runs what a clip runs (for a page the
+fetch ladder with the browser render; for a PDF the download, the text layer and OCR of
+its first 2 pages) and stops before anything is written: no clipping, no decline, no triage
+row, no ledger line. Put both commands in each finder's brief, with the plugin root as an
+absolute path:
+
+```bash
+node "<absolute-plugin-root>/scripts/clip.mjs" "<url>" --probe
+node "<absolute-plugin-root>/scripts/clip-pdf.mjs" "<url>" --probe
+```
+
+- A finder whose environment can run commands verifies with the probe each candidate its
+  own fetch could not read, one address at a time, and returns it as `verified: probed` with the `outcome`,
+  `extraction` and `words` of the JSON line the probe prints ([the fields](clip-html.md#a-probe)).
+- A finder that cannot run the probe returns the candidate as unverified by the finder, as above.
+- A probe outcome other than `clipped` is reported with the candidate and never drops it:
+  Phase 2 decides. `estimate: true` means a PDF's outcome was projected from an OCR sample.
+- An address with a username, password or secret query parameter is refused by the probe as by a clip.
 
 ## Phase 2 — independent select + credibility (do NOT let a finder grade itself)
 As the orchestrator (or a separate reviewer), over the pooled candidates:
@@ -102,8 +122,11 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
    - +1 corroborated by another perspective's find (max +1)
    - −1 vendor-primary / promotional / single-blogger opinion
    Tiers: **high** ≥4, **medium** 2–3, **low** 0–1, **reject** <0 (don't clip).
+   Pass the tier to a clipper in lowercase: every clipper refuses a `--quality` value
+   other than `high`, `medium` or `low` with exit 2, before it fetches or writes anything.
    Score an `unverified by the finder` candidate on what is known. Unread by a finder
-   is not a reason to reject or decline it. When capture is authorized, send it to the
+   is not a reason to reject or decline it. A `probed` candidate carries the clipper's own
+   answer: `clipped` means a clip would succeed, and any other outcome is what a clip would report. When capture is authorized, send it to the
    matching clipper like any other survivor: only the clipper's outcome says whether it
    can be captured. In a candidates-only report, list it as unverified by the finder
    with the finder's reason, as a limit of the finder's tool and not a fact about the source.
