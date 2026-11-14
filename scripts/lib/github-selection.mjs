@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync, realpathSync, mkdtempSync, openSync, closeSync, fsyncSync, linkSync, unlinkSync, rmdirSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { buildFrontmatter, slugify } from '../clip.mjs';
+import { QUALITY_TIERS } from './quality-tiers.mjs';
+import { localDate } from './local-date.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const MAX_FILE = 256 * 1024, MAX_TOTAL = 8 * 1024 * 1024;
@@ -34,7 +36,7 @@ export function selectionOptions(argv) {
   if (paths.length > 32 || paths.some(p => !validSelectedPath(p))) throw failure('Select at most 32 exact repo-relative paths (no empty/dot segments, backslashes, colons or controls; depth <=16, length <=512)');
   if (new Set(paths).size !== paths.length) throw failure('Duplicate selected path');
   const quality = argv.find(a => a.startsWith('--quality='))?.slice(10) ?? 'medium';
-  if (!['high', 'medium', 'low'].includes(quality)) throw failure('Invalid capture quality');
+  if (!QUALITY_TIERS.includes(quality)) throw failure('Invalid capture quality');
   return { paths: paths.sort(), readmeOnly, ref };
 }
 
@@ -124,7 +126,7 @@ function clipping(file, options) {
   const fence = '`'.repeat(fenceLength);
   const md = /\.mdx?$/i.test(file.path) ? text.trim() : `${fence}\n${text.replace(/\n+$/, '')}\n${fence}`;
   const hash = digest(md), title = `${repo}/${file.path} at ${commit}`;
-  const fm = buildFrontmatter({ title, source, quality, topic, hash, created: new Date().toISOString().slice(0,10), suppliedSha256: file.sha256 });
+  const fm = buildFrontmatter({ title, source, quality, topic, hash, created: localDate(), suppliedSha256: file.sha256 });
   const extra = `github-commit: "${commit}"\ngithub-blob: "${file.blob}"\nsource-bytes: ${file.bytes}\n`;
   const body = `${fm.slice(0, -3)}${extra}---\n\n${md}\n`;
   // Body identity includes source commit/path/topic/provenance, but not the capture date.
@@ -179,7 +181,7 @@ export function captureSelection({ owner, repo, selection, vaultPath, quality = 
   const files = plan.files.map(f => clipping(f, { owner, repo, commit: plan.commit, quality, topic }));
   const manifestData = { schema: 'wiki-master/github-selection@1', repository: `${owner}/${repo}`, requestedRef: selection.ref, commit: plan.commit, preset: selection.readmeOnly ? 'readme' : null, requested: plan.requested, selected: files.length, bytes: plan.bytes, files: files.map(({path,role,blob,bytes,sha256,mode,name,source,hash})=>({path,role,blob,bytes,sha256,mode,clipping:name,source,renderedSha256:hash})) };
   const md = `# Selected GitHub source files\n\nOnly the listed files were captured; no repository inventory or complete license analysis is claimed.\n\n\`\`\`json\n${JSON.stringify(manifestData,null,2)}\n\`\`\``;
-  const body = `${buildFrontmatter({title:`${owner}/${repo} selected files at ${plan.commit}`,source:`https://github.com/${encode(owner)}/${encode(repo)}/tree/${plan.commit}`,quality,topic,hash:digest(md),created:new Date().toISOString().slice(0,10)})}\n\n${md}\n`;
+  const body = `${buildFrontmatter({title:`${owner}/${repo} selected files at ${plan.commit}`,source:`https://github.com/${encode(owner)}/${encode(repo)}/tree/${plan.commit}`,quality,topic,hash:digest(md),created:localDate()})}\n\n${md}\n`;
   const manifest = { name: `_selection-${digest(body.replace(/^created: .*$/m, 'created:')).slice(0,32)}.md`, body };
   let outDir;
   let writingEntry;

@@ -9,6 +9,7 @@ import { loadIssueLog, openIssues, ISSUE_KINDS } from './lib/triage.mjs';
 import { buildTopicIndex, attributeItem, topicKey, normalizeTopic } from './lib/topic.mjs';
 import { CLI_SPECS } from './lib/cli-specs.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
+import { QUALITY_TIERS } from './lib/quality-tiers.mjs';
 cliGuard(import.meta.url);
 
 // What discovery asks before it clips anything: is this page already in the vault, and what does a topic hold. The
@@ -22,7 +23,6 @@ cliGuard(import.meta.url);
 //   --summary --topic <T>     what the topic holds: pages, quality tiers, open triage rows by kind
 
 const USAGE = CLI_SPECS['known-urls'].usage.join('\n');
-const TIERS = ['high', 'medium', 'low'];
 const flat = (text) => String(text).replace(/\s+/g, ' ').trim();
 
 // The known URLs as the clipper writes them down, once each, in order: every clipping's source and the twin it came from.
@@ -85,7 +85,7 @@ export function summarizeTopic(vaultPath, topic) {
     pages.push({ url: newest.url, topic: normalizeTopic(frontmatterValue(vaultPath, newest.file, 'topic')), quality: frontmatterValue(vaultPath, newest.file, 'quality') });
   }
   const held = pages.filter((p) => p.topic && topicKey(p.topic) === wanted);
-  const tiers = new Map(TIERS.map((t) => [t, 0]));
+  const tiers = new Map(QUALITY_TIERS.map((t) => [t, 0]));
   for (const p of held) {
     const tier = p.quality ? p.quality.toLowerCase() : 'unrated';
     tiers.set(tier, (tiers.get(tier) ?? 0) + 1);

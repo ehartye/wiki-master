@@ -10,12 +10,12 @@ import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 
 import { join, resolve } from 'node:path';
 import { resolveVault, isUnder } from './lib/vault.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
+import { QUALITY_TIERS } from './lib/quality-tiers.mjs';
 import { unquoteValue } from './lib/known-urls.mjs';
 import { normalizeTopic } from './lib/topic.mjs';
 import { optionValue, cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
-const TIERS = ['high', 'medium', 'low'];
 const argv = process.argv.slice(2);
 const apply = argv.includes('--apply');
 const refuse = (message) => { console.error(`adopt-clipping: ${message}`); process.exit(2); };
@@ -29,7 +29,7 @@ for (let i = 0; i < argv.length; i++) {
 if (!paths.length) refuse('name at least one clipping under raw/clippings/ (see --help)');
 
 const quality = optionValue(argv, 'quality');
-if (quality !== undefined && !TIERS.includes(quality)) refuse(`--quality must be one of ${TIERS.join(', ')}`);
+if (quality !== undefined && !QUALITY_TIERS.includes(quality)) refuse(`--quality must be one of ${QUALITY_TIERS.join(', ')}`);
 const topicArg = optionValue(argv, 'topic');
 const topic = topicArg === undefined ? null : normalizeTopic(topicArg);
 if (topicArg !== undefined && !topic) refuse('--topic needs a value');
@@ -108,7 +108,7 @@ function plan(arg) {
   const block = fm[2];
   if (scalar(block, 'source') === null) refuse(`${arg}: no source: line, so this is not a clipping of a page`);
   const heldQuality = scalar(block, 'quality');
-  if (heldQuality === null && quality === undefined) refuse(`${arg}: no quality in the file and no --quality given; pass --quality=${TIERS.join('|')}`);
+  if (heldQuality === null && quality === undefined) refuse(`${arg}: no quality in the file and no --quality given; pass --quality=${QUALITY_TIERS.join('|')}`);
 
   const newline = fm[1].endsWith('\r\n') ? '\r\n' : '\n';
   // A missing field takes the place of the key's empty line when the file has one, and is appended otherwise.

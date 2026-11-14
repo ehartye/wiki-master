@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeUrl } from './url.mjs';
+import { localDate } from './local-date.mjs';
 
 // "Seen, considered, declined" must have a representation, or an un-clipped
 // candidate is re-litigated on every discovery run forever. Design constraints
@@ -71,7 +72,7 @@ export function recordDecline(vaultPath, url, reason) {
   // Declining a URL again keeps what was decided before: the earlier decision joins the entry's history.
   const before = entries.find((e) => normalizeUrl(e.url).toLowerCase() === n);
   entries = entries.filter((e) => normalizeUrl(e.url).toLowerCase() !== n);
-  const entry = { url, reason, date: new Date().toISOString().slice(0, 10) };
+  const entry = { url, reason, date: localDate() };
   if (before) {
     const { history = [], url: _url, ...past } = before;
     entry.history = [...history, past];
@@ -89,7 +90,7 @@ export function supersedeDecline(vaultPath, url, reason, { onlyAutomatic = false
   const entry = entries.find((e) => normalizeUrl(e.url).toLowerCase() === n && !e.superseded);
   if (!entry) return { done: false, why: 'none' };
   if (onlyAutomatic && !isAutomaticDecline(entry)) return { done: false, why: 'not-automatic' };
-  entry.superseded = { reason, date: new Date().toISOString().slice(0, 10) };
+  entry.superseded = { reason, date: localDate() };
   writeFileSync(storePath(vaultPath), JSON.stringify(entries, null, 2));
   return { done: true };
 }

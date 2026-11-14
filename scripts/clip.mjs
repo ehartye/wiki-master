@@ -24,6 +24,7 @@ import { findTwin, twinPage } from './lib/twin.mjs';
 import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
 import { unopenedTabsNote, retryKeptNote, shortfallNote } from './lib/clip-notes.mjs';
 import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
+import { localDate } from './lib/local-date.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -179,7 +180,7 @@ function suppliedTextPage(url, text) {
 }
 // What the address says the page is, for the login-form check. The text's own heading would always find itself in the text.
 function addressTitle(url) { return plainTextPage(url, '').title.replace(/[-_.+]+/g, ' '); }
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() { return localDate(); }
 function normalizeWord(w) { return String(w).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 // A short extraction (< THIN_WORD_FLOOR words) has more than one possible cause,

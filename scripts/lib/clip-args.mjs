@@ -10,6 +10,8 @@
 //   flags    options written bare (a name in both `values` and `flags` may be either)
 //   spaced   options that may also take their value as the next token (`--clipping path`)
 //   lead     options allowed as the very first token, where a positional is otherwise expected
+//   enums    options whose value must be one of a fixed list (`--quality`: high, medium or low, lowercase)
+import { QUALITY_TIERS } from './quality-tiers.mjs';
 
 export const CLIP_SPECS = {
   "clip": {
@@ -194,6 +196,12 @@ for (const spec of Object.values(CLIP_SPECS)) {
   spec.usage.splice(at < 0 ? spec.usage.length : at + 1, 0, ...DECLINE_USAGE);
 }
 
+// Every clipper takes the same quality tiers. A value outside them used to be written into frontmatter as it was.
+for (const spec of Object.values(CLIP_SPECS)) spec.enums = { quality: QUALITY_TIERS };
+
+// "high, medium or low"
+const choices = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} or ${list.at(-1)}`);
+
 // null-safe, side-effect free. Returns { ok: true }, { help: true } or { error }.
 export function checkClipArgs(argv, spec) {
   if (argv.some((a) => a === '--help' || a === '-h')) return { help: true };
@@ -206,6 +214,8 @@ export function checkClipArgs(argv, spec) {
     const eq = token.indexOf('=');
     const name = eq < 0 ? token.slice(2) : token.slice(2, eq);
     if (eq >= 0) {
+      const allowed = spec.enums?.[name], value = token.slice(eq + 1);
+      if (allowed && !allowed.includes(value)) return { error: `--${name} must be ${choices(allowed)} (got "${value}")` };
       if (spec.values.includes(name)) continue;
       return { error: `unknown option --${name}` };
     }

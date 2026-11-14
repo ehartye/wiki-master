@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { DECLINE_TTL_DAYS, loadDeclines, recordDecline, isDeclined, readDeclineLog, declineExpiry } from '../scripts/lib/decline.mjs';
 import { declineGate } from '../scripts/lib/decline-gate.mjs';
 import { main as clip } from '../scripts/clip.mjs';
+import { localDate } from '../scripts/lib/local-date.mjs';
 
 // A decline could only be lifted from inside a clip, and the clip answers "duplicate" before it ever gets there when the
 // page is already in the vault. Measured on 2026-10-29 with a declined, already clipped URL: `clip.mjs <url>
@@ -18,7 +19,8 @@ const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'd
 const CLIP = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts', 'clip.mjs');
 const U = 'https://example.com/docs/guide';
 const V = 'https://example.com/docs/other';
-const today = () => new Date().toISOString().slice(0, 10);
+// A decline is stamped with the local day (lib/local-date.mjs); the backdated inputs below are far from any boundary.
+const today = () => localDate();
 const daysAgo = (n) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);
 
 function vault(t) {
