@@ -1,7 +1,8 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { open as fsOpen, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { isIncompleteChain, systemDownloader, systemDownloadArgs, incompleteChainReason } from './tls-chain.mjs';
 
 // Downloading a PDF for clip-pdf.mjs. There is no size cap, as there is none on a local file, so the guard against a download
 // that never ends is a stall limit: no data for this long, and it stops. A slow download that keeps moving finishes however
@@ -31,7 +32,54 @@ export async function openFile(path, open = fsOpen) {
 
 const fail = (code, reason) => ({ ok: false, code, reason });
 
-async function stream(url, dest, { stallMs, openWriter, fetchImpl }) {
+// A source of bytes for stream(): `open(signal)` answers { failure } or { read, stop, end }. `read()` gives the next chunk, or null
+// at the end; `stop()` drops the rest unread; `end()` is asked once the bytes are through and answers a failure or null. Aborting
+// the signal ends the source.
+const fromFetch = (url, fetchImpl) => async (signal) => {
+  let response;
+  try { response = await fetchImpl(url, { redirect: 'follow', signal }); }
+  catch (error) {
+    if (signal.aborted) throw error;
+    return { failure: { ...fail('FETCH', `${String(error?.cause?.message ?? error?.message ?? error).slice(0, 120)}`), incompleteChain: isIncompleteChain(error) } };
+  }
+  if (response.status !== 200) return { failure: fail('HTTP', `the server answered ${response.status}`) };
+  const reader = response.body.getReader();
+  return {
+    read: async () => { const { done, value } = await reader.read(); return done ? null : value; },
+    stop: () => reader.cancel().catch(() => {}),
+    end: async () => null,
+  };
+};
+
+// The system downloader writing the file to its standard output, so the same first-bytes check, stall limit and writer apply to it.
+// It verifies the certificate itself (see tls-chain.mjs); when it fails, its own error text is the reason.
+const fromSystem = (tool, url, spawnImpl) => async (signal) => {
+  const child = spawnImpl(tool.command, systemDownloadArgs(url), { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  let said = '';
+  child.stderr?.on('data', (d) => { if (said.length < 2000) said += d; });
+  const closed = new Promise((resolve) => {
+    child.once('error', (error) => resolve({ error }));
+    child.once('close', (code, killedBy) => resolve({ code, killedBy }));
+  });
+  const kill = () => { try { child.kill(); } catch { /* already gone */ } };
+  signal.addEventListener('abort', kill, { once: true });
+  const chunks = child.stdout[Symbol.asyncIterator]();
+  return {
+    read: async () => { try { const { done, value } = await chunks.next(); return done ? null : value; } catch { return null; } },
+    stop: async () => { kill(); },
+    end: async () => {
+      const { error, code, killedBy } = await closed;
+      if (!error && code === 0) return null;
+      const text = said.replace(/\s+/g, ' ').trim();
+      const status = code === 22 ? /error: (\d{3})\b/.exec(text)?.[1] : null;
+      if (status) return fail('HTTP', `the server answered ${status}`);
+      const how = error ? `${tool.name} could not be started: ${error.code ?? error.message}` : `${tool.name} ${killedBy ? `stopped by ${killedBy}` : `exit ${code}`}`;
+      return fail('CHAIN', incompleteChainReason(`${how}${!error && text ? `: ${text.slice(0, 160)}` : ''}`));
+    },
+  };
+};
+
+async function stream(dest, { stallMs, openWriter, open }) {
   const controller = new AbortController();
   let timer;
   let stalled = false;
@@ -39,17 +87,17 @@ async function stream(url, dest, { stallMs, openWriter, fetchImpl }) {
     clearTimeout(timer);
     timer = setTimeout(() => { stalled = true; controller.abort(); }, stallMs);
   };
+  const stall = () => fail('STALL', `the download stalled: no data for ${Number((stallMs / 1000).toFixed(1))} seconds`);
   let writer = null;
   try {
     arm();
-    const response = await fetchImpl(url, { redirect: 'follow', signal: controller.signal });
-    if (response.status !== 200) return fail('HTTP', `the server answered ${response.status}`);
-    const reader = response.body.getReader();
+    const source = await open(controller.signal);
+    if (source.failure) return source.failure;
     let head = Buffer.alloc(0);
     let bytes = 0;
     for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      const value = await source.read();
+      if (value === null) break;
       arm();
       const chunk = Buffer.from(value);
       if (writer) { await writer.write(chunk); bytes += chunk.length; continue; }
@@ -57,16 +105,20 @@ async function stream(url, dest, { stallMs, openWriter, fetchImpl }) {
       if (head.length < MAGIC.length) continue;
       // Decided on the first bytes: anything else is not read further, and nothing is written for it.
       if (!head.subarray(0, MAGIC.length).equals(MAGIC)) {
-        await reader.cancel().catch(() => {});
+        await source.stop();
         return fail('NOT_PDF', NOT_PDF);
       }
       writer = await openWriter(dest);
       await writer.write(head);
       bytes = head.length;
     }
+    if (stalled) return stall();
+    const failure = await source.end();
+    if (stalled) return stall();
+    if (failure) return failure;
     return writer ? { ok: true, bytes } : fail('NOT_PDF', NOT_PDF);
   } catch (error) {
-    if (stalled) return fail('STALL', `the download stalled: no data for ${Number((stallMs / 1000).toFixed(1))} seconds`);
+    if (stalled) return stall();
     if (error?.code === 'ENOSPC') return fail('ENOSPC', 'the disk is full (ENOSPC): the PDF could not be written');
     if (writer) return fail('WRITE', `the PDF could not be written: ${String(error?.message ?? error).slice(0, 120)}`);
     return fail('FETCH', `${String(error?.cause?.message ?? error?.message ?? error).slice(0, 120)}`);
@@ -77,10 +129,24 @@ async function stream(url, dest, { stallMs, openWriter, fetchImpl }) {
   }
 }
 
-// { ok: true, bytes } | { ok: false, code, reason }, where code is HTTP, NOT_PDF, STALL, ENOSPC, WRITE or FETCH. A download that
+// { ok: true, bytes } | { ok: false, code, reason }, where code is HTTP, NOT_PDF, STALL, ENOSPC, WRITE, FETCH or CHAIN. A download that
 // fails leaves no file.
-export async function streamPdf(url, dest, { stallMs = STALL_MS, openWriter = openFile, fetchImpl = fetch } = {}) {
-  const outcome = await stream(url, dest, { stallMs, openWriter, fetchImpl });
+//
+// One retry, for one error: when the server sends an incomplete certificate chain, the file is fetched once more by the system
+// downloader, which completes the chain and verifies it against the operating system's trust (tls-chain.mjs). Verification is never
+// turned off. A success by that route carries `via: 'system-downloader'`; when there is no such downloader, or it fails too, the
+// code is CHAIN and the reason names the route that works. `systemTool` is null where the system has none; a test supplies its own,
+// and `spawnImpl` to start it.
+export async function streamPdf(url, dest, { stallMs = STALL_MS, openWriter = openFile, fetchImpl = fetch, systemTool = systemDownloader(), spawnImpl = spawn } = {}) {
+  let { incompleteChain, ...outcome } = await stream(dest, { stallMs, openWriter, open: fromFetch(url, fetchImpl) });
+  if (incompleteChain) {
+    await rm(dest, { force: true });
+    if (!systemTool) outcome = fail('CHAIN', incompleteChainReason());
+    else {
+      outcome = await stream(dest, { stallMs, openWriter, open: fromSystem(systemTool, url, spawnImpl) });
+      if (outcome.ok) outcome = { ...outcome, via: 'system-downloader' };
+    }
+  }
   if (!outcome.ok) await rm(dest, { force: true });
   return outcome;
 }

@@ -191,6 +191,7 @@ const REVIEWED_DYNAMIC = {
   'scripts/lib/cli-transport.mjs command': 'the Obsidian CLI, through its gate',
   'scripts/lib/pdf-doctor.mjs command': 'the PDF tools being probed',
   'scripts/lib/pdf-doctor.mjs taskkill': 'the Windows taskkill, stopping its own probe',
+  'scripts/lib/pdf-download.mjs tool.command': 'the operating system\'s curl by its system path (lib/tls-chain.mjs), for one download',
   'scripts/lib/pdf-figures.mjs cmd': 'poppler tools, by name or by resolved path',
   'scripts/lib/pdf-figures.mjs tools.pdftoppm': 'poppler',
   'scripts/lib/prerequisites.mjs command': 'run(): the callers name tasklist, /bin/ps or a git call the scan reads where it is made',
