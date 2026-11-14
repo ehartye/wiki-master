@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
+import { newProbe, probeWriters, probeReport, printProbe, vaultStanding } from './lib/clip-probe.mjs';
 import { optionValue } from './lib/cli-guard.mjs';
 import { classifyRenderOutcome } from './lib/render.mjs';
 import { coverageWarnings, formatCoverage } from './lib/expand.mjs';
@@ -27,6 +28,9 @@ import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appen
 import { localDate } from './lib/local-date.mjs';
 
 export const THIN_WORD_FLOOR = 100;
+
+// The names clipCore calls to write to the vault and to print. A probe (lib/clip-probe.mjs) swaps them for recorders.
+const VAULT_WRITERS = { recordDecline, recordIssue, closeIssuesResolvedByClip, console };
 
 // A meta <description>'s DISTINCTIVE words (len > 5, so common short function
 // words don't count) must reach this count before it's treated as "substantive"
@@ -555,6 +559,9 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   const readText = fetchText ?? (extract === runDefuddleJson ? fetchPlainText : () => ({ ok: false, reason: 'extraction is injected' }));
   const probeTwin = fetchTwin ?? (extract === runDefuddleJson ? fetchTwinText : () => ({ ok: false, reason: 'extraction is injected' }));
   if (argv.slice(1).includes('--list')) return refuse('--list must be the first argument');
+  // --probe writes nothing, so it is refused with any option that asks for a write.
+  const conflict = probeConflict(argv, CLIP_SPECS['clip']);
+  if (conflict) return refuse(conflict);
   // --ledger is checked before anything is read, so a refused ledger leaves the vault as it was.
   const ledger = optionValue(argv, 'ledger');
   if (ledger !== undefined) {
@@ -593,7 +600,8 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
     refused(refusal);
     process.exit(2);
   }
-  const { exit, requested, ...result } = clipUrl(url, argv, deps);
+  const { exit, requested, probe, ...result } = clipUrl(url, argv, deps);
+  if (probe) printProbe(probe);
   // A missing extraction runtime is recorded like any outcome, then ends the command.
   record(result);
   if (exit === 1) process.exit(1);
@@ -669,13 +677,16 @@ function runList(argv, rootDeps, { text }) {
     if (problem) {
       console.error(`line ${n}: ${problem}`);
       outcome = { url: redactAddress(line), topic: parseTopicArg(argv), status: 'error', error: problem };
+      if (argv.includes('--probe')) outcome.probe = probeReport({ url: outcome.url, result: outcome, probe: newProbe() });
     } else {
       const host = new URL(line).host;
       if (awaiting.delete(host)) deps.sleep(1000);
       outcome = clipUrl(line, argv, deps);
       if (outcome.requested) awaiting.add(host);
     }
-    const { exit, requested, ...result } = outcome;
+    const { exit, requested, probe, ...result } = outcome;
+    // A probe run prints one JSON line per address, in the file's order.
+    if (probe) printProbe(probe);
     deps.record(result);
     // The address that found the runtime missing has its row, but it is not counted among the URLs that were clipped or refused.
     if (exit === 1) { stopped = n; break; }
@@ -684,7 +695,8 @@ function runList(argv, rootDeps, { text }) {
   }
   const order = [...counts.keys()].sort((a, b) => (OUTCOME_ORDER.indexOf(a) + 1 || 99) - (OUTCOME_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b));
   const done = stopped ? `stopped at line ${stopped}, after ${outcomes.length} URLs` : `${outcomes.length} URLs`;
-  console.log(`list: ${done}${order.length ? `: ${order.map((k) => `${k} ${counts.get(k)}`).join(', ')}` : ''}`);
+  // A probe run keeps stdout for its JSON lines, so the count goes to stderr.
+  (argv.includes('--probe') ? console.error : console.log)(`list: ${done}${order.length ? `: ${order.map((k) => `${k} ${counts.get(k)}`).join(', ')}` : ''}`);
   if (stopped) process.exitCode = 1;
   return { status: stopped ? 'error' : 'list', counts: Object.fromEntries(order.map((k) => [k, counts.get(k)])), outcomes };
 }
@@ -694,12 +706,19 @@ function runList(argv, rootDeps, { text }) {
 // `requested` says whether a request went out to the address's host (true unless an outcome says otherwise), which is what the wait
 // between two addresses on one host is owed for: a duplicate found after the plain-text twin probe or a lost write did request.
 function clipUrl(url, argv, deps) {
-  const outcome = clipCore(url, argv, deps);
+  // --probe: the same clipCore, with the vault writers recording and a return before the write (lib/clip-probe.mjs).
+  const probe = argv.includes('--probe') ? newProbe() : null;
+  const outcome = clipCore(url, argv, deps, probe);
   const topic = parseTopicArg(argv);
-  return { url, ...(topic && { topic }), requested: true, ...outcome };
+  const result = { url, ...(topic && { topic }), requested: true, ...outcome };
+  // A refused command (exit 2) and a missing runtime (exit 1) say nothing about the address, so they print no probe line.
+  if (!probe || outcome.exit) return result;
+  return { ...result, probe: probeReport({ url, result, probe, standing: vaultStanding(resolveVault().path, url) }) };
 }
 
-function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }) {
+function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }, probe = null) {
+  // Every vault write and every stdout line below goes through these four names. In a probe they record instead of writing.
+  const { recordDecline, recordIssue, closeIssuesResolvedByClip, console } = probe ? probeWriters(probe) : VAULT_WRITERS;
   // A reason from the browser can quote an address the page sent it to. It is made safe here, once, before anything prints or stores it.
   const render = (target, options) => {
     const r = renderPage(target, options);
@@ -910,6 +929,8 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   // describe what the vault will actually quote.
   // Supplied text is the page as the person saved it, so the archive banner is not stripped from it.
   let md = manual?.kind === 'text' || extraction === 'plaintext-twin' ? data.contentMarkdown : stripArchiveChrome(data.contentMarkdown || data.content || '');
+  // What a probe adds to an outcome that read the page: how it was read, how many words it kept and what it is called.
+  const measured = (result) => (probe ? { ...result, words: wordCount(md), extraction, title: data.title ?? null } : result);
   // A thin extraction off the STATIC html is the exact signature of a page whose
   // article is built client-side: docs.mealie.io serves 299 words of markup that
   // Defuddle reduces to "Back to top". Re-reading it from a rendered DOM is the
@@ -953,7 +974,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
         : `thin content: the supplied file has ${wordCount(md)} words (a page needs ${THIN_WORD_FLOOR})`;
       recordIssue(vaultPath, { url, kind: verdict.kind === 'wrong_node' ? 'wrong-node' : 'thin', reason, topic });
       console.log(`not clipped (${reason}; triage recorded, not declined): ${url}`);
-      return { status: 'thin', reason };
+      return measured({ status: 'thin', reason });
     }
     if (verdict.kind !== 'short_real_article') {
       // The browser reached for the page and did not read it. Unlike `unavailable`,
@@ -994,7 +1015,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
       console.log(unread
         ? `${label} (${route}): ${url}; triage recorded; not declined — ${notRead}`
         : `${label} (${route}; ${recorded}): ${url}`);
-      return { status: 'thin', reason };
+      return measured({ status: 'thin', reason });
     }
     // else: short_real_article — fall through and clip as a genuine, if brief, article.
   }
@@ -1008,7 +1029,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     console.log(manual
       ? `not clipped (the supplied file is a login, consent or age-gate page, not the page; triage recorded, not declined): ${url}`
       : `login, consent or age-gate page (save the page from a signed-in browser and record it with clip.mjs <url> --from-file <path>; triage recorded, not declined): ${url}`);
-    return { status: 'thin', reason: shell.reason };
+    return measured({ status: 'thin', reason: shell.reason });
   }
 
   if (coverage) {
@@ -1091,6 +1112,8 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     }
     return { clash: true, existing: `${stem}${suffixFor(1)}` };
   };
+  // A probe ends here. Everything above is what a clip does before it writes; everything below chooses a name and writes.
+  if (probe) return withNotes(measured({ status: 'clipped', title: build(1).title, quality, fidelity: data.fidelityWarnings?.length ? 'partial' : 'high' }));
   let slug = null;
   let clashWith = null;
   let lostTo = null;

@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveVault } from './lib/vault.mjs';
-import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
+import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
+import { newProbe, probeWriters, probeReport, printProbe, vaultStanding, PROBE_OCR_PAGES } from './lib/clip-probe.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
@@ -298,11 +299,12 @@ export function toolFailure(tool, action, error, hide = []) {
 //
 // A tool that fails (a damaged PDF the rasterizer cannot open, a page Tesseract rejects) throws an Error whose message is
 // toolFailure's line; the caller reports it as an outcome. `run` is execFileSync; a test supplies its own.
-export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng', run = execFileSync } = {}) {
+// `lastPage` stops after that page: a probe recognises a sample, not the document.
+export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng', lastPage, run = execFileSync } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'clip-ocr-'));
   const hide = [dir, pdfPath];
   try {
-    try { run('pdftoppm', ['-png', '-r', String(dpi), pdfPath, join(dir, 'page')], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] }); }
+    try { run('pdftoppm', ['-png', '-r', String(dpi), ...(lastPage ? ['-f', '1', '-l', String(lastPage)] : []), pdfPath, join(dir, 'page')], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'] }); }
     catch (e) { throw new Error(toolFailure('pdftoppm', 'rasterize the PDF', e, hide)); }
     const imgs = readdirSync(dir)
       .filter((f) => f.endsWith('.png'))
@@ -315,6 +317,34 @@ export function pdfToTextOcr(pdfPath, { dpi = 300, lang = 'eng', run = execFileS
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// How many pages a PDF has: pdftotext ends every page with a form feed, a page with no text layer included. null when it cannot say.
+export function pdfPageCount(pdfPath, { extract = pdfToText } = {}) {
+  try { return (extract(pdfPath).match(/\f/g) || []).length || null; } catch { return null; }
+}
+
+// The names clipPdf calls to write to the vault, to print and to choose between the text layer and OCR. A probe
+// (lib/clip-probe.mjs) swaps the writers for recorders, and recognises only the first pages of a PDF that goes to OCR, noting how
+// many of how many it read.
+const VAULT_WRITERS = { recordDecline, recordIssue, closeIssuesResolvedByClip, console, preferBetterExtraction };
+// What a sample's word count comes to over the whole document; the count itself when every page was sampled or the total is unknown.
+function projectedWords(sample, words) {
+  return sample?.pages > sample?.pagesSampled ? Math.round((words / sample.pagesSampled) * sample.pages) : words;
+}
+function probeNames(probe, ocr) {
+  return {
+    ...probeWriters(probe),
+    ocrText: (pdfPath, options) => {
+      const text = ocr.recognise(pdfPath, { ...options, lastPage: PROBE_OCR_PAGES });
+      const pages = ocr.pageCount(pdfPath);
+      probe.ocr = { pagesSampled: Math.min(PROBE_OCR_PAGES, pages ?? PROBE_OCR_PAGES), pages, words: wordCount(text) };
+      return text;
+    },
+    // A sample is judged by what it projects to: beside a thin text layer, OCR's text is kept when the whole document would clear the floor.
+    preferBetterExtraction: (textClip, ocrClip) => (textClip.wordCount < THIN_WORD_FLOOR && projectedWords(probe.ocr, ocrClip.wordCount) >= THIN_WORD_FLOOR
+      ? ocrClip : preferBetterExtraction(textClip, ocrClip)),
+  };
 }
 
 // Escalate to OCR on QUALITY as well as quantity. A broken/symbol-font text layer
@@ -515,7 +545,8 @@ function titleFromUrl(url) {
 // A download needs a folder, and every way out of the run removes it, process.exit included.
 // `download(url, dest)` fetches the PDF, `toolchain` reports the external tools, `extractText(pdfPath)` reads the text layer and
 // `pdfTitle(pdfPath)` the document's own title, and `ocrAvailable()` and `ocrText(pdfPath, { lang })` are the OCR fallback; a test
-// supplies them, so it needs no network, pdftotext, pdfinfo, pdftoppm or Tesseract.
+// supplies them, so it needs no network, pdftotext, pdfinfo, pdftoppm or Tesseract. `ocrPages(pdfPath)` is the page count a probe
+// measures its OCR sample against.
 export function main(argv, deps = {}) {
   const scratch = { dir: null };
   const cleanup = () => {
@@ -523,11 +554,26 @@ export function main(argv, deps = {}) {
     scratch.dir = null;
   };
   process.on('exit', cleanup);
-  try { return clipPdf(argv, deps, scratch); }
+  // --probe: the same clipPdf, with the vault writers recording, OCR on a sample and a return before the write.
+  const probe = argv.includes('--probe') ? newProbe() : null;
+  try {
+    const result = clipPdf(argv, deps, scratch, probe);
+    // `source` is set once the run has a vault and an address to answer for; an earlier exit prints no probe line.
+    if (probe?.source) printProbe(probeReport({ url: probe.source, result, probe, standing: vaultStanding(probe.vaultPath, probe.source) }));
+    return result;
+  }
   finally { cleanup(); process.off('exit', cleanup); }
 }
 
-function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle, ocrAvailable = ocrReachable, ocrText = pdfToTextOcr } = {}, scratch) {
+function clipPdf(argv, { toolchain = toolchainReport, extractText, download = downloadPdf, pdfTitle = pdfinfoTitle, ocrAvailable = ocrReachable, ocrText: recognise = pdfToTextOcr, ocrPages = pdfPageCount } = {}, scratch, probe = null) {
+  // Every vault write, every stdout line and every OCR pass below goes through these names; in a probe they record, stay quiet and sample.
+  const { recordDecline, recordIssue, closeIssuesResolvedByClip, console, ocrText, preferBetterExtraction } = { ocrText: recognise, ...(probe ? probeNames(probe, { recognise, pageCount: ocrPages }) : VAULT_WRITERS) };
+  const conflict = probeConflict(argv, CLIP_SPECS['clip-pdf']);
+  if (conflict) {
+    console.error(`clip-pdf.mjs: ${conflict}`);
+    for (const line of CLIP_SPECS['clip-pdf'].usage) console.error(line);
+    process.exit(2);
+  }
   const arg = argv[0];
   const isUrl = /^https?:\/\//i.test(arg ?? '');
   let pdfPath = arg;
@@ -587,6 +633,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   const topic = parseTopicArg(argv);
 
   const { path: vaultPath } = resolveVault();
+  if (probe) Object.assign(probe, { source, vaultPath });
 
   if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);
 
@@ -699,12 +746,20 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     }
   }
 
+  // A probe's OCR read a sample. When the sample is not the whole document, the thin verdict is projected from the words per sampled
+  // page, and the report says it is an estimate: two sparse opening pages must not condemn a long scanned document.
+  const sampled = probe?.ocr && !(probe.ocr.pages <= probe.ocr.pagesSampled) ? probe.ocr : null;
+  if (sampled && (clip.extraction === 'ocr' || clip.wordCount < THIN_WORD_FLOOR)) probe.estimate = true;
+  if (sampled && clip.extraction === 'ocr' && clip.wordCount < THIN_WORD_FLOOR && projectedWords(sampled, clip.wordCount) >= THIN_WORD_FLOOR) {
+    return { status: 'clipped', title, titleSource: named.titleSource, words: clip.wordCount, extraction: clip.extraction, fidelity: clip.fidelity };
+  }
+
   if (clip.wordCount < THIN_WORD_FLOOR) {
     const outcome = thinOutcome({ ocrAvailable: ocrAvailable() });
     if (outcome.decline) recordDecline(vaultPath, source, outcome.reason);
     console.log(`thin text layer: ${arg}`);
     console.log(outcome.message);
-    return { status: outcome.status };
+    return { status: outcome.status, ...(probe && { words: clip.wordCount, extraction: clip.extraction ?? 'text', title, reason: outcome.reason ?? outcome.message.split('\n')[0] }) };
   }
 
   const dir = join(vaultPath, 'raw', 'clippings');
@@ -725,6 +780,8 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   // to share a title (or a case-variant of one). Disambiguate instead of dropping
   // it — silently losing a distinct source is worse than a suffixed slug.
   // Case-insensitive to match the filesystem and Obsidian's wikilink resolution.
+  // A probe ends here. Everything above is what a clip does before it writes; everything below chooses a name and writes.
+  if (probe) return { status: 'clipped', title, titleSource: named.titleSource, words: clip.wordCount, extraction: clip.extraction ?? 'text', fidelity: clip.fidelity };
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
   const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
   if (claim.clash) return { status: 'clash', existing: claim.existing };

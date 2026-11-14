@@ -18,21 +18,24 @@ clippings; a PDF, Word, PowerPoint, spreadsheet, GitHub or Confluence source has
 
 It blocks unreliable domains, skips duplicates, checks the decline log, extracts with Defuddle and writes
 `raw/clippings/<slug>.md` with `source`, `created`, `tags: [clippings]`, `quality`, `topic` and `source-hash`.
+`created` is the local day on the machine that clipped, not the UTC day; a decline is dated the same way.
 
 ## Options
 
 | Option | Use |
 |---|---|
-| `--quality=high\|medium\|low`, `--topic="<t>"` | On every clip of a run; the same topic string each time. |
+| `--quality=high\|medium\|low`, `--topic="<t>"` | On every clip of a run; the same topic string each time. Any other `--quality` value (`official`, `High`, an empty value) exits 2 and clips nothing. |
 | `--expand` | Open the page's tabs and collapsed panels in a browser and store all of them. See [tabs](#tabs-and-expansion). |
 | `--recapture` | A dated second capture of a URL already clipped. See [recapture](#a-second-capture-of-a-page). |
 | `--from-file <path>` | A page a person saved. See [saved pages](#a-page-a-person-saved). |
 | `--find-twin` | Print the plain-text twin of a page that clipped with a partial fidelity warning. Writes nothing. |
+| `--probe` | What a clip of this address would do, with nothing written, as one JSON line. See [a probe](#a-probe). |
 | `--list <file>`, `--ledger <file>` | Many addresses; a machine-readable result per address. See [lists](#lists-and-the-ledger). |
 | `--slug <name>` or `--slug=<name>` | The file name, without `.md`. A taken name is a `clash`: nothing is written and nothing is suffixed. |
 | `--decline="<reason>"`, `--override-decline`, `--supersede-decline="<why>"` | Record a rejection; lift a decline the clippers recorded themselves; lift any decline and say why. |
 
-An option `clip.mjs` does not know exits 2 with its usage and clips nothing; `--help` prints the usage.
+An option `clip.mjs` does not know exits 2 with its usage and clips nothing; `--help` prints the usage. A `--quality` value
+other than `high`, `medium` or `low` (lowercase) exits 2 the same way, with `--quality must be high, medium or low (got "<value>")`.
 
 ## The fetch ladder
 
@@ -245,11 +248,41 @@ The ledger file must be outside `raw/` and `wiki/` of the vault, judged by where
 UNC spellings of those folders included): a path inside them exits 2 before anything is clipped, as does one that cannot be appended
 to. A write that fails later is reported once; the run goes on without rows and ends with exit 2.
 
+## A probe
+
+`clip.mjs "<url>" --probe` answers what a clip of the address would do, and writes nothing to the vault: no clipping, no
+decline, no triage row, no ledger line, no closed triage row. It is the clip itself, run up to the point where a file name
+would be chosen: the duplicate and decline lookups, the [fetch ladder](#the-fetch-ladder) with the browser render, the
+extraction, and the thin, wrong-node and login-page checks. Use it to learn whether a page can be captured before capture is
+authorized; [discovery](discover.md) gives it to finders.
+
+It prints one JSON line on stdout and one line for a person on stderr, and exits 0 whatever the outcome, `thin` and `blocked`
+included. Exit 2 is a refused command and exit 1 a missing extraction runtime, as for a clip; neither prints a JSON line.
+
+| Field | Meaning |
+|---|---|
+| `url` | The address probed. |
+| `outcome` | What a clip would have returned: `clipped`, `duplicate`, `declined`, `blocked`, `thin`, `wrong-node`, `failed`, `gone` or `error`; from `clip-pdf.mjs` also `ocr-unavailable`. |
+| `extraction` | How the text was read: `text`, `rendered`, `plaintext`, `plaintext-twin`, `manual`; from `clip-pdf.mjs` also `ocr` and `table-aware`. `null` when nothing was read. |
+| `words`, `title` | The word count of the text a clip would store and the title it would carry. `null` when nothing was read. |
+| `captured`, `existing` | Whether the vault already holds the address, and the clipping that does. |
+| `declined`, `declineReason` | Whether the address has an active decline, and its reason. |
+| `reason` | Why the outcome is not `clipped`, in the clipper's words. |
+| `wouldDecline`, `wouldQueue` | Whether a clip would record a decline, and whether it would add a triage row. The probe does neither. |
+| `ocr`, `estimate` | From `clip-pdf.mjs`: `{ pagesSampled, pages, words }` when OCR ran on a sample, and whether the outcome is projected from it. See [PDF capture](clip-pdf.md#steps). |
+
+- A duplicate or a declined address is reported as that outcome and is not fetched, as in a clip.
+- `--probe` takes `--from-file`, `--expand`, `--quality` and `--topic`. With `--list <file>` it prints one JSON line per address, in
+  order, and the count line goes to stderr.
+- It is refused with exit 2 and the usage beside an option that asks for a write: `--decline`, `--slug`, `--recapture`, `--ledger`,
+  `--find-twin`, `--override-decline` and `--supersede-decline`.
+- Temp files of the browser render are removed. A probe does request the page, so the host sees the same requests as for a clip.
+
 ## A second capture of a page
 
 `clip.mjs "<url>" --recapture` fetches the page and runs the usual checks. If the text is new it writes a second clipping beside
 the first and never edits the older one. Its name is the oldest capture's name followed by ` (recaptured YYYY-MM-DD)`, with the same
-suffix on its `title`, `recapture-of` naming the newest existing capture, and `created` today. A second recapture on the same day
+suffix on its `title`, `recapture-of` naming the newest existing capture, and `created` today (the local day, as in the suffix). A second recapture on the same day
 with different text is ` (recaptured YYYY-MM-DD 2)`, then `3`, on name and title. Text identical to any capture of the URL writes
 nothing and prints `unchanged`. `--slug` with `--recapture` is used exactly, with no suffix, and a taken name is a `clash`. Without
 the flag the same URL is a `duplicate`.
