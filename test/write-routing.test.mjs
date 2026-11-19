@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -38,6 +38,8 @@ const roleHelpers = [
 
 test('descriptor aliases outside a registered root fail with configuration exit 2 in direct helpers', () => {
   const f = fixture(), descriptor = join(f.entries[1].path, 'VAULT.md');
+  // Registry resolution canonicalizes the parent root, including Windows 8.3 names.
+  const diagnosticPath = join(realpathSync.native(f.entries[1].path), 'VAULT.md');
   unlinkSync(descriptor);
   symlinkSync(f.entries[0].path, descriptor, process.platform === 'win32' ? 'junction' : 'dir');
   const before = snapshot(f.root);
@@ -45,7 +47,7 @@ test('descriptor aliases outside a registered root fail with configuration exit 
     const r = run(f, name, args, { WIKI_MASTER_VAULT_ID: name === 'clip-docx' ? 'research-one' : 'docs' });
     assert.equal(r.status, 2, `${name}: ${r.stderr}`);
     assert.match(r.stderr, /outside the selected vault/i);
-    assert.ok(r.stderr.includes(descriptor), `${name} identifies the invalid descriptor`);
+    assert.ok(r.stderr.includes(diagnosticPath), `${name} identifies the invalid descriptor: ${r.stderr}`);
     assert.equal(r.stderr.trim().split(/\r?\n/).length, 1, `${name} reports a diagnostic without a stack`);
     assert.deepEqual(snapshot(f.root), before);
   }
