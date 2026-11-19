@@ -137,7 +137,9 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   const allRaw=[...markdown(dir)];
   let files=targets===undefined?allRaw:targets;
   if(!Array.isArray(files)||!files.every(x=>typeof x==='string'))throw new Error('Targets must be a JSON path array');
-  if(targets!==undefined)files=[...new Set(files.map(p=>assertVaultPath(root,resolve(root,p))))];
+  // dir is already canonically inside this vault; retain the narrower clipping-scope
+  // check (including its established diagnostic) for every explicit target below.
+  if(targets!==undefined)files=[...new Set(files.map(p=>resolve(root,p)))];
   for(const path of files)if(!path.startsWith(dir+sep)||!path.endsWith('.md')||!realpathSync(path).startsWith(realpathSync(dir)+sep))throw new Error('Target outside clipping scope');
   // A recapture is a second clipping of a URL that names the first in `recapture-of`. A URL therefore no longer
   // identifies one capture: a request by URL repairs the newest and leaves the older evidence as it was written.
