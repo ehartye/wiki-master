@@ -6,18 +6,19 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNote } from './note.mjs';
+import { assertVaultPath } from './vault-path.mjs';
 
 export function readBacklogItems(vaultPath, startDir) {
   const items = [];
   (function walk(abs, rel) {
     let entries;
-    try { entries = readdirSync(abs, { withFileTypes: true }); } catch { return; }
+    try { entries = readdirSync(assertVaultPath(vaultPath, abs), { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (e.name.startsWith('.')) continue;
       if (e.isDirectory()) walk(join(abs, e.name), `${rel}/${e.name}`);
       else if (e.name.endsWith('.md')) {
         let markdown;
-        try { markdown = readFileSync(join(abs, e.name), 'utf8'); } catch { continue; }
+        try { markdown = readFileSync(assertVaultPath(vaultPath, join(abs, e.name)), 'utf8'); } catch { continue; }
         const { metadata, body } = parseNote(markdown);
         if (metadata.kind !== 'backlog-item') continue;
         items.push({

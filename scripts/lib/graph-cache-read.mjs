@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GRAPH_CACHE_FILE, graphCacheKey } from './graph.mjs';
@@ -39,7 +40,7 @@ const isExtra = extra => isObject(extra)
 // Returns { derive, entries, lookup(path, stat, wantExtra) } or null. `lookup` gives { page, extra? } or null.
 export function readGraphCache(vaultPath, { derive = INTEGRITY_DERIVE_ID, readFile = readFileSync } = {}) {
   let data;
-  try { data = JSON.parse(readFile(join(vaultPath, GRAPH_CACHE_FILE), 'utf8')); } catch { return null; }
+  try { data = JSON.parse(readFile(checkedPath(vaultPath, GRAPH_CACHE_FILE), 'utf8')); } catch { return null; }
   if (!isObject(data)) return null;
   for (const [field, value] of Object.entries(graphCacheKey(vaultPath, derive))) if (data[field] !== value) return null;
   const { entries } = data;

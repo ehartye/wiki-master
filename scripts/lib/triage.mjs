@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 import { readFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeUrl } from './url.mjs';
@@ -40,7 +41,7 @@ export const ISSUE_KINDS = [
 const LOG = 'triage.jsonl';
 
 function logPath(vaultPath) {
-  return join(vaultPath, '.wiki-master', LOG);
+  return checkedPath(vaultPath, '.wiki-master', LOG);
 }
 
 function key(url, kind) {
@@ -48,7 +49,7 @@ function key(url, kind) {
 }
 
 function append(vaultPath, event) {
-  mkdirSync(join(vaultPath, '.wiki-master'), { recursive: true });
+  mkdirSync(checkedPath(vaultPath, '.wiki-master'), { recursive: true });
   appendFileSync(logPath(vaultPath), JSON.stringify(event) + '\n');
   return event;
 }
@@ -242,7 +243,7 @@ export function pendingReclips(log) {
 }
 
 export function declinesNearingExpiry(vaultPath, { withinDays = 30 } = {}) {
-  const f = join(vaultPath, '.wiki-master', 'declined.json');
+  const f = checkedPath(vaultPath, '.wiki-master', 'declined.json');
   if (!existsSync(f)) return [];
   let entries;
   try {

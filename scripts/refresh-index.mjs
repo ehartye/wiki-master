@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // The last step of every authoring task: regenerates the catalogs and refreshes the semantic index for the whole vault.
 // It checks its prerequisites first and writes nothing unless all of them hold. Catalogs run before embedding because
 // writing a catalog changes its modification time, and embedding reads those times.
@@ -15,7 +16,7 @@ cliGuard(import.meta.url);
 
 const NAME = 'refresh-index';
 const OPTIONS = ['rebuild', 'status'];
-const dirOf = (vaultPath) => join(vaultPath, '.wiki-master');
+const dirOf = (vaultPath) => checkedPath(vaultPath, '.wiki-master');
 
 function reportStatus(hooks, { out }) {
   try {

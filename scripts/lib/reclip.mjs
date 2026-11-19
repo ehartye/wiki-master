@@ -1,3 +1,4 @@
+import { assertVaultPath, vaultPath as checkedPath } from './vault-path.mjs';
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdtempSync, rmSync, rmdirSync, openSync, readSync, closeSync, renameSync, realpathSync, mkdirSync, statSync } from 'node:fs';
 import { join, extname, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -126,16 +127,17 @@ async function runReclipsOwned({vaultPath,apply=false,includeTabular=false,targe
   if (!['reopen','quarantine'].includes(onFailure)) throw new Error('Invalid failure policy');
   if (!(limit>0) || (!Number.isInteger(limit) && limit!==Infinity)) throw new Error('Limit must be a positive integer');
   if (quarantineReason && targets===undefined) throw new Error('Quarantine needs explicit targets');
-  const root=resolve(vaultPath),dir=resolve(root,'raw','clippings');
+  const root=resolve(vaultPath),dir=checkedPath(root,'raw','clippings');
+  checkedPath(root,'wiki');
   const rel=path=>path.slice(root.length+1).split(sep).join('/');
   const conflict=message=>{const e=new Error(message);e.code='CONFLICT';throw e;};
-  const stateDir=join(root,'.wiki-master','reclip-transactions');
-  const statePath=path=>join(stateDir,createHash('sha256').update(rel(path)).digest('hex')+'.json');
+  const stateDir=checkedPath(root,'.wiki-master','reclip-transactions');
+  const statePath=path=>assertVaultPath(root,join(stateDir,createHash('sha256').update(rel(path)).digest('hex')+'.json'));
   const requested=new Map(pendingReclips(loadIssueLog(root)).map(r=>[norm(r.url),r]));
   const allRaw=[...markdown(dir)];
   let files=targets===undefined?allRaw:targets;
   if(!Array.isArray(files)||!files.every(x=>typeof x==='string'))throw new Error('Targets must be a JSON path array');
-  if(targets!==undefined)files=[...new Set(files.map(p=>resolve(root,p)))];
+  if(targets!==undefined)files=[...new Set(files.map(p=>assertVaultPath(root,resolve(root,p))))];
   for(const path of files)if(!path.startsWith(dir+sep)||!path.endsWith('.md')||!realpathSync(path).startsWith(realpathSync(dir)+sep))throw new Error('Target outside clipping scope');
   // A recapture is a second clipping of a URL that names the first in `recapture-of`. A URL therefore no longer
   // identifies one capture: a request by URL repairs the newest and leaves the older evidence as it was written.

@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -32,7 +33,7 @@ function* clippingFiles(dir, prefix='') {
 // frontmatter: fidelity, topic attribution and durable citation restrictions.
 // Read the complete header so a long figure list cannot hide its restriction.
 export function scanClippings(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
   if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [], active: [] };
   const flagged = [];
   const topics = [];
@@ -421,7 +422,7 @@ ${groups.join('\n')}`;
 // ========== Server plumbing ==========
 
 function sessionDir(vaultPath) {
-  return join(vaultPath, '.wiki-master', 'triage-ui');
+  return checkedPath(vaultPath, '.wiki-master', 'triage-ui');
 }
 
 async function serverAlive(info) {

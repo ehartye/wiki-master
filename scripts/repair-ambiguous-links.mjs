@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // Repair `ambiguous-link` issues that have exactly one safe answer, and report the rest with the reason.
 //
 // A bare wikilink such as [[architecture]] is ambiguous when two pages share the name. The one rule applied
@@ -31,7 +32,7 @@ const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() +
 export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclude = [], mapping = [], today = localDay() } = {}) {
   const issues = scanIntegrity(vaultPath).issues.filter((i) => i.rule === 'ambiguous-link');
   const texts = new Map();
-  const text = (page) => { if (!texts.has(page)) texts.set(page, readFileSync(join(vaultPath, page), 'utf8')); return texts.get(page); };
+  const text = (page) => { if (!texts.has(page)) texts.set(page, readFileSync(checkedPath(vaultPath, page), 'utf8')); return texts.get(page); };
   const context = (page, line) => (text(page).split('\n')[(line ?? 1) - 1] ?? '').replace(/\r$/, '').trim().slice(0, 160);
 
   const wantedByPage = new Map(); // page -> Map(lower target -> { path, class })
@@ -75,7 +76,7 @@ export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclud
     for (const [k, v] of wanted) if (repointBareLinks(original, new Map([[k, v.path]])).count) repointed.push({ page, target: v.issue.target, path: v.path, class: v.class });
     fixed += result.count;
     pages += 1;
-    if (apply) writeFileSync(join(vaultPath, page), bumpUpdated(result.text, today));
+    if (apply) writeFileSync(checkedPath(vaultPath, page), bumpUpdated(result.text, today));
   }
   return { applied: apply, fixed, pages, planned, repointed, reported, excluded };
 }

@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -27,7 +28,7 @@ export function writeLogEntry({ vaultPath, op, title, body = '', now = new Date(
   const { day, time } = stamp(now);
   const slug = slugify(title);
   const oneLineTitle = String(title).replace(/\s*\n\s*/g, ' ').trim();
-  const logDir = join(vaultPath, 'log');
+  const logDir = checkedPath(vaultPath, 'log');
   mkdirSync(logDir, { recursive: true });
   const base = `${day}-${time}-${op}-${slug}`;
   let file = `${base}.md`;

@@ -41,8 +41,8 @@ export class InputError extends Error {}
 const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 // The path rule every reader of a ledger shares.
-export function checkLedger(paths) {
-  try { return checkLedgerPaths(paths); } catch (error) { throw new InputError(error.message); }
+export function checkLedger(paths, vaultPath) {
+  try { return checkLedgerPaths(paths, vaultPath); } catch (error) { throw new InputError(error.message); }
 }
 
 // Does the file exist under exactly this spelling? A case-insensitive file system
@@ -195,7 +195,7 @@ function linkDefects(scan) {
 
 // `noCache` builds the graph cold; `readFile` replaces the read of the cache and of the vault's files, for tests.
 export function validateAuthored(vaultPath, paths, { termRules = null, termProjects = null, noCache = false, readFile } = {}) {
-  const entries = checkLedger(paths);
+  const entries = checkLedger(paths, vaultPath);
   try { if (!statSync(vaultPath).isDirectory()) throw new Error('not a directory'); }
   catch { throw new InputError(`vault not found: ${vaultPath}`); }
   const defects = [];

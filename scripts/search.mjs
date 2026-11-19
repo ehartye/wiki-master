@@ -3,6 +3,7 @@ import {
 } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fsKeywordSearch } from './lib/fs-keyword.mjs';
+import { assertVaultPath, vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
@@ -120,7 +121,23 @@ export function exactMatchGate(query, { phraseHits, paragraphHits }) {
 export async function createSearchContext({ vaultPath = resolveOperationVault('maintenance', { requireAvailable: false }).path,
   keywordSearchFn, embedFn = queryEmbed, checkAvailable = () => isAvailable({ fetchImpl: boundedFetch }) } = {}) {
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadChunkIndex(indexDir);
+  const boundaryDiagnostics = [];
+  let index;
+  try {
+    for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(indexDir, file));
+    index = loadChunkIndex(indexDir);
+  } catch (error) {
+    if (error.code !== 'OUTSIDE_VAULT') throw error;
+    index = { manifest: {}, vectors: {}, available: false };
+    boundaryDiagnostics.push({ code: 'outside-vault', path: '.wiki-master', message: error.message });
+  }
+  for (const path of Object.keys(index.manifest)) {
+    try { checkedPath(vaultPath, path); }
+    catch (error) {
+      delete index.manifest[path];
+      boundaryDiagnostics.push({ code: error.code === 'OUTSIDE_VAULT' ? 'outside-vault' : 'candidate-unreadable', path, message: error.message });
+    }
+  }
   const ollamaUp = await checkAvailable();
   const semanticRun = async (q, limit, options = {}) => semanticSearch(q, {
     vectors: index.vectors,
@@ -131,7 +148,7 @@ export async function createSearchContext({ vaultPath = resolveOperationVault('m
   });
   const names = buildNameIndex(Object.entries(index.manifest).map(([path, entry]) => ({
     path, name: basename(path, '.md').toLowerCase(), metadata: entry.metadata ?? {}, aliases: entry.aliases ?? [] })));
-  return { vaultPath, indexDir, index, ollamaUp, semanticRun, names,
+  return { vaultPath, indexDir, index, ollamaUp, semanticRun, names, boundaryDiagnostics,
     keywordSearchFn: keywordSearchFn ?? ((q, options) => fsKeywordSearch(q, { ...options, vaultPath })) };
 }
 
@@ -155,7 +172,7 @@ export async function main(query, options = {}) {
   const context = options.context ?? await createSearchContext({ vaultPath: options.vaultPath });
   const { vaultPath, index, ollamaUp, semanticRun, keywordSearchFn } = context;
   const poolLimit = Math.min(500, Math.max(100, limit * 5));
-  const diagnostics = [];
+  const diagnostics = [...(context.boundaryDiagnostics ?? [])];
   const catalog = Object.entries(index.manifest).filter(([path]) => inScope(path));
   const metadataComplete = catalog.length > 0 && catalog.every(([, e]) => e.metadataVersion === METADATA_VERSION);
   if (!metadataComplete) diagnostics.push({ code: 'metadata-incomplete', message: 'Run refresh-index.mjs to enable complete title and alias lookup.' });
@@ -172,10 +189,12 @@ export async function main(query, options = {}) {
   for (const scope of ['wiki', 'moc', ...(includeRaw ? ['raw'] : [])]) {
     try {
       const scoped = [];
-      for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope })) {
+      const skippedPaths = [];
+      for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope, skippedPaths })) {
         if (scope === 'raw') { if (inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path); }
         else if (inScope(path)) { keywordPaths.add(path); scoped.push(path); }
       }
+      for (const skipped of skippedPaths) diagnostics.push({ code: skipped.reason, path: skipped.path, message: `Skipped ${skipped.path}: ${skipped.reason}` });
       if (scope !== 'raw') keywordByScope.push(scoped);
       keywordHealth[scope] = 'ok';
     } catch (err) {
@@ -208,10 +227,10 @@ export async function main(query, options = {}) {
   for (const path of [...candidates.slice(0, poolLimit), ...rawCandidates]) {
     indexStatus.checked++;
     let text, stat;
-    try { stat = statSync(join(vaultPath, path)); text = readFileSync(join(vaultPath, path), 'utf8'); }
+    try { const file = checkedPath(vaultPath, path); stat = statSync(file); text = readFileSync(file, 'utf8'); }
     catch (err) {
       if (err.code === 'ENOENT') indexStatus.removed++;
-      else diagnostics.push({ code: 'candidate-unreadable', path, message: err.message });
+      else diagnostics.push({ code: err.code === 'OUTSIDE_VAULT' ? 'outside-vault' : 'candidate-unreadable', path, message: err.message });
       continue;
     }
     const entry = index.manifest[path];
@@ -344,9 +363,9 @@ export function renderResult({ results, note, rawCount, tier, diagnostics = [] }
 
 const NOTICE_FILE = 'search-notice.json';
 
-function readNoticeIso(dir) {
+function readNoticeIso(dir, vaultPath) {
   try {
-    return JSON.parse(readFileSync(join(dir, NOTICE_FILE), 'utf8')).lastNoticeIso ?? null;
+    return JSON.parse(readFileSync(assertVaultPath(vaultPath, join(dir, NOTICE_FILE)), 'utf8')).lastNoticeIso ?? null;
   } catch {
     return null;
   }
@@ -382,7 +401,7 @@ async function runQuery(query, options = {}) {
   if (options.json) { console.log(JSON.stringify(result)); return; }
 
   const cov = coverage(index.manifest, Object.keys(index.vectors));
-  const announceFull = shouldAnnounceFull(readNoticeIso(indexDir), Date.now());
+  const announceFull = shouldAnnounceFull(readNoticeIso(indexDir, vaultPath), Date.now());
 
   // Only the (rare) first-in-window full block pays the cost of walking the
   // vault for staleness -- every other query skips it, per the design spec's
@@ -408,9 +427,10 @@ async function runQuery(query, options = {}) {
 
 // --health and --setup exist to report a broken index, so one they cannot load must not stop them. It is reported as
 // damage: refresh-index.mjs stops at the same files, and only --rebuild replaces them.
-function loadIndexForDiagnosis(indexDir) {
+function loadIndexForDiagnosis(indexDir, vaultPath) {
   const broken = (damaged) => ({ manifest: {}, vectors: {}, available: false, damaged });
   try {
+    for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(indexDir, file));
     const index = loadChunkIndex(indexDir);
     const problem = manifestProblem(index.manifest);
     return problem ? broken(problem) : index;
@@ -422,7 +442,7 @@ function loadIndexForDiagnosis(indexDir) {
 async function runHealthCommand() {
   const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadIndexForDiagnosis(indexDir);
+  const index = loadIndexForDiagnosis(indexDir, vaultPath);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
@@ -439,7 +459,7 @@ async function runHealthCommand() {
   const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
 
   const sizeBytes = ['chunks.json', 'vectors.bin', 'vectors.idx.json']
-    .reduce((sum, f) => { try { return sum + statSync(join(indexDir, f)).size; } catch { return sum; } }, 0);
+    .reduce((sum, f) => { try { return sum + statSync(assertVaultPath(vaultPath, join(indexDir, f))).size; } catch { return sum; } }, 0);
 
   console.log('wiki-master search health');
   console.log(`  tier: ${assessed.tier}`);
@@ -465,7 +485,7 @@ async function runHealthCommand() {
 async function runSetupCommand() {
   const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadIndexForDiagnosis(indexDir);
+  const index = loadIndexForDiagnosis(indexDir, vaultPath);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 

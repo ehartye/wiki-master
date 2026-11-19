@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync, readFileSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -263,7 +264,7 @@ const heldClipping = (vaultPath, address) => newestCapture(knownUrlIndex(vaultPa
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
 export function clippingTitles(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
   const titles = new Set();
   if (!existsSync(dir)) return titles;
   const buf = Buffer.alloc(32768);
@@ -1037,7 +1038,7 @@ function clipCore(url, argv, { vaultPath, extract, writeClipping, readText, prob
     if (short.length) data = { ...data, fidelityWarnings: [...(data.fidelityWarnings ?? []), ...short] };
   }
   const expandCoverage = coverage ? formatCoverage(coverage) : undefined;
-  const clippingsDir = join(vaultPath, 'raw', 'clippings');
+  const clippingsDir = checkedPath(vaultPath, 'raw', 'clippings');
   const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.

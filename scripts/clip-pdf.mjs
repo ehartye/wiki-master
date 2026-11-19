@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -455,7 +456,7 @@ export function resolveClippingArg(arg, vaultPath) {
 // Render figures for a clipping and record them in the clipping's FRONTMATTER.
 // The body is never touched (raw/ is immutable; source-hash covers the body).
 export function addFiguresToClipping({ pdfPath, vaultPath, clippingRel, fig, source, title, render = renderFigures }) {
-  const abs = join(vaultPath, clippingRel);
+  const abs = checkedPath(vaultPath, clippingRel);
   const r = render({ pdfPath, vaultPath, clippingPath: clippingRel, title, source, selection: fig });
   console.log(figureSummary(r));
   if (r.status === 'skipped') console.error(`WARNING: ${r.message}`);
@@ -762,13 +763,13 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     return { status: outcome.status, ...(probe && { words: clip.wordCount, extraction: clip.extraction ?? 'text', title, reason: outcome.reason ?? outcome.message.split('\n')[0] }) };
   }
 
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
 
   // isDuplicateUrl only catches a re-clip of the same PATH; a moved or renamed
   // binary slips past it and the slug disambiguation below then mints a second
   // file for content the vault already holds. Identity is the extracted body's
   // hash, which does not care where the binary lives.
-  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  const already = existingClippingWithHash(readClippingHashes(dir, vaultPath), clip.hash);
   if (already) {
     closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`exists (same content): ${already}`);
@@ -786,7 +787,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
   if (claim.clash) return { status: 'clash', existing: claim.existing };
   const slug = claim.slug;
-  const file = join(dir, `${slug}.md`);
+  const file = checkedPath(vaultPath, 'raw', 'clippings', `${slug}.md`);
 
   writeFileSync(file, clip.body);
   // After the write, so a row is never closed by a clip that did not land.

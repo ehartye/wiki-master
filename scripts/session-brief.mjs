@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -45,7 +46,7 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
   if (values.project !== undefined) {
     try { validateProject(values.project); } catch (error) { throw new InputError(error.message); }
     const path = `wiki/authored/${values.project}`;
-    try { if (!statSync(join(vaultPath, ...path.split('/'))).isDirectory()) throw new Error('not a directory'); }
+    try { if (!statSync(checkedPath(vaultPath, ...path.split('/'))).isDirectory()) throw new Error('not a directory'); }
     catch { throw new InputError(`no project folder ${path} in the vault`); }
     chosen = { project: values.project, path, by: 'flag' };
   } else {
@@ -53,7 +54,7 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
     if (matches.length !== 1) return { exit: 1, output: noMatch(matches, facts, values.json) };
     chosen = matches[0];
   }
-  const statePath = join(vaultPath, ...chosen.path.split('/'), 'reference', 'studio-state.md');
+  const statePath = checkedPath(vaultPath, ...chosen.path.split('/'), 'reference', 'studio-state.md');
   const brief = existsSync(statePath)
     ? buildBrief({ state: parseStatePage(readFileSync(statePath, 'utf8')), items: readBacklogItems(vaultPath, `${chosen.path}/backlog`), today, staleDays })
     : null;

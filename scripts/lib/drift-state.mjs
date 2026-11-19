@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { assertVaultPath } from './vault-path.mjs';
 
 // What drift.mjs has evaluated on this machine, so `--limit` can pick pages it has not seen or that changed
 // instead of the same first pages every run. Machine-local, under .wiki-master/ (gitignored), and safe to delete:
@@ -18,7 +19,7 @@ export function canonicalRoot(vaultPath) {
 
 export function readDriftState(dir, vaultPath) {
   let data;
-  try { data = JSON.parse(readFileSync(join(dir, DRIFT_STATE_FILE), 'utf8')); } catch { return {}; }
+  try { data = JSON.parse(readFileSync(assertVaultPath(vaultPath, join(dir, DRIFT_STATE_FILE)), 'utf8')); } catch { return {}; }
   if (data?.format !== DRIFT_STATE_FORMAT || data.root !== canonicalRoot(vaultPath)) return {};
   if (!data.pages || typeof data.pages !== 'object' || Array.isArray(data.pages)) return {};
   return data.pages;
@@ -27,9 +28,11 @@ export function readDriftState(dir, vaultPath) {
 // Writes the whole state through a temporary file in the same directory and a rename, so a reader never sees a
 // half-written file and an interrupted write leaves the previous one.
 export function writeDriftState(dir, vaultPath, pages) {
+  assertVaultPath(vaultPath, join(dir, DRIFT_STATE_FILE));
   mkdirSync(dir, { recursive: true });
   const file = join(dir, DRIFT_STATE_FILE);
   const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  assertVaultPath(vaultPath, temp);
   try {
     writeFileSync(temp, `${JSON.stringify({ format: DRIFT_STATE_FORMAT, root: canonicalRoot(vaultPath), pages }, null, 2)}\n`);
     renameSync(temp, file);

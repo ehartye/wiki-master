@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -65,7 +66,7 @@ export function checkUrl(vaultPath, url, { index = knownUrlIndex(vaultPath), dec
 }
 
 function frontmatterValue(vaultPath, file, name) {
-  const text = readFileSync(join(vaultPath, 'raw', 'clippings', file), 'utf8');
+  const text = readFileSync(checkedPath(vaultPath, 'raw', 'clippings', file), 'utf8');
   const block = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
   const m = block.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'm'));
   if (!m) return null;

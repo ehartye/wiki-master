@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -241,7 +242,7 @@ export function quotedSpans(body) {
 // "can this page be walked back to raw/".
 function evidenceBodies(vaultPath, page, byName, pages) {
   return evidencePaths(page, byName, pages)
-    .map((p) => splitFm(readFileSync(join(vaultPath, p), 'utf8')));
+    .map((p) => splitFm(readFileSync(checkedPath(vaultPath, p), 'utf8')));
 }
 
 // Prepared evidence documents are shared across pages (one raw clipping backs many
@@ -256,7 +257,7 @@ function makeDocCache(vaultPath) {
   return (path) => {
     const hit = cache.get(path);
     if (hit) { cache.delete(path); cache.set(path, hit); return hit.doc; }
-    const md = readFileSync(join(vaultPath, path), 'utf8');
+    const md = readFileSync(checkedPath(vaultPath, path), 'utf8');
     const text = splitFm(md);
     // The frontmatter's lines, so a located match names the file's own line numbers.
     const lineOffset = (md.slice(0, md.length - text.length).match(/\n/g) ?? []).length;
@@ -374,7 +375,7 @@ export function classifyQuotes(vaultPath, graph, { pages: scope } = {}) {
     // the disclosure by convention and quote-lint honors it, same as the
     // existing per-sentence "unsourced" exemption below honors a narrower claim.
     if (p.declaresNoSources) continue;
-    const body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8'));
+    const body = splitFm(readFileSync(checkedPath(vaultPath, p.path), 'utf8'));
     const quotes = scanQuotes(body);
     if (!quotes.length) continue;
     const paths = evidencePaths(p, byName, pages);
@@ -559,7 +560,7 @@ export function checkStyle(vaultPath, graph, { pages: scope } = {}) {
     // Line endings are made LF first: the recorded words of a connective flag are the first 70 characters of its
     // sentence, so a CR inside them would give a CRLF copy of a page different ids from the LF copy. Only CRLF is changed:
     // a lone CR was never a line break here, and making it one would move paragraph boundaries and so flags and ids.
-    let body = splitFm(readFileSync(join(vaultPath, p.path), 'utf8')).replace(/\r\n/g, '\n');
+    let body = splitFm(readFileSync(checkedPath(vaultPath, p.path), 'utf8')).replace(/\r\n/g, '\n');
     // Quotation exemption: nothing inside quotation marks is ever flagged.
     body = body.replace(/["“][^"“”]*["”]/g, '""');
     // The text a tone flag is raised on is the sentence(s) holding the word, taken inside one paragraph, so editing a
@@ -608,9 +609,9 @@ const clip = (q, full, n = 80) => (full || q.length <= n ? q : `${q.slice(0, n)}
 
 // The pages a run is limited to, or null for the whole vault: those a ledger names, those whose `updated` is on or
 // after a date, or both. A page with no `updated` is not "updated since" anything.
-export function scopeOf(graph, { pathsFile, since }) {
+export function scopeOf(graph, { pathsFile, since }, vaultPath) {
   if (pathsFile === undefined && since === undefined) return null;
-  const named = pathsFile === undefined ? null : new Set(checkLedgerPaths(readLedger(pathsFile)));
+  const named = pathsFile === undefined ? null : new Set(checkLedgerPaths(readLedger(pathsFile), vaultPath));
   const pages = new Set();
   for (const p of graph.pages) {
     if (!isContent(p.path)) continue;
@@ -632,13 +633,13 @@ export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const graph = buildGraph(vaultPath);
-  const scope = scopeOf(graph, args);
+  const scope = scopeOf(graph, args, vaultPath);
   const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph, scope ? { pages: scope.pages } : {});
   const style = checkStyle(vaultPath, graph, scope ? { pages: scope.pages } : {});
   const count = (t) => findings.filter((f) => f.tier === t).length;
   const tiers = { examined, verbatim, title, ...Object.fromEntries(TIERS.map((t) => [t, count(t)])) };
   // Verdicts a reviewer recorded (lint-disposition.mjs). Without the file nothing below changes.
-  const dispositionsFile = join(vaultPath, DISPOSITIONS_FILE);
+  const dispositionsFile = checkedPath(vaultPath, DISPOSITIONS_FILE);
   const dispositions = existsSync(dispositionsFile) ? loadDispositions(dispositionsFile) : null;
   const verdict = (f) => (dispositions ? reviewedBy(dispositions, f) : null);
   const inPage = (x) => !args.page || x.page.includes(args.page);

@@ -6,6 +6,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeUrl } from './url.mjs';
+import { vaultPath as checkedPath } from './vault-path.mjs';
 
 // The same key the duplicate check compares: normalized, case-insensitive.
 export const urlKey = (url) => normalizeUrl(String(url ?? '')).toLowerCase();
@@ -36,12 +37,12 @@ const scalar = (block, name) => {
 // `source` is found as it always was, the first `source:` line of the file, so a clipping the clippers could read
 // before is still read.
 export function readClippings(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
   if (!existsSync(dir)) return [];
   const out = [];
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.md')) continue;
-    const text = readFileSync(join(dir, file), 'utf8');
+    const text = readFileSync(checkedPath(vaultPath, 'raw', 'clippings', file), 'utf8');
     const m = text.match(/^source:[ \t]*(.*)$/m);
     const url = m ? unquoteValue(m[1]) : '';
     if (!url) continue;

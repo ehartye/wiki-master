@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -208,7 +209,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
 
   const clip = confluenceClipContent({ title: parsed.title, source: parsed.url, body: parsed.body, quality, topic });
 
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
 
   // Content-hash dedup catches what the URL check above cannot: re-clipping
   // via a bare page ID after the vault already holds this page's URL, or a
@@ -225,7 +226,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   // workflow, the fix is version-aware dedup (key on URL+Version, not URL
   // alone) -- deliberately not built here to keep this change scoped to what
   // was asked.
-  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  const already = existingClippingWithHash(readClippingHashes(dir, vaultPath), clip.hash);
   if (already) {
     console.log(`exists (same content): ${already}`);
     return { status: 'duplicate', file: already };
@@ -233,7 +234,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
 
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
   const slug = disambiguateSlug(slugify(parsed.title), clip.hash, (s) => taken.has(s.toLowerCase()));
-  const file = join(dir, `${slug}.md`);
+  const file = checkedPath(vaultPath, 'raw', 'clippings', `${slug}.md`);
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, confluence, space=${parsed.space || '?'}, v${parsed.version || '?'})`);

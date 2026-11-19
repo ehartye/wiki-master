@@ -1,5 +1,6 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
+import { vaultPath as checkedPath, assertVaultPath } from './lib/vault-path.mjs';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildGraph, buildNameIndex, evidencePaths, resolveLinkTarget, isContent } from './lib/graph.mjs';
@@ -88,12 +89,13 @@ export function suggestRelationships({ pages }, { limit = 20, seed, since, vecto
 
 // Existing vectors only: this read-only command never embeds or refreshes files.
 function existingPageVectors(vaultPath) {
-  const dir = join(vaultPath, '.wiki-master');
+  const dir = checkedPath(vaultPath, '.wiki-master');
+  for (const file of ['chunks.json', 'vectors.bin', 'vectors.idx.json']) assertVaultPath(vaultPath, join(dir, file));
   const manifest = readManifestFile(dir), store = readVectorStore(dir), vectors = new Map();
   for (const [path, entry] of Object.entries(manifest)) {
     if (!path.startsWith('wiki/concepts/') || path.split('/').some(part => part.startsWith('.'))) continue;
     let stat;
-    try { stat = statSync(join(vaultPath, path)); } catch { continue; }
+    try { stat = statSync(checkedPath(vaultPath, path)); } catch { continue; }
     if (stat.mtimeMs !== entry.mtimeMs || stat.size !== entry.size) continue;
     const chunks = (entry.chunks ?? []).map(c => store[c.hash]).filter(v => v?.length);
     if (!chunks.length || chunks.some(v => v.length !== chunks[0].length)) continue;

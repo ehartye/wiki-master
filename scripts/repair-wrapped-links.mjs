@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // A wikilink is inline Markdown/Obsidian syntax — a `[[...]]` span containing a raw
 // newline (hard-wrapped prose whose paragraph reflow happened to straddle a link) can
 // never resolve, and can never be a legitimate deferred forward-reference either. See
@@ -36,7 +37,7 @@ export function repairWrappedLinks(vaultPath, { apply = false } = {}) {
   let fixed = 0;
   const skipped = [];
   for (const p of content) {
-    const abs = join(vaultPath, p.path);
+    const abs = checkedPath(vaultPath, p.path);
     const text = readFileSync(abs, 'utf8');
     const r = dewrapText(text, { resolves });
     if (r.fixed > 0) {

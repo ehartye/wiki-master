@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // Bring a hand-clipped file into the pipeline: stamp the `source-hash` a clipper would have written for the same text, and
 // fill `quality` and `topic` when the file has none. Only the frontmatter changes; the body stays byte-identical.
 //
@@ -35,7 +36,7 @@ const topic = topicArg === undefined ? null : normalizeTopic(topicArg);
 if (topicArg !== undefined && !topic) refuse('--topic needs a value');
 
 const { path: vault } = resolveOperationVault('research');
-const clippingsDir = join(vault, 'raw', 'clippings');
+const clippingsDir = checkedPath(vault, 'raw', 'clippings');
 
 // Every line of a key, in order. A web clipper emits `topic:` and `quality:` with nothing after them, and an older run may have
 // left a key twice, so a key can have several lines and some of them empty.

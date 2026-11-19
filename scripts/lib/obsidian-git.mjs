@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -18,7 +19,7 @@ export const REQUIRED_SETTINGS = Object.freeze({
   autoPullInterval: 0,
 });
 
-export const obsidianGitDataFile = (vaultPath) => join(vaultPath, '.obsidian', 'plugins', OBSIDIAN_GIT_ID, 'data.json');
+export const obsidianGitDataFile = (vaultPath) => checkedPath(vaultPath, '.obsidian', 'plugins', OBSIDIAN_GIT_ID, 'data.json');
 
 // Each required setting against this vault's settings file: { met, missing, differing }, in the order of REQUIRED_SETTINGS.
 export function compareSettings(vaultPath) {
@@ -37,7 +38,7 @@ export function compareSettings(vaultPath) {
 // app. `settings` is 'read', 'absent' or 'unreadable'. A missing or non-numeric autoSaveInterval is reported as null:
 // the plugin's own default is 0, which leaves its timer off.
 export function obsidianGitPrerequisite(vaultPath) {
-  const obsidianDir = join(vaultPath, '.obsidian');
+  const obsidianDir = checkedPath(vaultPath, '.obsidian');
   const installed = readJson(join(obsidianDir, 'plugins', OBSIDIAN_GIT_ID, 'manifest.json'))?.id === OBSIDIAN_GIT_ID;
   const listed = readJson(join(obsidianDir, 'community-plugins.json'));
   const enabled = Array.isArray(listed) && listed.includes(OBSIDIAN_GIT_ID);
