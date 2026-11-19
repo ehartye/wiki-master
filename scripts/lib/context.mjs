@@ -77,9 +77,12 @@ function descriptorList(raw, label) {
   return items;
 }
 export function readVaultDescriptor(path, expectedId) {
-  assertVaultPath(dirname(resolve(path)), resolve(path));
   let source;
-  try { source = readFileSync(path, 'utf8'); } catch (error) { fail(`Cannot read VAULT.md descriptor at ${path}: ${error.message}`); }
+  try {
+    // Descriptor path validation is configuration validation, just like reading it.
+    assertVaultPath(dirname(resolve(path)), resolve(path));
+    source = readFileSync(path, 'utf8');
+  } catch (error) { fail(`Cannot read VAULT.md descriptor at ${path}: ${error.message}`); }
   if (frontmatterDamage(source) || !/^\uFEFF?---\r?\n/.test(source)) fail(`Invalid VAULT.md frontmatter at ${path}`);
   const lines = source.replace(/^\uFEFF/, '').split(/^---\s*$/m)[1].split(/\r?\n/), metadata = {};
   for (let i = 0; i < lines.length; i++) {
