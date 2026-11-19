@@ -30,6 +30,41 @@ const snapshot = root => readdirSync(root, { recursive: true }).filter(p => !p.s
 });
 const run = (f, name, args = [], extra = {}) => spawnSync(process.execPath, [resolve(`scripts/${name}.mjs`), ...args], { cwd: f.repo, env: { ...f.env, ...extra }, encoding: 'utf8', timeout: 15000, input: '' });
 
+const roleHelpers = [
+  ['clip-docx', ['missing.docx', '--decline=fixture']],
+  ['session-brief', []],
+  ['log-entry', ['--op', 'fixture', '--title', 'Fixture']],
+];
+for (const missing of [false, true]) {
+  test(`direct role helpers reject an explicit ${missing ? 'missing' : 'nonrepository'} project root with exit 2`, () => {
+    const f = fixture(), project = join(f.root, 'invalid-project');
+    if (!missing) mkdirSync(project);
+    const before = snapshot(f.root);
+    for (const [name, args] of roleHelpers) {
+      const r = run(f, name, args, { WIKI_MASTER_PROJECT_ROOT: project, WIKI_MASTER_VAULT_ID: name === 'clip-docx' ? 'research-one' : 'docs' });
+      assert.equal(r.status, 2, `${name}: ${r.stderr}`);
+      assert.match(r.stderr, missing ? /Repository directory does not exist or cannot be read/ : /Not a Git repository/);
+      assert.ok(r.stderr.includes(project), `${name} identifies the invalid configured root`);
+      assert.equal(r.stderr.trim().split(/\r?\n/).length, 1, `${name} reports a diagnostic without a stack`);
+      assert.deepEqual(snapshot(f.root), before);
+    }
+  });
+}
+
+test('direct mutating role helpers retain exit 1 for unavailable registered vault roots', () => {
+  const f = fixture();
+  for (const entry of f.entries) entry.path = join(f.root, `offline-${entry.id}`);
+  writeFileSync(f.env.WIKI_MASTER_CONFIG, JSON.stringify({ version: 1, defaultVault: 'docs', vaults: f.entries }));
+  const before = snapshot(f.root);
+  for (const [name, args] of roleHelpers.filter(([name]) => name !== 'session-brief')) {
+    const r = run(f, name, args, { WIKI_MASTER_VAULT_ID: name === 'clip-docx' ? 'research-one' : 'docs' });
+    assert.equal(r.status, 1, `${name}: ${r.stderr}`);
+    assert.match(r.stderr, /Selected vault .* is unavailable/);
+    assert.equal(r.stderr.trim().split(/\r?\n/).length, 1);
+    assert.deepEqual(snapshot(f.root), before);
+  }
+});
+
 test('every capture refuses absent and forbidden research selection before side effects', () => {
   const f = fixture();
   const cases = [

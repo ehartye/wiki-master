@@ -4,14 +4,13 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { fileURLToPath } from 'node:url';
 import { frontmatterDamage, withoutComment } from './note.mjs';
 import { discoverRepository } from './repository.mjs';
+import { ContextError } from './context-error.mjs';
+export { ContextError } from './context-error.mjs';
 import { findProject, validateProject } from './session-brief.mjs';
 import { assertVaultPath } from './vault-path.mjs';
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const PLUGIN_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-export class ContextError extends Error {
-  constructor(message, exitCode = 2) { super(`wiki-master: ${message}`); this.name = 'ContextError'; this.exitCode = exitCode; }
-}
 const fail = message => { throw new ContextError(message); };
 const home = env => env.HOME || env.USERPROFILE || homedir();
 export function canonicalPath(path) {

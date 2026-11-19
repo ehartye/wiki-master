@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { ContextError } from './context-error.mjs';
 
 function git(dir, ...args) {
   try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; }
@@ -17,7 +18,7 @@ export function repositoryFacts(dir) {
 export function discoverRepository(dir, { explicit = false } = {}) {
   let directory = false;
   try { directory = statSync(dir).isDirectory(); } catch { /* handled below */ }
-  const fail = message => { throw Object.assign(new Error(message), { exitCode: 2 }); };
+  const fail = message => { throw new ContextError(message); };
   if (!directory) {
     if (explicit) fail(`Repository directory does not exist or cannot be read: ${dir}`);
     return { root: null, configPath: null, inherited: false, diagnostics: ['Current directory is unavailable; using global configuration.'] };
