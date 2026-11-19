@@ -1,5 +1,5 @@
 import {
-  readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
+  readFileSync, existsSync, statSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fsKeywordSearch } from './lib/fs-keyword.mjs';
@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
 import { resolveOperationVault } from './lib/vault.mjs';
+import { resolveContext } from './lib/context.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { freshness, manifestProblem, statusReport } from './lib/embedding.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -263,6 +264,53 @@ export async function main(query, options = {}) {
     ...(includeRaw && keywordHealth.raw === 'ok' ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
 
+// Research discovery is not a write selection. Each root gets its own index,
+// names, candidates and ranking; the request's selected capture root must not
+// narrow the list. Never pass the inferred project into evidence filters.
+export async function searchResearch(query, options = {}, { env = process.env, createContext = createSearchContext } = {}) {
+  validateOptions(query, { ...options, limit: options.limit ?? 10 });
+  const routing = resolveContext(env, { purpose: 'research' });
+  const groups = [];
+  const unsearched = () => ({ tier: 'unavailable', results: [], index: null,
+    channels: { keyword: Object.fromEntries(['wiki', 'moc', ...(options.includeRaw ? ['raw'] : [])].map(scope => [scope, 'not-searched'])),
+      semantic: 'not-searched', identity: 'not-searched' } });
+  for (const vault of routing.research) {
+    if (!vault.available) {
+      groups.push({ vault, status: 'unavailable', ...unsearched(),
+        diagnostics: [{ code: 'vault-unavailable', message: `Research vault ${vault.id} is unavailable: ${vault.path}` }] });
+      continue;
+    }
+    try {
+      const context = await createContext({ vaultPath: vault.path });
+      const result = await main(query, { ...options, context });
+      // An empty answer from a working channel is success. An incomplete
+      // identity catalog may still supply results when every scan failed.
+      const usable = result.results.length > 0 || Object.values(result.channels.keyword).includes('ok') ||
+        result.channels.semantic === 'ok' || result.channels.identity === 'ok';
+      if (!usable) result.diagnostics.push({ code: 'retrieval-failed', message: 'No retrieval channel completed successfully.' });
+      groups.push({ vault, status: usable ? 'ok' : 'failed', ...result });
+    } catch (error) {
+      groups.push({ vault, status: 'failed', ...unsearched(),
+        diagnostics: [{ code: 'retrieval-failed', message: String(error?.message ?? error).slice(0, 300) }] });
+    }
+  }
+  return { version: 1, groups, diagnostics: routing.diagnostics,
+    exitCode: groups.some(group => group.status !== 'ok') ? 1 : 0 };
+}
+
+export function renderResearchResult(result) {
+  const stdout = [], stderr = [...result.diagnostics];
+  for (const group of result.groups) {
+    const heading = `Vault ${group.vault.id} (${group.vault.path}) - ${group.status}`;
+    stdout.push(heading);
+    stderr.push(heading, `channels: ${JSON.stringify(group.channels)}`);
+    const rendered = renderResult(group, { tier: group.tier, gaps: [] });
+    stdout.push(...rendered.stdout);
+    stderr.push(...rendered.stderr, ...group.diagnostics.map(d => `${d.code}: ${d.message}`));
+  }
+  return { stdout, stderr };
+}
+
 // Pure formatting: given a main() result and an assessTiers() verdict,
 // decides what a caller sees on each stream. stdout carries ONLY the answer
 // (paths, optionally :line) so piping stays clean (`search.mjs "q" | ...`);
@@ -304,11 +352,6 @@ function readNoticeIso(dir) {
   }
 }
 
-function writeNoticeIso(dir, iso) {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, NOTICE_FILE), JSON.stringify({ lastNoticeIso: iso }));
-}
-
 // Builds the same { ollama, index } shape assessTiers() expects. `filesChanged`
 // defaults to 0 (skip the vault walk) unless the caller already paid for a
 // statusReport -- see the design spec's own warning against re-walking/
@@ -322,6 +365,17 @@ async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0, damaged
 }
 
 async function runQuery(query, options = {}) {
+  if (options.research) {
+    const result = await searchResearch(query, options);
+    if (options.json) console.log(JSON.stringify(result));
+    else {
+      const { stdout, stderr } = renderResearchResult(result);
+      for (const line of stderr) console.error(line);
+      for (const line of stdout) console.log(line);
+    }
+    process.exitCode = result.exitCode;
+    return;
+  }
   const context = await createSearchContext();
   const { vaultPath, indexDir, index, ollamaUp } = context;
   const result = await main(query, { ...options, context });
@@ -348,7 +402,8 @@ async function runQuery(query, options = {}) {
   for (const d of result.diagnostics) console.error(`${d.code}: ${d.message}`);
   for (const line of stdout) console.log(line);
 
-  if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
+  // Search is read-only, including health disclosure. Honor an existing
+  // notice timestamp but never create or update a file while answering.
 }
 
 // --health and --setup exist to report a broken index, so one they cannot load must not stop them. It is reported as
@@ -431,6 +486,7 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') options.json = true;
+    else if (arg === '--research') options.research = true;
     else if (arg === '--include-raw') options.includeRaw = true;
     else if (arg === '--include-moc') continue; // 0.42.0 flag; moc/ is always searched now, so it is a no-op
     else if (arg.startsWith('--')) {
@@ -448,7 +504,10 @@ export function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
-  if (argv.includes('--health')) {
+  if (argv.includes('--research') && (argv.includes('--health') || argv.includes('--setup'))) {
+    console.error('search: --research is a query mode and cannot be combined with --health or --setup');
+    process.exitCode = 2;
+  } else if (argv.includes('--health')) {
     await runHealthCommand();
   } else if (argv.includes('--setup')) {
     await runSetupCommand();
@@ -458,8 +517,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       await runQuery(query, options);
     } catch (err) {
       console.error(`search: ${err.message}`);
-      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
-      process.exitCode = 1;
+      console.error('usage: node scripts/search.mjs "<question>" [--research] [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
+      process.exitCode = err.exitCode ?? 1;
     }
   }
 }
