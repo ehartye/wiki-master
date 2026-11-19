@@ -11,7 +11,7 @@ const script = resolve('scripts/context.mjs');
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const json = (path, value) => writeFileSync(path, JSON.stringify(value));
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'wm-context-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wm-context-')));
   const repo = join(root, 'repository'); mkdirSync(repo); git(repo, 'init');
   const env = { HOME: root, USERPROFILE: root, NODE_TEST_CONTEXT: 'child-v8' };
   const entries = ['general', 'docs', 'research'].map(id => {

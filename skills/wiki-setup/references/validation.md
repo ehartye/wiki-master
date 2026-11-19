@@ -1,7 +1,8 @@
 # Validate exactly the task paths
 
 Resolve the originating documentation or research context before editing, then bind
-that selected vault for validation. Use one ledger per vault and read its instructions.
+that selected vault for validation using [name the vault](initialization.md#name-the-vault).
+Use one ledger per vault and read its instructions.
 Outside-root aliases cannot supply local citations; an explicitly escaping ledger
 path is invalid input, including a missing leaf. Traversal exclusions are unsearched
 coverage, not absence of evidence. Internal aliases remain supported.

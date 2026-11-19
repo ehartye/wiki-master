@@ -690,10 +690,13 @@ test('recovery is about what is written but not refreshed, Obsidian Git errors a
   assert.doesNotMatch(text, /\block\b/i, 'no lock language of any kind');
 });
 
-test('a refresh stopped by another active vault is explained where an agent looks', () => {
+test('selected-target verification and first-probe failures are explained where an agent looks', () => {
   for (const text of [reference('operation-recovery.md'), reference('app-access.md')]) {
-    assert.match(text, /active vault/);
-    assert.match(text, /no `vault=`/);
+    assert.match(text, /selected native/);
+    assert.match(text, /canonical path/);
+    assert.match(text, /first (?:path )?probe[\s\S]*fail/);
+    assert.match(text, /do not silently retry|without silent retry/);
+    assert.doesNotMatch(text, /with no `vault=`|active vault[^.]*stops and says/);
   }
 });
 

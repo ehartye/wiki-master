@@ -44,6 +44,8 @@ export const NON_REQUIRED_JOBS = ['test-macos', 'test-browser', 'test-windows'];
 export const WINDOWS_SUBSET = [
   'test/validate-authored.test.mjs', 'test/integrity.test.mjs', 'test/graph.test.mjs', 'test/graph-walk.test.mjs',
   'test/graph-cache.test.mjs', 'test/quote-match.test.mjs', 'test/drift.test.mjs',
+  'test/context.test.mjs', 'test/write-routing.test.mjs', 'test/search-research.test.mjs',
+  'test/vault-boundaries.test.mjs', 'test/multi-vault-setup.test.mjs',
 ];
 
 // What the branch rule and the macOS and Windows gates rely on. Returns the problems found, empty when the workflow is
