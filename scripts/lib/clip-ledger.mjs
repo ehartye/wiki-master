@@ -1,6 +1,7 @@
 import { appendFileSync, closeSync, lstatSync, openSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { redactSecrets } from './url-safety.mjs';
+import { containsPath } from './vault-path.mjs';
 
 // The clip ledger: with `--ledger <file>`, clip.mjs appends one JSON line for every address it handled, so a long run can be read
 // back without parsing what the clipper printed. Every row has every field; one that does not apply to an outcome is null.
@@ -46,7 +47,7 @@ function landing(file) {
 function within(root, target) {
   const fold = (p) => (process.platform === 'win32' || process.platform === 'darwin' ? p.toLowerCase() : p);
   const rel = relative(fold(root), fold(target));
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 // The device and inode of a folder, or null when there is none or the file system does not give a usable one (an inode of 0 is how
@@ -71,7 +72,8 @@ function hasAncestorWithIdentity(identity, target, stat) {
   return false;
 }
 
-// Why this file may not be the ledger, or null. A ledger in raw/ would be taken for a clipping and one in wiki/ for a page. The path
+// Why this file may not be the ledger, or null. Output ledgers belong to the selected canonical vault. A ledger in raw/ would be
+// taken for a clipping and one in wiki/ for a page. The path
 // is judged by where it lands (links, "..", letter case), not by how it is spelled. Where the text of a path cannot say so (a UNC
 // spelling of a local folder), the folder's identity does: the device and inode of raw/ or wiki/ against those of every existing
 // ancestor of the target. `stat` is a test's own.
@@ -83,16 +85,24 @@ export function ledgerFileProblem(file, vaultPath, { stat = statSync } = {}) {
     const own = identityOf(dir, stat);
     if (within(landing(dir), real) || within(resolve(dir), resolve(file)) || (own !== null && hasAncestorWithIdentity(own, real, stat))) return `--ledger: ${file} is inside ${zone}/ of the vault; keep the ledger outside raw/ and wiki/`;
   }
+  const rootIdentity = identityOf(vaultPath, stat);
+  if (!containsPath(landing(vaultPath), real) && !(rootIdentity !== null && hasAncestorWithIdentity(rootIdentity, real, stat))) {
+    return `--ledger: ${file} is outside the selected vault; keep the ledger inside it, outside raw/ and wiki/`;
+  }
   return null;
 }
 
 // Why rows cannot be appended to this file, or null: it is opened for append and closed, which creates the file when its folder is
 // there. No folder is made for it, so a typo in the path is a refusal and not a new directory.
-export function ledgerAppendProblem(file) {
+export function ledgerAppendProblem(file, vaultPath) {
+  const problem = ledgerFileProblem(file, vaultPath);
+  if (problem) return problem;
   // Windows opens a directory for append without complaint, so a directory is refused by name.
   try { if (statSync(file, { throwIfNoEntry: false })?.isDirectory()) return `--ledger: ${file} cannot be appended to (EISDIR); nothing was clipped`; closeSync(openSync(file, 'a')); return null; } catch (e) { return `--ledger: ${file} cannot be appended to (${e.code ?? e.message}); nothing was clipped`; }
 }
 
-export function appendLedgerRow(file, row) {
+export function appendLedgerRow(file, row, vaultPath) {
+  const problem = ledgerFileProblem(file, vaultPath);
+  if (problem) throw Object.assign(new Error(problem), { code: 'OUTSIDE_LEDGER_SCOPE', exitCode: 2 });
   appendFileSync(file, `${JSON.stringify(row)}\n`);
 }

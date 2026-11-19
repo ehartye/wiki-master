@@ -1,10 +1,11 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
+import { vaultPath as checkedPath, assertVaultPath } from './lib/vault-path.mjs';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { buildGraph, buildNameIndex, evidencePaths, resolveLinkTarget, isContent } from './lib/graph.mjs';
 import { cosine } from './lib/embed.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { readManifestFile, readVectorStore } from './lib/embedding.mjs';
 import { auditIdentity } from './identity-audit.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -88,12 +89,13 @@ export function suggestRelationships({ pages }, { limit = 20, seed, since, vecto
 
 // Existing vectors only: this read-only command never embeds or refreshes files.
 function existingPageVectors(vaultPath) {
-  const dir = join(vaultPath, '.wiki-master');
+  const dir = checkedPath(vaultPath, '.wiki-master');
+  for (const file of ['chunks.json', 'vectors.bin', 'vectors.idx.json']) assertVaultPath(vaultPath, join(dir, file));
   const manifest = readManifestFile(dir), store = readVectorStore(dir), vectors = new Map();
   for (const [path, entry] of Object.entries(manifest)) {
     if (!path.startsWith('wiki/concepts/') || path.split('/').some(part => part.startsWith('.'))) continue;
     let stat;
-    try { stat = statSync(join(vaultPath, path)); } catch { continue; }
+    try { stat = statSync(checkedPath(vaultPath, path)); } catch { continue; }
     if (stat.mtimeMs !== entry.mtimeMs || stat.size !== entry.size) continue;
     const chunks = (entry.chunks ?? []).map(c => store[c.hash]).filter(v => v?.length);
     if (!chunks.length || chunks.some(v => v.length !== chunks[0].length)) continue;
@@ -104,7 +106,7 @@ function existingPageVectors(vaultPath) {
 
 export function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({ args: argv, options: { vault: { type: 'string' }, limit: { type: 'string' }, seed: { type: 'string' }, since: { type: 'string' }, semantic: { type: 'boolean' }, json: { type: 'boolean' } } });
-  const vaultPath = values.vault ?? resolveVault().path;
+  const vaultPath = resolveOperationVault('maintenance', { root: values.vault }).path;
   const report = suggestRelationships(buildGraph(vaultPath), { limit: values.limit === undefined ? 20 : Number(values.limit), seed: values.seed, since: values.since, vectors: values.semantic ? existingPageVectors(vaultPath) : new Map() });
   console.log(values.json ? JSON.stringify(report, null, 2) : `${report.disclaimer}\nRelationship candidates: ${report.total} (${report.truncated} omitted)\n${report.candidates.map(c => `${c.from} ↔ ${c.to}\n  proposed ${c.proposedRole} (unverified): ${c.reasons.map(r => r.identity ?? r.kind).join(', ')}`).join('\n')}\nIdentity findings requiring review: ${report.identityFindingsTotal}`);
   return report;

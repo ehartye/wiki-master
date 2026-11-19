@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { vaultPath } from './vault-path.mjs';
 
 // A ledger: a JSON array of vault-relative file paths naming the pages one authoring task wrote. It is the
 // `--paths-file` of validate-authored, lint and lint-disposition. This is the one definition of its path rule.
@@ -20,10 +21,13 @@ export function ledgerPathProblem(p) {
 }
 
 // Returns the paths without repeats, in their given order, or throws.
-export function checkLedgerPaths(paths) {
+export function checkLedgerPaths(paths, root) {
   if (!Array.isArray(paths) || !paths.length) throw new LedgerError('the ledger must be a non-empty JSON array of vault-relative paths');
   for (const p of paths) {
     if (ledgerPathProblem(p)) throw new LedgerError(`invalid ledger path ${JSON.stringify(p)}: use vault-relative paths with / separators and no empty, "." or ".." segment, drive prefix, colon or NUL`);
+    if (root !== undefined) {
+      try { vaultPath(root, p); } catch (error) { throw new LedgerError(error.message); }
+    }
   }
   return [...new Set(paths)];
 }

@@ -6,6 +6,10 @@ const DRY = 'Dry run: prints what it would change. Add --apply to write.';
 const VAULT = 'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).';
 
 export const CLI_SPECS = {
+  context: {
+    options: ['purpose', 'repo', 'select', 'json'],
+    usage: ['usage: node scripts/context.mjs [--purpose documentation|research|maintenance] [--repo <directory>] [--select <vault-id>] [--json]', '', 'Reports validated documentation and ordered research routes. Default purpose: documentation. Read-only; never creates configuration or indexes.', 'Repository: --repo, then WIKI_MASTER_PROJECT_ROOT, then cwd. Registry: WIKI_MASTER_CONFIG or ~/.config/wiki-master/vaults.json. Without a registry, the legacy single-vault default remains supported.', 'Research with several vaults requires a request selection before writing; discovery reports selectionRequired without failing. Configuration errors exit 2.'],
+  },
   'adopt-clipping': {
     options: ['apply', 'topic', 'quality'],
     usage: [
@@ -71,7 +75,7 @@ export const CLI_SPECS = {
   },
   'log-entry': {
     options: ['op', 'title'],
-    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', VAULT],
+    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', '--op uses letters, digits, hyphens or underscores and starts with a letter or digit. Invalid names and paths escaping the selected vault exit 2 before writing.', VAULT],
   },
   purge: {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
@@ -166,13 +170,14 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/relationships.mjs [--vault <dir>] [--limit <n>] [--seed <page>] [--since <date>] [--semantic] [--json]', '', 'Proposes relationship candidates between pages from shared sources and neighbors. A candidate is a reason to inspect two pages, never proof of a relationship.', 'Read-only.', VAULT],
   },
   search: {
-    usage: ['usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw]', '       node scripts/search.mjs --health | --setup', '', 'Searches the wiki with keyword, identity and semantic channels and prints ranked pages with citations. --health reports which channels are available; --setup prints how to enable the missing ones.', 'Read-only.', VAULT],
+    options: ['research', 'json', 'limit', 'project', 'type', 'status', 'include-raw', 'include-moc', 'health', 'setup'],
+    usage: ['usage: node scripts/search.mjs "<question>" [--research] [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw]', '       node scripts/search.mjs --health | --setup', '', 'Searches the wiki with keyword, identity and semantic channels and prints ranked pages with citations. --health reports which channels are available; --setup prints how to enable the missing ones.', '--research searches every configured research vault independently, grouped in configured order. --limit applies per vault (with a separate raw allowance when requested); --project filters only when supplied. A selected write vault does not narrow the list.', 'Ordinary search uses the selected maintenance vault, otherwise the documentation/default vault, and retains its single-vault output. Registry and project context follow context.mjs.', 'Read-only. Research exits 1 for an unavailable or wholly failed group, preserving other groups; configuration defects exit 2. Missing semantic coverage alone remains successful lexical retrieval.'],
   },
   'validate-authored': {
     usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'It reads the graph cache that refresh-index.mjs writes and re-reads only the files changed since; --no-cache reads every file (use it after a bulk copy or restore).', 'Read-only.', VAULT],
   },
   triage: { options: ['remote'] },
-  init: { options: [] },
+  init: { options: ['bootstrap'] },
   'setup-obsidian-git': {
     options: ['check', 'apply'],
     usage: [

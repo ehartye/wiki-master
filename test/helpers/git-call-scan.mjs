@@ -9,7 +9,7 @@ import { join } from 'node:path';
 // refused as well as a known write, so a new git call has to be added to a list here on purpose. When the subcommand
 // cannot be read from the source the call is refused too, so the scan fails closed.
 
-const GIT_READS = new Set(['status', 'rev-parse', 'ls-files', '--version']);
+const GIT_READS = new Set(['status', 'rev-parse', 'ls-files', 'check-ignore', '--version']);
 const GIT_WRITES = new Set(['add', 'commit', 'push', 'pull', 'fetch', 'rebase', 'stash', 'reset', 'merge', 'checkout', 'switch', 'rm', 'mv', 'clean', 'restore', 'worktree', 'init', 'clone', 'tag', 'branch']);
 const GIT_OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
 const GH_CLONER = 'scripts/clip-gh.mjs';
@@ -361,6 +361,7 @@ function judgeGit(argv) {
   if (!sub) return 'git with no subcommand the scan can read';
   if (!sub.literal) return `git subcommand cannot be read from the source (${sub.text})`;
   if (sub.value === 'config') return rest.some((t) => t.literal && t.value === '--get') ? null : 'git config without --get writes';
+  if (sub.value === 'worktree') return rest[1]?.literal && rest[1].value === 'list' ? null : 'git worktree is not on the read-only list: only list is';
   if (sub.value === 'remote') {
     const action = rest[1];
     return action?.literal && action.value === 'get-url' ? null : `git remote ${action?.literal ? action.value : `<${action?.text ?? ''}>`} is not on the read-only list: only get-url is`;

@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { normalizeUrl } from './lib/url.mjs';
 import { DECLINE_TTL_DAYS, readDeclineLog, declineExpiry, loadDeclines, isDeclined, supersedeDecline } from './lib/decline.mjs';
 import { CLI_SPECS } from './lib/cli-specs.mjs';
@@ -76,7 +76,7 @@ export function main(argv, { vaultPath, out = console.log, err = console.error }
     err(USAGE);
     return 2;
   }
-  const vault = vaultPath ?? resolveVault().path;
+  const vault = vaultPath ?? resolveOperationVault('research').path;
 
   if (sub === 'list') {
     if (urls.length) return fail('list takes no URL (use show <url>)');

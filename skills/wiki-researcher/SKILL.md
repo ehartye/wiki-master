@@ -11,8 +11,18 @@ unspecified request to use this role does not authorize processing the backlog.
 
 ## Workflow
 
-1. Read [access](../wiki-maintainer/references/access.md), resolve the known vault
-   and absolute installed helpers, and open applicable vault instructions.
+1. At the start of every research request, read
+   [access](../wiki-maintainer/references/access.md) and resolve absolute helpers
+   and `context.mjs --purpose research --repo "<repository>" --json` (omit `--repo`
+   only when ordinary cwd/global discovery is intended). One research vault selects
+   itself. With several, ask exactly once for the destination before external
+   discovery, capture or ingestion, including named capture and named ingestion.
+   An explicit destination already supplied for this request is the answer: validate
+   it with `context.mjs --purpose research --select <id> --json`, without asking again.
+   Keep the chosen ID only for this request; discard it before the next request.
+   [Bind the request](../wiki-maintainer/references/access.md#request-binding) and
+   read the selected vault's `AGENTS.md`, `VAULT.md` and schema before proceeding.
+   Read-only lookup of all research vaults may proceed while selection is pending.
    Choose discovery, named capture, named ingestion or default-backlog ingestion
    from the request. Clarify an ambiguous task before writing.
 2. Follow the corresponding direct procedure below. Discovery requires separate
@@ -25,7 +35,9 @@ unspecified request to use this role does not authorize processing the backlog.
    authorized write, read [completion](../wiki-maintainer/references/operations.md)
    and keep your edits to what your task needs.
 4. Capture with the matching helper, passing the same research topic throughout a
-   run. Ingest only the authorized eligible set, reuse canonical pages and explain
+   run. Keep raw evidence, attachments, summaries and derived pages in this selected
+   vault with local provenance; never copy or link foreign-vault evidence. Ingest
+   only the authorized eligible set, reuse canonical pages and explain
    useful relationships under the
    [identity contract](../wiki-maintainer/references/efficacy.md).
 5. Verify capture fidelity or derived claims. For any wiki page written, run

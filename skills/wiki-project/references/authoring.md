@@ -1,5 +1,7 @@
 # Author original wiki documentation
 
+Resolve documentation context before choosing paths and read its instructions. Use the canonical project folder and identity from context; overview `repo:` discovery is the fallback when project identity is absent. An explicit identity conflict stops authoring. Keep citations local; original-source HTTPS citations are permitted.
+
 Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [completion](../../wiki-maintainer/references/operations.md).
 Reuse existing session authorization.
 

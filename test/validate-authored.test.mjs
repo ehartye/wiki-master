@@ -592,7 +592,7 @@ test('bad input exits 2 with a message on stderr and nothing on stdout', t => {
   const missingVault = spawnSync(process.execPath, [SCRIPT, '--paths-file', good], {
     cwd: v.scratch, encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: join(v.scratch, 'no-such-vault') },
   });
-  assert.equal(missingVault.status, 2);
+  assert.equal(missingVault.status, 1);
   assert.match(missingVault.stderr, /vault/i);
   assert.deepEqual([...snapshot(v.root)], [...before]);
 });

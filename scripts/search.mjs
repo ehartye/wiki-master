@@ -1,12 +1,14 @@
 import {
-  readFileSync, existsSync, statSync, writeFileSync, mkdirSync,
+  readFileSync, existsSync, statSync,
 } from 'node:fs';
 import { join, basename } from 'node:path';
 import { fsKeywordSearch } from './lib/fs-keyword.mjs';
+import { assertVaultPath, vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
+import { resolveContext } from './lib/context.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { freshness, manifestProblem, statusReport } from './lib/embedding.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -116,10 +118,26 @@ export function exactMatchGate(query, { phraseHits, paragraphHits }) {
 // contract must not change) and the CLI's `runQuery` below, which needs the
 // same facts (ollamaUp, the loaded index) to build the health disclosure
 // without loading the ~17MB vector store a second time.
-export async function createSearchContext({ vaultPath = resolveVault().path,
+export async function createSearchContext({ vaultPath = resolveOperationVault('maintenance', { requireAvailable: false }).path,
   keywordSearchFn, embedFn = queryEmbed, checkAvailable = () => isAvailable({ fetchImpl: boundedFetch }) } = {}) {
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadChunkIndex(indexDir);
+  const boundaryDiagnostics = [];
+  let index;
+  try {
+    for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(indexDir, file));
+    index = loadChunkIndex(indexDir);
+  } catch (error) {
+    if (error.code !== 'OUTSIDE_VAULT') throw error;
+    index = { manifest: {}, vectors: {}, available: false };
+    boundaryDiagnostics.push({ code: 'outside-vault', path: '.wiki-master', message: error.message });
+  }
+  for (const path of Object.keys(index.manifest)) {
+    try { checkedPath(vaultPath, path); }
+    catch (error) {
+      delete index.manifest[path];
+      boundaryDiagnostics.push({ code: error.code === 'OUTSIDE_VAULT' ? 'outside-vault' : 'candidate-unreadable', path, message: error.message });
+    }
+  }
   const ollamaUp = await checkAvailable();
   const semanticRun = async (q, limit, options = {}) => semanticSearch(q, {
     vectors: index.vectors,
@@ -130,7 +148,7 @@ export async function createSearchContext({ vaultPath = resolveVault().path,
   });
   const names = buildNameIndex(Object.entries(index.manifest).map(([path, entry]) => ({
     path, name: basename(path, '.md').toLowerCase(), metadata: entry.metadata ?? {}, aliases: entry.aliases ?? [] })));
-  return { vaultPath, indexDir, index, ollamaUp, semanticRun, names,
+  return { vaultPath, indexDir, index, ollamaUp, semanticRun, names, boundaryDiagnostics,
     keywordSearchFn: keywordSearchFn ?? ((q, options) => fsKeywordSearch(q, { ...options, vaultPath })) };
 }
 
@@ -154,7 +172,7 @@ export async function main(query, options = {}) {
   const context = options.context ?? await createSearchContext({ vaultPath: options.vaultPath });
   const { vaultPath, index, ollamaUp, semanticRun, keywordSearchFn } = context;
   const poolLimit = Math.min(500, Math.max(100, limit * 5));
-  const diagnostics = [];
+  const diagnostics = [...(context.boundaryDiagnostics ?? [])];
   const catalog = Object.entries(index.manifest).filter(([path]) => inScope(path));
   const metadataComplete = catalog.length > 0 && catalog.every(([, e]) => e.metadataVersion === METADATA_VERSION);
   if (!metadataComplete) diagnostics.push({ code: 'metadata-incomplete', message: 'Run refresh-index.mjs to enable complete title and alias lookup.' });
@@ -171,10 +189,12 @@ export async function main(query, options = {}) {
   for (const scope of ['wiki', 'moc', ...(includeRaw ? ['raw'] : [])]) {
     try {
       const scoped = [];
-      for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope })) {
+      const skippedPaths = [];
+      for (const path of await keywordSearchFn(query, { limit: poolLimit, path: scope, skippedPaths })) {
         if (scope === 'raw') { if (inScope(path, true) && path.startsWith('raw/')) rawPaths.push(path); }
         else if (inScope(path)) { keywordPaths.add(path); scoped.push(path); }
       }
+      for (const skipped of skippedPaths) diagnostics.push({ code: skipped.reason, path: skipped.path, message: `Skipped ${skipped.path}: ${skipped.reason}` });
       if (scope !== 'raw') keywordByScope.push(scoped);
       keywordHealth[scope] = 'ok';
     } catch (err) {
@@ -207,10 +227,10 @@ export async function main(query, options = {}) {
   for (const path of [...candidates.slice(0, poolLimit), ...rawCandidates]) {
     indexStatus.checked++;
     let text, stat;
-    try { stat = statSync(join(vaultPath, path)); text = readFileSync(join(vaultPath, path), 'utf8'); }
+    try { const file = checkedPath(vaultPath, path); stat = statSync(file); text = readFileSync(file, 'utf8'); }
     catch (err) {
       if (err.code === 'ENOENT') indexStatus.removed++;
-      else diagnostics.push({ code: 'candidate-unreadable', path, message: err.message });
+      else diagnostics.push({ code: err.code === 'OUTSIDE_VAULT' ? 'outside-vault' : 'candidate-unreadable', path, message: err.message });
       continue;
     }
     const entry = index.manifest[path];
@@ -263,6 +283,53 @@ export async function main(query, options = {}) {
     ...(includeRaw && keywordHealth.raw === 'ok' ? { rawCount: rawRanked.length, rawReturned: results.filter(h => h.zone === 'raw').length } : {}) };
 }
 
+// Research discovery is not a write selection. Each root gets its own index,
+// names, candidates and ranking; the request's selected capture root must not
+// narrow the list. Never pass the inferred project into evidence filters.
+export async function searchResearch(query, options = {}, { env = process.env, createContext = createSearchContext } = {}) {
+  validateOptions(query, { ...options, limit: options.limit ?? 10 });
+  const routing = resolveContext(env, { purpose: 'research' });
+  const groups = [];
+  const unsearched = () => ({ tier: 'unavailable', results: [], index: null,
+    channels: { keyword: Object.fromEntries(['wiki', 'moc', ...(options.includeRaw ? ['raw'] : [])].map(scope => [scope, 'not-searched'])),
+      semantic: 'not-searched', identity: 'not-searched' } });
+  for (const vault of routing.research) {
+    if (!vault.available) {
+      groups.push({ vault, status: 'unavailable', ...unsearched(),
+        diagnostics: [{ code: 'vault-unavailable', message: `Research vault ${vault.id} is unavailable: ${vault.path}` }] });
+      continue;
+    }
+    try {
+      const context = await createContext({ vaultPath: vault.path });
+      const result = await main(query, { ...options, context });
+      // An empty answer from a working channel is success. An incomplete
+      // identity catalog may still supply results when every scan failed.
+      const usable = result.results.length > 0 || Object.values(result.channels.keyword).includes('ok') ||
+        result.channels.semantic === 'ok' || result.channels.identity === 'ok';
+      if (!usable) result.diagnostics.push({ code: 'retrieval-failed', message: 'No retrieval channel completed successfully.' });
+      groups.push({ vault, status: usable ? 'ok' : 'failed', ...result });
+    } catch (error) {
+      groups.push({ vault, status: 'failed', ...unsearched(),
+        diagnostics: [{ code: 'retrieval-failed', message: String(error?.message ?? error).slice(0, 300) }] });
+    }
+  }
+  return { version: 1, groups, diagnostics: routing.diagnostics,
+    exitCode: groups.some(group => group.status !== 'ok') ? 1 : 0 };
+}
+
+export function renderResearchResult(result) {
+  const stdout = [], stderr = [...result.diagnostics];
+  for (const group of result.groups) {
+    const heading = `Vault ${group.vault.id} (${group.vault.path}) - ${group.status}`;
+    stdout.push(heading);
+    stderr.push(heading, `channels: ${JSON.stringify(group.channels)}`);
+    const rendered = renderResult(group, { tier: group.tier, gaps: [] });
+    stdout.push(...rendered.stdout);
+    stderr.push(...rendered.stderr, ...group.diagnostics.map(d => `${d.code}: ${d.message}`));
+  }
+  return { stdout, stderr };
+}
+
 // Pure formatting: given a main() result and an assessTiers() verdict,
 // decides what a caller sees on each stream. stdout carries ONLY the answer
 // (paths, optionally :line) so piping stays clean (`search.mjs "q" | ...`);
@@ -296,17 +363,12 @@ export function renderResult({ results, note, rawCount, tier, diagnostics = [] }
 
 const NOTICE_FILE = 'search-notice.json';
 
-function readNoticeIso(dir) {
+function readNoticeIso(dir, vaultPath) {
   try {
-    return JSON.parse(readFileSync(join(dir, NOTICE_FILE), 'utf8')).lastNoticeIso ?? null;
+    return JSON.parse(readFileSync(assertVaultPath(vaultPath, join(dir, NOTICE_FILE)), 'utf8')).lastNoticeIso ?? null;
   } catch {
     return null;
   }
-}
-
-function writeNoticeIso(dir, iso) {
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, NOTICE_FILE), JSON.stringify({ lastNoticeIso: iso }));
 }
 
 // Builds the same { ollama, index } shape assessTiers() expects. `filesChanged`
@@ -322,13 +384,24 @@ async function buildAssessment({ index, ollamaUp, cov, filesChanged = 0, damaged
 }
 
 async function runQuery(query, options = {}) {
+  if (options.research) {
+    const result = await searchResearch(query, options);
+    if (options.json) console.log(JSON.stringify(result));
+    else {
+      const { stdout, stderr } = renderResearchResult(result);
+      for (const line of stderr) console.error(line);
+      for (const line of stdout) console.log(line);
+    }
+    process.exitCode = result.exitCode;
+    return;
+  }
   const context = await createSearchContext();
   const { vaultPath, indexDir, index, ollamaUp } = context;
   const result = await main(query, { ...options, context });
   if (options.json) { console.log(JSON.stringify(result)); return; }
 
   const cov = coverage(index.manifest, Object.keys(index.vectors));
-  const announceFull = shouldAnnounceFull(readNoticeIso(indexDir), Date.now());
+  const announceFull = shouldAnnounceFull(readNoticeIso(indexDir, vaultPath), Date.now());
 
   // Only the (rare) first-in-window full block pays the cost of walking the
   // vault for staleness -- every other query skips it, per the design spec's
@@ -348,14 +421,16 @@ async function runQuery(query, options = {}) {
   for (const d of result.diagnostics) console.error(`${d.code}: ${d.message}`);
   for (const line of stdout) console.log(line);
 
-  if (announceFull) writeNoticeIso(indexDir, new Date().toISOString());
+  // Search is read-only, including health disclosure. Honor an existing
+  // notice timestamp but never create or update a file while answering.
 }
 
 // --health and --setup exist to report a broken index, so one they cannot load must not stop them. It is reported as
 // damage: refresh-index.mjs stops at the same files, and only --rebuild replaces them.
-function loadIndexForDiagnosis(indexDir) {
+function loadIndexForDiagnosis(indexDir, vaultPath) {
   const broken = (damaged) => ({ manifest: {}, vectors: {}, available: false, damaged });
   try {
+    for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(indexDir, file));
     const index = loadChunkIndex(indexDir);
     const problem = manifestProblem(index.manifest);
     return problem ? broken(problem) : index;
@@ -365,9 +440,9 @@ function loadIndexForDiagnosis(indexDir) {
 }
 
 async function runHealthCommand() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadIndexForDiagnosis(indexDir);
+  const index = loadIndexForDiagnosis(indexDir, vaultPath);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
@@ -384,7 +459,7 @@ async function runHealthCommand() {
   const modelOk = ollamaUp ? await modelPresent({ fetchImpl: boundedFetch }) : false;
 
   const sizeBytes = ['chunks.json', 'vectors.bin', 'vectors.idx.json']
-    .reduce((sum, f) => { try { return sum + statSync(join(indexDir, f)).size; } catch { return sum; } }, 0);
+    .reduce((sum, f) => { try { return sum + statSync(assertVaultPath(vaultPath, join(indexDir, f))).size; } catch { return sum; } }, 0);
 
   console.log('wiki-master search health');
   console.log(`  tier: ${assessed.tier}`);
@@ -408,9 +483,9 @@ async function runHealthCommand() {
 }
 
 async function runSetupCommand() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
-  const index = loadIndexForDiagnosis(indexDir);
+  const index = loadIndexForDiagnosis(indexDir, vaultPath);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
   const cov = coverage(index.manifest, Object.keys(index.vectors));
 
@@ -431,6 +506,7 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') options.json = true;
+    else if (arg === '--research') options.research = true;
     else if (arg === '--include-raw') options.includeRaw = true;
     else if (arg === '--include-moc') continue; // 0.42.0 flag; moc/ is always searched now, so it is a no-op
     else if (arg.startsWith('--')) {
@@ -448,7 +524,10 @@ export function parseArgs(argv) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
-  if (argv.includes('--health')) {
+  if (argv.includes('--research') && (argv.includes('--health') || argv.includes('--setup'))) {
+    console.error('search: --research is a query mode and cannot be combined with --health or --setup');
+    process.exitCode = 2;
+  } else if (argv.includes('--health')) {
     await runHealthCommand();
   } else if (argv.includes('--setup')) {
     await runSetupCommand();
@@ -458,8 +537,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       await runQuery(query, options);
     } catch (err) {
       console.error(`search: ${err.message}`);
-      console.error('usage: node scripts/search.mjs "<question>" [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
-      process.exitCode = 1;
+      console.error('usage: node scripts/search.mjs "<question>" [--research] [--json] [--limit N] [--project P] [--type T] [--status S] [--include-raw] | --health | --setup');
+      process.exitCode = err.exitCode ?? 1;
     }
   }
 }

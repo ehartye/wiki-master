@@ -1,10 +1,10 @@
 import { mkdirSync, lstatSync, readdirSync, readFileSync, openSync, closeSync, writeFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { extractionAvailable } from './clip.mjs';
-import { commandLines, resolveVault } from './lib/vault.mjs';
+import { commandLines, resolveSetupVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const GITIGNORE = `.wiki-master/
@@ -106,8 +106,8 @@ export function scaffold(vaultPath, templatesDir) {
   return report;
 }
 
-function printCommand(script, args) {
-  for (const line of commandLines(fileURLToPath(new URL(`./${script}`, import.meta.url)), args)) console.log(`     ${line}`);
+function printCommand(script, args, env) {
+  for (const line of commandLines(fileURLToPath(new URL(`./${script}`, import.meta.url)), args, env)) console.log(`     ${line}`);
 }
 
 function printReport(report) {
@@ -117,8 +117,9 @@ function printReport(report) {
   for (const error of report.errors) console.error(`blocked: ${error.path} (${error.code}: ${error.reason})`);
 }
 
-export function main() {
-  const { path, name } = resolveVault();
+export function main(argv = process.argv.slice(2)) {
+  const bootstrap = optionValue(argv, 'bootstrap');
+  const { path, name, env } = resolveSetupVault(bootstrap);
   const templatesDir = fileURLToPath(new URL('../templates', import.meta.url));
   try { printReport(scaffold(path, templatesDir)); }
   catch (error) {
@@ -135,28 +136,28 @@ export function main() {
   console.log(`  2. In Obsidian: Open folder as vault → ${path}`);
   console.log(`     Trust the vault and turn off restricted mode under Settings > Community plugins. Every new vault starts with it on.`);
   console.log(`  3. Verify (should list "${name}"):`);
-  printCommand('obsidian.mjs', ' vaults');
+  printCommand('obsidian.mjs', ' vaults', env);
   console.log(`  4. Obsidian Git handles all git operations. With the owner's yes:`);
-  printCommand('setup-obsidian-git.mjs', ' --apply');
+  printCommand('setup-obsidian-git.mjs', ' --apply', env);
   console.log(`  5. Import templates/webclipper-template.json into the Web Clipper.`);
   console.log(`  6. Last:`);
-  printCommand('refresh-index.mjs', '');
+  printCommand('refresh-index.mjs', '', env);
   if (!extractionAvailable()) {
     console.log(`\n  Note: wiki-researcher discovery needs npm/npx to acquire its pinned HTML extraction runtime.`);
   }
 }
 
 const USAGE = [
-  'usage: node scripts/init.mjs',
+  'usage: node scripts/init.mjs [--bootstrap <absolute-root>]',
   '',
   'Scaffolds a vault (folders, schema, templates, bases, .gitattributes) at the vault path. Existing files are kept.',
   'Reports created, preserved and differing paths without file contents. Links and type conflicts are errors.',
   'On failure, exits nonzero and reports partial creation; retry adds remaining missing files.',
-  'Takes no options.',
+  '--bootstrap initializes an explicitly named unregistered root before wiki-setup registers it.',
   'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).',
 ].join('\n');
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (helpRequested()) exitWithHelp(USAGE);
-  else main();
+  else { try { main(); } catch (error) { console.error(error.message); process.exitCode = error.exitCode ?? 1; } }
 }

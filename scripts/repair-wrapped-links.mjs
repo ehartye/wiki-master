@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // A wikilink is inline Markdown/Obsidian syntax — a `[[...]]` span containing a raw
 // newline (hard-wrapped prose whose paragraph reflow happened to straddle a link) can
 // never resolve, and can never be a legitimate deferred forward-reference either. See
@@ -16,7 +17,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph, isContent, normalizeName } from './lib/graph.mjs';
 import { dewrapText } from './lib/dewrap-links.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -36,7 +37,7 @@ export function repairWrappedLinks(vaultPath, { apply = false } = {}) {
   let fixed = 0;
   const skipped = [];
   for (const p of content) {
-    const abs = join(vaultPath, p.path);
+    const abs = checkedPath(vaultPath, p.path);
     const text = readFileSync(abs, 'utf8');
     const r = dewrapText(text, { resolves });
     if (r.fixed > 0) {
@@ -50,7 +51,7 @@ export function repairWrappedLinks(vaultPath, { apply = false } = {}) {
 }
 
 export function main() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const apply = process.argv.includes('--apply');
   const { filesTouched, fixed, skipped } = repairWrappedLinks(vaultPath, { apply });
 

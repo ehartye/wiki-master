@@ -1,4 +1,4 @@
-import { obsidianJson, resolveVault } from './lib/vault.mjs';
+import { obsidianJson, resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { pathToFileURL } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -74,7 +74,7 @@ function cliPages(rows) {
 // Prefer the native dashboard. A failed or empty query is independently checked
 // against only wiki/ metadata at the resolved root; this report never writes.
 export function main({ vaultPath, today = new Date(), obsidianJsonImpl = obsidianJson, log = console.log } = {}) {
-  const vault = resolveVault();
+  const vault = resolveOperationVault('maintenance', { requireAvailable: false });
   const root = vaultPath ?? vault.path;
   let pages, backend = 'obsidian', reason = null;
   try {

@@ -61,9 +61,9 @@ function realPackageVersions() {
 function realObsidianGit() {
   let vault;
   try {
-    vault = resolveVault(process.env, { onRefuse: () => {} }).path;
+    vault = resolveVault(process.env, { onRefuse: () => {}, purpose: 'maintenance' }).path;
   } catch (error) {
-    return { vault: null, failures: [{ problem: error.message }] };
+    return { vault: null, exitCode: error.exitCode, failures: [{ problem: error.message }] };
   }
   return { vault, failures: checkObsidianGit(vault) };
 }
@@ -139,6 +139,7 @@ export async function gather(deps = realDeps()) {
   out.ollama = ollama.length ? { ok: false, hint: HINTS.ollama, detail: problems(ollama) } : { ok: true, detail: `embedding model ${EMBED_MODEL}` };
   const git = deps.obsidianGit();
   out['obsidian-git'] = git.failures.length ? { ok: false, hint: HINTS['obsidian-git'], detail: problems(git.failures) } : { ok: true, detail: `in ${git.vault}` };
+  if (git.exitCode) out['obsidian-git'].exitCode = git.exitCode;
   return out;
 }
 
@@ -216,6 +217,7 @@ export async function main(argv = process.argv.slice(2), deps = realDeps()) {
   if (bad.length) return { exit: 2, error: `doctor: unknown option ${bad[0]} (see --help)` };
   const results = await gather(deps);
   const evaluation = evaluate(results, names);
+  if (results['obsidian-git'].exitCode) evaluation.exit = results['obsidian-git'].exitCode;
   if (evaluation.unknown) return { exit: evaluation.exit, error: `doctor: unknown command ${evaluation.unknown.join(', ')}; the commands are ${Object.keys(CLIPPERS).join(', ')}` };
   const info = installInfo();
   if (flags.includes('--json')) {

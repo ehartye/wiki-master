@@ -19,14 +19,16 @@ a diagnostic result does not authorize installing tools, rebuilding indexes, edi
 
 ## Workflow
 
-1. Resolve the vault and absolute installed helpers from
-   [access](../wiki-maintainer/references/access.md). Read the actual applicable
-   vault `AGENTS.md` before the first helper; do not infer its contents from a
+1. Resolve the vault with `context.mjs --purpose maintenance --json` and absolute
+   installed helpers from [access](../wiki-maintainer/references/access.md).
+   Context discovery is the read-only bootstrap for finding the root. Read the actual applicable
+   vault `AGENTS.md`, descriptor and schema before the first content helper; do not infer their contents from a
    helper's output or skip it for validation-only work.
    Confirm the intended target and whether the request is report-only or authorizes
    a particular setup/recovery action. No app is needed for filesystem checks.
-   For a vault other than the default, every command of the task names it, in the
-   named form under First run, or it acts on the default vault instead. This skill
+   Bind the selected context to every command; configured conflicts stop. For
+   registration, project routing or legacy environment transition, read
+   [routing setup](references/routing.md) before editing. This skill
    writes its commands by short name.
 2. Select the matching procedure below. Run bounded checks and retain their actual
    exit codes, coverage and output. Distinguish no findings from failed coverage.
@@ -46,6 +48,12 @@ a diagnostic result does not authorize installing tools, rebuilding indexes, edi
 The order for a new vault; [initialization](references/initialization.md) has the detail.
 Every command in it names the vault, in the named form for your shell. Only the default
 vault can leave `WIKI_MASTER_VAULT` off.
+
+These legacy forms apply before registry adoption; configured tasks use the
+[request binding](../wiki-maintainer/references/access.md#request-binding).
+For an unregistered root use `init.mjs --bootstrap "<absolute-root>"`, then
+[register its descriptor and project routes](references/routing.md). Existing vaults
+can be registered without initialization or migration. Preserve customized files.
 
 - PowerShell: `if ($env:WIKI_MASTER_VAULT='<root>') { node "<absolute-plugin-root>/scripts/<script>.mjs" <args> }`
 - POSIX shell: `WIKI_MASTER_VAULT='<root>' node "<absolute-plugin-root>/scripts/<script>.mjs" <args>`

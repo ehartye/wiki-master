@@ -23,6 +23,7 @@ import { hash } from './embed-cache.mjs';
 import { isAvailable, modelPresent, EMBED_MODEL } from './embed.mjs';
 import { encodeVectors, decodeVectors, planRefresh, neededHashes, coverage } from './vector-index.mjs';
 import { noteIdentity, METADATA_VERSION, inScope } from './retrieval.mjs';
+import { assertVaultPath } from './vault-path.mjs';
 
 const CHUNKS_FILE = 'chunks.json';
 const VECTORS_BIN = 'vectors.bin';
@@ -170,7 +171,7 @@ function loadIndex(dir, rebuild) {
 // Writes all three or none, and returns whether it wrote: when every output is byte-identical to what is on disk the
 // run had nothing to save, and a rewrite would only show up as a change to whatever watches the vault's files. An
 // edit moves a manifest key to the end, so keys are sorted first or the next idle run would differ by order alone.
-export function persistIndex(dir, manifest, vectors, { writeFileImpl = writeFileSync, renameImpl = renameSync } = {}) {
+export function persistIndex(dir, manifest, vectors, { writeFileImpl = writeFileSync, renameImpl = renameSync, vaultPath = dir } = {}) {
   const { buffer, idx } = encodeVectors(vectors);
   const sorted = Object.fromEntries(Object.keys(manifest).sort().map((path) => [path, manifest[path]]));
   const outputs = [
@@ -181,6 +182,10 @@ export function persistIndex(dir, manifest, vectors, { writeFileImpl = writeFile
   const same = ([name, bytes]) => {
     try { return readFileSync(join(dir, name)).equals(bytes); } catch { return false; }
   };
+  for (const [name] of outputs) {
+    assertVaultPath(vaultPath, join(dir, name));
+    assertVaultPath(vaultPath, join(dir, `${name}.tmp-${process.pid}`));
+  }
   if (outputs.every(same)) return false;
 
   mkdirSync(dir, { recursive: true });
@@ -221,6 +226,7 @@ export function freshness({ vaultPath, manifest }) {
 // refresh stops for the same reason. A manifest that is not one counts for nothing here, so the rest can still be told.
 
 export function statusReport({ vaultPath, dir }) {
+  for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(dir, file));
   const read = readManifestFile(dir);
   const problem = manifestProblem(read);
   const manifest = problem ? {} : read;
@@ -247,6 +253,7 @@ export async function refreshIndex({
   writeFileImpl = writeFileSync,
   renameImpl = renameSync,
 } = {}) {
+  for (const file of [CHUNKS_FILE, VECTORS_BIN, VECTORS_IDX]) assertVaultPath(vaultPath, join(dir, file));
   if (!(await checkAvailable())) {
     throw new Error('Ollama is unreachable at ' + (process.env.OLLAMA_HOST || 'http://localhost:11434') + ' -- start it before building the index.');
   }
@@ -399,7 +406,7 @@ export async function refreshIndex({
     if (!liveHashes.has(h)) { delete vectors[h]; pruned++; }
   }
 
-  const persisted = persistIndex(dir, finalManifest, vectors, { writeFileImpl, renameImpl });
+  const persisted = persistIndex(dir, finalManifest, vectors, { writeFileImpl, renameImpl, vaultPath });
 
   return {
     persisted,

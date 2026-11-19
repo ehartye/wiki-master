@@ -1,12 +1,14 @@
-import { execFileSync } from 'node:child_process';
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { findProject, parseStatePage, buildBrief, formatBrief, validateProject } from './lib/session-brief.mjs';
+import { repositoryFacts } from './lib/repository.mjs';
+export { repositoryFacts } from './lib/repository.mjs';
 
 // Read-only: finds the wiki project the current repository belongs to and prints its state. Nothing is written and no
 // semantic index is touched.
@@ -26,16 +28,6 @@ const USAGE = [
 
 class InputError extends Error {}
 
-function git(dir, ...args) {
-  try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; } catch { return null; }
-}
-
-export function repositoryFacts(dir) {
-  const remote = git(dir, 'remote', 'get-url', 'origin');
-  const top = git(dir, 'rev-parse', '--show-toplevel');
-  return { remote, folder: basename(top ?? resolve(dir)) };
-}
-
 export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today = new Date() } = {}) {
   let values;
   try { ({ values } = parseArgs({ args: argv, options: { project: { type: 'string' }, repo: { type: 'string' }, 'stale-days': { type: 'string' }, json: { type: 'boolean' } } })); }
@@ -45,13 +37,16 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
     if (!/^\d+$/.test(values['stale-days'])) throw new InputError('--stale-days takes a whole number of days');
     staleDays = Number(values['stale-days']);
   }
-  const vaultPath = resolveVault().path;
+  const vault = resolveOperationVault('documentation', { requireAvailable: false, repo: values.repo, cwd });
+  const vaultPath = vault.path;
+  if (values.project && vault.context.project && values.project !== vault.context.project) throw new InputError('Explicit project conflicts with the configured repository project');
+  values.project ??= vault.context.project ?? undefined;
   const facts = repositoryFacts(values.repo ? resolve(cwd, values.repo) : cwd);
   let chosen;
   if (values.project !== undefined) {
     try { validateProject(values.project); } catch (error) { throw new InputError(error.message); }
     const path = `wiki/authored/${values.project}`;
-    try { if (!statSync(join(vaultPath, ...path.split('/'))).isDirectory()) throw new Error('not a directory'); }
+    try { if (!statSync(checkedPath(vaultPath, ...path.split('/'))).isDirectory()) throw new Error('not a directory'); }
     catch { throw new InputError(`no project folder ${path} in the vault`); }
     chosen = { project: values.project, path, by: 'flag' };
   } else {
@@ -59,7 +54,7 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
     if (matches.length !== 1) return { exit: 1, output: noMatch(matches, facts, values.json) };
     chosen = matches[0];
   }
-  const statePath = join(vaultPath, ...chosen.path.split('/'), 'reference', 'studio-state.md');
+  const statePath = checkedPath(vaultPath, ...chosen.path.split('/'), 'reference', 'studio-state.md');
   const brief = existsSync(statePath)
     ? buildBrief({ state: parseStatePage(readFileSync(statePath, 'utf8')), items: readBacklogItems(vaultPath, `${chosen.path}/backlog`), today, staleDays })
     : null;

@@ -5,7 +5,7 @@ import { parseArgs } from 'node:util';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { buildGraph, buildNameIndex, evidencePaths, isEvidencePath, resolveLinkTarget } from './lib/graph.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -136,12 +136,15 @@ export async function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({ args: argv, options: { questions: { type: 'string' }, vault: { type: 'string' }, split: { type: 'string' }, 'search-module': { type: 'string' }, output: { type: 'string' }, json: { type: 'boolean' }, 'keyword-only': { type: 'boolean' } } });
   if (!values.questions) throw new Error('--questions FILE is required');
   const dataset = JSON.parse(readFileSync(values.questions, 'utf8'));
-  const vaultPath = values.vault ?? resolveVault().path;
+  const vault = resolveOperationVault('maintenance', { root: values.vault });
+  const vaultPath = vault.path;
   validate(dataset, values.split ?? 'all');
   // Legacy main() reads its corpus from the environment instead of options.
-  const priorVault = process.env.WIKI_MASTER_VAULT;
+  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_CONFIG'];
+  const prior = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   let report;
   try {
+    for (const key of keys) { if (vault.env[key] !== undefined) process.env[key] = vault.env[key]; else delete process.env[key]; }
     process.env.WIKI_MASTER_VAULT = vaultPath;
     const search = await import(values['search-module'] ? pathToFileURL(resolve(values['search-module'])).href : new URL('./search.mjs', import.meta.url));
     if (typeof search.main !== 'function') throw new Error('Search module must export main(query, options)');
@@ -154,8 +157,7 @@ export async function main(argv = process.argv.slice(2)) {
     report = await evaluateRetrieval(dataset, { split: values.split ?? 'all', vaultPath, searchFn: (query, options) => search.main(query, { ...options, context }) });
     report.configuration = { keywordOnly };
   } finally {
-    if (priorVault === undefined) delete process.env.WIKI_MASTER_VAULT;
-    else process.env.WIKI_MASTER_VAULT = priorVault;
+    for (const key of keys) { if (prior[key] === undefined) delete process.env[key]; else process.env[key] = prior[key]; }
   }
   const json = JSON.stringify(report, null, 2);
   if (values.output) writeFileSync(values.output, `${json}\n`, 'utf8');

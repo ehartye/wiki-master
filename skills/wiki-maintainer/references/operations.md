@@ -1,27 +1,27 @@
 # Completion for vault writes
 
-Obsidian Git handles all git operations. This page is how an authorized vault write
-finishes: capture, ingestion, original authoring, content repair, synthesis filing and
-applied triage dispositions. Read-only search, answers, checks and previews write no
-log and refresh nothing.
+Obsidian Git handles all git operations. Authorized vault writes finish here.
+Read-only search, answers, checks and previews write no log and refresh nothing.
+
+Resolve the originating role and read its selected vault's instructions before edits.
+Retain [request binding](access.md#request-binding) through maintenance completion;
+it cannot redirect capture or documentation. Keep ledgers, logs and refresh results
+per vault; report each written/refreshed/blocked state without combining provenance.
 
 ## Every authoring task ends the same way
 
-1. **Write the pages.** Keep your edits to what your task needs: nothing isolates two
-   writers on the same file, so read a page just before changing it and leave other
-   writers' changes alone. Raw bodies stay immutable. Advance `reviewed` only after
-   factual verification. Inspect an uncertain write's target before retrying it.
+1. **Write the pages.** Keep your edits to what your task needs; read current content
+   and preserve other writers' changes. Raw bodies stay immutable. Advance `reviewed`
+   only after factual verification. Inspect an uncertain write's target before retrying.
 2. **Validate them.** Run `validate-authored.mjs --paths-file <ledger>`, a JSON array of
-   the paths you wrote, by [scoped validation](../../wiki-setup/references/validation.md),
-   plus any relevant [check](../../wiki-setup/references/checks.md). A failed check stops
-   completion until its cause is resolved within scope.
+   the paths you wrote, by [scoped validation](../../wiki-setup/references/validation.md)
+   plus relevant [checks](../../wiki-setup/references/checks.md). Resolve failures within scope.
 3. **Log once.** Pipe a short narrative to `log-entry.mjs --op <op> --title "<title>"`. It
-   writes one uniquely named file under `log/`. Original project documentation uses
-   `relink`, a filed answer `query`; discovery, ingestion, lint and relink use their own.
+   writes under `log/`: project docs use `relink`, filed answers `query`; other roles use their own.
+   Use letters, digits, hyphens or underscores; start with a letter or digit. Invalid names and escaping paths exit 2.
 4. **Run `refresh-index.mjs`,** once per task, not per page. It regenerates the catalogs
-   and the search index for the whole vault; never hand-edit a generated fence. A delegated
-   worker writes and validates, then reports the paths it wrote; the enclosing task logs once
-   and runs the refresh.
+   and search index for that vault; never hand-edit a generated fence. A delegated worker writes and validates,
+   then reports the paths it wrote; the enclosing task logs once and runs the refresh.
 
 ```powershell
 node '<absolute-plugin-root>/scripts/validate-authored.mjs' --paths-file '<ledger>'

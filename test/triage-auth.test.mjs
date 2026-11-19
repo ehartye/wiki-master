@@ -18,8 +18,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function boot(env = {}) {
   const root = mkdtempSync(join(tmpdir(), 'wm-auth-'));
-  const dir = join(root, 'session');
   const vault = join(root, 'vault');
+  const dir = join(vault, 'session');
   mkdirSync(join(dir, 'content'), { recursive: true });
   mkdirSync(vault, { recursive: true });
   const proc = spawn(process.execPath, [SERVER], {

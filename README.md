@@ -122,9 +122,12 @@ See [skill reliability](docs/skill-reliability.md) for bounded CLI fallback, sha
 
 | Var | Default | Meaning |
 |---|---|---|
-| `WIKI_MASTER_VAULT` | `~/.wiki-master-vault` | Vault path (also the CLI target and embedding-cache home). |
-| `WIKI_MASTER_VAULT_NAME` | vault folder basename | The registered Obsidian vault name the CLI targets. |
-| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` and a script with no `WIKI_MASTER_VAULT` stops with exit 2 and one line instead of acting on the default vault. Set it in any session that must not touch the real vault. |
+| `WIKI_MASTER_VAULT` | `~/.wiki-master-vault` in legacy mode | Legacy root; with configuration, validates the selected route rather than overriding it. |
+| `WIKI_MASTER_VAULT_NAME` | vault folder basename in legacy mode | Native name/ID selector; configured mismatches fail. |
+| `WIKI_MASTER_CONFIG` | `~/.config/wiki-master/vaults.json` | Absolute alternate machine-local registry filename; a missing explicit file fails. |
+| `WIKI_MASTER_PROJECT_ROOT` | cwd | Repository used to resolve project routing. |
+| `WIKI_MASTER_VAULT_ID` | role-dependent selection | Request-scoped research/maintenance selection; documentation cannot be redirected. |
+| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` to reject implicit home fallback with exit 2; a registry selection is explicit configuration. Set it in any session that must not touch the real vault. |
 | `WIKI_MASTER_PRIVATE_TERMS_FILE` | unset | A file of private terms for `scan-private-terms.mjs` (`PRIVATE_TERMS_FILE` is read too). Keep it outside every repository. |
 | `WIKI_MASTER_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for drift. |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint. |
@@ -181,9 +184,29 @@ find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'wm-*' -mtime +7 -exec rm -rf {} +
 Get-ChildItem $env:TEMP -Filter 'wm-*' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) | Remove-Item -Recurse -Force
 ```
 
+### Project and research vaults
+
+Use [multi-vault routing](docs/multi-vault.md) and
+[wiki-setup registration](skills/wiki-setup/references/routing.md) to describe each
+vault, register machine-local roots, and add portable `.wiki-master.json` project
+routes. Documentation and research each inherit the global default independently.
+Existing content is preserved; configuration does not migrate evidence. Legacy
+root/name variables must be reconciled in the task environment before project
+overrides can succeed; retained conflicts still fail.
+
+`node scripts/context.mjs --purpose documentation --repo <repository> --json`
+reports the selected documentation home. `node scripts/search.mjs <query> --research --json`
+searches every configured research vault with separate coverage. Research with
+several destinations asks once per request before discovery/capture/ingestion;
+a supplied destination counts as the answer and does not persist into the next
+request. Each vault keeps its own provenance, graph, logs and indexes. Foreign
+vault note references and evidence copying are unsupported; original-source HTTPS
+citations remain permitted. Native targeting may activate/open its selected vault
+and reports failed probes without fallback.
+
 ### Tests and the vault
 
-With `WIKI_MASTER_VAULT` unset, a script acts on the default vault, which is the real one. Two guards keep that from happening by accident. `WIKI_MASTER_REQUIRE_VAULT=1` makes a script stop before it reads or writes anything when no vault is named (exit 2, one line). Under `node --test` (the runner sets `NODE_TEST_CONTEXT`, and a child process inherits it) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails instead of acting on the real one. A test that needs a vault uses `tempVault()` from `test/helpers/temp-vault.mjs`, or puts its own temp path in the `env` it gives a child process, and a test that only checks how a path is resolved passes an environment object: `resolveVault({ WIKI_MASTER_VAULT: '/some/path' })`.
+Without a registry or project overrides, an unset `WIKI_MASTER_VAULT` uses the home default, which may be the real vault. Two guards keep that from happening by accident. `WIKI_MASTER_REQUIRE_VAULT=1` makes a script stop before it reads or writes anything when only an implicit home fallback is available (exit 2, one line). Under `node --test` (the runner sets `NODE_TEST_CONTEXT`, and a child process inherits it) a vault outside the temp directory and the plugin's own folder throws, so a test that forgets to name a vault fails instead of acting on the real one. A test that needs a vault uses `tempVault()` from `test/helpers/temp-vault.mjs`, or puts its own temp path in the `env` it gives a child process, and a test that only checks how a path is resolved passes an environment object: `resolveVault({ WIKI_MASTER_VAULT: '/some/path' })`.
 
 `--help` on a script prints its usage and does nothing else. `triage`, `init`, `lint` and `stale` answer from `scripts/lib/help.mjs` before any vault is resolved, and `test/help-side-effects.test.mjs` compares a vault and a home directory before and after `--help` on every script. The scripts that do not know `--help` reject it as an unknown option, and the dry-run scripts only read. An option a script does not know is refused, not ignored. The seven clippers keep their options in `scripts/lib/clip-args.mjs`; the other scripts (the repair, backfill and rename scripts, `health`, `lint`, `refresh-index`, `stale`, `init`, `triage` and the rest) keep theirs in `scripts/lib/cli-specs.mjs`, checked by `scripts/lib/cli-guard.mjs` at the command-line entry: an unknown option prints one line and exits 2, and `--help` or `-h` prints the usage and exits 0 (a script with its own help, such as `lint`, keeps it). Four scripts have their own help and parser (`apply-reclips`, `bump-version`, `doctor`, `session-brief`). `obsidian.mjs` is the exception: it passes its arguments to the Obsidian CLI. `test/cli-guard.test.mjs` runs every script with a made-up option in a throwaway home, vault and working directory and checks that it refuses and writes nothing (`triage` is checked without being run, because a failed guard would start its server); a new script that is neither guarded nor listed there fails the test.
 

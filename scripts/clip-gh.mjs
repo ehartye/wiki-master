@@ -1,10 +1,11 @@
+import { vaultPath as checkedPath, assertVaultPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync, statSync, readFileSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join, extname, relative, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, checkClipArgs } from './lib/clip-args.mjs';
 import { selectionOptions, captureSelection } from './lib/github-selection.mjs';
 import { recordDecline } from './lib/decline.mjs';
@@ -488,12 +489,12 @@ function walkRepoFiles(dir, base = dir) {
 // content shape) lives in an already-unit-tested pure function above.
 // One clipping per included repo file, into `outDir`. `tmp` is the checkout the
 // files are read from. Content already clipped (same source-hash) is left alone.
-export function writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp }) {
+export function writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp, vaultPath = outDir }) {
   const existingHashes = new Map();
   if (existsSync(outDir)) {
     for (const f of readdirSync(outDir)) {
       if (!f.endsWith('.md')) continue;
-      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(join(outDir, f), 'utf8').slice(0, 800));
+      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(assertVaultPath(vaultPath, join(outDir, f)), 'utf8').slice(0, 800));
       if (m) existingHashes.set(m[1].toLowerCase(), f);
     }
   }
@@ -515,13 +516,13 @@ export function writeFileClips({ owner, repo, resolvedRef, included, quality, to
     const fileName = repoClipFileName(relPath, { existing, claimed });
     claimed.add(fileName.toLowerCase());
     if (existingHashes.has(clip.hash)) { unchanged++; continue; }
-    writeFileSync(join(outDir, fileName), clip.body);
+    writeFileSync(assertVaultPath(vaultPath, join(outDir, fileName)), clip.body);
     clipped++;
   }
   return { clipped, unchanged, thin, renamed };
 }
 
-export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups }) {
+export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups, vaultPath = outDir }) {
   const extensionCounts = {};
   for (const p of included) {
     const ext = extname(p).toLowerCase() || '(none)';
@@ -534,7 +535,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
   if (existsSync(outDir)) {
     for (const f of readdirSync(outDir)) {
       if (!f.endsWith('.md')) continue;
-      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(join(outDir, f), 'utf8').slice(0, 800));
+      const m = /^source-hash:\s*"?([0-9a-fA-F]{6,64})/m.exec(readFileSync(assertVaultPath(vaultPath, join(outDir, f)), 'utf8').slice(0, 800));
       if (m) existingHashes.set(m[1].toLowerCase(), f);
     }
   }
@@ -553,7 +554,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     const listingFilename = `${slugifyRepoPath(`_listing-${g.name}`)}.md`;
     expectedFilenames.add(listingFilename);
     if (existingHashes.has(listing.hash)) { listingsUnchanged++; continue; }
-    writeFileSync(join(outDir, listingFilename), listing.body);
+    writeFileSync(assertVaultPath(vaultPath, join(outDir, listingFilename)), listing.body);
     listingsWritten++;
   }
 
@@ -574,7 +575,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     claimed.add(anchorFilename.toLowerCase());
     expectedFilenames.add(anchorFilename);
     if (existingHashes.has(clip.hash)) { anchorsUnchanged++; continue; }
-    writeFileSync(join(outDir, anchorFilename), clip.body);
+    writeFileSync(assertVaultPath(vaultPath, join(outDir, anchorFilename)), clip.body);
     anchorsClipped++;
   }
 
@@ -583,7 +584,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
     totalIncluded: included.length, moduleGroups: groups, extensionCounts,
     excludedCount: excluded.length, anchorFiles: anchorPaths, quality, topic,
   });
-  writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
+  writeFileSync(assertVaultPath(vaultPath, join(outDir, '_repo-overview.md')), manifest.body);
 
   // Prune LAST, after every current file has actually been written — a
   // stale check run before writing would see a not-yet-created listing as
@@ -591,7 +592,7 @@ export function writeDigest({ owner, repo, resolvedRef, included, excluded, meta
   // orphaned prior-run file from one this run simply hasn't gotten to.
   const currentFilenames = readdirSync(outDir);
   const staleFilenames = findStaleDigestFiles(currentFilenames, [...expectedFilenames]);
-  for (const f of staleFilenames) rmSync(join(outDir, f));
+  for (const f of staleFilenames) rmSync(assertVaultPath(vaultPath, join(outDir, f)));
 
   const totalDocs = 1 + listingsWritten + anchorsClipped;
   console.log(`digest mode: ${included.length} file(s) represented across ${groups.length} module listing(s) — ${owner}/${repo} was over the per-file cap`);
@@ -664,7 +665,7 @@ export function main(argv, { readSelected } = {}) {
   const forceFull = argv.includes('--force-full');
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -719,12 +720,12 @@ export function main(argv, { readSelected } = {}) {
 
     const { included, excluded } = partitionRepoFiles(tmp, walkRepoFiles(tmp));
 
-    const outDir = join(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
+    const outDir = checkedPath(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
 
     if (included.length > maxFiles) {
       if (!forceFull) {
         mkdirSync(outDir, { recursive: true });
-        return writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups });
+        return writeDigest({ owner, repo, resolvedRef, included, excluded, meta, quality, topic, outDir, tmp, maxGroups, vaultPath });
       }
       console.error(`${included.length} includable files found — over the ${maxFiles}-file cap, and --force-full was given.`);
       console.error(`Re-run with --max-files=${included.length} (or higher) to force full per-file clipping,`);
@@ -735,13 +736,13 @@ export function main(argv, { readSelected } = {}) {
 
     mkdirSync(outDir, { recursive: true });
 
-    const { clipped, unchanged, thin, renamed } = writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp });
+    const { clipped, unchanged, thin, renamed } = writeFileClips({ owner, repo, resolvedRef, included, quality, topic, outDir, tmp, vaultPath });
 
     const manifest = repoManifestContent({
       owner, repo, ref: resolvedRef, description: meta.description, primaryLanguage: meta.primaryLanguage,
       includedPaths: included, excludedCount: excluded.length, quality, topic,
     });
-    writeFileSync(join(outDir, '_repo-overview.md'), manifest.body);
+    writeFileSync(assertVaultPath(vaultPath, join(outDir, '_repo-overview.md')), manifest.body);
 
     console.log(`clipped: ${clipped} file(s) to raw/clippings/gh/${slugify(owner)}/${slugify(repo)}/ (+ _repo-overview.md)`);
     console.log(`  unchanged (already clipped, same content): ${unchanged}`);

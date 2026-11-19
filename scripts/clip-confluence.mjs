@@ -1,10 +1,11 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
@@ -33,8 +34,8 @@ function today() { return localDate(); }
 // either, per Copilot CLI's plugin model) -- the one thing every Copilot CLI
 // plugin install DOES share is landing under ~/.copilot/installed-plugins/.
 // An explicit WIKI_MASTER_CONFLUENCER_SCRIPTS always wins (same env-var-first
-// idiom as resolveVault in lib/vault.mjs), for a dev checkout or a
-// non-standard install; unlike resolveVault, it is not existence-checked here
+// idiom as legacy vault configuration), for a dev checkout or a
+// non-standard install; it is not existence-checked here
 // either, for the same reason -- resolution and validation stay separate, and
 // the caller below is what actually needs the answer.
 export function findConfluencerScripts({ env = process.env, home = homedir() } = {}) {
@@ -133,7 +134,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   // --decline never fetches -- it only needs an identity to record against,
   // exactly like clip.mjs and clip-docx.mjs, so it works with no dependency
@@ -208,7 +209,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
 
   const clip = confluenceClipContent({ title: parsed.title, source: parsed.url, body: parsed.body, quality, topic });
 
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
 
   // Content-hash dedup catches what the URL check above cannot: re-clipping
   // via a bare page ID after the vault already holds this page's URL, or a
@@ -225,7 +226,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   // workflow, the fix is version-aware dedup (key on URL+Version, not URL
   // alone) -- deliberately not built here to keep this change scoped to what
   // was asked.
-  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  const already = existingClippingWithHash(readClippingHashes(dir, vaultPath), clip.hash);
   if (already) {
     console.log(`exists (same content): ${already}`);
     return { status: 'duplicate', file: already };
@@ -233,7 +234,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
 
   const taken = new Set(readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3).toLowerCase()));
   const slug = disambiguateSlug(slugify(parsed.title), clip.hash, (s) => taken.has(s.toLowerCase()));
-  const file = join(dir, `${slug}.md`);
+  const file = checkedPath(vaultPath, 'raw', 'clippings', `${slug}.md`);
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, confluence, space=${parsed.space || '?'}, v${parsed.version || '?'})`);

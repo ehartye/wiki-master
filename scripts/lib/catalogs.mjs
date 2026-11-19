@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath, assertVaultPath } from './vault-path.mjs';
 // The generated catalogs: index.md, each project's roadmap and each project's map, built from one vault graph.
 //
 // A catalog is a DERIVED artifact. Prior art is unanimous (llm_wiki forbids the LLM from writing its index;
@@ -34,10 +35,11 @@ function planFenced(path, catalog, initial) {
 }
 
 // Atomic replace: readers (and Obsidian) see old-or-new, never a torn file.
-function replaceFenced(path, next) {
+function replaceFenced(path, next, vaultPath) {
   const dir = join(path, '..');
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(path)}.tmp-${process.pid}`);
+  assertVaultPath(vaultPath, tmp);
   writeFileSync(tmp, next);
   renameSync(tmp, path);
 }
@@ -88,7 +90,7 @@ export function renderCatalog({ pages }) {
 }
 
 export function regenerateIndex(vaultPath, { graph, apply = true } = {}) {
-  const indexPath = join(vaultPath, 'index.md');
+  const indexPath = checkedPath(vaultPath, 'index.md');
   const existing = existsSync(indexPath) ? readFileSync(indexPath, 'utf8') : '---\ntype: synthesis\n---\n# Index\n';
   const catalog = renderCatalog(graph ?? buildGraph(vaultPath));
   // With no fence yet one is appended, leaving all existing content untouched. The
@@ -98,7 +100,7 @@ export function regenerateIndex(vaultPath, { graph, apply = true } = {}) {
   // `changed` says what a write would change; only `apply` writes.
   const changed = next !== existing;
   const result = { pages: catalog.match(/^- /gm)?.length ?? 0, path: indexPath, changed, previous: existsSync(indexPath) ? existing : null, next };
-  if (apply && changed) replaceFenced(indexPath, next);
+  if (apply && changed) replaceFenced(indexPath, next, vaultPath);
   return result;
 }
 
@@ -212,7 +214,7 @@ export function shippedStub(projectTitle, now) {
 function headingsOf(vaultPath, items) {
   const titles = new Map();
   for (const p of items) {
-    try { const h = parseNote(readFileSync(join(vaultPath, ...p.path.split('/')), 'utf8')).body.match(/^#[ \t]+(.+?)[ \t]*$/m)?.[1]; if (h) titles.set(p.path, h); }
+    try { const h = parseNote(readFileSync(checkedPath(vaultPath, ...p.path.split('/')), 'utf8')).body.match(/^#[ \t]+(.+?)[ \t]*$/m)?.[1]; if (h) titles.set(p.path, h); }
     catch { /* an unreadable item keeps its bare link */ }
   }
   return titles;
@@ -239,12 +241,12 @@ export function planBacklogRoadmaps(vaultPath, { graph, now = new Date() } = {})
   const unrecognized = [];
   for (const { project, pages: projectItems } of projects) {
     written.push(project);
-    const roadmapPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
+    const roadmapPath = checkedPath(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap.md');
     unrecognized.push(...unrecognizedBacklogItems(projectItems).map((p) => p.path));
     const settings = existsSync(roadmapPath) ? parseNote(readFileSync(roadmapPath, 'utf8')).metadata : {};
     const titles = settings['backlog-titles'] === 'true' ? headingsOf(vaultPath, projectItems) : undefined;
     const collapse = settings['backlog-shipped'] === 'collapse' && projectItems.some((p) => p.backlogStatus === 'shipped');
-    const shippedPath = join(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap-shipped.md');
+    const shippedPath = checkedPath(vaultPath, 'wiki', 'authored', ...project.split('/'), 'roadmap-shipped.md');
     const shipped = collapse ? { link: `wiki/authored/${project}/roadmap-shipped` } : undefined;
     const rel = (p) => relative(vaultPath, p).replaceAll('\\', '/');
     outputs.push({ path: rel(roadmapPath), abs: roadmapPath, ...planFenced(roadmapPath, renderBacklogCatalog({ pages: projectItems, ambiguousNames, titles, shipped }), () => roadmapStub(project, now)) });
@@ -259,7 +261,7 @@ export function regenerateBacklogRoadmaps(vaultPath, { apply = false, graph, now
   if (apply && !validDate(now)) throw new TypeError('now must be a valid Date');
   const { written, outputs, unrecognized } = planBacklogRoadmaps(vaultPath, { graph, now });
   const changed = outputs.filter((o) => o.next !== o.previous);
-  if (apply) for (const o of changed) replaceFenced(o.abs, o.next);
+  if (apply) for (const o of changed) replaceFenced(o.abs, o.next, vaultPath);
   return { written, changed: changed.map((o) => o.path), outputs: outputs.map(({ path, previous, next }) => ({ path, previous, next })), unrecognized };
 }
 
@@ -318,7 +320,7 @@ export function planAuthoredMocs(vaultPath, { graph } = {}) {
   const outputs = [];
   for (const { project, pages: projectPages } of projects) {
     written.push(project);
-    const mocPath = join(vaultPath, 'moc', `${projectSlug(project)}.md`);
+    const mocPath = checkedPath(vaultPath, 'moc', `${projectSlug(project)}.md`);
     const rel = relative(vaultPath, mocPath).replaceAll('\\', '/');
     outputs.push({ path: rel, abs: mocPath, ...planFenced(mocPath, renderProjectCatalog({ pages: projectPages, ambiguousNames }), () => '---\ntype: moc\nsources: []\nai-generated: true\n---\n') });
   }
@@ -330,7 +332,7 @@ export function planAuthoredMocs(vaultPath, { graph } = {}) {
 export function regenerateAuthoredMocs(vaultPath, { apply = false, graph } = {}) {
   const { written, outputs } = planAuthoredMocs(vaultPath, { graph });
   const changed = outputs.filter((o) => o.next !== o.previous);
-  if (apply) for (const o of changed) replaceFenced(o.abs, o.next);
+  if (apply) for (const o of changed) replaceFenced(o.abs, o.next, vaultPath);
   return { written, changed: changed.map((o) => o.path), outputs: outputs.map(({ path, previous, next }) => ({ path, previous, next })) };
 }
 

@@ -7,7 +7,7 @@
 //   node scripts/repair-missing-hash.mjs --apply
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { insertSourceHash } from './lib/backfill.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
@@ -15,7 +15,7 @@ import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
-const { path: vault } = resolveVault();
+const { path: vault } = resolveOperationVault('maintenance');
 
 const targets = buildGraph(vault).pages.filter(
   (p) => p.path.startsWith('raw/') && !p.path.startsWith('raw/figures/') && p.path.endsWith('.md') && !p.sourceHash

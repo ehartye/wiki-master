@@ -11,10 +11,15 @@ backlog listing does not authorize editing or catalog generation.
 
 ## Workflow
 
-1. Resolve the vault and absolute installed helpers using
-   [access](../wiki-maintainer/references/access.md); read vault instructions.
-   Identify the project from its overview's `repo:` mapping (the read-only
-   `session-brief.mjs` can resolve the repository). Locate existing pages first.
+1. Resolve absolute installed helpers using
+   [access](../wiki-maintainer/references/access.md), then run
+   `context.mjs --purpose documentation --repo "<repository>" --json` before any
+   authoring. Read that documentation vault's `AGENTS.md`, `VAULT.md` and schema.
+   Use the resolved project and canonical project folder; absent an explicit project,
+   overview `repo:` discovery remains the fallback (`session-brief.mjs` can show it).
+   Correct identity conflicts before writing; never create a duplicate project to
+   evade a changed destination. Bind this target for validation/log/refresh.
+   Locate existing pages first.
    Read [authoring and placement](references/authoring.md) and choose the kind;
    create a new project's overview before its other documents.
 2. Inspect current project behavior and relevant wiki passages. Separate verified
@@ -69,6 +74,10 @@ roadmaps current in the same task. Use full-path links across projects and
 retain established filenames. Record failed attempts and limits, balanced ADR
 consequences, and the difference between not built and built but broken. The repo
 establishes behavior; the wiki records intent, including disagreements worth fixing.
+Knowledge learned elsewhere may inform original prose, with ordinary original-source
+HTTPS citations. Do not cite a foreign vault note, copy its evidence, or fabricate a
+local `sources:` path. Supporting captures require this documentation vault to be in
+the research list and selected for a separately authorized original-source capture.
 
 ## Advanced references
 

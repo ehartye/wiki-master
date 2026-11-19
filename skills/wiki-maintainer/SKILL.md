@@ -11,8 +11,12 @@ not authorize filing. Pure filesystem edits need no running app; the final refre
 
 ## Workflow
 
-1. Read [access](references/access.md), resolve the known vault and absolute
-   installed helpers, and open its applicable instructions. Select the requested
+1. Read [access](references/access.md), resolve absolute installed helpers and
+   `context.mjs --purpose maintenance --json` (with `--select <id>` for an explicitly
+   requested configured vault), and open its applicable instructions and descriptor.
+   Bind the selected context for every helper; keep repairs and provenance within
+   that vault. Maintenance selection cannot redirect documentation or capture.
+   Select the requested
    action below; use [wiki-setup](../wiki-setup/SKILL.md) for report-only work.
 2. Inspect the exact pages, current evidence and requested scope. Read
    [evidence](references/evidence.md) before factual changes and

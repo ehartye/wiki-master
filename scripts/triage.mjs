@@ -1,8 +1,10 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
+import { triagePaths } from './lib/triage-paths.mjs';
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, quarantineSettledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
@@ -32,7 +34,7 @@ function* clippingFiles(dir, prefix='') {
 // frontmatter: fidelity, topic attribution and durable citation restrictions.
 // Read the complete header so a long figure list cannot hide its restriction.
 export function scanClippings(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
   if (!existsSync(dir)) return { flagged: [], topics: [], quarantined: [], active: [] };
   const flagged = [];
   const topics = [];
@@ -421,7 +423,7 @@ ${groups.join('\n')}`;
 // ========== Server plumbing ==========
 
 function sessionDir(vaultPath) {
-  return join(vaultPath, '.wiki-master', 'triage-ui');
+  return checkedPath(vaultPath, '.wiki-master', 'triage-ui');
 }
 
 async function serverAlive(info) {
@@ -439,8 +441,8 @@ async function serverAlive(info) {
   }
 }
 
-function readInfo(dir) {
-  const f = join(dir, 'state', 'server-info');
+function readInfo(paths) {
+  const f = paths.stateFile('server-info');
   if (!existsSync(f)) return null;
   try {
     return JSON.parse(readFileSync(f, 'utf8'));
@@ -449,14 +451,14 @@ function readInfo(dir) {
   }
 }
 
-function startServer(vaultPath, dir, { remote = false } = {}) {
+function startServer(vaultPath, dir, { remote = false, env = process.env } = {}) {
   const args = [join(HERE, 'triage-ui', 'server.cjs')];
   if (remote) args.push('--remote');
   const child = spawn(process.execPath, args, {
     detached: true,
     stdio: 'ignore',
     env: {
-      ...process.env,
+      ...env,
       WM_TRIAGE_DIR: dir,
       WM_TRIAGE_VAULT: vaultPath,
       WM_TRIAGE_OWNER_PID: '',
@@ -466,19 +468,22 @@ function startServer(vaultPath, dir, { remote = false } = {}) {
 }
 
 export async function main() {
-  const { path: vaultPath } = resolveVault();
+  const vault = resolveOperationVault('maintenance');
+  const { path: vaultPath } = vault;
   const dir = sessionDir(vaultPath);
-  mkdirSync(join(dir, 'content'), { recursive: true });
-  mkdirSync(join(dir, 'state'), { recursive: true });
+  const paths = triagePaths(vaultPath, dir);
+  const screen = paths.screenFile(`triage-${Date.now()}.html`);
+  mkdirSync(paths.content, { recursive: true });
+  mkdirSync(paths.state, { recursive: true });
 
   const data = collectTriage(vaultPath);
-  writeFileSync(join(dir, 'content', `triage-${Date.now()}.html`), renderScreen(data));
+  writeFileSync(paths.check(screen), renderScreen(data));
 
   const remote = process.argv.includes('--remote');
-  let info = readInfo(dir);
+  let info = readInfo(paths);
   if (!(await serverAlive(info))) {
-    startServer(vaultPath, dir, { remote });
-    for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(dir)))); i++) {
+    startServer(vaultPath, dir, { remote, env: vault.env });
+    for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(paths)))); i++) {
       await new Promise((r) => setTimeout(r, 250));
     }
   }
@@ -517,5 +522,5 @@ const USAGE = [
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (helpRequested()) exitWithHelp(USAGE);
-  else main();
+  else main().catch(error => { console.error(error.message); process.exitCode = error.exitCode ?? 1; });
 }

@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // Repair `ambiguous-link` issues that have exactly one safe answer, and report the rest with the reason.
 //
 // A bare wikilink such as [[architecture]] is ambiguous when two pages share the name. The one rule applied
@@ -19,7 +20,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { classifyAmbiguous, projectOf, repointBareLinks, onlyWikilinksChanged, bumpUpdated, hasGeneratedFence } from './lib/ambiguous-repair.mjs';
 import { cliGuard, optionValues } from './lib/cli-guard.mjs';
@@ -31,7 +32,7 @@ const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() +
 export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclude = [], mapping = [], today = localDay() } = {}) {
   const issues = scanIntegrity(vaultPath).issues.filter((i) => i.rule === 'ambiguous-link');
   const texts = new Map();
-  const text = (page) => { if (!texts.has(page)) texts.set(page, readFileSync(join(vaultPath, page), 'utf8')); return texts.get(page); };
+  const text = (page) => { if (!texts.has(page)) texts.set(page, readFileSync(checkedPath(vaultPath, page), 'utf8')); return texts.get(page); };
   const context = (page, line) => (text(page).split('\n')[(line ?? 1) - 1] ?? '').replace(/\r$/, '').trim().slice(0, 160);
 
   const wantedByPage = new Map(); // page -> Map(lower target -> { path, class })
@@ -75,14 +76,14 @@ export function repairAmbiguousLinks(vaultPath, { apply = false, project, exclud
     for (const [k, v] of wanted) if (repointBareLinks(original, new Map([[k, v.path]])).count) repointed.push({ page, target: v.issue.target, path: v.path, class: v.class });
     fixed += result.count;
     pages += 1;
-    if (apply) writeFileSync(join(vaultPath, page), bumpUpdated(result.text, today));
+    if (apply) writeFileSync(checkedPath(vaultPath, page), bumpUpdated(result.text, today));
   }
   return { applied: apply, fixed, pages, planned, repointed, reported, excluded };
 }
 
 export function main(argv = process.argv.slice(2)) {
   const opts = (name) => optionValues(argv, name);
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const mappingFile = opts('mapping')[0];
   const mapping = mappingFile ? JSON.parse(readFileSync(mappingFile, 'utf8')) : [];
   const r = repairAmbiguousLinks(vaultPath, { apply: argv.includes('--apply'), project: opts('project')[0], exclude: opts('exclude'), mapping });

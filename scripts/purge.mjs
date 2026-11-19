@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import {
   readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, readdirSync, statSync,
 } from 'node:fs';
@@ -5,7 +6,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { BIN_DIR, binPathFor, planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
@@ -44,7 +45,7 @@ export function enrichPages(vaultPath, pages) {
   return pages.map((p) => {
     if (!p.path.startsWith('raw/') || !p.path.endsWith('.md')) return p;
     try {
-      const text = readFileSync(join(vaultPath, p.path), 'utf8');
+      const text = readFileSync(checkedPath(vaultPath, p.path), 'utf8');
       const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/)?.[1] ?? '';
       const url = fm.match(/^source:\s*"?([^"\r\n]+?)"?\s*$/m)?.[1];
       return url && /^https?:/.test(url) ? { ...p, url } : p;
@@ -55,9 +56,9 @@ export function enrichPages(vaultPath, pages) {
 }
 
 function moveInto(vaultPath, from, to) {
-  const dest = join(vaultPath, to);
+  const dest = checkedPath(vaultPath, to);
   mkdirSync(dirname(dest), { recursive: true });
-  renameSync(join(vaultPath, from), dest);
+  renameSync(checkedPath(vaultPath, from), dest);
 }
 
 // Moves every manifest entry into the bin. Re-running is safe and is how
@@ -68,16 +69,16 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
   const touched = [];
   const failed = [];
   for (const e of manifest.entries) {
-    const src = join(vaultPath, e.from);
+    const src = checkedPath(vaultPath, e.from);
     if (!existsSync(src)) continue;
     let to = binPathFor(manifest.id, e.from);
     // asResurrection matters for the HASH-matched case: a re-clip under a new
     // filename never collides, so without the flag it lands at the bin's top
     // level, indistinguishable from a file the original purge moved there and
     // absent from that folder's manifest.json.
-    if (asResurrection || existsSync(join(vaultPath, to))) {
+    if (asResurrection || existsSync(checkedPath(vaultPath, to))) {
       let n = 1;
-      while (existsSync(join(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) n += 1;
+      while (existsSync(checkedPath(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) n += 1;
       to = `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`;
     }
     // A vault page whose path happens to be exactly "manifest.json" would land
@@ -120,7 +121,7 @@ export function applyPurge(vaultPath, manifest, { asResurrection = false } = {})
 function alreadyRestored(vaultPath, entry) {
   if (!entry.sha256) return false;
   try {
-    return sha256(readFileSync(join(vaultPath, entry.from), 'utf8')) === entry.sha256;
+    return sha256(readFileSync(checkedPath(vaultPath, entry.from), 'utf8')) === entry.sha256;
   } catch {
     return false;
   }
@@ -137,14 +138,14 @@ export function applyRestore(vaultPath, manifest) {
   const failed = [];
   for (const e of manifest.entries) {
     let from = binPathFor(manifest.id, e.from);
-    if (!existsSync(join(vaultPath, from))) {
+    if (!existsSync(checkedPath(vaultPath, from))) {
       // The primary slot is empty. Rather than silently report nothing — the
       // gap that let a crash-mid-purge, once reconciled into resurrected-N/,
       // strand files behind an unqualified "restored 1" success message —
       // fall back to the newest resurrected-N/ copy so recovery is automatic.
       let n = 1;
       let latest = null;
-      while (existsSync(join(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) {
+      while (existsSync(checkedPath(vaultPath, `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`))) {
         latest = `${BIN_DIR}/${manifest.id}/resurrected-${n}/${e.from}`;
         n += 1;
       }
@@ -156,7 +157,7 @@ export function applyRestore(vaultPath, manifest) {
       }
       from = latest;
     }
-    if (existsSync(join(vaultPath, e.from))) {
+    if (existsSync(checkedPath(vaultPath, e.from))) {
       skipped.push(e.from);
       continue;
     }
@@ -191,7 +192,7 @@ export function applyRestore(vaultPath, manifest) {
 // cheerful "0 re-binned". unreadable makes the corrupt case visible to the
 // caller instead of swallowing it.
 export function readManifests(vaultPath) {
-  const binRoot = join(vaultPath, BIN_DIR);
+  const binRoot = checkedPath(vaultPath, BIN_DIR);
   if (!existsSync(binRoot)) return { manifests: [], unreadable: [] };
   const manifests = [];
   const unreadable = [];
@@ -217,7 +218,7 @@ export function readManifests(vaultPath) {
 }
 
 export function writeManifest(vaultPath, manifest) {
-  const dir = join(vaultPath, BIN_DIR, manifest.id);
+  const dir = checkedPath(vaultPath, BIN_DIR, manifest.id);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
@@ -241,7 +242,7 @@ export function writeManifest(vaultPath, manifest) {
 export function nextFreePurgeId(vaultPath, id) {
   let candidate = id;
   let n = 2;
-  while (existsSync(join(vaultPath, BIN_DIR, candidate))) candidate = `${id}-${n++}`;
+  while (existsSync(checkedPath(vaultPath, BIN_DIR, candidate))) candidate = `${id}-${n++}`;
   return candidate;
 }
 
@@ -348,7 +349,7 @@ export async function main(argv, {
   searchImpl = searchMain,
   applyPurge: applyPurgeFn = applyPurge,
 } = {}) {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const mode = argv[0] ?? '--plan';
   // `--seeds a.md,b.md` pins the seed set instead of searching for it. Measured
   // need, not speculation: a real dry run against the live vault seeded 25 pages
@@ -534,7 +535,7 @@ export async function main(argv, {
 
   const id = nextFreePurgeId(vaultPath, purgeId(arg));
   const hashes = Object.fromEntries(
-    plan.purge.map((p) => [p, sha256(readFileSync(join(vaultPath, p), 'utf8'))])
+    plan.purge.map((p) => [p, sha256(readFileSync(checkedPath(vaultPath, p), 'utf8'))])
   );
   const manifest = buildManifest({
     id, topic: arg, date: id.slice(0, 10),

@@ -1,7 +1,8 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { embed as ollamaEmbed, isAvailable, cosine } from './lib/embed.mjs';
 import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 import { buildGraph, buildNameIndex, evidencePaths } from './lib/graph.mjs';
@@ -146,10 +147,10 @@ export function collectDriftPages(vaultPath, { readFile = readFileSync } = {}) {
     const evidence = evidencePaths(page, byName, byPath).filter(path => path.endsWith('.md'));
     const raw = evidence.filter(path => path.startsWith('raw/'));
     const sourcePaths = raw.length ? raw : evidence;
-    const text = readFile(join(vaultPath, page.path), 'utf8');
+    const text = readFile(checkedPath(vaultPath, page.path), 'utf8');
     return {
       path: page.path, pageHash: hash(text), sources: sourcePaths.map(path => ({ path })),
-      load: () => ({ body: parseNote(text).body, sources: sourcePaths.map(path => ({ path, content: parseNote(readFile(join(vaultPath, path), 'utf8')).body })) }),
+      load: () => ({ body: parseNote(text).body, sources: sourcePaths.map(path => ({ path, content: parseNote(readFile(checkedPath(vaultPath, path), 'utf8')).body })) }),
     };
   });
 }
@@ -194,10 +195,10 @@ export async function main(argv = [], { embed = ollamaEmbed, available = isAvail
       if (!pathsFile) throw new Error('--paths-file needs a ledger file (a JSON array of vault-relative paths)');
     } else throw new Error(`unknown argument: ${argv[i]}`);
   }
-  const named = pathsFile === undefined ? null : checkLedgerPaths(readLedger(pathsFile));
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
+  const named = pathsFile === undefined ? null : checkLedgerPaths(readLedger(pathsFile), vaultPath);
   const pages = collectDriftPages(vaultPath, { readFile });
-  const dir = stateDir ?? join(vaultPath, '.wiki-master');
+  const dir = stateDir ?? checkedPath(vaultPath, '.wiki-master');
   const state = readDriftState(dir, vaultPath);
   const report = (r) => {
     if (options.json) print(JSON.stringify(r));
@@ -206,8 +207,8 @@ export async function main(argv = [], { embed = ollamaEmbed, available = isAvail
   };
   const unavailable = !options.coverage && !(await available());
   if (options.coverage || unavailable) return report(await computeDrift(pages, { ...options, unavailable, state, named }));
-  const cacheDir = join(vaultPath, '.wiki-master');
-  const cache = loadCache(cacheDir);
+  const cacheDir = checkedPath(vaultPath, '.wiki-master');
+  const cache = loadCache(cacheDir, vaultPath);
   const cachedEmbed = async (text) => {
     const k = hash(text);
     if (cache[k]) return cache[k];
@@ -216,7 +217,7 @@ export async function main(argv = [], { embed = ollamaEmbed, available = isAvail
     return v;
   };
   const r = await computeDrift(pages, { ...options, embedFn: cachedEmbed, state, named });
-  saveCache(cacheDir, cache);
+  saveCache(cacheDir, cache, vaultPath);
   // Record the pages evaluated now (not failed ones), and drop pages that are no longer eligible anywhere in the
   // vault. A --paths-file run keeps the entries of pages it did not name.
   const eligible = new Set(pages.filter(page => page.sources?.length).map(page => page.path));

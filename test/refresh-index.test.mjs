@@ -520,18 +520,18 @@ for (const [answer, fix] of [
     assert.match(r.output, /answered unexpectedly/);
     assert.ok(r.output.includes(answer), r.output);
     assert.match(r.output, fix);
-    assert.doesNotMatch(r.output, /active vault is/);
+    assert.doesNotMatch(r.output, /selected vault resolved to/);
     assert.deepEqual(r.cliCalls, []);
     assert.deepEqual(snapshot(root), before);
   });
 }
 
-test('a real path that is not this vault still reads as the wrong active vault, on any platform', async (t) => {
+test('a real path that is not this vault still reads as the wrong selected vault, on any platform', async (t) => {
   const root = vault(t);
   for (const other of [join(tmpdir(), 'another-vault'), 'C:\\vaults\\other', 'C:/vaults/other', '/vaults/other']) {
     const r = await run(root, [], { probes: { cli: () => other } });
     assert.equal(r.code, 1);
-    assert.match(r.output, /active vault is/, other);
+    assert.match(r.output, /selected vault resolved to/, other);
     assert.doesNotMatch(r.output, /answered unexpectedly/, other);
   }
 });

@@ -173,8 +173,9 @@ const pageText = (i, extra = '') => `---\nsources: ["[[raw/clippings/R${pad(i)}.
 
 function selectionVault(t, count = 25) {
   const v = tempVault({ name: 'wm-drift-select' });
-  const state = mkdtempSync(join(realpathSync(tmpdir()), 'wm-drift-state-'));
-  t.after(() => { v.restore(); rmSync(state, { recursive: true, force: true }); });
+  const state = join(v.path, '.wiki-master', 'test-drift-state');
+  mkdirSync(state, { recursive: true });
+  t.after(() => v.restore());
   const put = (path, text) => { mkdirSync(dirname(join(v.path, path)), { recursive: true }); writeFileSync(join(v.path, path), text); };
   for (let i = 1; i <= count; i++) { put(pagePath(i), pageText(i)); put(`raw/clippings/R${pad(i)}.md`, `Evidence ${pad(i)}\n`); }
   put('wiki/concepts/Loose.md', 'No citations here.\n');

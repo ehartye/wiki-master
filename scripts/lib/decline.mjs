@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeUrl } from './url.mjs';
@@ -17,7 +18,7 @@ import { localDate } from './local-date.mjs';
 export const DECLINE_TTL_DAYS = 180;
 
 function storePath(vaultPath) {
-  return join(vaultPath, '.wiki-master', 'declined.json');
+  return checkedPath(vaultPath, '.wiki-master', 'declined.json');
 }
 
 // The decline entries that still hold: not expired and not superseded. A superseded entry stays in the file (with the
@@ -64,7 +65,7 @@ function readAll(vaultPath) {
 }
 
 export function recordDecline(vaultPath, url, reason) {
-  const dir = join(vaultPath, '.wiki-master');
+  const dir = checkedPath(vaultPath, '.wiki-master');
   mkdirSync(dir, { recursive: true });
   const f = storePath(vaultPath);
   let entries = readAll(vaultPath);

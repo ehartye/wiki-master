@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "project": "example-project",
+  "documentationVault": "docs",
+  "researchVaults": ["general"]
+}

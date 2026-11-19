@@ -1,7 +1,8 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { normalizeUrl } from './lib/url.mjs';
 import { readClippings, knownUrlIndex, newestCapture, urlKey } from './lib/known-urls.mjs';
 import { loadDeclines, isDeclined } from './lib/decline.mjs';
@@ -65,7 +66,7 @@ export function checkUrl(vaultPath, url, { index = knownUrlIndex(vaultPath), dec
 }
 
 function frontmatterValue(vaultPath, file, name) {
-  const text = readFileSync(join(vaultPath, 'raw', 'clippings', file), 'utf8');
+  const text = readFileSync(checkedPath(vaultPath, 'raw', 'clippings', file), 'utf8');
   const block = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
   const m = block.match(new RegExp(`^${name}:[ \\t]*(.*)$`, 'm'));
   if (!m) return null;
@@ -132,7 +133,7 @@ export function main(argv, { vaultPath, out = console.log, err = console.error }
   if (o.topic !== undefined && !normalizeTopic(o.topic)) return fail('--topic needs a topic: --summary --topic "<topic>"');
   if (o.summary && o.topic === undefined) return fail('--summary needs --topic "<topic>"');
   if (o.topic !== undefined && !o.summary) return fail('--topic is for --summary');
-  const vault = vaultPath ?? resolveVault().path;
+  const vault = vaultPath ?? resolveOperationVault('maintenance', { requireAvailable: false }).path;
 
   if (o.check !== null) {
     const index = knownUrlIndex(vault);

@@ -57,6 +57,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | Script | Purpose |
 |---|---|
 | `doctor.mjs` | Reports what each command needs from this machine and what it found. Read-only. |
+| `context.mjs` | Reports validated project documentation and ordered research vault routes, selection requirements and availability. Read-only. |
 | `health.mjs` | Reports wiki integrity: open defects, unresolved navigation and the ingest backlog (`--backlog`). |
 | `lint.mjs` | Warn-only content lints for the style policy. |
 | `lint-disposition.mjs` | Records what a person decided about lint findings, so the next lint run does not list them again, and prunes old records. |
@@ -66,7 +67,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | `relationships.mjs` | Proposes relationship candidates between pages from shared sources and neighbours. |
 | `validate-authored.mjs` | Checks the frontmatter, placement and links of the pages one authoring task wrote. |
 | `resolve-evidence.mjs` | Walks the citation graph from a wiki page to its raw evidence. |
-| `search.mjs` | Searches the wiki, and reports or sets up the semantic search service. |
+| `search.mjs` | Searches one selected/documentation vault, or all configured research vaults independently with `--research`; reports per-vault coverage. Also diagnoses or sets up the semantic search service. |
 | `backlog-list.mjs` | Lists backlog items by lifecycle status. |
 | `session-brief.mjs` | Prints the state of the wiki project the current repository belongs to. Read-only. |
 | `check-skill-citations.mjs` | Reports `wiki-master:<name>` citations in other plugins' directories that name no current skill. |
@@ -75,7 +76,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 
 | Script | Purpose |
 |---|---|
-| `init.mjs` | Scaffolds a new vault. |
+| `init.mjs` | Scaffolds the selected vault; `--bootstrap <absolute-root>` initializes an unregistered root before setup registers it. |
 | `setup-obsidian-git.mjs` | Checks or sets up the Obsidian Git plugin, which handles all git operations in the vault. |
 | `obsidian.mjs` | Proxy to the Obsidian CLI; exits 1 when the CLI prints a refusal. |
 | `log-entry.mjs` | Writes one log entry and prints its path. |

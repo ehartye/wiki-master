@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { assertVaultPath } from './vault-path.mjs';
 
 // Duplicate clippings: two files, one content-hash. A clip pass that writes
 // without first asking "does the vault already hold this content?" produces
@@ -12,12 +13,12 @@ import { join } from 'node:path';
 // twice, and the summary documents that by citing every copy.
 
 // Every clipping's recorded hash, for the pre-write check below.
-export function readClippingHashes(dir) {
+export function readClippingHashes(dir, vaultPath = dir) {
   return readdirSync(dir)
     .filter((f) => f.endsWith('.md'))
     .map((f) => ({
       file: `raw/clippings/${f}`,
-      hash: /^source-hash:\s*"?([0-9a-fA-F]{6,64})"?/m.exec(readFileSync(join(dir, f), 'utf8').slice(0, 800))?.[1],
+      hash: /^source-hash:\s*"?([0-9a-fA-F]{6,64})"?/m.exec(readFileSync(assertVaultPath(vaultPath, join(dir, f)), 'utf8').slice(0, 800))?.[1],
     }));
 }
 

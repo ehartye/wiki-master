@@ -409,19 +409,18 @@ test('a detached HEAD names itself and does not mention an upstream', async (t) 
   assert.doesNotMatch(`${r.failures[0].problem} ${r.failures[0].fix}`, /upstream/);
 });
 
-// Naming a vault could make the app open it, and this check must never start or open anything. It asks about the
-// vault already active, from a folder that is no vault, so the question names nothing.
-test('the real CLI call names no vault and runs from a neutral folder', async (t) => {
+// Both probes target the configured selector. A targeted command may activate its vault.
+test('both real CLI calls target the configured vault', async (t) => {
   const root = setGit(vault(t));
   const calls = [];
   const r = await checkPrerequisites({ vault: { path: root, name: 'fixture' }, probes: {
     ollamaUp: async () => true, modelPulled: async () => true, session: () => 'this-session', git: () => ({ repo: true, upstream: true }),
-    execFileSyncImpl: (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return argv[0] === 'vault' ? `${root}\n` : 'off\n'; },
+    execFileSyncImpl: (command, argv, options) => { calls.push({ command, argv, cwd: options.cwd }); return argv[1] === 'vault' ? `${root}\n` : 'off\n'; },
   } });
   assert.deepEqual(r.failures, []);
   assert.deepEqual(calls, [
-    { command: 'obsidian', argv: ['vault', 'info=path'], cwd: tmpdir() },
-    { command: 'obsidian', argv: ['plugins:restrict'], cwd: tmpdir() },
+    { command: 'obsidian', argv: ['vault=fixture', 'vault', 'info=path'], cwd: undefined },
+    { command: 'obsidian', argv: ['vault=fixture', 'plugins:restrict'], cwd: undefined },
   ]);
 });
 
@@ -435,12 +434,12 @@ test('restricted mode on fails with its own id, and exactly "on" counts', async 
   for (const answer of ['off', 'ON', 'on but later', '', 'Error: Command not found']) assert.deepEqual(ids(await check(answer)), [], answer);
 });
 
-test('another vault being active is the wrong vault, and the fix names both ways out', async (t) => {
+test('a selector returning another root fails without fallback', async (t) => {
   const r = await world(t, { cli: () => join(tmpdir(), 'another-vault') }).check();
   assert.deepEqual(ids(r), ['obsidian-vault']);
-  assert.match(r.failures[0].problem, /active vault/);
+  assert.match(r.failures[0].problem, /selected vault/);
   assert.match(r.failures[0].fix, /open this vault/i);
-  assert.match(r.failures[0].fix, /front/);
+  assert.match(r.failures[0].fix, /no fallback/);
 });
 
 test('with everything failing every failure is named at once, each with a fix to offer', async (t) => {

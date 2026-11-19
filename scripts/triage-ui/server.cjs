@@ -97,6 +97,7 @@ function advertisedHost(bind) {
 }
 const URL_HOST = process.env.WM_TRIAGE_URL_HOST || advertisedHost(HOST);
 
+(async () => {
 const SESSION_DIR = process.env.WM_TRIAGE_DIR;
 const VAULT_PATH = process.env.WM_TRIAGE_VAULT;
 let ownerPid = process.env.WM_TRIAGE_OWNER_PID ? Number(process.env.WM_TRIAGE_OWNER_PID) : null;
@@ -106,9 +107,14 @@ if (!SESSION_DIR || !VAULT_PATH) {
   process.exit(2);
 }
 
-const CONTENT_DIR = path.join(SESSION_DIR, 'content');
-const STATE_DIR = path.join(SESSION_DIR, 'state');
-const TRIAGE_LOG = path.join(VAULT_PATH, '.wiki-master', 'triage.jsonl');
+// Validate child bindings before token, upload or disposition writes.
+const { resolveOperationVault } = await import('../lib/vault.mjs');
+resolveOperationVault('maintenance', { root: VAULT_PATH });
+const { triagePaths } = await import('../lib/triage-paths.mjs');
+const paths = triagePaths(VAULT_PATH, SESSION_DIR);
+
+const CONTENT_DIR = paths.content;
+const STATE_DIR = paths.state;
 
 // ========== Session token ==========
 //
@@ -125,7 +131,7 @@ const COOKIE = 'wm_triage';
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
 function sessionToken() {
-  const f = path.join(STATE_DIR, 'token');
+  const f = paths.stateFile('token');
   try {
     const existing = fs.readFileSync(f, 'utf-8').trim();
     if (/^[0-9a-f]{32,}$/.test(existing)) return existing;
@@ -133,8 +139,8 @@ function sessionToken() {
     // First run for this vault.
   }
   const t = crypto.randomBytes(16).toString('hex');
-  fs.mkdirSync(STATE_DIR, { recursive: true });
-  fs.writeFileSync(f, t + '\n', { mode: 0o600 });
+  fs.mkdirSync(paths.check(STATE_DIR), { recursive: true });
+  fs.writeFileSync(paths.check(f), t + '\n', { mode: 0o600 });
   return t;
 }
 
@@ -149,8 +155,9 @@ function randomPort() {
 
 function rememberedPort() {
   if (process.env.WM_TRIAGE_PORT) return Number(process.env.WM_TRIAGE_PORT);
+  const file = paths.stateFile('port');
   try {
-    const n = Number(fs.readFileSync(path.join(STATE_DIR, 'port'), 'utf-8').trim());
+    const n = Number(fs.readFileSync(file, 'utf-8').trim());
     if (Number.isInteger(n) && n > 0 && n < 65536) return n;
   } catch (e) {
     // First run for this vault.
@@ -159,8 +166,9 @@ function rememberedPort() {
 }
 
 function rememberPort(n) {
-  fs.mkdirSync(STATE_DIR, { recursive: true });
-  fs.writeFileSync(path.join(STATE_DIR, 'port'), String(n) + '\n');
+  const file = paths.stateFile('port');
+  fs.mkdirSync(paths.check(STATE_DIR), { recursive: true });
+  fs.writeFileSync(file, String(n) + '\n');
 }
 
 // Length is checked first because timingSafeEqual throws on a length mismatch,
@@ -209,12 +217,12 @@ const WAITING = `<div class="empty"><div class="big">Waiting for a triage screen
 // ========== HTTP ==========
 
 function newestScreen() {
-  if (!fs.existsSync(CONTENT_DIR)) return null;
+  if (!fs.existsSync(paths.check(CONTENT_DIR))) return null;
   const files = fs
     .readdirSync(CONTENT_DIR)
     .filter((f) => f.endsWith('.html'))
     .map((f) => {
-      const fp = path.join(CONTENT_DIR, f);
+      const fp = paths.screenFile(f);
       return { path: fp, mtime: fs.statSync(fp).mtime.getTime() };
     })
     .sort((a, b) => b.mtime - a.mtime);
@@ -223,7 +231,7 @@ function newestScreen() {
 
 function render() {
   const f = newestScreen();
-  const content = f ? fs.readFileSync(f, 'utf-8') : WAITING;
+  const content = f ? fs.readFileSync(paths.check(f), 'utf-8') : WAITING;
   const html = frameTemplate().replace('<!-- CONTENT -->', content);
   return html.replace('</body>', helperInjection() + '\n</body>');
 }
@@ -255,8 +263,14 @@ function handleRequest(req, res) {
       return;
     }
     if (!authed(req)) return deny(res);
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(render());
+    try {
+      const html = render();
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
     return;
   }
 
@@ -286,6 +300,7 @@ function handleRequest(req, res) {
     });
     req.on('end', () => {
       try {
+        paths.ledger(); // Refuse an escaped ledger before staging uploaded bytes.
         const dir = path.join(os.tmpdir(), 'wiki-master-uploads');
         fs.mkdirSync(dir, { recursive: true });
         const saved = path.join(dir, `${Date.now()}-${name}`);
@@ -295,8 +310,9 @@ function handleRequest(req, res) {
           disposition: 'downloaded', note: saved,
           at: new Date().toISOString(), via: 'triage-ui',
         };
-        fs.mkdirSync(path.dirname(TRIAGE_LOG), { recursive: true });
-        fs.appendFileSync(TRIAGE_LOG, JSON.stringify(event) + '\n');
+        const ledger = paths.ledger();
+        fs.mkdirSync(path.dirname(ledger), { recursive: true });
+        fs.appendFileSync(ledger, JSON.stringify(event) + '\n');
         console.log(JSON.stringify({ type: 'upload', saved, bytes: size }));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, saved }));
@@ -347,8 +363,9 @@ function handleRequest(req, res) {
         });
       }
       try {
-        fs.mkdirSync(path.dirname(TRIAGE_LOG), { recursive: true });
-        fs.appendFileSync(TRIAGE_LOG, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
+        const ledger = paths.ledger();
+        fs.mkdirSync(path.dirname(ledger), { recursive: true });
+        fs.appendFileSync(ledger, events.map((e) => JSON.stringify(e)).join('\n') + '\n');
       } catch (e) {
         // Report the failure rather than 200-ing a write that did not happen —
         // the client reverts the rows on a non-2xx.
@@ -446,8 +463,8 @@ function touchActivity() {
 }
 
 function startServer() {
-  fs.mkdirSync(CONTENT_DIR, { recursive: true });
-  fs.mkdirSync(STATE_DIR, { recursive: true });
+  fs.mkdirSync(paths.check(CONTENT_DIR), { recursive: true });
+  fs.mkdirSync(paths.check(STATE_DIR), { recursive: true });
 
   const server = http.createServer(handleRequest);
   server.on('upgrade', handleUpgrade);
@@ -460,7 +477,8 @@ function startServer() {
       filename,
       setTimeout(() => {
         timers.delete(filename);
-        if (!fs.existsSync(path.join(CONTENT_DIR, filename))) return;
+        try { if (!fs.existsSync(paths.screenFile(filename))) return; }
+        catch (error) { console.error(error.message); return; }
         touchActivity();
         broadcast({ type: 'reload' });
       }, 100)
@@ -470,12 +488,12 @@ function startServer() {
 
   function shutdown(reason) {
     console.log(JSON.stringify({ type: 'server-stopped', reason }));
-    const info = path.join(STATE_DIR, 'server-info');
-    if (fs.existsSync(info)) fs.unlinkSync(info);
-    fs.writeFileSync(
-      path.join(STATE_DIR, 'server-stopped'),
-      JSON.stringify({ reason, timestamp: Date.now() }) + '\n'
-    );
+    try {
+      const info = paths.stateFile('server-info');
+      const stopped = paths.stateFile('server-stopped');
+      if (fs.existsSync(info)) fs.unlinkSync(info);
+      fs.writeFileSync(stopped, JSON.stringify({ reason, timestamp: Date.now() }) + '\n');
+    } catch (error) { console.error(error.message); }
     watcher.close();
     clearInterval(lifecycle);
 
@@ -537,27 +555,32 @@ function startServer() {
       process.exit(1);
     },
     onBound: (port) => {
-      rememberPort(port);
-      const url = 'http://' + URL_HOST + ':' + port;
-      const info = JSON.stringify({
-        type: 'server-started',
-        port,
-        host: HOST,
-        remote: REMOTE,
-        // `url` stays clean so liveness checks and logs carry no credential;
-        // `link` is the one-click entry point Claude hands to the user.
-        url,
-        link: url + '/?t=' + TOKEN,
-        screen_dir: CONTENT_DIR,
-        state_dir: STATE_DIR,
-        vault: VAULT_PATH,
-      });
-      console.log(info);
-      writeFileAtomic(path.join(STATE_DIR, 'server-info'), info + '\n');
+      try {
+        paths.stateFile('server-info');
+        paths.stateFile(`server-info.${process.pid}.tmp`);
+        rememberPort(port);
+        const url = 'http://' + URL_HOST + ':' + port;
+        const info = JSON.stringify({
+          type: 'server-started',
+          port,
+          host: HOST,
+          remote: REMOTE,
+          // `url` stays clean so liveness checks and logs carry no credential;
+          // `link` is the one-click entry point Claude hands to the user.
+          url,
+          link: url + '/?t=' + TOKEN,
+          screen_dir: CONTENT_DIR,
+          state_dir: STATE_DIR,
+          vault: VAULT_PATH,
+        });
+        writeFileAtomic(path.join(STATE_DIR, 'server-info'), info + '\n', paths.check);
+        console.log(info);
+      } catch (error) { console.error(error.message); process.exit(error.exitCode ?? 1); }
     },
   });
 }
 
 if (require.main === module) startServer();
+})().catch(error => { console.error(error.message); process.exitCode = error.exitCode ?? 1; });
 
 module.exports = { computeAcceptKey, encodeFrame, decodeFrame, OPCODES };

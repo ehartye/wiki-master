@@ -1,5 +1,20 @@
 # Evidence and editorial policy
 
+## Self-contained vaults
+
+Keep raw captures, attachments, source summaries and evidence-dependent derived
+pages in their selected research vault. Never create foreign-vault wikilinks,
+Markdown file links, Obsidian URI links, embeds or `sources:` entries. Do not resolve
+a missing local citation using a similarly named foreign page. Transient grouped
+search results do not authorize writing those connections into notes.
+
+Original project prose may use learned knowledge and original-source HTTPS citations.
+If supporting stored evidence is needed in the documentation vault, first include
+that vault in the research list and select it for a separately authorized capture
+from the original source. No foreign-note copying, migration or special capture
+bypass is provided. Descriptors guide placement; they are not semantic access controls.
+Outside-root aliases are excluded/unsearched; internal aliases remain supported.
+
 ## Page schema and dates
 
 Wiki frontmatter declares `type` (source/entity/concept/synthesis/authored),

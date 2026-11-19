@@ -97,8 +97,8 @@ test('the real server starts when its chosen port is refused with EACCES', async
   const refused = await findRefusedPort();
   if (refused === null) return t.skip('this host refuses no port in the server range');
   const root = mkdtempSync(join(tmpdir(), 'wm-listen-'));
-  const dir = join(root, 'session');
   const vault = join(root, 'vault');
+  const dir = join(vault, 'session');
   mkdirSync(join(dir, 'content'), { recursive: true });
   mkdirSync(vault, { recursive: true });
   const server = new URL('../scripts/triage-ui/server.cjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');

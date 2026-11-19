@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { analyzeBacklog } from './lib/backlog-deps.mjs';
 import { analyzeSpecs } from './lib/backlog-specs.mjs';
@@ -94,7 +94,7 @@ export function main(argv = process.argv.slice(2), out = (line) => console.log(l
     const { values } = parseArgs({ args: argv, options: {
       project: { type: 'string' }, 'backlog-status': { type: 'string' }, startable: { type: 'boolean' }, 'specced-in': { type: 'string' }, json: { type: 'boolean' },
     } });
-    const rows = listBacklog(resolveVault().path, {
+    const rows = listBacklog(resolveOperationVault('documentation', { requireAvailable: false }).path, {
       project: values.project,
       backlogStatus: values['backlog-status'] === undefined ? undefined : parseStatuses(values['backlog-status']),
       startable: values.startable ?? false,

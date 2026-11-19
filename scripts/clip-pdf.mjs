@@ -1,10 +1,11 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
 import { newProbe, probeWriters, probeReport, printProbe, vaultStanding, PROBE_OCR_PAGES } from './lib/clip-probe.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
@@ -455,7 +456,7 @@ export function resolveClippingArg(arg, vaultPath) {
 // Render figures for a clipping and record them in the clipping's FRONTMATTER.
 // The body is never touched (raw/ is immutable; source-hash covers the body).
 export function addFiguresToClipping({ pdfPath, vaultPath, clippingRel, fig, source, title, render = renderFigures }) {
-  const abs = join(vaultPath, clippingRel);
+  const abs = checkedPath(vaultPath, clippingRel);
   const r = render({ pdfPath, vaultPath, clippingPath: clippingRel, title, source, selection: fig });
   console.log(figureSummary(r));
   if (r.status === 'skipped') console.error(`WARNING: ${r.message}`);
@@ -601,10 +602,6 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
   if (isUrl && fig.only) { console.error('ERROR: --figures-only needs the PDF file itself: download the file first, then run clip-pdf.mjs on it.'); process.exit(2); }
 
-  // Yell about the toolchain BEFORE doing any work, on every run. A missing tool
-  // silently downgrades what a clipping can ever be, and the downgrade is
-  // invisible in the output -- so it has to be loud at the top, not inferred
-  // later from a clipping that merely looks thin.
   if (argv.includes('--doctor')) {
     return diagnosePdf().then(report => {
       console.log(formatPdfDoctor(report));
@@ -612,6 +609,10 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
       return report;
     });
   }
+  // Routing errors take precedence over external tool availability. Doctor is
+  // intentionally independent of a capture destination; input checks above stay first.
+  const { path: vaultPath } = resolveOperationVault('research');
+  // Report missing tools before capture work so degraded extraction is explicit.
   const deps = toolchain();
   if (!deps.ok) {
     console.error('');
@@ -632,7 +633,6 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
   if (probe) Object.assign(probe, { source, vaultPath });
 
   if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);
@@ -762,13 +762,13 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
     return { status: outcome.status, ...(probe && { words: clip.wordCount, extraction: clip.extraction ?? 'text', title, reason: outcome.reason ?? outcome.message.split('\n')[0] }) };
   }
 
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
 
   // isDuplicateUrl only catches a re-clip of the same PATH; a moved or renamed
   // binary slips past it and the slug disambiguation below then mints a second
   // file for content the vault already holds. Identity is the extracted body's
   // hash, which does not care where the binary lives.
-  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  const already = existingClippingWithHash(readClippingHashes(dir, vaultPath), clip.hash);
   if (already) {
     closeIssuesResolvedByClip(vaultPath, source, 'duplicate');
     console.log(`exists (same content): ${already}`);
@@ -786,7 +786,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
   if (claim.clash) return { status: 'clash', existing: claim.existing };
   const slug = claim.slug;
-  const file = join(dir, `${slug}.md`);
+  const file = checkedPath(vaultPath, 'raw', 'clippings', `${slug}.md`);
 
   writeFileSync(file, clip.body);
   // After the write, so a row is never closed by a clip that did not land.

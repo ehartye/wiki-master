@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath, assertVaultPath } from './lib/vault-path.mjs';
 // A clipping's `fidelity:` is a cached verdict written once at clip time, and
 // nothing ever re-validates it. Heuristics improve (and older ones were buggier),
 // so clippings carry stale "degraded" flags whose content assesses clean today —
@@ -10,7 +11,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { assessFidelity, letterInventory } from './clip-pdf.mjs';
 import { clippingKind } from './lib/reclip-html.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -80,8 +81,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error('refresh-fidelity: --inventory only lists the suspect clippings; it has no apply mode and is not combined with --ocr-floor');
     process.exit(2);
   }
-  const { path: vault } = resolveVault();
-  const dir = join(vault, 'raw', 'clippings');
+  const { path: vault } = resolveOperationVault('maintenance');
+  const dir = checkedPath(vault, 'raw', 'clippings');
   const suspects = [];
   let tested = 0;
   const floored = [];
@@ -91,7 +92,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   const walk = (d) => {
     for (const e of readdirSync(d, { withFileTypes: true })) {
-      const p = join(d, e.name);
+      const p = assertVaultPath(vault, join(d, e.name));
       if (e.isDirectory()) { walk(p); continue; }
       if (!e.name.endsWith('.md')) continue;
       const text = readFileSync(p, 'utf8');

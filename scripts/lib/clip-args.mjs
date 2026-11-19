@@ -41,7 +41,7 @@ export const CLIP_SPECS = {
       "           not an http or https address, or carries a username, password or secret query parameter, is an error outcome and the run goes on. A missing extraction",
       "           runtime stops the run with exit 1. Otherwise it ends with a count per outcome and exits 0, even after thin or failed ones.",
       "           Not with a URL, --from-file, --slug, --decline, --override-decline or --supersede-decline (exit 2).",
-      "  --ledger append one JSON line per address to <file> (with or without --list), outside raw/ and wiki/ of the vault (else exit 2).",
+      "  --ledger append one JSON line per address to <file> (with or without --list), inside the selected vault but outside raw/ and wiki/ (else exit 2).",
       "           Fields, null where one does not apply: url, status, path, sourceHash, quality, topic, extraction, fidelity, reason, twinUrl,",
       "           documentLink, expandCoverage, unexpandedTabs, extractionRetry, visibleWords, extractedWords. An address with a username, password or",
       "           secret query parameter is refused, and its row records it without the username, password or secret values.",

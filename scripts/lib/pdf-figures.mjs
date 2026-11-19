@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 // Preserving the FIGURES of a PDF.
 //
 // clip-pdf stores a PDF's text layer as Markdown and throws the rest away. For a
@@ -395,7 +396,7 @@ export function renderFigures({ pdfPath, vaultPath, clippingPath, title, source,
   }
   if (plan.capped) log(`figures: ${plan.total} pages selected, rendering the first ${plan.pages.length} (cap). Override with --figures-max=N.`);
 
-  const dir = join(vaultPath, 'raw', 'figures');
+  const dir = checkedPath(vaultPath, 'raw', 'figures');
   mkdirSync(dir, { recursive: true });
   const slug = clippingPath.replace(/^.*\//, '').replace(/\.md$/, '');
   const index = readFigureIndex(dir);
@@ -406,7 +407,7 @@ export function renderFigures({ pdfPath, vaultPath, clippingPath, title, source,
     for (const { page, kinds } of plan.pages) {
       const name = `${slug}-p${page}`;
       const rel = `raw/figures/${name}.md`;
-      const pngOut = join(dir, `${name}.png`), mdOut = join(dir, `${name}.md`);
+      const pngOut = checkedPath(vaultPath, 'raw', 'figures', `${name}.png`), mdOut = checkedPath(vaultPath, 'raw', 'figures', `${name}.md`);
       try {
         run(tools.pdftoppm, ['-r', String(FIGURE_DPI), '-png', '-f', String(page), '-l', String(page), '-singlefile', pdfPath, join(tmp, name)], { stdio: 'ignore', windowsHide: true });
       } catch (e) { result.failed.push({ page, error: String(e.message).split('\n')[0] }); continue; }

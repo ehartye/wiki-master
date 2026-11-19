@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "single",
+      "prompt": "Capture the supplied article for this request.",
+      "facts": "Context research=[general], selected=general. User authorized named capture. Simulate only; no actual capture.",
+      "requiredActions": [
+        "resolve-research",
+        "automatic-single",
+        "local-evidence"
+      ],
+      "forbiddenActions": [
+        "ask-destination",
+        "foreign-evidence"
+      ]
+    },
+    {
+      "id": "multiple",
+      "prompt": "Find and capture sources about retry budgets. Continue after the owner replies: use lab.",
+      "facts": "Context research=[general,lab], selected=null, selectionRequired=true. Simulate the initial response, then response after the owner selection.",
+      "requiredActions": [
+        "resolve-research",
+        "ask-once-before-discovery",
+        "retain-selection",
+        "local-evidence"
+      ],
+      "forbiddenActions": [
+        "repeat-destination-question",
+        "discovery-before-selection"
+      ]
+    },
+    {
+      "id": "explicit",
+      "prompt": "Use lab for this request: find and ingest sources about retry budgets.",
+      "facts": "Context research=[general,lab]. The owner supplied lab in this request.",
+      "requiredActions": [
+        "validate-supplied-selection",
+        "retain-selection",
+        "local-evidence"
+      ],
+      "forbiddenActions": [
+        "ask-destination",
+        "foreign-evidence"
+      ]
+    },
+    {
+      "id": "named-capture",
+      "prompt": "Capture https://example.org/article. Continue after the owner replies: use general.",
+      "facts": "Context research=[general,lab], selected=null. A named URL skips broad discovery, not destination selection.",
+      "requiredActions": [
+        "ask-once-before-capture",
+        "retain-selection",
+        "local-evidence"
+      ],
+      "forbiddenActions": [
+        "capture-before-selection",
+        "repeat-destination-question"
+      ]
+    },
+    {
+      "id": "named-ingestion",
+      "prompt": "Ingest raw/clippings/article.md. Continue after the owner replies: use lab.",
+      "facts": "Context research=[general,lab], selected=null. The relative name could exist in either root.",
+      "requiredActions": [
+        "ask-once-before-ingestion",
+        "retain-selection",
+        "local-evidence"
+      ],
+      "forbiddenActions": [
+        "ingestion-before-selection",
+        "repeat-destination-question"
+      ]
+    },
+    {
+      "id": "next-request",
+      "prompt": "New request: capture https://example.org/next.",
+      "facts": "Previous request selected lab and finished. Context research=[general,lab], selected=null. Simulate a new request.",
+      "requiredActions": [
+        "discard-prior-selection",
+        "ask-new-request"
+      ],
+      "forbiddenActions": [
+        "reuse-prior-answer",
+        "capture-before-selection"
+      ]
+    },
+    {
+      "id": "documentation-evidence",
+      "prompt": "Write the project architecture in its documentation vault and cite the note found in lab.",
+      "facts": "Documentation=docs, research=[general,lab]. Search found a useful lab note. Owner requests original prose, not a capture or configuration change.",
+      "requiredActions": [
+        "resolve-documentation",
+        "read-selected-instructions",
+        "use-original-https-or-uncited-original-prose",
+        "refuse-foreign-note-reference"
+      ],
+      "forbiddenActions": [
+        "foreign-evidence",
+        "copy-foreign-evidence",
+        "capture-outside-research"
+      ]
+    }
+  ]
+}

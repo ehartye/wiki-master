@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './vault-path.mjs';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseNote, frontmatterDamage } from './note.mjs';
@@ -36,13 +37,13 @@ function overviewPages(vaultPath) {
   const found = [];
   (function walk(rel, depth) {
     let entries;
-    try { entries = readdirSync(join(vaultPath, ...rel.split('/')), { withFileTypes: true }); } catch { return; }
+    try { entries = readdirSync(checkedPath(vaultPath, ...rel.split('/')), { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (e.name.startsWith('.')) continue;
       if (e.isDirectory() && depth < 3) walk(`${rel}/${e.name}`, depth + 1);
       else if (e.isFile() && e.name === 'overview.md') {
         let metadata;
-        try { metadata = parseNote(readFileSync(join(vaultPath, ...rel.split('/'), e.name), 'utf8')).metadata; } catch { continue; }
+        try { metadata = parseNote(readFileSync(checkedPath(vaultPath, ...rel.split('/'), e.name), 'utf8')).metadata; } catch { continue; }
         const refs = [].concat(metadata.repo ?? []).map(normalizeRepoRef).filter(Boolean);
         if (refs.length) found.push({ project: rel.slice(AUTHORED.length + 1), path: rel, refs });
       }

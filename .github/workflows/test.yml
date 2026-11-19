@@ -70,7 +70,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: node --test test/validate-authored.test.mjs test/integrity.test.mjs test/graph.test.mjs test/graph-walk.test.mjs test/graph-cache.test.mjs test/quote-match.test.mjs test/drift.test.mjs
+      - run: node --test test/validate-authored.test.mjs test/integrity.test.mjs test/graph.test.mjs test/graph-walk.test.mjs test/graph-cache.test.mjs test/quote-match.test.mjs test/drift.test.mjs test/context.test.mjs test/write-routing.test.mjs test/search-research.test.mjs test/vault-boundaries.test.mjs test/multi-vault-setup.test.mjs test/write-boundaries.test.mjs
 
   # Real-browser tests. A separate job that is not a required check, so a flake cannot block a merge; it can become
   # required once it has been green for a while. The render is headful, so it needs a display.

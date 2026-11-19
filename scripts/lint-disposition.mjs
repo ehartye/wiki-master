@@ -1,8 +1,9 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { isUnder, resolveVault } from './lib/vault.mjs';
+import { isUnder, resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { classifyQuotes, checkStyle } from './lint.mjs';
@@ -34,6 +35,7 @@ function readEntries(file, vaultPath) {
   entries.forEach((e, i) => {
     if (!e || typeof e !== 'object' || !text(e.page) || !text(e.quote)) throw new InputError(`--by-quote entry ${i} needs a string page and a string quote`);
   });
+  checkLedgerPaths(entries.map(e => e.page), vaultPath);
   return entries.map(({ page, quote }) => ({ page, quote }));
 }
 
@@ -53,8 +55,8 @@ function record(values, vaultPath) {
   if (!ids.length && scopes.length) throw new InputError(`--${scopes[0]} is the scope of --ids; --by-quote looks on each entry's page and takes no scope`);
   const entries = byQuote ? readEntries(values['by-quote'], vaultPath) : [];
   let idPages = null; // null: the whole vault
-  if (values.page !== undefined) idPages = new Set([values.page]);
-  else if (values['paths-file'] !== undefined) idPages = new Set(checkLedgerPaths(readLedger(values['paths-file'])));
+  if (values.page !== undefined) idPages = new Set(checkLedgerPaths([values.page], vaultPath));
+  else if (values['paths-file'] !== undefined) idPages = new Set(checkLedgerPaths(readLedger(values['paths-file']), vaultPath));
   const pages = ids.length && !idPages ? null : new Set([...(idPages ?? []), ...entries.map((e) => e.page)]);
   const graph = buildGraph(vaultPath);
   const { findings } = classifyQuotes(vaultPath, graph, pages ? { pages } : {});
@@ -87,13 +89,13 @@ function record(values, vaultPath) {
     if (quotes.length) throw new InputError(`${values.disposition} is a verdict for style flags only, and ${quotes.join(', ')} ${quotes.length === 1 ? 'is a quote finding' : 'are quote findings'}`);
   }
   const date = new Date().toISOString().slice(0, 10);
-  appendDispositions(join(vaultPath, DISPOSITIONS_FILE), [...found.values()].map((f) => recordFor(f, { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
+  appendDispositions(checkedPath(vaultPath, DISPOSITIONS_FILE), [...found.values()].map((f) => recordFor(f, { disposition: values.disposition, reviewer: values.reviewer, note: values.note, date })));
   return [`recorded ${found.size} verdict(s) in ${DISPOSITIONS_FILE} (${values.disposition}): ${[...found.keys()].join(', ')}`, ...notes].join('\n');
 }
 
 function prune(values, vaultPath) {
-  const file = join(vaultPath, DISPOSITIONS_FILE);
-  const { removed } = pruneDispositions(file, (page) => existsSync(join(vaultPath, ...page.split('/'))), { apply: !!values.apply });
+  const file = checkedPath(vaultPath, DISPOSITIONS_FILE);
+  const { removed } = pruneDispositions(file, (page) => existsSync(checkedPath(vaultPath, ...page.split('/'))), { apply: !!values.apply });
   if (!removed) return `${DISPOSITIONS_FILE}: no record is for a page that no longer exists`;
   return values.apply ? `${DISPOSITIONS_FILE}: removed ${removed} record(s) for a page that no longer exists`
     : `${DISPOSITIONS_FILE}: ${removed} record(s) for a page that no longer exists; dry run, re-run with --apply to remove them`;
@@ -110,7 +112,7 @@ export function main(argv = process.argv.slice(2)) {
   } catch (error) { throw new InputError(error.message.split('\n')[0]); }
   const [command, ...extra] = parsed.positionals;
   if (extra.length || !['record', 'prune'].includes(command)) throw new InputError('the command is record or prune (see --help)');
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const message = command === 'record' ? record(parsed.values, vaultPath) : prune(parsed.values, vaultPath);
   console.log(message);
   return message;

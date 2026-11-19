@@ -1,8 +1,8 @@
 import { homedir, tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { join, basename, resolve, relative, isAbsolute } from 'node:path';
+import { join, resolve, relative, isAbsolute } from 'node:path';
 import { serializedExecFileSync, validateCliRequest } from './cli-transport.mjs';
+import { resolveContext, requireSelectedTarget, contextEnv, ContextError, assertTestVault, sameRoot } from './context.mjs';
 
 // True when `path` is `dir` or inside it, also by its real path (macOS temp is a symlink).
 export function isUnder(path, dir) {
@@ -17,8 +17,6 @@ export function isUnder(path, dir) {
 
 export const isUnderTemp = (path, temp = tmpdir()) => isUnder(path, temp);
 
-const PLUGIN_ROOT = fileURLToPath(new URL('../..', import.meta.url));
-
 const refuseAndExit = (message) => { console.error(message); process.exit(2); };
 
 // The vault is WIKI_MASTER_VAULT, else the owner's real vault. Two guards keep that default from being reached
@@ -26,19 +24,52 @@ const refuseAndExit = (message) => { console.error(message); process.exit(2); };
 // under `node --test` (NODE_TEST_CONTEXT is set, and a child process inherits it) a vault outside the temp
 // directory and the plugin's own folder (where fixture vaults live) throws, so a test that forgets to name
 // one fails instead of acting on the real vault.
-export function resolveVault(env = process.env, { onRefuse = refuseAndExit } = {}) {
-  const named = env.WIKI_MASTER_VAULT;
-  const required = env.WIKI_MASTER_REQUIRE_VAULT;
-  if (!named && required && required !== '0') {
-    onRefuse('wiki-master: WIKI_MASTER_REQUIRE_VAULT is set and WIKI_MASTER_VAULT is not, so no vault is chosen; set WIKI_MASTER_VAULT to the vault to act on');
-    throw new Error('no vault chosen');
+export function resolveVault(env = process.env, { onRefuse = refuseAndExit, requireAvailable = false, ...options } = {}) {
+  let context;
+  // Legacy helpers historically resolve a root only; session-brief owns its legacy matching/error shape.
+  try { context = resolveContext(env, { discoverLegacyProject: false, ...options }); }
+  catch (error) {
+    // Preserve the strict legacy guard's callback contract. Other context errors retain their exitCode.
+    if (error.message.includes('WIKI_MASTER_REQUIRE_VAULT')) { onRefuse(error.message); throw new Error('no vault chosen'); }
+    throw error;
   }
-  const path = named || join(homedir(), '.wiki-master-vault');
-  if (env.NODE_TEST_CONTEXT && !isUnderTemp(path) && !isUnder(path, PLUGIN_ROOT)) {
-    throw new Error(`wiki-master: the vault ${path} is outside the temporary directory and the plugin folder, and a test run may only use a temporary or fixture vault; set WIKI_MASTER_VAULT to a directory under ${tmpdir()}`);
+  const target = requireSelectedTarget(context, { available: requireAvailable });
+  // `name` is the Obsidian CLI selector, not necessarily the root's folder name.
+  return { path: context.legacyPath ?? target.path, name: target.selector };
+}
+
+// Public operations choose their role at the call site. Bind once and carry this
+// environment to children/recovery instructions without changing process.env.
+export function resolveOperationVault(purpose, { env = process.env, root, requireAvailable = true, exit = code => process.exit(code), ...options } = {}) {
+  try {
+    const input = root === undefined ? env : { ...env, WIKI_MASTER_VAULT: root };
+    const context = resolveContext(input, { purpose, discoverLegacyProject: false, ...options });
+    const target = requireSelectedTarget(context, { available: requireAvailable });
+    const vault = { path: context.legacyPath ?? target.path, name: target.selector };
+    Object.defineProperty(vault, 'context', { value: context });
+    Object.defineProperty(vault, 'env', { value: context.configPath ? contextEnv(context, input) : { ...input } });
+    return vault;
+  } catch (error) {
+    if (!(error instanceof ContextError)) throw error;
+    console.error(error.message);
+    exit(error.exitCode);
+    throw error;
   }
-  const name = env.WIKI_MASTER_VAULT_NAME || basename(path);
-  return { path, name };
+}
+
+// Only init calls this bootstrap path. Ordinary operations never read this option.
+export function resolveSetupVault(root, env = process.env) {
+  if (root === undefined) {
+    const vault = resolveOperationVault('maintenance', { env, requireAvailable: false });
+    // Preserve legacy first-run scaffolding. A registered offline root is never
+    // recreated implicitly: initializing it requires the explicit bootstrap path.
+    requireSelectedTarget(vault.context, { available: Boolean(vault.context.configPath) });
+    return vault;
+  }
+  if (!isAbsolute(root)) throw new ContextError('--bootstrap requires an absolute vault root');
+  assertTestVault(root, env);
+  const name = env.WIKI_MASTER_VAULT_NAME || root.split(/[\\/]/).filter(Boolean).at(-1);
+  return { path: root, name, env: { WIKI_MASTER_VAULT: root, WIKI_MASTER_VAULT_NAME: name } };
 }
 
 // A command in both shells' forms, acting on the vault in `env`, or null for the default vault, which needs no naming.
@@ -46,8 +77,8 @@ export function resolveVault(env = process.env, { onRefuse = refuseAndExit } = {
 // run node after a failed assignment: the PowerShell line is a syntax error in a POSIX shell, and the POSIX line an
 // unknown command in PowerShell. `if` rather than `;` keeps a failing exit visible from `-Command`.
 export function commandForms(script, args = '', env = process.env) {
-  if (!env.WIKI_MASTER_VAULT) return null;
-  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME'].filter((key) => env[key]);
+  const keys = ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT_ID'].filter((key) => env[key]);
+  if (!keys.length) return null;
   // PowerShell closes a single-quoted string on a straight or typographic quote alike, so each is doubled.
   const single = (value) => `'${value.replace(/['‘’‚‛]/g, '$&$&')}'`;
   const posix =(value) => `'${value.replaceAll("'", "'\\''")}'`;
@@ -72,12 +103,26 @@ export const isDefaultVault = (path, env = process.env) => !env.WIKI_MASTER_VAUL
 
 // The variables a command needs to act on this vault: none for the default one.
 export function vaultEnvFor(path, env = process.env) {
-  if (isDefaultVault(path, env)) return {};
-  return { WIKI_MASTER_VAULT: path, ...(env.WIKI_MASTER_VAULT_NAME ? { WIKI_MASTER_VAULT_NAME: env.WIKI_MASTER_VAULT_NAME } : {}) };
+  const binding = Object.fromEntries(['WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME'].filter(key => env[key]).map(key => [key, env[key]]));
+  if (isDefaultVault(path, env) && !Object.keys(binding).length) return {};
+  return { WIKI_MASTER_VAULT: path, ...binding };
 }
 
 export function buildArgs(name, args) {
-  return [`vault=${name}`, ...args];
+  for (const arg of args) {
+    if (typeof arg === 'string' && arg.startsWith('vault=') && arg !== `vault=${name}`) {
+      throw new ContextError('Conflicting raw vault= selector; use the resolved vault selection');
+    }
+  }
+  return [`vault=${name}`, ...args.filter(arg => arg !== `vault=${name}`)];
+}
+
+export function verifyObsidianTarget(vault, options = {}) {
+  const reported = obsidian(['vault', 'info=path'], { ...options, name: vault.name });
+  if (!/^(?:[A-Za-z]:[\\/]|[\\/])/.test(reported) || !sameRoot(reported, vault.path)) {
+    throw new ContextError(`Obsidian selected vault resolved to ${reported || '(no root)'}, not ${vault.path}; no action sent`, 1);
+  }
+  return reported;
 }
 
 // The CLI exits 0 when it refuses, so a refusal arrives as ordinary output. These are the refusals it is known to

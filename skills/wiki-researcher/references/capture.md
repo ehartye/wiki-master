@@ -1,4 +1,6 @@
 Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [efficacy](../../wiki-maintainer/references/efficacy.md), [completion](../../wiki-maintainer/references/operations.md).
+
+Named capture follows the same request-start destination selection as discovery: one research vault selects itself; several require one answer unless already supplied. Bind the request context for every helper. All raw evidence and attachments stay in that selected vault.
 Reuse existing session authorization for the first write.
 
 # Capture named sources and research selections

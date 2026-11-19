@@ -211,7 +211,7 @@ with `--from-file` and `--expand`.
 ## Lists and the ledger
 
 ```bash
-node "<absolute-plugin-root>/scripts/clip.mjs" --list urls.txt --quality=<tier> --topic="<topic>" --ledger run.jsonl
+node "<absolute-plugin-root>/scripts/clip.mjs" --list urls.txt --quality=<tier> --topic="<topic>" --ledger "<selected-vault>/run.jsonl"
 ```
 
 `--list <file>` must be the first argument. The file holds one address per line; blank lines and lines starting `#` are skipped.
@@ -244,8 +244,8 @@ for `unchanged`, `duplicate` and `clash`, which wrote nothing). Every row has ev
 | `extractionRetry` | The retry that was kept |
 | `visibleWords`, `extractedWords` | The page's visible words and the Markdown's, for a read that went through the HTML extractor |
 
-The ledger file must be outside `raw/` and `wiki/` of the vault, judged by where its path lands (links, `..`, letter case and
-UNC spellings of those folders included): a path inside them exits 2 before anything is clipped, as does one that cannot be appended
+The output ledger file must be inside the selected vault's canonical root and outside its `raw/` and `wiki/`, judged by where its path lands (links, `..`, letter case and
+UNC spellings of those folders included): a path outside that vault or inside those content folders exits 2 before any ledger probe or capture, as does one that cannot be appended
 to. A write that fails later is reported once; the run goes on without rows and ends with exit 2.
 
 ## A probe

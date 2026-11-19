@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { assertVaultPath } from './vault-path.mjs';
 
 // Shared by drift.mjs and search.mjs: both key their cache identically (full
 // file content, including frontmatter -- see each caller's own read) so a page
@@ -8,12 +9,13 @@ import { createHash } from 'node:crypto';
 // there is exactly one cache implementation, not two copies to keep in sync.
 export function hash(text) { return createHash('sha256').update(text).digest('hex'); }
 
-export function loadCache(dir) {
-  const f = join(dir, 'embeddings.json');
+export function loadCache(dir, vaultPath = dir) {
+  const f = assertVaultPath(vaultPath, join(dir, 'embeddings.json'));
   return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
 }
 
-export function saveCache(dir, cache) {
+export function saveCache(dir, cache, vaultPath = dir) {
+  const file = assertVaultPath(vaultPath, join(dir, 'embeddings.json'));
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'embeddings.json'), JSON.stringify(cache));
+  writeFileSync(file, JSON.stringify(cache));
 }

@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath, assertVaultPath } from './vault-path.mjs';
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { GRAPH_CACHE_FILE, GRAPH_CACHE_RACY_MS, graphCacheKey } from './graph.mjs';
@@ -33,7 +34,7 @@ function removeStaleTemps(file, now) {
 
 export function writeGraphCache(vaultPath, records, { builtAtMs, exclude = [], derive = INTEGRITY_DERIVE_ID, writeFileImpl = writeFileSync, renameImpl = renameSync, clock = Date.now } = {}) {
   if (!Number.isFinite(builtAtMs)) throw new TypeError('writeGraphCache needs builtAtMs, the time the build began');
-  removeStaleTemps(join(vaultPath, GRAPH_CACHE_FILE), clock());
+  removeStaleTemps(checkedPath(vaultPath, GRAPH_CACHE_FILE), clock());
   const dropped = new Set(exclude);
   const entries = {};
   for (const path of [...records.keys()].sort()) {
@@ -43,7 +44,7 @@ export function writeGraphCache(vaultPath, records, { builtAtMs, exclude = [], d
   }
   const head = JSON.stringify(graphCacheKey(vaultPath, derive)).slice(0, -1);
   const tail = `,"entries":${JSON.stringify(entries)}}`;
-  const file = join(vaultPath, GRAPH_CACHE_FILE);
+  const file = checkedPath(vaultPath, GRAPH_CACHE_FILE);
   const count = Object.keys(entries).length;
   let previous = null;
   try { previous = readFileSync(file, 'utf8'); } catch { /* none yet */ }
@@ -53,6 +54,7 @@ export function writeGraphCache(vaultPath, records, { builtAtMs, exclude = [], d
   }
   mkdirSync(dirname(file), { recursive: true });
   const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  assertVaultPath(vaultPath, temp);
   try {
     writeFileImpl(temp, `${head},"builtAtMs":${JSON.stringify(builtAtMs)}${tail}`);
     renameImpl(temp, file);

@@ -26,7 +26,7 @@ is, checks nothing and always exits 0.
 | Obsidian is not running for this user | Start Obsidian with this vault open. |
 | The CLI gate is busy or failing (`CLI_BUSY`, `CLI_LOCK`) | Rerun. Treat a repeat as the CLI being down, and offer to restart Obsidian. |
 | The Obsidian CLI did not answer | Start Obsidian with this vault open and its command line interface on. |
-| Obsidian's active vault is another one | Open this vault in Obsidian or bring its window to the front, then rerun. |
+| The selected-vault probe returns a different root | Correct the registry selector or native registration; verify the intended canonical root before retrying. |
 | The Obsidian CLI answered unexpectedly, quoting it | Open this vault in Obsidian with its command line interface on, then rerun. |
 | The process list could not be read | Rerun; if it repeats, check by hand that Obsidian is running. |
 | Restricted mode is on | The owner turns it off in Obsidian's settings (Community plugins) and trusts the vault. |
@@ -36,11 +36,12 @@ is, checks nothing and always exits 0.
 | A rebase or merge is in progress | Rerun shortly. Tell the owner if it stays stopped or the conflict file exists. |
 | A detached HEAD | Tell the owner; they put it back on its branch. |
 
-**Another active vault.** The Obsidian check asks about the active vault: it calls the CLI
-with no `vault=`, from a folder outside any vault, so that the question cannot open or
-switch anything. If another vault is active, `refresh-index.mjs` stops and says which one.
-When Obsidian runs only in another session, as over SSH, the check passes with a note and
-the CLI is not called.
+**Selected target.** The Obsidian checks explicitly target the selected native
+name/ID and compare its returned canonical path. Another active vault does not
+invalidate that target. A closed target can open or activate while its first probe
+fails; report the failure and offer the named remedy, without silent retry/fallback.
+When Obsidian runs only in another session, as over SSH, the check passes with a note
+and the CLI is not called. Retain this limitation instead of claiming app verification.
 
 **After the checks.** The catalogs are written first, then the search index. Failed chunks
 exit 1 with their count and the catalogs stay, so rerun the same command. A damaged index

@@ -1,10 +1,11 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync, readFileSync, rmSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
 import { newProbe, probeWriters, probeReport, printProbe, vaultStanding } from './lib/clip-probe.mjs';
 import { optionValue } from './lib/cli-guard.mjs';
@@ -263,7 +264,7 @@ const heldClipping = (vaultPath, address) => newestCapture(knownUrlIndex(vaultPa
 // The `title:` of every clipping, lowercased, so a new clip can avoid taking a title another clipping
 // holds. Only the head of each file is read: the frontmatter is at the top.
 export function clippingTitles(vaultPath) {
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
   const titles = new Set();
   if (!existsSync(dir)) return titles;
   const buf = Buffer.alloc(32768);
@@ -562,10 +563,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // --probe writes nothing, so it is refused with any option that asks for a write.
   const conflict = probeConflict(argv, CLIP_SPECS['clip']);
   if (conflict) return refuse(conflict);
+  if (argv.includes('--find-twin') && (optionValue(argv, 'from-file') !== undefined || argv.includes('--expand'))) return refuse('--find-twin cannot be used with --from-file or --expand');
+  const { path: vaultPath } = resolveOperationVault('research');
   // --ledger is checked before anything is read, so a refused ledger leaves the vault as it was.
   const ledger = optionValue(argv, 'ledger');
   if (ledger !== undefined) {
-    const problem = ledgerFileProblem(ledger, resolveVault().path);
+    const problem = ledgerFileProblem(ledger, vaultPath);
     if (problem) return refuse(problem);
   }
   // A list that cannot be run is refused before the ledger is probed, because the probe creates the file and a refused run must not leave one.
@@ -573,20 +576,20 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   if (list?.error) return refuse(list.error);
   if (ledger !== undefined) {
     // A ledger that cannot be appended to is found now, not after the first clipping is written.
-    const unwritable = ledgerAppendProblem(ledger);
+    const unwritable = ledgerAppendProblem(ledger, vaultPath);
     if (unwritable) return refuse(unwritable);
   }
   // A write that fails later is reported once; the run goes on without rows and ends with exit 2 (1 still wins for a missing runtime).
   let ledgerWorks = ledger !== undefined;
   const record = (result) => {
     if (!ledgerWorks) return;
-    try { appendLedgerRow(ledger, ledgerRow(result)); } catch (e) {
+    try { appendLedgerRow(ledger, ledgerRow(result), vaultPath); } catch (e) {
       ledgerWorks = false;
       console.error(`--ledger: ${ledger} cannot be appended to (${e.code ?? e.message}); no more rows will be written and the run carries on`);
       process.exitCode = 2;
     }
   };
-  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
+  const deps = { vaultPath, extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
   if (list) return runList(argv, deps, list);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
@@ -713,10 +716,10 @@ function clipUrl(url, argv, deps) {
   const result = { url, ...(topic && { topic }), requested: true, ...outcome };
   // A refused command (exit 2) and a missing runtime (exit 1) say nothing about the address, so they print no probe line.
   if (!probe || outcome.exit) return result;
-  return { ...result, probe: probeReport({ url, result, probe, standing: vaultStanding(resolveVault().path, url) }) };
+  return { ...result, probe: probeReport({ url, result, probe, standing: vaultStanding(deps.vaultPath, url) }) };
 }
 
-function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }, probe = null) {
+function clipCore(url, argv, { vaultPath, extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }, probe = null) {
   // Every vault write and every stdout line below goes through these four names. In a probe they record instead of writing.
   const { recordDecline, recordIssue, closeIssuesResolvedByClip, console } = probe ? probeWriters(probe) : VAULT_WRITERS;
   // A reason from the browser can quote an address the page sent it to. It is made safe here, once, before anything prints or stores it.
@@ -753,8 +756,6 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   }
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked', requested: false }; }
-
-  const { path: vaultPath } = resolveVault();
 
   // Only a page that already clipped with a partial warning is worth a probe, and nothing is written whatever it finds.
   if (findingTwin) {
@@ -1037,7 +1038,7 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
     if (short.length) data = { ...data, fidelityWarnings: [...(data.fidelityWarnings ?? []), ...short] };
   }
   const expandCoverage = coverage ? formatCoverage(coverage) : undefined;
-  const clippingsDir = join(vaultPath, 'raw', 'clippings');
+  const clippingsDir = checkedPath(vaultPath, 'raw', 'clippings');
   const created = todayOf();
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.

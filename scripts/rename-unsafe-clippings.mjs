@@ -1,3 +1,4 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 // Give raw clippings a name Obsidian will index and a wikilink can carry, and repoint
 // the citations that name them. A clipping filed as `.github-workflows-build.yml.md`
 // is invisible to Obsidian and to the graph walk, so every link to it is dead;
@@ -23,7 +24,7 @@ import { readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { planClippingRenames, stemOf } from './lib/clip-names.mjs';
 import { rewriteLinkTargets } from './lib/rewrite-links.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -71,7 +72,7 @@ export function renameClippings(vaultPath, {
   for (const rel of files) {
     if (!rel.toLowerCase().endsWith('.md') || rel.split('/').some((seg) => seg.startsWith('.'))) continue;
     if (rel.startsWith('raw/') || rel.startsWith('_templates/')) continue;
-    const text = readFileSync(join(vaultPath, rel), 'utf8');
+    const text = readFileSync(checkedPath(vaultPath, rel), 'utf8');
     let after = text;
     let touched = false;
     if (!keep.some((p) => rel.startsWith(p))) {
@@ -89,8 +90,8 @@ export function renameClippings(vaultPath, {
     ...rewrites.map((r) => r.rel),
   ])].sort();
   if (apply) {
-    for (const r of rewrites) writeFileSync(join(vaultPath, r.rel), r.text);
-    for (const { from, to } of renames) renameSync(join(vaultPath, from), join(vaultPath, to));
+    for (const r of rewrites) writeFileSync(checkedPath(vaultPath, r.rel), r.text);
+    for (const { from, to } of renames) renameSync(checkedPath(vaultPath, from), checkedPath(vaultPath, to));
   }
   return result;
 }
@@ -120,7 +121,7 @@ function dirtyPaths(vaultPath) {
 //   --exclude=<prefix>   a page prefix to report but not rewrite (repeatable)
 //   --flag=<prefix>      a page prefix to list for review before applying (repeatable)
 export function runRenameCli(argv, { type, run }) {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const apply = argv.includes('--apply');
   const fileOption = (flag) => {
     const at = argv.indexOf(flag);

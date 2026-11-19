@@ -1,14 +1,14 @@
 // What must be true before a refresh writes anything. Every check runs and every failure is reported at once, each
 // with the fix an agent should offer the user, so one run shows the whole list instead of one problem per attempt.
 //
-// Nothing here starts an application or changes a setting, and the Obsidian CLI is called only after a process was
-// found. Asking the CLI first would start the app on some systems.
+// Nothing here changes a setting. Call the CLI only after finding the app's process;
+// selected-vault probes may open or activate that vault in the running app.
 import { execFileSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { resolve } from 'node:path';
 import { isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './embed.mjs';
-import { obsidianActive } from './vault.mjs';
+import { obsidian } from './vault.mjs';
 import { obsidianGitPrerequisite } from './obsidian-git.mjs';
 
 const run = (command, args) => execFileSync(command, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000, windowsHide: true });
@@ -135,7 +135,7 @@ function checkObsidian(vault, { session, cli }, notes) {
     return [failure('obsidian-cli-answer', `The Obsidian CLI answered unexpectedly: "${reported}".`, 'Offer to open this vault in Obsidian with its command line interface on (Settings > General > Advanced), then rerun.')];
   }
   if (!reported || canonical(reported) !== canonical(vault.path)) {
-    return [failure('obsidian-vault', `Obsidian's active vault is ${reported || '(none reported)'}, not ${vault.path}.`, 'Offer to open this vault in Obsidian, or bring its window to the front, then rerun.')];
+    return [failure('obsidian-vault', `Obsidian's selected vault resolved to ${reported || '(none reported)'}, not ${vault.path}.`, 'Correct the configured Obsidian selector or open this vault, then rerun; no fallback vault is used.')];
   }
   // This extends decision 10's "installed and enabled" check. Restricted mode lives in the app's local storage, not in
   // .obsidian/, so a clone can pass every check on disk while the plugin never runs. Only an answer of exactly "on"
@@ -179,7 +179,7 @@ export async function checkPrerequisites({ vault, probes = {} }) {
   const live = {
     ...liveOllamaProbes(),
     session: () => obsidianSession(),
-    cli: (args) => obsidianActive(args, { execFileSyncImpl: probes.execFileSyncImpl }),
+    cli: (args) => obsidian(args, { name: vault.name, execFileSyncImpl: probes.execFileSyncImpl }),
     git: (path) => gitState(path),
     ...probes,
   };

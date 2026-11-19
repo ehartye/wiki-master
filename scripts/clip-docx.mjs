@@ -1,9 +1,10 @@
+import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline, removeDecline } from './lib/decline.mjs';
@@ -111,7 +112,7 @@ export function main(argv, { toText = docxToText } = {}) {
   const topic = parseTopicArg(argv);
   const allowShort = parseAllowShort(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {
@@ -169,13 +170,13 @@ export function main(argv, { toText = docxToText } = {}) {
     return { status: 'thin' };
   }
 
-  const dir = join(vaultPath, 'raw', 'clippings');
+  const dir = checkedPath(vaultPath, 'raw', 'clippings');
 
   // isDuplicateUrl only catches a re-clip of the same PATH; a moved or renamed
   // binary slips past it and the slug disambiguation below then mints a second
   // file for content the vault already holds. Identity is the extracted body's
   // hash, which does not care where the binary lives.
-  const already = existingClippingWithHash(readClippingHashes(dir), clip.hash);
+  const already = existingClippingWithHash(readClippingHashes(dir, vaultPath), clip.hash);
   if (already) {
     console.log(`exists (same content): ${already}`);
     return { status: 'duplicate', file: already };
@@ -189,7 +190,7 @@ export function main(argv, { toText = docxToText } = {}) {
   const claim = chooseDocumentSlug({ vaultPath, argv, title, hash: clip.hash, taken, source, topic });
   if (claim.clash) return { status: 'clash', existing: claim.existing };
   const slug = claim.slug;
-  const file = join(dir, `${slug}.md`);
+  const file = checkedPath(vaultPath, 'raw', 'clippings', `${slug}.md`);
 
   writeFileSync(file, clip.body);
   console.log(`clipped: raw/clippings/${slug}.md (quality=${quality}, docx)`);

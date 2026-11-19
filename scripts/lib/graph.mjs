@@ -1,7 +1,8 @@
 import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
-import { join, basename, resolve } from 'node:path';
+import { join, basename } from 'node:path';
 import { isWrappedTarget, resolveDewrap } from './dewrap-links.mjs';
 import { parseNote, normalizeIdentity } from './note.mjs';
+import { containsPath } from './vault-path.mjs';
 
 export const STUB_WORD_FLOOR = 10;
 export const HUB_MIN_BACKLINKS = 5;
@@ -18,7 +19,7 @@ export const MONOLITH_CALLOUT_FLOOR = 3;
 // (index.md) or nothing (templates) by design. The predicate is applied at
 // COLLECTION time — excluded files contribute neither nodes nor edges to any
 // metric — so no downstream check can forget it.
-const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md']);
+const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md', 'VAULT.md']);
 // The evidence trail: a page's provenance is BOTH channels — frontmatter
 // `sources:` and body wikilinks pointing at source pages or raw/ — followed
 // transitively (concept → source page → clipping). Body links to other concepts
@@ -215,11 +216,10 @@ export function markdownPage(path, markdown) {
 // the walk ran, a name the platform cannot open, a file the user may not read. Anything else is rethrown.
 const SKIPPED_WALK_CODES = new Set(['ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EACCES', 'EPERM']);
 // The native call is preferred; on a drive where it fails for a path that exists (some virtual drives report
-// EISDIR or UNKNOWN), the portable call is tried, then the resolved path. A skippable code still means the entry is gone.
+// EISDIR or UNKNOWN), the portable call is tried. Never trust a lexical path when neither can verify containment.
 function realPath(abs) {
   try { return realpathSync.native(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
-  try { return realpathSync(abs); } catch (error) { if (SKIPPED_WALK_CODES.has(error?.code)) throw error; }
-  return resolve(abs);
+  return realpathSync(abs);
 }
 const realPathKey = process.platform === 'win32' || process.platform === 'darwin'
   ? abs => realPath(abs).toLowerCase()
@@ -227,12 +227,14 @@ const realPathKey = process.platform === 'win32' || process.platform === 'darwin
 
 // The vault walk shared by buildGraph and walkVault (lib/embedding.mjs). Links are followed, so a vault reached
 // through a junction keeps working, and a directory reached twice through different paths (an alias) is walked
-// under each. Only a directory whose real path is one of its own ancestors' is skipped, as `link-cycle`. An entry
+// under each. An alias outside the canonical root is skipped as `outside-vault`; a directory whose real path is
+// one of its own ancestors' is skipped as `link-cycle`. An entry
 // that fails with a code in SKIPPED_WALK_CODES is skipped with that code. Every skip is pushed onto skippedPaths as
 // { path, reason }. `enter(name, rel)` is asked before an entry is looked at; `file(abs, rel, name, stat, skip)` is
 // called for every entry that is not a directory, and passes a read error to `skip` to record or rethrow it.
 // The vault root itself is never skipped: a missing or unreadable vault still throws.
 export function walkVaultEntries(vaultPath, { enter = () => true, file, skippedPaths = [] }) {
+  const root = realPathKey(vaultPath);
   const skip = (path, error) => {
     if (!SKIPPED_WALK_CODES.has(error?.code)) throw error;
     skippedPaths.push({ path, reason: error.code });
@@ -248,9 +250,10 @@ export function walkVaultEntries(vaultPath, { enter = () => true, file, skippedP
       const r = rel ? `${rel}/${e}` : e;
       let stat;
       try { stat = statSync(abs); } catch (error) { skip(r, error); continue; }
-      if (!stat.isDirectory()) { file(abs, r, e, stat, error => skip(r, error)); continue; }
       let real;
       try { real = realPathKey(abs); } catch (error) { skip(r, error); continue; }
+      if (!containsPath(root, real)) { skippedPaths.push({ path: r, reason: 'outside-vault' }); continue; }
+      if (!stat.isDirectory()) { file(abs, r, e, stat, error => skip(r, error)); continue; }
       if (ancestors.includes(real)) { skippedPaths.push({ path: r, reason: 'link-cycle' }); continue; }
       ancestors.push(real);
       walk(abs, r);
