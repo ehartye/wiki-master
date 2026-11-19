@@ -1,5 +1,7 @@
 # Advanced retrieval and evidence routes
 
+General research uses `search.mjs --research` across the configured list. Apply `--project` only when the request explicitly calls for that filter. Local evidence lookup omits `--research` and uses its selected maintenance context. Preserve each group’s identity and coverage; foreign results do not become local provenance.
+
 Use the [simple search workflow](../SKILL.md#simple-search) for root resolution,
 bounded lookup and passage reading. This reference adds retrieval choices; every
 step is read-only. Diagnostics and repair recipes live in

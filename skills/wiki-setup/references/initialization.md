@@ -8,6 +8,13 @@ the git repository and upstream. Obsidian Git handles all git operations from th
 
 ## Name the vault
 
+For configured vaults use [request binding](../../wiki-maintainer/references/access.md#request-binding)
+and [routing setup](routing.md); root/name conflicts fail instead of overriding a
+route. Register an existing customized vault without migration. A new unregistered
+root uses `init.mjs --bootstrap "<absolute-root>"` before descriptor/registry setup.
+The forms below are for legacy initialization; save and restore prior environment
+as [access](../../wiki-maintainer/references/access.md#shell-portability) describes.
+
 For a vault other than the default, every command in this flow names it. A command that loses
 it acts on the default vault, and a refresh writes catalogs there. "In the named form" below
 means the form for your shell, with `<script>` and `<args>` filled in:

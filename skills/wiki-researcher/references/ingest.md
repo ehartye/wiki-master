@@ -1,5 +1,7 @@
 # Ingest captured evidence
 
+Named and backlog ingestion both follow the research entrypoint destination rule before reading the selected source set. Keep raw paths, summaries, concepts and provenance inside the selected research vault. Never copy a clipping from another vault or retain its path as a local source.
+
 For a requested research → ingest → search-and-answer flow, complete ingestion
 below and then follow [wiki-search](../../wiki-search/SKILL.md),
 [advanced retrieval](../../wiki-search/references/advanced.md) when needed, and

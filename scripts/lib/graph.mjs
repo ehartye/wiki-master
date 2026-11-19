@@ -19,7 +19,7 @@ export const MONOLITH_CALLOUT_FLOOR = 3;
 // (index.md) or nothing (templates) by design. The predicate is applied at
 // COLLECTION time — excluded files contribute neither nodes nor edges to any
 // metric — so no downstream check can forget it.
-const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md']);
+const SYSTEM_FILES = new Set(['index.md', 'log.md', 'vault-schema.md', 'VAULT.md']);
 // The evidence trail: a page's provenance is BOTH channels — frontmatter
 // `sources:` and body wikilinks pointing at source pages or raw/ — followed
 // transitively (concept → source page → clipping). Body links to other concepts

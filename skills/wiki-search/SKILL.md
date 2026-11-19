@@ -12,30 +12,40 @@ or researching new sources.
 ## Simple search
 
 1. Resolve the installed plugin root from this `SKILL.md`: two parents above its
-   containing skill folder. Resolve the known vault from `WIKI_MASTER_VAULT`,
-   default `~/.wiki-master-vault`; `WIKI_MASTER_REQUIRE_VAULT=1` requires an
-   explicit vault. Before the first helper, open/read the actual vault `AGENTS.md`
-   if present; do not infer its contents from helper output or a host plugin name.
-   Use that root, not a recursive profile or whole-vault inventory. No running app
-   is required.
+   containing skill folder. Follow [access](../wiki-maintainer/references/access.md):
+   resolve research context for general project research, or maintenance context
+   for an explicitly selected local lookup. Read each searched vault's actual
+   `AGENTS.md` and descriptor if present before searching its content; context
+   discovery is the read-only bootstrap for finding those paths. Never infer the
+   instructions from helper output or a host plugin name. No running app is required.
 2. Replace the placeholder below with the quoted absolute installed root and run
    one bounded query. If changing the vault for a command, restore the prior
    environment afterward; [shell examples](../wiki-maintainer/references/access.md#shell-portability)
    are optional when needed.
 
    ```sh
-   node "<absolute-plugin-root>/scripts/search.mjs" "exact title or useful terms" --json --limit=10
+   node "<absolute-plugin-root>/scripts/search.mjs" "exact title or useful terms" --research --json --limit=10
    ```
 
-   The default content scopes are `wiki/` and `moc/`; raw evidence is opt-in.
+   General research searches all configured research vaults in order, independently
+   of any pending/selected write destination. `--limit` applies per vault. Omit
+   `--research` for local documentation or explicitly selected maintenance lookup;
+   ordinary search retains its single-vault result shape. Do not infer `--project`
+   from routing for general evidence. The default scopes are `wiki/` and `moc/`;
+   raw evidence is opt-in.
 3. Read stderr status and JSON coverage metadata. Disclose lexical-only search
    and failed channels, including failures inside a hybrid run. Missing/stale
    indexes or zero hits do not establish that the vault knows nothing. A failed
-   raw channel means **not searched**, not zero evidence.
-4. Open each useful result's exact path under the vault at its matched line and
+   raw channel means **not searched**, not zero evidence. Report each vault group's
+   coverage separately: unavailable/failed groups give exit 1 but retain successful
+   groups. Equal relative paths remain distinct results identified by their group.
+   Outside-root aliases are excluded/unsearched, never proof of absent evidence.
+4. Open each useful result's exact path under its returned vault at its matched line and
    read surrounding passages. Verify relevance, page status, review date and
    decision/backlog state. A planned feature or proposed ADR is not shipped.
-   Disambiguate similar titles by full path and context instead of guessing.
+   Disambiguate similar titles by vault identity, full path and context instead of
+   guessing. These transient search identities do not authorize foreign-vault note
+   links or provenance when later filing an answer.
 5. Return useful page paths with line citations and a concise account of what
    the passages support, including missing coverage. For a narrative answer or
    quotation, read the directly linked [cited-answer procedure](references/answers.md)

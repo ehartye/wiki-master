@@ -696,10 +696,12 @@ test('wiki-maintainer keeps no concept of an operation beyond the log entry', ()
   }
 });
 
-test('obsidian-cli.md says the refresh asks about the active vault, so another vault in focus stops it', () => {
+test('obsidian-cli.md describes selected-vault refresh verification and explicit failure without fallback', () => {
   const flat = read('skills/wiki-maintainer/references/obsidian-cli.md').replace(/\s+/g, ' ');
-  assert.match(flat, /refresh-index\.mjs[^.]*active vault/);
-  assert.match(flat, /another vault[^.]*(?:stops|refuses)/);
+  assert.match(flat, /refresh-index\.mjs[^.]*selected native selector[^.]*canonical path/);
+  assert.match(flat, /targeting can open or activate/);
+  assert.match(flat, /first probe may fail[^.]*without silent retry, default fallback/);
+  assert.doesNotMatch(flat, /active vault without naming one|another vault in focus stops/);
 });
 
 test('wiki-maintainer says a filesystem edit needs no app but the refresh does', () => {

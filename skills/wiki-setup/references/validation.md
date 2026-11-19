@@ -1,5 +1,11 @@
 # Validate exactly the task paths
 
+Resolve the originating documentation or research context before editing, then bind
+that selected vault for validation. Use one ledger per vault and read its instructions.
+Outside-root aliases cannot supply local citations; an explicitly escaping ledger
+path is invalid input, including a missing leaf. Traversal exclusions are unsearched
+coverage, not absence of evidence. Internal aliases remain supported.
+
 Before the log entry, check exactly the pages the task wrote:
 `node "<absolute-plugin-root>/scripts/validate-authored.mjs" --paths-file <ledger>`,
 with the vault set through [access](../../wiki-maintainer/references/access.md). For a vault

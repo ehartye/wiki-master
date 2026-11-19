@@ -1,4 +1,6 @@
 Read directly for this task: [access](../../wiki-maintainer/references/access.md), [evidence](../../wiki-maintainer/references/evidence.md), [efficacy](../../wiki-maintainer/references/efficacy.md), [completion](../../wiki-maintainer/references/operations.md).
+
+Before external discovery, follow the research entrypoint: resolve the research list and ask once at request start when several destinations exist, unless this request already supplied one. Bind that selected destination for dedup, capture and ingestion; read-only research-vault search can run independently.
 Reuse existing session authorization for the first write.
 
 # Discover sources on a topic

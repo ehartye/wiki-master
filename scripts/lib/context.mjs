@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { frontmatterDamage, withoutComment } from './note.mjs';
 import { discoverRepository } from './repository.mjs';
 import { findProject, validateProject } from './session-brief.mjs';
+import { assertVaultPath } from './vault-path.mjs';
 
 const ID = /^[a-z][a-z0-9-]*$/;
 const PLUGIN_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -77,6 +78,7 @@ function descriptorList(raw, label) {
   return items;
 }
 export function readVaultDescriptor(path, expectedId) {
+  assertVaultPath(dirname(resolve(path)), resolve(path));
   let source;
   try { source = readFileSync(path, 'utf8'); } catch (error) { fail(`Cannot read VAULT.md descriptor at ${path}: ${error.message}`); }
   if (frontmatterDamage(source) || !/^\uFEFF?---\r?\n/.test(source)) fail(`Invalid VAULT.md frontmatter at ${path}`);

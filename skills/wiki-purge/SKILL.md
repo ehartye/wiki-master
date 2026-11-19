@@ -15,7 +15,10 @@ removal.
    [access](../wiki-maintainer/references/access.md),
    [evidence](../wiki-maintainer/references/evidence.md) and
    [completion](../wiki-maintainer/references/operations.md). Resolve the
-   intended vault and open applicable instructions. Confirm preview, apply,
+   intended vault through `context.mjs --purpose maintenance --json`, adding
+   `--select <id>` for the explicitly requested configured target. Read that vault's
+   instructions and descriptor; bind the same context for plan/apply/refresh.
+   Never expand the closure into another vault. Confirm preview, apply,
    restore or authorized reconciliation scope.
 2. Before mutation, retain the
    [broken-link baseline](../wiki-setup/references/checks.md#purge-broken-link-verification).

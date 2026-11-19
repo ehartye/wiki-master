@@ -9,9 +9,9 @@ than the default, name it on every command below, as in
 
 ## Resolve the requested app surface
 
-1. Resolve `WIKI_MASTER_VAULT` (default `~/.wiki-master-vault`) without scanning
-   the user profile. Resolve the app name from `WIKI_MASTER_VAULT_NAME` or the
-   vault folder basename. These are distinct values.
+1. Resolve maintenance context and bind its target using
+   [access](../../wiki-maintainer/references/access.md#request-binding), without
+   scanning the user profile. Its canonical path and native selector are distinct.
 2. For an app-only action, use the guarded helper at its installed absolute path:
    `node "<absolute-plugin-root>/scripts/obsidian.mjs" vault info=path` can confirm
    the responding app's vault root. The known filesystem root does not depend
@@ -21,10 +21,12 @@ than the default, name it on every command below, as in
    syntax description. The [native action reference](../../wiki-maintainer/references/obsidian-cli.md)
    owns supported actions and their authorization workflow.
 
-Helpers target a vault by name. `refresh-index.mjs` is the exception: its check asks the
-active vault, with no `vault=`, so that the question cannot open or switch a vault. If
-another vault is active it stops and says which; bring this vault's window to the front
-and rerun.
+Helpers target the selected native name/ID. The adapter and refresh prerequisites
+send `vault=<selector>` first and compare the returned canonical path to the selected
+root. Another active vault is not a prerequisite failure. Targeting may activate or
+open a vault: an open nonactive target can be addressed, while a closed target's
+first path probe may fail while opening it. Report that selected-target failure;
+do not silently retry, fall back or promise focus preservation.
 
 Node.js 20.8 or newer is required by the guarded transport. App registration is
 separate from filesystem initialization: open the intended folder as an

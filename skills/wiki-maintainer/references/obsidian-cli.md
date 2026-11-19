@@ -3,12 +3,11 @@ Select the calling workflow before mutations; CLI syntax alone does not authoriz
 
 # Driving the Obsidian CLI
 
-The vault is targeted by name: `obsidian vault=<name> <command> ...`. wiki-master
-resolves `<name>` from `WIKI_MASTER_VAULT_NAME` or the vault folder's basename, and
-its **filesystem path** from `WIKI_MASTER_VAULT`, defaulting to `~/.wiki-master-vault`
-(this convention lives in `scripts/lib/vault.mjs` — the bundled scripts use it, so
-`node "<absolute-plugin-root>/scripts/health.mjs"` and friends need no path argument). Start there rather than
-searching the disk for the vault.
+The vault is targeted by native name or ID: `vault=<selector>` precedes the command.
+Resolve maintenance context and use [request binding](access.md#request-binding).
+The registry supplies canonical root and native selector; logical vault IDs are
+separate. Legacy root/name defaults apply only without configured routing. Start
+with context rather than searching the disk for a root.
 `file=` resolves by name (like wikilinks); `path=` is an exact vault-relative path.
 Invoke commands through `node "<absolute-plugin-root>/scripts/obsidian.mjs" <command> ...`
 or the `scripts/lib/vault.mjs` API. Never bypass it with native CLI calls or run
@@ -20,8 +19,10 @@ an earlier write's outcome is uncertain. See the directly linked access contract
 The guarded `vault info=path` command can confirm the root
 when the app responds; the known configured/default root supports filesystem access
 without that probe.
-`refresh-index.mjs` is the exception: it asks Obsidian about its active vault without
-naming one, so another vault in focus stops it with a message naming the fix to offer.
+`refresh-index.mjs` also targets the selected native selector and verifies its
+returned canonical path. A nonactive target may be addressed; targeting can open
+or activate it. A closed target's first probe may fail while opening it: report
+that failure without silent retry, default fallback or a focus-preservation promise.
 
 ## Access failures and empty results
 

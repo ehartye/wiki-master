@@ -67,7 +67,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | `relationships.mjs` | Proposes relationship candidates between pages from shared sources and neighbours. |
 | `validate-authored.mjs` | Checks the frontmatter, placement and links of the pages one authoring task wrote. |
 | `resolve-evidence.mjs` | Walks the citation graph from a wiki page to its raw evidence. |
-| `search.mjs` | Searches the wiki, and reports or sets up the semantic search service. |
+| `search.mjs` | Searches one selected/documentation vault, or all configured research vaults independently with `--research`; reports per-vault coverage. Also diagnoses or sets up the semantic search service. |
 | `backlog-list.mjs` | Lists backlog items by lifecycle status. |
 | `session-brief.mjs` | Prints the state of the wiki project the current repository belongs to. Read-only. |
 | `check-skill-citations.mjs` | Reports `wiki-master:<name>` citations in other plugins' directories that name no current skill. |
