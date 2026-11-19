@@ -16,7 +16,7 @@ const fail = message => { throw new ContextError(message); };
 const home = env => env.HOME || env.USERPROFILE || homedir();
 export function canonicalPath(path) {
   const absolute = resolve(path);
-  try { return realpathSync(absolute); }
+  try { return realpathSync.native(absolute); }
   catch {
     const parent = dirname(absolute);
     return parent === absolute ? absolute : join(canonicalPath(parent), basename(absolute));

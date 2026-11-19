@@ -4,14 +4,15 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, realpathSync, stat
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { resolveContext, requireSelectedTarget, contextEnv } from '../scripts/lib/context.mjs';
+import { resolveContext, requireSelectedTarget, contextEnv, sameRoot } from '../scripts/lib/context.mjs';
 import { resolveVault, commandForms } from '../scripts/lib/vault.mjs';
+import { assertVaultPath } from '../scripts/lib/vault-path.mjs';
 
 const script = resolve('scripts/context.mjs');
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const json = (path, value) => writeFileSync(path, JSON.stringify(value));
 function fixture(t) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'wm-context-')));
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'wm-context-')));
   const repo = join(root, 'repository'); mkdirSync(repo); git(repo, 'init');
   const env = { HOME: root, USERPROFILE: root, NODE_TEST_CONTEXT: 'child-v8' };
   const entries = ['general', 'docs', 'research'].map(id => {
@@ -30,6 +31,48 @@ function snapshot(root) {
     return [p, stat.mtimeMs, stat.isFile() ? readFileSync(path).toString('base64') : null];
   });
 }
+
+function shortAlias(t, path) {
+  // No interpolated path reaches the shell; cmd expands its own current directory.
+  const alias = execFileSync('cmd.exe', ['/d', '/s', '/c', 'for %I in (.) do @echo %~sI'],
+    { cwd: path, encoding: 'utf8', windowsHide: true }).trim();
+  if (alias.toLowerCase() === realpathSync.native(path).toLowerCase()) {
+    t.skip('This Windows volume does not provide an 8.3 alias for the fixture'); return null;
+  }
+  return alias;
+}
+
+test('Windows short-name roots retain canonical identity and accept matching explicit selections', { skip: process.platform !== 'win32' }, t => {
+  const f = fixture(t), alias = shortAlias(t, f.root); if (!alias) return;
+  assert.equal(sameRoot(alias, f.root), true);
+  f.registry.vaults[0].path = join(alias, 'general'); f.save();
+  const c = resolveContext({ ...f.env, WIKI_MASTER_VAULT: f.entries[0].path }, { repo: join(alias, 'repository') });
+  assert.equal(c.documentation.path, realpathSync.native(f.entries[0].path));
+  assert.equal(contextEnv(c, f.env).WIKI_MASTER_PROJECT_ROOT, realpathSync.native(f.repo));
+});
+
+test('Windows duplicate registered roots through 8.3 aliases are rejected before descriptor mismatch', { skip: process.platform !== 'win32' }, t => {
+  const f = fixture(t), alias = shortAlias(t, f.root); if (!alias) return;
+  f.registry.vaults[1].path = join(alias, 'general'); f.save();
+  assert.throws(() => f.context(), /overlap|same|nested/i);
+});
+
+test('Windows nested registered roots through 8.3 aliases cannot evade overlap validation', { skip: process.platform !== 'win32' }, t => {
+  const f = fixture(t), alias = shortAlias(t, f.root); if (!alias) return;
+  const nested = join(f.entries[0].path, 'nested'); mkdirSync(nested);
+  writeFileSync(join(nested, 'VAULT.md'), readFileSync(join(f.entries[1].path, 'VAULT.md')));
+  f.registry.vaults[1].path = join(alias, 'general', 'nested'); f.save();
+  assert.throws(() => f.context(), /overlap|same|nested/i);
+});
+
+test('Windows short-name vault boundaries admit internal junctions and still reject external junctions', { skip: process.platform !== 'win32' }, t => {
+  const f = fixture(t), alias = shortAlias(t, f.root); if (!alias) return;
+  const root = join(alias, 'general'), inside = join(f.entries[0].path, 'content'); mkdirSync(inside);
+  symlinkSync(inside, join(root, 'inside'), 'junction');
+  symlinkSync(f.entries[1].path, join(root, 'outside'), 'junction');
+  assert.doesNotThrow(() => assertVaultPath(root, join(root, 'inside', 'new.md')));
+  assert.throws(() => assertVaultPath(root, join(root, 'outside', 'new.md')), /outside.*vault/i);
+});
 
 test('global defaults and independent project overrides are read-only', t => {
   const f = fixture(t);

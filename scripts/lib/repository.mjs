@@ -6,7 +6,7 @@ function git(dir, ...args) {
   try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; }
   catch { return null; }
 }
-const canonical = path => { try { return realpathSync(path); } catch { return resolve(path); } };
+const canonical = path => { try { return realpathSync.native(path); } catch { return resolve(path); } };
 
 export function repositoryFacts(dir) {
   const top = git(dir, 'rev-parse', '--show-toplevel');

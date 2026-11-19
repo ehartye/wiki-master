@@ -16,7 +16,7 @@ import { regenerateAuthoredMocs } from '../scripts/lib/catalogs.mjs';
 import { createSearchContext, main as search } from '../scripts/search.mjs';
 
 function fixture(t) {
-  const base = mkdtempSync(join(realpathSync(tmpdir()), 'wm-boundary-'));
+  const base = mkdtempSync(join(realpathSync.native(tmpdir()), 'wm-boundary-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const root = join(base, 'local'), registered = join(base, 'registered'), outside = join(base, 'outside');
   for (const dir of [root, registered, outside]) mkdirSync(dir);

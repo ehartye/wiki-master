@@ -7,7 +7,7 @@ export function canonicalDestination(path, seen = new Set()) {
   const absolute = resolve(path);
   if (seen.has(absolute)) throw Object.assign(new Error(`Cannot resolve cyclic path: ${path}`), { code: 'ELOOP' });
   seen.add(absolute);
-  try { return realpathSync(absolute); }
+  try { return realpathSync.native(absolute); }
   catch (error) {
     if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
     try {
