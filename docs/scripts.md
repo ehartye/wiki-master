@@ -57,6 +57,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | Script | Purpose |
 |---|---|
 | `doctor.mjs` | Reports what each command needs from this machine and what it found. Read-only. |
+| `context.mjs` | Reports validated project documentation and ordered research vault routes, selection requirements and availability. Read-only. |
 | `health.mjs` | Reports wiki integrity: open defects, unresolved navigation and the ingest backlog (`--backlog`). |
 | `lint.mjs` | Warn-only content lints for the style policy. |
 | `lint-disposition.mjs` | Records what a person decided about lint findings, so the next lint run does not list them again, and prunes old records. |

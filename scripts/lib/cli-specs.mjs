@@ -6,6 +6,10 @@ const DRY = 'Dry run: prints what it would change. Add --apply to write.';
 const VAULT = 'The vault is the one named by WIKI_MASTER_VAULT (default: ~/.wiki-master-vault).';
 
 export const CLI_SPECS = {
+  context: {
+    options: ['purpose', 'repo', 'select', 'json'],
+    usage: ['usage: node scripts/context.mjs [--purpose documentation|research|maintenance] [--repo <directory>] [--select <vault-id>] [--json]', '', 'Reports validated documentation and ordered research routes. Default purpose: documentation. Read-only; never creates configuration or indexes.', 'Repository: --repo, then WIKI_MASTER_PROJECT_ROOT, then cwd. Registry: WIKI_MASTER_CONFIG or ~/.config/wiki-master/vaults.json. Without a registry, the legacy single-vault default remains supported.', 'Research with several vaults requires a request selection before writing; discovery reports selectionRequired without failing. Configuration errors exit 2.'],
+  },
   'adopt-clipping': {
     options: ['apply', 'topic', 'quality'],
     usage: [

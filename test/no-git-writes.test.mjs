@@ -21,6 +21,10 @@ const flagged = (line, file) => scanSource(line, file).findings.map((f) => f.pro
 // ---- the scanner sees every form of call ----
 
 const WRITES = [
+  "git(dir, 'worktree', 'remove', path)",
+  "git(dir, 'worktree', 'move', path, destination)",
+  "git(dir, 'worktree', action)",
+  "git(dir, 'worktree')",
   'execFileSync(\'git\', [\'commit\', \'-m\', \'x\'])',
   'spawnSync("git", ["push"])',
   'execSync(`git add ${p}`)',
@@ -100,6 +104,8 @@ for (const line of WRITES) {
 }
 
 const READS = [
+  "git(dir, 'worktree', 'list', '--porcelain', '-z')",
+  "git(dir, 'check-ignore', '--', '.wiki-master.json')",
   'execFileSync(\'git\', [\'-C\', tmp, \'rev-parse\', \'HEAD\'], { encoding: \'utf8\' })',
   'execFileSync(\'git\', [\'-C\', vaultPath, \'status\', \'--porcelain\', \'-z\'])',
   'execFileSync(\'git\', [\'-c\', \'core.quotePath=false\', \'ls-files\', \'-z\', \'--cached\'], { cwd: root })',
@@ -170,8 +176,10 @@ test('the scan reads the calls that stay', () => {
     /^scripts\/lib\/github-selection\.mjs gh api/,
     /^scripts\/lib\/private-terms\.mjs git -c core\.quotePath=false ls-files/,
     /^scripts\/rename-unsafe-clippings\.mjs git -C <?vaultPath>? status/,
-    /^scripts\/session-brief\.mjs git remote get-url/,
-    /^scripts\/session-brief\.mjs git rev-parse --show-toplevel/,
+    /^scripts\/lib\/repository\.mjs git remote get-url/,
+    /^scripts\/lib\/repository\.mjs git rev-parse --show-toplevel/,
+    /^scripts\/lib\/repository\.mjs git worktree list/,
+    /^scripts\/lib\/repository\.mjs git check-ignore/,
     /^scripts\/lib\/prerequisites\.mjs git -C <?vaultPath>? rev-parse/,
   ]) assert.ok(seen.some((s) => pattern.test(s)), `not seen: ${pattern}\n${seen.join('\n')}`);
 });

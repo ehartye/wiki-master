@@ -1,12 +1,13 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { basename, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { resolveVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { findProject, parseStatePage, buildBrief, formatBrief, validateProject } from './lib/session-brief.mjs';
+import { repositoryFacts } from './lib/repository.mjs';
+export { repositoryFacts } from './lib/repository.mjs';
 
 // Read-only: finds the wiki project the current repository belongs to and prints its state. Nothing is written and no
 // semantic index is touched.
@@ -25,16 +26,6 @@ const USAGE = [
 ].join('\n');
 
 class InputError extends Error {}
-
-function git(dir, ...args) {
-  try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null; } catch { return null; }
-}
-
-export function repositoryFacts(dir) {
-  const remote = git(dir, 'remote', 'get-url', 'origin');
-  const top = git(dir, 'rev-parse', '--show-toplevel');
-  return { remote, folder: basename(top ?? resolve(dir)) };
-}
 
 export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today = new Date() } = {}) {
   let values;
