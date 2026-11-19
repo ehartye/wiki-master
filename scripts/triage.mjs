@@ -1,4 +1,5 @@
 import { vaultPath as checkedPath } from './lib/vault-path.mjs';
+import { triagePaths } from './lib/triage-paths.mjs';
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -440,8 +441,8 @@ async function serverAlive(info) {
   }
 }
 
-function readInfo(dir) {
-  const f = join(dir, 'state', 'server-info');
+function readInfo(paths) {
+  const f = paths.stateFile('server-info');
   if (!existsSync(f)) return null;
   try {
     return JSON.parse(readFileSync(f, 'utf8'));
@@ -470,17 +471,19 @@ export async function main() {
   const vault = resolveOperationVault('maintenance');
   const { path: vaultPath } = vault;
   const dir = sessionDir(vaultPath);
-  mkdirSync(join(dir, 'content'), { recursive: true });
-  mkdirSync(join(dir, 'state'), { recursive: true });
+  const paths = triagePaths(vaultPath, dir);
+  const screen = paths.screenFile(`triage-${Date.now()}.html`);
+  mkdirSync(paths.content, { recursive: true });
+  mkdirSync(paths.state, { recursive: true });
 
   const data = collectTriage(vaultPath);
-  writeFileSync(join(dir, 'content', `triage-${Date.now()}.html`), renderScreen(data));
+  writeFileSync(paths.check(screen), renderScreen(data));
 
   const remote = process.argv.includes('--remote');
-  let info = readInfo(dir);
+  let info = readInfo(paths);
   if (!(await serverAlive(info))) {
     startServer(vaultPath, dir, { remote, env: vault.env });
-    for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(dir)))); i++) {
+    for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(paths)))); i++) {
       await new Promise((r) => setTimeout(r, 250));
     }
   }
@@ -519,5 +522,5 @@ const USAGE = [
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (helpRequested()) exitWithHelp(USAGE);
-  else main();
+  else main().catch(error => { console.error(error.message); process.exitCode = error.exitCode ?? 1; });
 }

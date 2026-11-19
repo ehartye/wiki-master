@@ -3,10 +3,11 @@
 // briefly empty or cut off, and a reader that arrived in that window failed to parse it.
 const fs = require('fs');
 
-function writeFileAtomic(file, text) {
+function writeFileAtomic(file, text, check = value => value) {
   const tmp = file + '.' + process.pid + '.tmp';
-  fs.writeFileSync(tmp, text);
-  fs.renameSync(tmp, file);
+  check(file);
+  fs.writeFileSync(check(tmp), text);
+  fs.renameSync(check(tmp), check(file));
 }
 
 module.exports = { writeFileAtomic };
