@@ -152,7 +152,7 @@ As the orchestrator (or a separate reviewer), over the pooled candidates:
 
 **A batch of web addresses.** Put the survivors in a file, one address per line (`#` lines and blank lines are skipped), and run
 `node "<absolute-plugin-root>/scripts/clip.mjs" --list <file> --quality=<tier> --topic="<topic>" --ledger <ledger-file>`, with the ledger
-outside `raw/` and `wiki/`. Do not write a shell loop. Read the ledger's one JSON line per address, not the printed lines; the
+inside the selected vault's canonical root, outside its `raw/` and `wiki/`. Do not write a shell loop. Read the ledger's one JSON line per address, not the printed lines; the
 fields are in [web capture](clip-html.md#lists-and-the-ledger). An address that carries a username, password or secret
 query parameter is refused (exit 2 for a single clip, an `error` outcome in a list) and nothing is queued for it: drop it, or have the user supply
 the saved page with `--from-file` under the address without the secret. PDF addresses go through `clip-pdf.mjs "<url>"`, one at a time.

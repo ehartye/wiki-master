@@ -75,7 +75,7 @@ export const CLI_SPECS = {
   },
   'log-entry': {
     options: ['op', 'title'],
-    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', VAULT],
+    usage: ['usage: node scripts/log-entry.mjs --op <op> --title "<title>"   (entry body on stdin)', '', 'Writes one uniquely named log/YYYY-MM-DD-HHmmss-<op>-<slug>.md and prints its vault-relative path.', '--op uses letters, digits, hyphens or underscores and starts with a letter or digit. Invalid names and paths escaping the selected vault exit 2 before writing.', VAULT],
   },
   purge: {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],

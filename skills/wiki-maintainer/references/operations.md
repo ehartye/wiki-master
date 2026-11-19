@@ -1,8 +1,7 @@
 # Completion for vault writes
 
-Obsidian Git handles all git operations. Authorized capture, ingestion, authoring,
-repair, synthesis filing and triage finish here. Read-only search, answers, checks
-and previews write no log and refresh nothing.
+Obsidian Git handles all git operations. Authorized vault writes finish here.
+Read-only search, answers, checks and previews write no log and refresh nothing.
 
 Resolve the originating role and read its selected vault's instructions before edits.
 Retain [request binding](access.md#request-binding) through maintenance completion;
@@ -19,6 +18,7 @@ per vault; report each written/refreshed/blocked state without combining provena
    plus relevant [checks](../../wiki-setup/references/checks.md). Resolve failures within scope.
 3. **Log once.** Pipe a short narrative to `log-entry.mjs --op <op> --title "<title>"`. It
    writes under `log/`: project docs use `relink`, filed answers `query`; other roles use their own.
+   Use letters, digits, hyphens or underscores; start with a letter or digit. Invalid names and escaping paths exit 2.
 4. **Run `refresh-index.mjs`,** once per task, not per page. It regenerates the catalogs
    and search index for that vault; never hand-edit a generated fence. A delegated worker writes and validates,
    then reports the paths it wrote; the enclosing task logs once and runs the refresh.
