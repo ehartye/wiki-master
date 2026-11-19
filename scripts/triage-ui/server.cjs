@@ -97,6 +97,7 @@ function advertisedHost(bind) {
 }
 const URL_HOST = process.env.WM_TRIAGE_URL_HOST || advertisedHost(HOST);
 
+(async () => {
 const SESSION_DIR = process.env.WM_TRIAGE_DIR;
 const VAULT_PATH = process.env.WM_TRIAGE_VAULT;
 let ownerPid = process.env.WM_TRIAGE_OWNER_PID ? Number(process.env.WM_TRIAGE_OWNER_PID) : null;
@@ -105,6 +106,10 @@ if (!SESSION_DIR || !VAULT_PATH) {
   console.error('WM_TRIAGE_DIR and WM_TRIAGE_VAULT are required');
   process.exit(2);
 }
+
+// Validate child bindings before token, upload or disposition writes.
+const { resolveOperationVault } = await import('../lib/vault.mjs');
+resolveOperationVault('maintenance', { root: VAULT_PATH });
 
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
@@ -559,5 +564,6 @@ function startServer() {
 }
 
 if (require.main === module) startServer();
+})().catch(error => { console.error(error.message); process.exitCode = error.exitCode ?? 1; });
 
 module.exports = { computeAcceptKey, encodeFrame, decodeFrame, OPCODES };

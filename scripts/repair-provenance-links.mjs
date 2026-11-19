@@ -13,7 +13,7 @@
 //   node scripts/repair-provenance-links.mjs --apply
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { planCitationRepair } from './lib/backfill.mjs';
 import { repointCitation } from './lib/repoint.mjs';
@@ -21,7 +21,7 @@ import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
-const { path: vault } = resolveVault();
+const { path: vault } = resolveOperationVault('maintenance');
 const plan = planCitationRepair(buildGraph(vault));
 
 let written = 0;

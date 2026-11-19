@@ -6,7 +6,7 @@ import { fsKeywordSearch } from './lib/fs-keyword.mjs';
 import { pathToFileURL } from 'node:url';
 import { embed as ollamaEmbed, isAvailable, modelPresent, EMBED_MODEL, OLLAMA_HOST } from './lib/embed.mjs';
 import { decodeVectors, queryPages, coverage } from './lib/vector-index.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { assessTiers, shouldAnnounceFull, statusLine, fullReport, setupPlan } from './lib/search-health.mjs';
 import { freshness, manifestProblem, statusReport } from './lib/embedding.mjs';
 import { hash } from './lib/embed-cache.mjs';
@@ -116,7 +116,7 @@ export function exactMatchGate(query, { phraseHits, paragraphHits }) {
 // contract must not change) and the CLI's `runQuery` below, which needs the
 // same facts (ollamaUp, the loaded index) to build the health disclosure
 // without loading the ~17MB vector store a second time.
-export async function createSearchContext({ vaultPath = resolveVault().path,
+export async function createSearchContext({ vaultPath = resolveOperationVault('maintenance', { requireAvailable: false }).path,
   keywordSearchFn, embedFn = queryEmbed, checkAvailable = () => isAvailable({ fetchImpl: boundedFetch }) } = {}) {
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadChunkIndex(indexDir);
@@ -365,7 +365,7 @@ function loadIndexForDiagnosis(indexDir) {
 }
 
 async function runHealthCommand() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadIndexForDiagnosis(indexDir);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });
@@ -408,7 +408,7 @@ async function runHealthCommand() {
 }
 
 async function runSetupCommand() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const indexDir = join(vaultPath, '.wiki-master');
   const index = loadIndexForDiagnosis(indexDir);
   const ollamaUp = await isAvailable({ fetchImpl: boundedFetch });

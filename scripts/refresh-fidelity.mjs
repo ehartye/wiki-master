@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { assessFidelity, letterInventory } from './clip-pdf.mjs';
 import { clippingKind } from './lib/reclip-html.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -80,7 +80,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.error('refresh-fidelity: --inventory only lists the suspect clippings; it has no apply mode and is not combined with --ocr-floor');
     process.exit(2);
   }
-  const { path: vault } = resolveVault();
+  const { path: vault } = resolveOperationVault('maintenance');
   const dir = join(vault, 'raw', 'clippings');
   const suspects = [];
   let tested = 0;

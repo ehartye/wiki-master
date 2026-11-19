@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 
 import { join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, computeGraphMetrics } from './lib/graph.mjs';
 import { loadIssueLog, openIssues, declinesNearingExpiry, settledKeys, quarantineSettledKeys, issueKey, pendingReclips } from './lib/triage.mjs';
@@ -449,14 +449,14 @@ function readInfo(dir) {
   }
 }
 
-function startServer(vaultPath, dir, { remote = false } = {}) {
+function startServer(vaultPath, dir, { remote = false, env = process.env } = {}) {
   const args = [join(HERE, 'triage-ui', 'server.cjs')];
   if (remote) args.push('--remote');
   const child = spawn(process.execPath, args, {
     detached: true,
     stdio: 'ignore',
     env: {
-      ...process.env,
+      ...env,
       WM_TRIAGE_DIR: dir,
       WM_TRIAGE_VAULT: vaultPath,
       WM_TRIAGE_OWNER_PID: '',
@@ -466,7 +466,8 @@ function startServer(vaultPath, dir, { remote = false } = {}) {
 }
 
 export async function main() {
-  const { path: vaultPath } = resolveVault();
+  const vault = resolveOperationVault('maintenance');
+  const { path: vaultPath } = vault;
   const dir = sessionDir(vaultPath);
   mkdirSync(join(dir, 'content'), { recursive: true });
   mkdirSync(join(dir, 'state'), { recursive: true });
@@ -477,7 +478,7 @@ export async function main() {
   const remote = process.argv.includes('--remote');
   let info = readInfo(dir);
   if (!(await serverAlive(info))) {
-    startServer(vaultPath, dir, { remote });
+    startServer(vaultPath, dir, { remote, env: vault.env });
     for (let i = 0; i < 40 && !(await serverAlive((info = readInfo(dir)))); i++) {
       await new Promise((r) => setTimeout(r, 250));
     }

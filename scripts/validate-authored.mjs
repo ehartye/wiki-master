@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { readGraphCache } from './lib/graph-cache-read.mjs';
@@ -266,7 +266,7 @@ export function main(argv = process.argv.slice(2)) {
       try { termRules = [...BUILTIN_RULES, ...parseTerms(text)]; } catch (error) { throw new InputError(error.message); }
     }
     const termProjects = values['terms-projects'] ? values['terms-projects'].split(',').map(s => s.trim()).filter(Boolean) : null;
-    const result = validateAuthored(resolveVault().path, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
+    const result = validateAuthored(resolveOperationVault('maintenance').path, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
     for (const s of result.skippedPaths ?? []) console.error(`validate-authored: skipped path ${s.path} (${s.reason})`);
     if (values.json) console.log(JSON.stringify(result, null, 2));
     else {

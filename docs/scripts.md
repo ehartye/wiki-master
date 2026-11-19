@@ -76,7 +76,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 
 | Script | Purpose |
 |---|---|
-| `init.mjs` | Scaffolds a new vault. |
+| `init.mjs` | Scaffolds the selected vault; `--bootstrap <absolute-root>` initializes an unregistered root before setup registers it. |
 | `setup-obsidian-git.mjs` | Checks or sets up the Obsidian Git plugin, which handles all git operations in the vault. |
 | `obsidian.mjs` | Proxy to the Obsidian CLI; exits 1 when the CLI prints a refusal. |
 | `log-entry.mjs` | Writes one log entry and prints its path. |

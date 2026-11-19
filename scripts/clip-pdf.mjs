@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
 import { newProbe, probeWriters, probeReport, printProbe, vaultStanding, PROBE_OCR_PAGES } from './lib/clip-probe.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
@@ -632,7 +632,7 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
   if (probe) Object.assign(probe, { source, vaultPath });
 
   if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);

@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { BIN_DIR, binPathFor, planPurge, buildManifest, purgeId, planReconcile } from './lib/purge.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { loadDeclines, recordDecline, removeDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
@@ -348,7 +348,7 @@ export async function main(argv, {
   searchImpl = searchMain,
   applyPurge: applyPurgeFn = applyPurge,
 } = {}) {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const mode = argv[0] ?? '--plan';
   // `--seeds a.md,b.md` pins the seed set instead of searching for it. Measured
   // need, not speculation: a real dry run against the live vault seeded 25 pages

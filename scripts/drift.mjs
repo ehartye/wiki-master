@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { embed as ollamaEmbed, isAvailable, cosine } from './lib/embed.mjs';
 import { hash, loadCache, saveCache } from './lib/embed-cache.mjs';
 import { buildGraph, buildNameIndex, evidencePaths } from './lib/graph.mjs';
@@ -195,7 +195,7 @@ export async function main(argv = [], { embed = ollamaEmbed, available = isAvail
     } else throw new Error(`unknown argument: ${argv[i]}`);
   }
   const named = pathsFile === undefined ? null : checkLedgerPaths(readLedger(pathsFile));
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const pages = collectDriftPages(vaultPath, { readFile });
   const dir = stateDir ?? join(vaultPath, '.wiki-master');
   const state = readDriftState(dir, vaultPath);

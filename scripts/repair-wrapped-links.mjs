@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph, isContent, normalizeName } from './lib/graph.mjs';
 import { dewrapText } from './lib/dewrap-links.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -50,7 +50,7 @@ export function repairWrappedLinks(vaultPath, { apply = false } = {}) {
 }
 
 export function main() {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const apply = process.argv.includes('--apply');
   const { filesTouched, fixed, skipped } = repairWrappedLinks(vaultPath, { apply });
 

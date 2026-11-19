@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
 import { findProject, parseStatePage, buildBrief, formatBrief, validateProject } from './lib/session-brief.mjs';
@@ -36,7 +36,10 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), today 
     if (!/^\d+$/.test(values['stale-days'])) throw new InputError('--stale-days takes a whole number of days');
     staleDays = Number(values['stale-days']);
   }
-  const vaultPath = resolveVault().path;
+  const vault = resolveOperationVault('documentation', { requireAvailable: false, repo: values.repo, cwd });
+  const vaultPath = vault.path;
+  if (values.project && vault.context.project && values.project !== vault.context.project) throw new InputError('Explicit project conflicts with the configured repository project');
+  values.project ??= vault.context.project ?? undefined;
   const facts = repositoryFacts(values.repo ? resolve(cwd, values.repo) : cwd);
   let chosen;
   if (values.project !== undefined) {

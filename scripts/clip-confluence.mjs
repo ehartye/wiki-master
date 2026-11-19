@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
@@ -33,8 +33,8 @@ function today() { return localDate(); }
 // either, per Copilot CLI's plugin model) -- the one thing every Copilot CLI
 // plugin install DOES share is landing under ~/.copilot/installed-plugins/.
 // An explicit WIKI_MASTER_CONFLUENCER_SCRIPTS always wins (same env-var-first
-// idiom as resolveVault in lib/vault.mjs), for a dev checkout or a
-// non-standard install; unlike resolveVault, it is not existence-checked here
+// idiom as legacy vault configuration), for a dev checkout or a
+// non-standard install; it is not existence-checked here
 // either, for the same reason -- resolution and validation stay separate, and
 // the caller below is what actually needs the answer.
 export function findConfluencerScripts({ env = process.env, home = homedir() } = {}) {
@@ -133,7 +133,7 @@ export function main(argv, { findScripts = findConfluencerScripts, runPage = run
   const quality = qArg ? qArg.split('=')[1] : 'medium';
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   // --decline never fetches -- it only needs an identity to record against,
   // exactly like clip.mjs and clip-docx.mjs, so it works with no dependency

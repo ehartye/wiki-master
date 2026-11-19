@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, checkClipArgs } from './lib/clip-args.mjs';
 import { selectionOptions, captureSelection } from './lib/github-selection.mjs';
 import { recordDecline } from './lib/decline.mjs';
@@ -664,7 +664,7 @@ export function main(argv, { readSelected } = {}) {
   const forceFull = argv.includes('--force-full');
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {

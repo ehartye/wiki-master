@@ -19,7 +19,7 @@
 //   node scripts/search.mjs "topic" --include-raw | node scripts/resolve-evidence.mjs
 import { pathToFileURL } from 'node:url';
 import { readStdin } from './lib/read-stdin.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph, buildNameIndex, evidenceRoutes } from './lib/graph.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -99,7 +99,7 @@ export function formatEvidenceReport(result) {
 }
 
 export async function main(argv) {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const { pages } = buildGraph(vaultPath);
   const byName = buildNameIndex(pages);
   const pageByPath = new Map(pages.map((p) => [p.path, p]));

@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph, computeGraphMetrics, isContent } from './lib/graph.mjs';
 import { scanIntegrity, integrityReport } from './lib/integrity.mjs';
 import { readGraphCache } from './lib/graph-cache-read.mjs';
@@ -130,7 +130,7 @@ export function main(args = process.argv.slice(2), { readFile } = {}) {
   const { values } = parseArgs({ args, options: { json: { type: 'boolean' }, legacy: { type: 'boolean' }, backlog: { type: 'boolean' }, 'no-cache': { type: 'boolean' } } });
   const { 'no-cache': noCache, ...modes } = values;
   if (Object.values(modes).filter(Boolean).length > 1) throw new Error('Choose one of --json, --legacy or --backlog');
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   if (!values.legacy && !values.backlog) {
     const cache = noCache ? null : readGraphCache(vaultPath, { readFile });
     const result = scanIntegrity(vaultPath, { cache, readFile });

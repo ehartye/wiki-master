@@ -2,8 +2,8 @@
 // It checks its prerequisites first and writes nothing unless all of them hold. Catalogs run before embedding because
 // writing a catalog changes its modification time, and embedding reads those times.
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { resolveOperationVault, commandLines } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { embed as ollamaEmbed } from './lib/embed.mjs';
 import { refreshCatalogs } from './lib/catalogs.mjs';
@@ -20,7 +20,7 @@ const dirOf = (vaultPath) => join(vaultPath, '.wiki-master');
 function reportStatus(hooks, { out }) {
   try {
     // A vault that cannot be chosen or read is a thing to report here, never a failure.
-    const { path } = hooks.vault ?? resolveVault(process.env, { onRefuse: () => {} });
+    const { path } = hooks.vault ?? resolveOperationVault('maintenance', { requireAvailable: false });
     const r = statusReport({ vaultPath: path, dir: dirOf(path) });
     const state = r.damaged ? 'damaged' : r.files === 0 && r.filesChanged > 0 ? 'not built' : r.filesChanged || r.filesRemoved || r.missing ? 'stale' : 'current';
     const repair = r.damaged ? ` (${r.damaged}): run refresh-index.mjs --rebuild` : '';
@@ -81,12 +81,19 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
   }
   if (argv.includes('--status')) return reportStatus(hooks, io);
 
-  const vault = hooks.vault ?? resolveVault();
+  const vault = hooks.vault ?? resolveOperationVault('maintenance');
+  const finish = code => {
+    if (code && vault.context?.configPath) {
+      err('Retry this selected vault after resolving the reported failure:');
+      for (const line of commandLines(fileURLToPath(import.meta.url), argv.includes('--rebuild') ? ' --rebuild' : '', vault.env)) err(line);
+    }
+    return code;
+  };
   const { failures, notes } = await checkPrerequisites({ vault, probes: hooks.probes });
   for (const note of notes) err(`${NAME}: ${note}`);
   if (failures.length) {
     reportFailures(failures, io);
-    return 1;
+    return finish(1);
   }
 
   // A rebuild asks the embedder first, so an embedder that cannot answer stops it before anything is written.
@@ -97,7 +104,7 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
       probedDim = await probeDimension(embedderOf(hooks));
     } catch (error) {
       err(`${NAME}: not rebuilt, and nothing was written: ${error.message}.`);
-      return 1;
+      return finish(1);
     }
   }
 
@@ -105,15 +112,15 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
     runCatalogs(vault.path, hooks, io);
   } catch (error) {
     err(`${NAME}: the catalogs could not be refreshed: ${error.message}. Rerun refresh-index.mjs after fixing that.`);
-    return 1;
+    return finish(1);
   }
   try {
-    return await runEmbedding(vault.path, { rebuild, probedDim }, hooks, io);
+    return finish(await runEmbedding(vault.path, { rebuild, probedDim }, hooks, io));
   } catch (error) {
     // These two errors already say what to do; anything else may pass, and a rerun is the same command again.
     const next = ['INDEX_CORRUPT', 'INDEX_REBUILD_FAILED'].includes(error.code) ? '' : ` Rerun refresh-index.mjs${rebuild ? ' --rebuild' : ''}.`;
     err(`${NAME}: the catalogs are written, but the search index is not: ${error.message}.${next}`);
-    return 1;
+    return finish(1);
   }
 }
 

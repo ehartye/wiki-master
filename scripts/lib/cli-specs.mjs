@@ -176,7 +176,7 @@ export const CLI_SPECS = {
     usage: ['usage: node scripts/validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache] [--terms-file <file>] [--terms-projects <list>]', '', 'Checks the frontmatter, placement and links of exactly the pages one authoring task wrote (the ledger: a JSON array of vault-relative paths). Prints one "path:line rule message" line per defect; exit 0 is clean, 1 means defects, 2 an unusable ledger or vault.', 'It reads the graph cache that refresh-index.mjs writes and re-reads only the files changed since; --no-cache reads every file (use it after a bulk copy or restore).', 'Read-only.', VAULT],
   },
   triage: { options: ['remote'] },
-  init: { options: [] },
+  init: { options: ['bootstrap'] },
   'setup-obsidian-git': {
     options: ['check', 'apply'],
     usage: [

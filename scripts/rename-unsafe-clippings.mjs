@@ -23,7 +23,7 @@ import { readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { planClippingRenames, stemOf } from './lib/clip-names.mjs';
 import { rewriteLinkTargets } from './lib/rewrite-links.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
@@ -120,7 +120,7 @@ function dirtyPaths(vaultPath) {
 //   --exclude=<prefix>   a page prefix to report but not rewrite (repeatable)
 //   --flag=<prefix>      a page prefix to list for review before applying (repeatable)
 export function runRenameCli(argv, { type, run }) {
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const apply = argv.includes('--apply');
   const fileOption = (flag) => {
     const at = argv.indexOf(flag);

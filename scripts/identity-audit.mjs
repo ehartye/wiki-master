@@ -1,7 +1,7 @@
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { buildGraph } from './lib/graph.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -58,7 +58,7 @@ export function auditIdentity({ pages }, { limit = 50 } = {}) {
 
 export function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({ args: argv, options: { vault: { type: 'string' }, limit: { type: 'string' }, json: { type: 'boolean' } } });
-  const report = auditIdentity(buildGraph(values.vault ?? resolveVault().path), { limit: values.limit === undefined ? 50 : Number(values.limit) });
+  const report = auditIdentity(buildGraph(resolveOperationVault('maintenance', { root: values.vault }).path), { limit: values.limit === undefined ? 50 : Number(values.limit) });
   console.log(values.json ? JSON.stringify(report, null, 2) : `Identity audit: ${report.total} findings across ${report.scanned} pages (read-only)\n${report.findings.map(f => `${f.severity}: ${f.kind}${f.name ? ` (${f.name})` : ''}\n  ${f.paths.join(', ')}\n  ${f.reason}`).join('\n')}${report.truncated ? `\n… ${report.truncated} further findings omitted` : ''}`);
   return report;
 }

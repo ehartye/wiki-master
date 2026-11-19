@@ -17,14 +17,14 @@
 //   node scripts/repair-sources-order.mjs --apply
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { fixSourcesOrder } from './lib/backfill.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
 const apply = process.argv.includes('--apply');
-const { path: vault } = resolveVault();
+const { path: vault } = resolveOperationVault('maintenance');
 const { pages } = buildGraph(vault);
 
 const fixed = [];

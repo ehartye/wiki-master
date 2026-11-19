@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { loadDeclines, isDeclined, recordDecline, removeDecline } from './lib/decline.mjs';
@@ -111,7 +111,7 @@ export function main(argv, { toText = docxToText } = {}) {
   const topic = parseTopicArg(argv);
   const allowShort = parseAllowShort(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {

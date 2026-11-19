@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { normalizeUrl } from './lib/url.mjs';
 import { readClippings, knownUrlIndex, newestCapture, urlKey } from './lib/known-urls.mjs';
 import { loadDeclines, isDeclined } from './lib/decline.mjs';
@@ -132,7 +132,7 @@ export function main(argv, { vaultPath, out = console.log, err = console.error }
   if (o.topic !== undefined && !normalizeTopic(o.topic)) return fail('--topic needs a topic: --summary --topic "<topic>"');
   if (o.summary && o.topic === undefined) return fail('--summary needs --topic "<topic>"');
   if (o.topic !== undefined && !o.summary) return fail('--topic is for --summary');
-  const vault = vaultPath ?? resolveVault().path;
+  const vault = vaultPath ?? resolveOperationVault('maintenance', { requireAvailable: false }).path;
 
   if (o.check !== null) {
     const index = knownUrlIndex(vault);

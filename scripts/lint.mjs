@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { buildGraph, isContent, buildNameIndex, evidencePaths } from './lib/graph.mjs';
 import { prepareDocument, classifyFragments, gappedMatch, DECLARES_ABSENT, tokenize } from './lib/quote-match.mjs';
@@ -630,7 +630,7 @@ export function scopeOf(graph, { pathsFile, since }) {
 
 export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance', { requireAvailable: false });
   const graph = buildGraph(vaultPath);
   const scope = scopeOf(graph, args);
   const { examined, verbatim, title, findings } = classifyQuotes(vaultPath, graph, scope ? { pages: scope.pages } : {});

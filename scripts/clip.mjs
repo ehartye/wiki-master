@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, probeConflict } from './lib/clip-args.mjs';
 import { newProbe, probeWriters, probeReport, printProbe, vaultStanding } from './lib/clip-probe.mjs';
 import { optionValue } from './lib/cli-guard.mjs';
@@ -562,10 +562,12 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
   // --probe writes nothing, so it is refused with any option that asks for a write.
   const conflict = probeConflict(argv, CLIP_SPECS['clip']);
   if (conflict) return refuse(conflict);
+  if (argv.includes('--find-twin') && (optionValue(argv, 'from-file') !== undefined || argv.includes('--expand'))) return refuse('--find-twin cannot be used with --from-file or --expand');
+  const { path: vaultPath } = resolveOperationVault('research');
   // --ledger is checked before anything is read, so a refused ledger leaves the vault as it was.
   const ledger = optionValue(argv, 'ledger');
   if (ledger !== undefined) {
-    const problem = ledgerFileProblem(ledger, resolveVault().path);
+    const problem = ledgerFileProblem(ledger, vaultPath);
     if (problem) return refuse(problem);
   }
   // A list that cannot be run is refused before the ledger is probed, because the probe creates the file and a refused run must not leave one.
@@ -586,7 +588,7 @@ export function main(argv, { extract = runDefuddleJson, writeClipping = writeCli
       process.exitCode = 2;
     }
   };
-  const deps = { extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
+  const deps = { vaultPath, extract, writeClipping, readText, probeTwin, todayOf, render, sleep, runtimeAvailable, record };
   if (list) return runList(argv, deps, list);
   const url = argv[0];
   if (!url) { for (const line of CLIP_SPECS['clip'].usage) console.error(line); process.exit(2); }
@@ -713,10 +715,10 @@ function clipUrl(url, argv, deps) {
   const result = { url, ...(topic && { topic }), requested: true, ...outcome };
   // A refused command (exit 2) and a missing runtime (exit 1) say nothing about the address, so they print no probe line.
   if (!probe || outcome.exit) return result;
-  return { ...result, probe: probeReport({ url, result, probe, standing: vaultStanding(resolveVault().path, url) }) };
+  return { ...result, probe: probeReport({ url, result, probe, standing: vaultStanding(deps.vaultPath, url) }) };
 }
 
-function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }, probe = null) {
+function clipCore(url, argv, { vaultPath, extract, writeClipping, readText, probeTwin, todayOf, render: renderPage, runtimeAvailable }, probe = null) {
   // Every vault write and every stdout line below goes through these four names. In a probe they record instead of writing.
   const { recordDecline, recordIssue, closeIssuesResolvedByClip, console } = probe ? probeWriters(probe) : VAULT_WRITERS;
   // A reason from the browser can quote an address the page sent it to. It is made safe here, once, before anything prints or stores it.
@@ -753,8 +755,6 @@ function clipCore(url, argv, { extract, writeClipping, readText, probeTwin, toda
   }
 
   if (isBlocked(url)) { console.log(`blocked (unreliable domain): ${url}`); return { status: 'blocked', requested: false }; }
-
-  const { path: vaultPath } = resolveVault();
 
   // Only a page that already clipped with a partial warning is worth a probe, and nothing is written whatever it finds.
   if (findingTwin) {

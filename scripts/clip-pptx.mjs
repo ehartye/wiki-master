@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs } from './lib/clip-args.mjs';
 import { isDuplicateUrl } from './lib/url.mjs';
 import { recordDecline } from './lib/decline.mjs';
@@ -100,7 +100,7 @@ export function main(argv, { toText = pptxToText } = {}) {
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('research');
 
   const declineArg = argv.find((a) => a.startsWith('--decline='));
   if (declineArg) {

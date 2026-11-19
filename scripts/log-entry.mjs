@@ -2,7 +2,7 @@ import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readStdin } from './lib/read-stdin.mjs';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -59,7 +59,7 @@ export async function main() {
     process.exit(1);
   }
   const body = process.stdin.isTTY ? '' : await readStdin();
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   console.log(writeLogEntry({ vaultPath, op, title, body }));
 }
 

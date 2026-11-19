@@ -6,7 +6,7 @@
 // its effect is on disk.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { commandLines, isDefaultVault, resolveVault, obsidian, vaultEnvFor } from './lib/vault.mjs';
+import { commandLines, isDefaultVault, resolveOperationVault, obsidian, vaultEnvFor } from './lib/vault.mjs';
 import { unknownOption, rejection, cliGuard } from './lib/cli-guard.mjs';
 import { OBSIDIAN_GIT_ID, REQUIRED_SETTINGS, compareSettings, obsidianGitDataFile, obsidianGitPrerequisite } from './lib/obsidian-git.mjs';
 import { canonical, looksLikePath, obsidianSession } from './lib/prerequisites.mjs';
@@ -49,8 +49,8 @@ function report(vaultPath, { out }) {
 }
 
 // A rerun printed bare reads the default vault, which can be healthy and exit 0: a false all-clear for this one.
-function printRerun(vaultPath, args, { out }) {
-  for (const line of commandLines(fileURLToPath(import.meta.url), args, vaultEnvFor(vaultPath))) out(`     ${line}`);
+function printRerun(vaultPath, args, { out, env }) {
+  for (const line of commandLines(fileURLToPath(import.meta.url), args, vaultEnvFor(vaultPath, env))) out(`     ${line}`);
 }
 
 function manualSteps(vaultPath, io) {
@@ -66,15 +66,15 @@ function manualSteps(vaultPath, io) {
 
 // The app cannot be reached from another session, as over SSH, so a rerun from here can never pass. A finished vault
 // has nothing to do, and restricted mode is all that goes unseen; anything else has to be done where the app runs.
-function fromAnotherSession(vaultPath, { out, err }) {
+function fromAnotherSession(vaultPath, { out, err, env }) {
   if (isFinished(vaultPath)) {
     out(`${NAME}: nothing needed doing. Restricted mode cannot be seen from this session.`);
   } else {
     err(`${NAME}: not finished: Obsidian runs in another session, so this cannot finish from this session. From the desktop session, with the vault open there, run:`);
-    printRerun(vaultPath, ' --apply', { out });
+    printRerun(vaultPath, ' --apply', { out, env });
   }
   out(`  ${NAME}.mjs --check reports what is on disk from any session:`);
-  printRerun(vaultPath, ' --check', { out });
+  printRerun(vaultPath, ' --check', { out, env });
   return report(vaultPath, { out });
 }
 
@@ -172,7 +172,7 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
     err(`${NAME}: choose --check or --apply, not both`);
     return 2;
   }
-  const vault = hooks.vault ?? resolveVault();
+  const vault = hooks.vault ?? resolveOperationVault('maintenance');
   if (!argv.includes('--apply')) return report(vault.path, { out });
 
   const deps = {
@@ -188,13 +188,13 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
   } catch (error) {
     stopped = `could not read the process list to look for Obsidian: ${error.message}`;
   }
-  if (where === 'other-session') return fromAnotherSession(vault.path, { out, err });
+  if (where === 'other-session') return fromAnotherSession(vault.path, { out, err, env: vault.env });
   // Calling the CLI with no app running could start one.
   if (where === 'none') stopped = 'Obsidian is not running for this user.';
   stopped ??= await apply(vault, deps, { out });
   if (stopped) {
     err(`${NAME}: not finished: ${stopped}`);
-    manualSteps(vault.path, { out });
+    manualSteps(vault.path, { out, env: vault.env });
   }
   const code = report(vault.path, { out });
   return stopped ? 1 : code;

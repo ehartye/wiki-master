@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import { join, resolve, relative, isAbsolute } from 'node:path';
 import { serializedExecFileSync, validateCliRequest } from './cli-transport.mjs';
-import { resolveContext, requireSelectedTarget } from './context.mjs';
+import { resolveContext, requireSelectedTarget, contextEnv, ContextError, assertTestVault, sameRoot } from './context.mjs';
 
 // True when `path` is `dir` or inside it, also by its real path (macOS temp is a symlink).
 export function isUnder(path, dir) {
@@ -36,6 +36,40 @@ export function resolveVault(env = process.env, { onRefuse = refuseAndExit, requ
   const target = requireSelectedTarget(context, { available: requireAvailable });
   // `name` is the Obsidian CLI selector, not necessarily the root's folder name.
   return { path: context.legacyPath ?? target.path, name: target.selector };
+}
+
+// Public operations choose their role at the call site. Bind once and carry this
+// environment to children/recovery instructions without changing process.env.
+export function resolveOperationVault(purpose, { env = process.env, root, requireAvailable = true, exit = code => process.exit(code), ...options } = {}) {
+  try {
+    const input = root === undefined ? env : { ...env, WIKI_MASTER_VAULT: root };
+    const context = resolveContext(input, { purpose, discoverLegacyProject: false, ...options });
+    const target = requireSelectedTarget(context, { available: requireAvailable });
+    const vault = { path: context.legacyPath ?? target.path, name: target.selector };
+    Object.defineProperty(vault, 'context', { value: context });
+    Object.defineProperty(vault, 'env', { value: context.configPath ? contextEnv(context, input) : { ...input } });
+    return vault;
+  } catch (error) {
+    if (!(error instanceof ContextError)) throw error;
+    console.error(error.message);
+    exit(error.exitCode);
+    throw error;
+  }
+}
+
+// Only init calls this bootstrap path. Ordinary operations never read this option.
+export function resolveSetupVault(root, env = process.env) {
+  if (root === undefined) {
+    const vault = resolveOperationVault('maintenance', { env, requireAvailable: false });
+    // Preserve legacy first-run scaffolding. A registered offline root is never
+    // recreated implicitly: initializing it requires the explicit bootstrap path.
+    requireSelectedTarget(vault.context, { available: Boolean(vault.context.configPath) });
+    return vault;
+  }
+  if (!isAbsolute(root)) throw new ContextError('--bootstrap requires an absolute vault root');
+  assertTestVault(root, env);
+  const name = env.WIKI_MASTER_VAULT_NAME || root.split(/[\\/]/).filter(Boolean).at(-1);
+  return { path: root, name, env: { WIKI_MASTER_VAULT: root, WIKI_MASTER_VAULT_NAME: name } };
 }
 
 // A command in both shells' forms, acting on the vault in `env`, or null for the default vault, which needs no naming.
@@ -75,7 +109,20 @@ export function vaultEnvFor(path, env = process.env) {
 }
 
 export function buildArgs(name, args) {
-  return [`vault=${name}`, ...args];
+  for (const arg of args) {
+    if (typeof arg === 'string' && arg.startsWith('vault=') && arg !== `vault=${name}`) {
+      throw new ContextError('Conflicting raw vault= selector; use the resolved vault selection');
+    }
+  }
+  return [`vault=${name}`, ...args.filter(arg => arg !== `vault=${name}`)];
+}
+
+export function verifyObsidianTarget(vault, options = {}) {
+  const reported = obsidian(['vault', 'info=path'], { ...options, name: vault.name });
+  if (!/^(?:[A-Za-z]:[\\/]|[\\/])/.test(reported) || !sameRoot(reported, vault.path)) {
+    throw new ContextError(`Obsidian selected vault resolved to ${reported || '(no root)'}, not ${vault.path}; no action sent`, 1);
+  }
+  return reported;
 }
 
 // The CLI exits 0 when it refuses, so a refusal arrives as ordinary output. These are the refusals it is known to

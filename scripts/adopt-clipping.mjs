@@ -8,7 +8,7 @@
 // refused path leaves the others as they were.
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { resolveVault, isUnder } from './lib/vault.mjs';
+import { resolveOperationVault, isUnder } from './lib/vault.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
 import { QUALITY_TIERS } from './lib/quality-tiers.mjs';
 import { unquoteValue } from './lib/known-urls.mjs';
@@ -34,7 +34,7 @@ const topicArg = optionValue(argv, 'topic');
 const topic = topicArg === undefined ? null : normalizeTopic(topicArg);
 if (topicArg !== undefined && !topic) refuse('--topic needs a value');
 
-const { path: vault } = resolveVault();
+const { path: vault } = resolveOperationVault('research');
 const clippingsDir = join(vault, 'raw', 'clippings');
 
 // Every line of a key, in order. A web clipper emits `topic:` and `quality:` with nothing after them, and an older run may have

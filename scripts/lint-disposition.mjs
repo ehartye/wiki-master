@@ -2,7 +2,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { isUnder, resolveVault } from './lib/vault.mjs';
+import { isUnder, resolveOperationVault } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { classifyQuotes, checkStyle } from './lint.mjs';
@@ -110,7 +110,7 @@ export function main(argv = process.argv.slice(2)) {
   } catch (error) { throw new InputError(error.message.split('\n')[0]); }
   const [command, ...extra] = parsed.positionals;
   if (extra.length || !['record', 'prune'].includes(command)) throw new InputError('the command is record or prune (see --help)');
-  const { path: vaultPath } = resolveVault();
+  const { path: vaultPath } = resolveOperationVault('maintenance');
   const message = command === 'record' ? record(parsed.values, vaultPath) : prune(parsed.values, vaultPath);
   console.log(message);
   return message;

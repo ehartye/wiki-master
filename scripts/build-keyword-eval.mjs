@@ -21,7 +21,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { resolveVault } from './lib/vault.mjs';
+import { resolveOperationVault } from './lib/vault.mjs';
 import { inScope, noteIdentity } from './lib/retrieval.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -148,7 +148,7 @@ export function build(corpus, { seed = 20261019, perCategory = 14, categories = 
 
 if (process.argv[1] && import.meta.url === new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`).href) {
   const { values } = parseArgs({ options: { vault: { type: 'string' }, seed: { type: 'string' }, 'per-category': { type: 'string' }, out: { type: 'string' } } });
-  const vaultPath = values.vault ?? resolveVault().path;
+  const vaultPath = resolveOperationVault('maintenance', { root: values.vault }).path;
   const seed = Number(values.seed ?? 20261019);
   const corpus = loadCorpus(vaultPath);
   const questions = build(corpus, { seed, perCategory: Number(values['per-category'] ?? 14) });

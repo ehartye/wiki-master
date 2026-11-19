@@ -34,6 +34,15 @@ function deps(overrides = {}) {
   };
 }
 
+test('configuration defects remain exit 2 while doctor reports the other prerequisites', async () => {
+  const r = await main(['--json'], deps({ obsidianGit: () => ({ vault: null, exitCode: 2, failures: [{ problem: 'Invalid registry configuration' }] }) }));
+  assert.equal(r.exit, 2);
+  const report = JSON.parse(r.output);
+  assert.equal(report.exit, 2);
+  assert.match(report.requirements['obsidian-git'].detail, /Invalid registry/);
+  assert.ok(Object.keys(report.requirements).length > 1);
+});
+
 test('every requirement is found and reported with a path and the first line of its version', async () => {
   const r = await gather(deps());
   for (const id of ['git', 'gh', 'pandoc', 'pdftotext', 'pdftoppm', 'tesseract', 'soffice']) assert.equal(r[id].ok, true, id);
