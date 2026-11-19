@@ -602,10 +602,6 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   catch (e) { console.error(`ERROR: ${e.message}`); process.exit(2); }
   if (isUrl && fig.only) { console.error('ERROR: --figures-only needs the PDF file itself: download the file first, then run clip-pdf.mjs on it.'); process.exit(2); }
 
-  // Yell about the toolchain BEFORE doing any work, on every run. A missing tool
-  // silently downgrades what a clipping can ever be, and the downgrade is
-  // invisible in the output -- so it has to be loud at the top, not inferred
-  // later from a clipping that merely looks thin.
   if (argv.includes('--doctor')) {
     return diagnosePdf().then(report => {
       console.log(formatPdfDoctor(report));
@@ -613,6 +609,10 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
       return report;
     });
   }
+  // Routing errors take precedence over external tool availability. Doctor is
+  // intentionally independent of a capture destination; input checks above stay first.
+  const { path: vaultPath } = resolveOperationVault('research');
+  // Report missing tools before capture work so degraded extraction is explicit.
   const deps = toolchain();
   if (!deps.ok) {
     console.error('');
@@ -633,7 +633,6 @@ function clipPdf(argv, { toolchain = toolchainReport, extractText, download = do
   // retro-fit, so a missing --topic is a permanent Unattributed row.
   const topic = parseTopicArg(argv);
 
-  const { path: vaultPath } = resolveOperationVault('research');
   if (probe) Object.assign(probe, { source, vaultPath });
 
   if (fig.only) return runFiguresOnly(pdfPath, fig, vaultPath);

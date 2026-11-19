@@ -50,6 +50,45 @@ test('every capture refuses absent and forbidden research selection before side 
   }
 });
 
+test('PDF capture resolves research routing before probing a missing toolchain', () => {
+  const f = fixture(), before = snapshot(f.root);
+  const code = `import { main } from ${JSON.stringify(new URL('../scripts/clip-pdf.mjs', import.meta.url).href)};
+    main(['missing.pdf'], {toolchain: () => {console.error('TOOLCHAIN_PROBED'); return {ok:false,fatal:true,lines:['fixture converter missing']};}});`;
+  const invoke = extra => spawnSync(process.execPath, ['--input-type=module', '-e', code], { cwd: f.repo, env: { ...f.env, ...extra }, encoding: 'utf8' });
+  for (const extra of [{}, { WIKI_MASTER_VAULT_ID: 'docs' }]) {
+    const r = invoke(extra);
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, /research/i);
+    assert.doesNotMatch(r.stderr, /TOOLCHAIN_PROBED/);
+    assert.deepEqual(snapshot(f.root), before);
+  }
+  const selected = invoke({ WIKI_MASTER_VAULT_ID: 'research-one' });
+  assert.equal(selected.status, 1, selected.stderr);
+  assert.match(selected.stderr, /TOOLCHAIN_PROBED/);
+  assert.deepEqual(snapshot(f.root), before);
+});
+
+test('PDF input errors and doctor retain precedence over research selection', () => {
+  const f = fixture(), before = snapshot(f.root);
+  for (const [args, message] of [
+    [['ftp://example.com/source.pdf'], /only http and https/],
+    [['missing.pdf', '--mode=layout'], /unknown reading mode/],
+    [['https://example.com/source.pdf', '--figures-only'], /figures-only needs/],
+  ]) {
+    const code = `import { main } from ${JSON.stringify(new URL('../scripts/clip-pdf.mjs', import.meta.url).href)};
+      main(${JSON.stringify(args)}, {toolchain: () => {throw new Error('TOOLCHAIN_PROBED');}});`;
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', code], { cwd: f.repo, env: f.env, encoding: 'utf8' });
+    assert.equal(r.status, 2, r.stderr);
+    assert.match(r.stderr, message);
+    assert.doesNotMatch(r.stderr, /TOOLCHAIN_PROBED|Select a research vault/);
+  }
+  const doctor = run(f, 'clip-pdf', ['--doctor'], { PATH: '', Path: '', LOCALAPPDATA: '' });
+  assert.equal(doctor.status, 0, doctor.stderr);
+  assert.match(doctor.stdout, /ocrRaster: missing/);
+  assert.doesNotMatch(doctor.stderr, /Select a research vault/);
+  assert.deepEqual(snapshot(f.root), before);
+});
+
 test('selected research captures and completion stay in that vault', () => {
   const f = fixture(), [docs, research, other] = f.entries;
   const before = [snapshot(docs.path), snapshot(other.path)];
