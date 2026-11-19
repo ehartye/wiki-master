@@ -1,5 +1,5 @@
 import { vaultPath as checkedPath } from './lib/vault-path.mjs';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, lstatSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { readStdin } from './lib/read-stdin.mjs';
 import { resolveOperationVault } from './lib/vault.mjs';
@@ -39,6 +39,9 @@ export function writeLogEntry({ vaultPath, op, title, body = '', now = new Date(
     const file = `${base}${i === 1 ? '' : `-${i}`}.md`;
     // Check the final leaf too: an existing or dangling alias can escape log/.
     const target = checkedPath(vaultPath, 'log', file);
+    // On Windows, wx alone can create through a dangling file alias. Count the
+    // directory entry itself as occupied, then retain wx for concurrent creators.
+    if (lstatSync(target, { throwIfNoEntry: false })) continue;
     mkdirSync(logDir, { recursive: true });
     try { writeFileSync(target, content, { flag: 'wx' }); }
     catch (error) { if (error.code === 'EEXIST') continue; throw error; }
