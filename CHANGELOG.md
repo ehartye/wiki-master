@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.102.0 — 2026-11-24
+
+- **Behavior change, `wiki-project`:** when the resolved vault has no folder for the project being documented, the agent confirms the vault before creating one. It resolves again from that project's own repository and uses the vault that repository routes to if the folder is there. Otherwise the vault counts as confirmed only when the user named it, a registry resolved it from that repository, or there is no registry, `WIKI_MASTER_VAULT` is unset and the default vault has a `VAULT.md`. A `VAULT.md` exclusion, or another registered vault that already has the folder or cannot be read, vetoes it unless the user named the vault.
+- When the vault cannot be confirmed, the agent asks once, names the candidates, and creates nothing for that project until answered; with no user to ask, it stops and reports. Naming a vault that the project's repository does not route to, or that the registry omits, does not change a route: the agent offers the correction and waits for the user to accept it. The vault the check settles on is then bound for the rest of that project's work.
+- A project whose folder already exists in the resolved vault is unaffected. The rule is skill text: no helper changed, and no command-line option was added.
+
 ## 0.101.0 — 2026-11-19
 
 - Added a local vault registry, per-vault purpose descriptions, and optional repository routing for one documentation home and an ordered research list. Omitted routes inherit the global default independently.
