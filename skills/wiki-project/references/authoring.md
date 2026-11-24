@@ -9,7 +9,8 @@ For: $ARGUMENTS
 
 Steps:
 1. Identify the project and document kind using the canonical placement table below. Locate the existing page first; preserve its established filename.
-   For a new project, create its `overview.md` before its other documents.
+   For a new project, first pass the missing-folder check in step 1 of the
+   [workflow](../SKILL.md#workflow), then create its `overview.md` before its other documents.
 2. Read the existing page and relevant project behavior. Before writing that the
    vault holds no source or page on a topic, run two bounded `search.mjs` queries
    (the topic, and the key terms of the claim) and report "not found by these queries",

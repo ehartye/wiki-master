@@ -86,6 +86,9 @@ test('role guidance exposes routing before research and authoring', () => {
   assert.match(research, /ask (?:exactly )?once/i);
   assert.match(research, /next request/i);
   assert.match(search, /--research/);
-  assert.match(read('skills/wiki-project/SKILL.md'), /--purpose documentation/);
+  const project = read('skills/wiki-project/SKILL.md');
+  assert.match(project, /--purpose documentation/);
+  assert.match(project, /no\s+(?:`[^`]+`\s+)?folder[\s\S]*ask\s+the\s+user[\s\S]{0,200}create\s+nothing/i, 'a missing project folder means asking before creating');
+  assert.match(project, /offer\s+to\s+correct[\s\S]{0,250}accepts/i, 'the route changes only when the user accepts the offer');
   assert.match(read('skills/wiki-setup/references/routing.md'), /WIKI_MASTER_VAULT_NAME/);
 });
