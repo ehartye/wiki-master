@@ -11,17 +11,34 @@ backlog listing does not authorize editing or catalog generation.
 
 ## Workflow
 
-1. Resolve absolute installed helpers using
-   [access](../wiki-maintainer/references/access.md), then run
-   `context.mjs --purpose documentation --repo "<repository>" --json` before any
-   authoring. Read that documentation vault's `AGENTS.md`, `VAULT.md` and schema.
-   Use the resolved project and canonical project folder; absent an explicit project,
-   overview `repo:` discovery remains the fallback (`session-brief.mjs` can show it).
-   Correct identity conflicts before writing; never create a duplicate project to
-   evade a changed destination. Bind this target for validation/log/refresh.
-   Locate existing pages first.
-   Read [authoring and placement](references/authoring.md) and choose the kind;
-   create a new project's overview before its other documents.
+1. Resolve absolute installed helpers using [access](../wiki-maintainer/references/access.md),
+   then run `context.mjs --purpose documentation --repo "<repository>" --json` before any
+   authoring. Read that documentation vault's `AGENTS.md`, `VAULT.md` and schema. Use the
+   resolved project and canonical project folder; absent an explicit project, overview
+   `repo:` discovery remains the fallback (`session-brief.mjs` can show it). Correct
+   identity conflicts before writing; never create a duplicate project to evade a changed
+   destination. Bind this target for validation/log/refresh. Locate existing pages first.
+   Read [authoring and placement](references/authoring.md) and choose the kind.
+   **If the resolved vault has no `wiki/authored/<project>/` folder for the project you are
+   documenting, stop: confirm the vault before creating it.** Rerun with `--repo` as that
+   project's own repository (and, if `configPath` is not null, no `WIKI_MASTER_VAULT*` set);
+   use that vault if it has the folder, and say so if the user named another. Otherwise:
+   - **Confirmed:** the user named it for this project; a registry resolved it from that
+     repository; or, with no registry, `WIKI_MASTER_VAULT` is unset and it has `VAULT.md`.
+   - **Vetoed**, unless the user named it: its `VAULT.md` `excludes` covers the project, or
+     another vault in the `configPath` file has the folder or cannot be read.
+   - **Confirmed and not vetoed:** state the vault and folder in your message, then go on.
+   - **Anything else:** ask the user once which vault, naming the candidates, and **create
+     nothing for that project until answered**. With no user to ask, stop and report.
+   - **A named vault** that a registry omits or the project's repository does not route to:
+     say so, offer to correct the route or register it via
+     [routing](../wiki-setup/references/routing.md), and change or write nothing until the user
+     accepts; naming it is not acceptance.
+   - **The vault this check settles on** serves the rest of that project's work:
+     instructions, pages, search, validation, log and refresh. Bind `WIKI_MASTER_VAULT_ID`
+     to it and `WIKI_MASTER_PROJECT_ROOT` to the project's repository if available; without
+     a registry, `WIKI_MASTER_VAULT`. Create a new project's overview before its other
+     documents.
 2. Inspect current project behavior and relevant wiki passages. Separate verified
    implementation from proposals and unverified claims. Before asserting the wiki
    has no relevant page, run two bounded searches and describe their limited result.
