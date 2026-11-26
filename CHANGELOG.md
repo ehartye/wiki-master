@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.105.0 — 2026-11-26
+
+- New option `--max-file-size=<n>K|<n>M` on `clip-gh.mjs` (or a plain byte count; `K` is 1,024 bytes and `M` 1,048,576). It raises the 256 KiB per-file cap for one call, in both the selected (`--path`, `--readme-only`) and the clone mode, up to a hard ceiling of 1 MiB.
+  - A value that is not a positive size, is given twice, or is over the ceiling exits 2 before any vault or network work.
+  - The cap is not recorded in a clipping, so a later call with another cap reports the same files `unchanged`.
+- **Behavior change, selected capture:** a requested file over the per-file cap no longer fails the whole selection with `Selection preflight failed; no clippings written`.
+  - It is reported as `skipped`, and the rest of the selection is captured.
+  - Its JSON entry and a stderr line give its size, the cap in force and the flag that would take it, for example `491000 bytes is over the 256K per-file cap; rerun with --max-file-size=480K (ceiling 1024K)`. A file over the ceiling is named as one this route cannot capture.
+  - The selection manifest lists skipped files under `skipped`, and says they were not captured.
+  - Such a capture reports `status: "partial"` with a `skipped` count, exits 1, and leaves any decline in place. The same call with the flag completes it, and files already written report `unchanged`.
+  - If every requested file is over the cap, nothing is written: `Every requested file is over the per-file cap; no clippings written`.
+  - A root licence or notice file over the cap, and a selection over 8 MiB in total, still refuse the whole selection. The total-size message is now `Selected content exceeds 8 MiB total; select fewer files`.
+- Clone mode names each file it excluded as too large, with its size and the flag.
+- A selected capture takes up to 64 `--path` values, up from 32. The first 32 paths keep the 128-request, 90-second budget, and each path past 32 adds 3 requests and 2 seconds.
+- For callers that import `scripts/lib/github-selection.mjs`, these are exported: `parseMaxFileSize`, `DEFAULT_MAX_FILE`, `MAX_FILE_CEILING`, `MAX_PATHS` and `selectionBudget`. `githubObjectReader` accepts a `budget` and `partitionRepoFiles` a `maxSize`.
+- Documentation: the `clip-gh` usage text and the researcher's `clip-gh` reference describe the option, the skipped status and the new limits. A digest run prunes an anchor clip it no longer includes, so repeat `--max-file-size` on later digest runs of the same repository.
+
 ## 0.104.0 — 2026-11-26
 
 - **Behavior change, `transfer.mjs --mode move`:** links into removed pages are rewritten, not left dangling. Until now a move removed pages that other pages staying in the source vault still linked to, and only listed those pages as collateral to repair by hand.
