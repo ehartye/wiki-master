@@ -11,8 +11,13 @@ dedicated vault.
 
 ## What is selected
 
-- **Seeds:** the pages named with `--seeds a.md,b.md` (vault-relative) and every page under each
-  `--seed-folder <folder>`. A vault's own root files (`VAULT.md`, `index.md`, `AGENTS.md`), `log/` and
+- **Seeds:** the pages named with `--seeds a.md,b.md` (vault-relative), the pages listed in each
+  `--seeds-file <file>`, and every page under each `--seed-folder <folder>`. `--seeds` splits on commas, so
+  a page whose name contains a comma goes in a seeds file: a UTF-8 text file outside the vaults, such as a
+  temp file, with one vault path per line, taken whole. Blank lines and lines starting with `#` are
+  skipped, and CRLF is fine. The script only reads the file. A missing or unreadable file, or one that lists
+  no paths, exits 2; a listed path that is not a page is refused like an unknown `--seeds` path. The same
+  seeds give the same plan id however they are named. A vault's own root files (`VAULT.md`, `index.md`, `AGENTS.md`), `log/` and
   `_templates/` never transfer.
 - **Linked:** pages a selected page links to or cites, up to `--depth` hops from a seed. The default is 1,
   the seeds' direct links; 0 is the seeds only.
@@ -40,7 +45,7 @@ dedicated vault.
    source's too for a move.
 
 2. **Plan.**
-   `node "<absolute-plugin-root>/scripts/transfer.mjs" --plan --from <source-id> --to <destination-id> --seed-folder <folder> [--seeds <paths>] [--depth N] [--mode copy|move]`
+   `node "<absolute-plugin-root>/scripts/transfer.mjs" --plan --from <source-id> --to <destination-id> --seed-folder <folder> [--seeds <paths>] [--seeds-file <file>] [--depth N] [--mode copy|move]`
    Writes nothing. It lists every file with the reason it was selected and the page that brought it in,
    every link it changes and what the link becomes, the size, and four lists that need a decision:
    - **CONFLICTS:** the destination already has a different file at the path, a path differing only in letter
@@ -67,6 +72,7 @@ dedicated vault.
 
 4. **Apply** with the same options and the reviewed id:
    `node "<absolute-plugin-root>/scripts/transfer.mjs" --apply <same options> --expect <plan-id>`
+   Keep any seeds file until the apply is done, unchanged: the apply, and a rerun that finishes it, reads it again.
    It recomputes the plan and refuses if the id differs (something changed since the review: plan again and
    get a new approval). It writes each file through a temporary copy, checks its hash before it lands,
    verifies every transferred file and every clipping's `source-hash` again, then writes the log entries,

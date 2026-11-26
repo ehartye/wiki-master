@@ -432,3 +432,50 @@ test('an exclusion that matches nothing, or that excludes every seed, is refused
   const narrow = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'wiki/concepts/Elsewhere.md,wiki/concepts/Backoff.md', '--exclude', 'wiki/concepts/Elsewhere.md']);
   assert.deepEqual(narrow.entries.map((e) => e.path), ['raw/clippings/Backoff Notes.md', 'wiki/concepts/Backoff.md']);
 });
+
+test('--seeds-file names seeds one per line, so a comma stays part of the name', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  const comma = 'wiki/concepts/Lanterns, Kites and Ropes.md';
+  writeFileSync(join(f.general, comma), '---\ntype: concept\nsources: []\nai-generated: true\n---\n# Lanterns, Kites and Ropes\n\nText.\n');
+  const list = (name, text) => { const p = join(f.root, name); writeFileSync(p, text); return p; };
+  const before = { general: snapshot(f.general), docs: snapshot(f.docs) };
+
+  // One path per line with a comma in it, CRLF line ends, a byte-order mark, blank lines and comments.
+  const file = list('seeds.txt', `\uFEFF# pages to copy\r\n${comma}\r\n\r\n  # indented comment\r\nmoc/alpha.md\r\n`);
+  const fromFile = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds-file', file]);
+  assert.deepEqual(fromFile.seeds, ['moc/alpha.md', comma]);
+  assert.ok(fromFile.entries.some((e) => e.path === comma && e.reason === 'seed'), 'the comma-named page is one seed');
+
+  // The same seeds give the same plan id however they are named: by --seeds, by file, or by both with overlap.
+  const listedId = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'moc/alpha.md', '--seeds-file', list('one.txt', `${comma}\n`)]).id;
+  const mixed = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'moc/alpha.md', '--seeds-file', file, '--seeds-file', list('again.txt', 'moc/alpha.md\n')]);
+  assert.equal(listedId, fromFile.id);
+  assert.equal(mixed.id, fromFile.id);
+  assert.deepEqual(mixed.seeds, fromFile.seeds);
+  assert.equal(planOf(f, ['--from', 'general', '--to', 'docs', '--seeds-file', list('alpha.txt', 'moc/alpha.md\n')]).id,
+    planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'moc/alpha.md']).id);
+
+  // --seeds still splits on commas, which is why the file exists.
+  const split = f.transfer('--plan', '--from', 'general', '--to', 'docs', '--seeds', comma);
+  assert.equal(split.status, 2);
+  assert.match(split.stderr, /seed is not a page in vault general: wiki\/concepts\/Lanterns/);
+
+  for (const [args, message] of [
+    [['--seeds-file', join(f.root, 'absent.txt')], /--seeds-file .*absent\.txt could not be read \(ENOENT\)/],
+    [['--seeds-file', f.root], /--seeds-file .* could not be read/],
+    [['--seeds-file='], /--seeds-file needs a file/],
+    [['--seeds-file', list('empty.txt', '# nothing yet\r\n\r\n')], /lists no paths/],
+    [['--seeds-file', list('typo.txt', `${comma}\nwiki/concepts/Absent, Page.md\n`)], /seed is not a page in vault general: wiki\/concepts\/Absent, Page\.md/],
+  ]) {
+    const r = f.transfer('--plan', '--from', 'general', '--to', 'docs', ...args);
+    assert.equal(r.status, 2, `${args.join(' ')}: ${r.stderr}`);
+    assert.match(r.stderr, message);
+  }
+  assert.deepEqual({ general: snapshot(f.general), docs: snapshot(f.docs) }, before, 'plans and refusals write nothing');
+
+  const listBytes = readFileSync(file);
+  const r = f.transfer('--apply', '--from', 'general', '--to', 'docs', '--seeds-file', file, '--expect', fromFile.id);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(join(f.docs, comma)));
+  assert.deepEqual(readFileSync(file), listBytes, 'the seeds file is only read');
+});

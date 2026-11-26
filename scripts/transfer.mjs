@@ -42,6 +42,22 @@ const readIn = (vault) => (path) => {
   catch (error) { if (error.code === 'ENOENT' || error.code === 'EISDIR' || error.code === 'ENOTDIR') return null; throw error; }
 };
 
+const seedPath = (s) => s.trim().replace(/\\/g, '/');
+
+// A --seeds-file names one vault path per line, taken whole, so a comma stays part of the name; --seeds a.md,b.md
+// cannot name such a page. Blank lines and lines starting with # are skipped, and CRLF line ends and a leading
+// byte-order mark are tolerated. The file is only read, never written.
+export function readSeedsFile(file) {
+  if (!file) throw new UsageError('--seeds-file needs a file: one vault path per line');
+  let text;
+  try { text = readFileSync(file, 'utf8'); }
+  catch (error) { throw new UsageError(`--seeds-file ${file} could not be read (${error.code ?? error.message})`); }
+  // trim() also drops a CR left by a CRLF file and a leading byte-order mark.
+  const paths = text.split(/\r?\n/).map(seedPath).filter((line) => line && !line.startsWith('#'));
+  if (!paths.length) throw new UsageError(`--seeds-file ${file} lists no paths`);
+  return paths;
+}
+
 export function parseArgs(argv) {
   const plan = argv.includes('--plan');
   const apply = argv.includes('--apply');
@@ -56,10 +72,11 @@ export function parseArgs(argv) {
   const to = one('to');
   if (!from || !to) throw new UsageError('name both vaults: --from <vault-id> --to <vault-id>');
   if (from === to) throw new UsageError('--from and --to name the same vault');
-  const seeds = optionValues(argv, 'seeds').flatMap((v) => v.split(',')).map((s) => s.trim().replace(/\\/g, '/')).filter(Boolean);
-  const folders = optionValues(argv, 'seed-folder').map((s) => s.trim()).filter(Boolean);
   if (optionValues(argv, 'seeds').some((v) => !v) || optionValues(argv, 'seed-folder').some((v) => !v)) throw new UsageError('--seeds and --seed-folder need a value');
-  if (!seeds.length && !folders.length) throw new UsageError('name the seed pages: --seeds a.md,b.md or --seed-folder <folder>');
+  const listed = optionValues(argv, 'seeds').flatMap((v) => v.split(','));
+  const seeds = [...listed, ...optionValues(argv, 'seeds-file').flatMap(readSeedsFile)].map(seedPath).filter(Boolean);
+  const folders = optionValues(argv, 'seed-folder').map((s) => s.trim()).filter(Boolean);
+  if (!seeds.length && !folders.length) throw new UsageError('name the seed pages: --seeds a.md,b.md, --seeds-file <file> or --seed-folder <folder>');
   const depthText = one('depth');
   const depth = depthText === undefined ? DEFAULT_DEPTH : /^\d+$/.test(depthText) ? Number(depthText) : NaN;
   if (Number.isNaN(depth)) throw new UsageError(`--depth must be a whole number of 0 or more (got "${depthText}")`);
