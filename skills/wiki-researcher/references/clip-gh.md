@@ -54,7 +54,7 @@ not a complete license analysis. The preset writes the README, any root notices 
 selection manifest, rather than exactly one output document.
 
 Limits: 32 explicitly requested paths, depth 16 and path length 512; 256 KiB per file
-and 8 MiB total; 4,096 entries per visited tree; 128 API requests and a 90-second request
+(raised per call with `--max-file-size`, below) and 8 MiB total; 4,096 entries per visited tree; 128 API requests and a 90-second request
 budget, with at most 30 seconds per process and 2 MiB stdout per response. No globs,
 directories, symlinks, submodules, backslashes, colons or dot/empty path segments.
 Missing, binary/control-byte or invalid UTF-8 content is refused. Explicit selections
@@ -62,7 +62,29 @@ may include lockfiles or short configs normally excluded/thin in full capture.
 Unknown flags and conflicting full/digest controls are rejected before capture.
 
 All files are fetched and validated before any is written. A preflight refusal/failure
-writes no clippings, with per-path diagnostics. Each body records a commit-pinned blob
+writes no clippings, with per-path diagnostics.
+
+**Large files.** `--max-file-size=<n>K` or `<n>M` raises the per-file cap for one call, in
+both the selected and the clone modes, up to a 1 MiB ceiling (`K` is 1,024 bytes and `M`
+1,048,576; a plain number is bytes). A value that is not a positive size or is over the
+ceiling exits 2 before any vault or network work. The cap is not recorded in a clipping, so
+a later call with another cap finds the same files `unchanged`.
+
+```sh
+node "<absolute-plugin-root>/scripts/clip-gh.mjs" owner/repo --path=docs/spec.md --path=src/core.js --max-file-size=512K --topic="<research topic>"
+```
+
+A requested file over the cap does not refuse the selection. It is `skipped`: the rest are
+captured, the JSON entry and a stderr line give its size, the cap in force and the flag that
+would take it (for example `491000 bytes is over the 256K per-file cap; rerun with
+--max-file-size=480K`), and the manifest lists it under `skipped`. A capture with skips
+reports `status: "partial"`, exits 1 and leaves any decline in place. Rerun the same call
+with the flag: files already written are `unchanged`, and the call completes. A file over
+the ceiling cannot be captured by this route. If every requested file is over the cap,
+nothing is written. A root notice over the cap, and a selection over 8 MiB in total, still
+refuse the whole selection. In clone mode, files over the cap are excluded and each is named
+in the output. A digest run prunes an anchor clip it no longer includes, so repeat
+`--max-file-size` on later digest runs of the same repository. Each body records a commit-pinned blob
 URL, Git blob SHA-1, exact source-byte SHA-256 (`supplied-sha256`), byte count, topic and
 the separate rendered `source-hash`. CRLF/outer whitespace can normalize in the rendered
 clipping; byte provenance remains explicit. Non-Markdown content uses a fence longer
@@ -72,7 +94,7 @@ Immutable outputs live in `raw/clippings/gh-selected/<owner>/<repo>/`, separate 
 legacy digest pruning. Identity includes source commit/path, content/provenance, quality
 and topic. Repeats verify existing bodies and report `unchanged`; edits/collisions are
 refused, never overwritten. Existing raw captures and listings are not renamed or pruned.
-The JSON result distinguishes selected/prepared, refused, failed, clipped and unchanged
+The JSON result distinguishes selected/prepared, refused, failed, skipped, clipped and unchanged
 files; `selected` includes requested files plus deduplicated root notices. The canonical
 selection manifest lists that exact scope, hashes and file destinations, without claiming
 a complete repository inventory. It is written last and is itself immutable/deduplicated.

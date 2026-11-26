@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveOperationVault } from './lib/vault.mjs';
 import { CLIP_SPECS, guardClipArgs, checkClipArgs } from './lib/clip-args.mjs';
-import { selectionOptions, captureSelection } from './lib/github-selection.mjs';
+import { selectionOptions, captureSelection, parseMaxFileSize } from './lib/github-selection.mjs';
 import { recordDecline } from './lib/decline.mjs';
 import { declineGate } from './lib/decline-gate.mjs';
 import { slugify, buildFrontmatter } from './clip.mjs';
@@ -83,12 +83,12 @@ export function shouldExcludePath(relPath, { size = 0, maxSize = DEFAULT_MAX_FIL
 // The files of a clone that are worth clipping, and why each of the rest is not. The name decides first (a dependency
 // directory, a lockfile, a binary extension, a size ceiling); then the bytes: a file with a NUL byte, or mostly undecodable
 // text, is not text whatever its extension says (a model renamed .txt, or a format the list does not know).
-export function partitionRepoFiles(root, relPaths) {
+export function partitionRepoFiles(root, relPaths, { maxSize = DEFAULT_MAX_FILE_SIZE } = {}) {
   const included = [];
   const excluded = [];
   for (const relPath of relPaths) {
     const abs = join(root, relPath);
-    const verdict = shouldExcludePath(relPath, { size: statSync(abs).size });
+    const verdict = shouldExcludePath(relPath, { size: statSync(abs).size, maxSize });
     if (verdict.excluded) { excluded.push({ relPath, reason: verdict.reason }); continue; }
     if (looksBinaryBytes(readFileSync(abs))) { excluded.push({ relPath, reason: 'binary content (a NUL byte or undecodable text)' }); continue; }
     included.push(relPath);
@@ -620,7 +620,13 @@ export function main(argv, { readSelected } = {}) {
     process.exit(2);
   }
   let selection;
+  let maxFileSize;
   try {
+    // One per-file cap for both modes: the selected capture and the clone. Bounded, so it is checked before any
+    // vault or network work.
+    const sizes = argv.filter((a) => a.startsWith('--max-file-size='));
+    if (sizes.length > 1) throw new Error('--max-file-size was given more than once');
+    if (sizes.length) maxFileSize = parseMaxFileSize(sizes[0].slice('--max-file-size='.length));
     selection = selectionOptions(argv);
     if (selection) {
       const checked = checkClipArgs(argv, CLIP_SPECS['clip-gh']);
@@ -685,6 +691,9 @@ export function main(argv, { readSelected } = {}) {
   if (selection) {
     const result = captureSelection({ owner, repo, selection, vaultPath, quality, topic, ...(readSelected ? { read: readSelected } : {}) });
     console.log(JSON.stringify(result, null, 2));
+    // Skipped files are named on stderr with the flag that takes each one. A partial capture keeps any decline in
+    // place and exits 1; the same call with that flag finishes it, the files already written reported unchanged.
+    for (const e of result.entries.filter((x) => x.status === 'skipped')) console.error(`skipped ${e.path}: ${e.reason}`);
     if (result.status === 'clipped') gate.finish();
     else process.exitCode = 1;
     return result;
@@ -718,7 +727,7 @@ export function main(argv, { readSelected } = {}) {
       meta = { description: parsed.description || null, primaryLanguage: parsed.primaryLanguage?.name || null };
     } catch { /* metadata is a nice-to-have; proceed without it */ }
 
-    const { included, excluded } = partitionRepoFiles(tmp, walkRepoFiles(tmp));
+    const { included, excluded } = partitionRepoFiles(tmp, walkRepoFiles(tmp), maxFileSize ? { maxSize: maxFileSize } : {});
 
     const outDir = checkedPath(vaultPath, 'raw', 'clippings', 'gh', slugify(owner), slugify(repo));
 
@@ -749,6 +758,8 @@ export function main(argv, { readSelected } = {}) {
     if (renamed) console.log(`  renamed (legacy hidden/backtick name -> safe name): ${renamed}`);
     console.log(`  thin (skipped): ${thin}`);
     console.log(`  excluded (dependency/build/binary/oversized): ${excluded.length}`);
+    const large = excluded.filter((x) => x.reason.startsWith('too large'));
+    for (const x of large) console.log(`    too large: ${x.relPath} (${x.reason.slice('too large '.length)}); --max-file-size raises the cap, up to 1M`);
     gate.finish();
     return { status: 'clipped', clipped, unchanged, thin, renamed, excluded: excluded.length, outDir };
   } finally {

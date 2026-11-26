@@ -97,3 +97,14 @@ test('a NUL in a clipping that is not a GitHub capture is left to the grade it a
   assert.equal(reason('paper'), 'fidelity: degraded', 'a PDF text layer keeps the grade it carries');
   assert.match(reason('gh/o/r/a'), /binary content/, 'the capture is named for what it is');
 });
+
+test('partitionRepoFiles excludes a file over the per-file cap by default and includes it under a raised cap', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'wm-partition-size-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'docs'), { recursive: true });
+  writeFileSync(join(root, 'docs/long.md'), 'A long page of plain text.\n'.repeat(14000));
+  const byDefault = partitionRepoFiles(root, ['docs/long.md']);
+  assert.deepEqual(byDefault.included, []);
+  assert.match(byDefault.excluded[0].reason, /^too large \(\d+ bytes > 262144\)$/);
+  assert.deepEqual(partitionRepoFiles(root, ['docs/long.md'], { maxSize: 512 * 1024 }).included, ['docs/long.md']);
+});
