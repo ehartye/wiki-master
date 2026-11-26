@@ -23,20 +23,21 @@ function clipping(title, body, extra = '') {
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0x00, 0xfe, 0x80]);
 
 const GENERAL = {
-  'wiki/authored/alpha/overview.md': '---\ntype: authored\nproject: alpha\nkind: overview\nsources: []\nai-generated: true\n---\n# Overview\n\nSee [[wiki/authored/alpha/architecture|architecture]], the [[Retry Budget]] idea and [[Queue Notes]].\n\n![[raw/attachments/diagram.png]]\n\n```\n[[Code Example]]\n```\n',
+  'wiki/authored/alpha/overview.md': '---\ntype: authored\nproject: alpha\nkind: overview\nsources: []\nai-generated: true\n---\n# Overview\n\nSee [[wiki/authored/alpha/architecture|architecture]], the [[Retry Budget]] idea and [[Queue Notes]].\n\n![[raw/attachments/diagram.png]]\n\nRecorded in [[log/2026-01-01-000000-relink-start]].\n\n```\n[[Code Example]]\n```\n',
   'wiki/authored/alpha/architecture.md': '---\ntype: authored\nproject: alpha\nkind: architecture\nsources: []\nai-generated: true\n---\n# Architecture\n\nBack to [[overview]].\n\n| Part | Link |\n|---|---|\n| a | [[overview]] |\n',
   'moc/alpha.md': '# Alpha\n\n- [[overview]]\n- [[architecture]]\n',
-  'wiki/concepts/Retry Budget.md': '---\ntype: concept\nsources: ["[[raw/clippings/Retry Paper.md]]"]\nai-generated: true\n---\n# Retry Budget\n\nRelated to [[Backoff|backing off]] and a [[Missing Page]].\n',
+  'wiki/concepts/Retry Budget.md': '---\ntype: concept\nsources: ["[[raw/clippings/Retry Paper.md]]"]\nai-generated: true\n---\n# Retry Budget\n\nRelated to [[Backoff|backing off]] and a [[Missing Page]].\n\n- Parent\n\t- nested [[Backoff]] too\n\t  ```\n\t  [[Indented Example]]\n\t  ```\n',
   'wiki/concepts/Backoff.md': '---\ntype: concept\nsources: ["[[raw/clippings/Backoff Notes.md]]"]\nai-generated: true\n---\n# Backoff\n\nText.\n',
-  'wiki/sources/Queue Notes.md': '---\ntype: source\nsources: ["[[raw/clippings/Queue Notes.md]]"]\nai-generated: true\n---\n# Queue Notes\n\nSummary.\n',
+  'wiki/sources/Queue Notes.md': '---\ntype: source\nsources: ["[[raw/clippings/Queue Notes.md]]"]\nai-generated: true\n---\n# Queue Notes\n\nSummary, used by [[wiki/authored/alpha/overview|alpha]].\n',
   'wiki/syntheses/Digest.md': '---\ntype: synthesis\nsources: ["[[Backoff]]"]\nai-generated: true\n---\n# Digest\n\nText.\n',
-  'wiki/concepts/Elsewhere.md': '---\ntype: concept\nsources: ["[[wiki/sources/Queue Notes]]"]\nai-generated: true\n---\n# Elsewhere\n\nUnrelated.\n',
+  'wiki/concepts/Elsewhere.md': '---\ntype: concept\nsources: ["[[wiki/sources/Queue Notes]]"]\nai-generated: true\n---\n# Elsewhere\n\nUnrelated, but see [[wiki/authored/alpha/overview|the alpha overview]].\n',
   'moc/tasks.md': '# Tasks\n\n- [[Retry Budget]]\n',
   'raw/clippings/Queue Notes.md': clipping('Queue Notes', 'Queues hold items. The [[length]] slot is notation.'),
   'raw/clippings/Retry Paper.md': clipping('Retry Paper', 'Retries are budgeted.', 'figures: ["raw/figures/Retry Paper-p1.md"]\n'),
   'raw/clippings/Backoff Notes.md': clipping('Backoff Notes', 'Wait longer each time.'),
   'raw/figures/Retry Paper-p1.md': '---\nsource: "https://example.com/Retry%20Paper"\npage: 1\n---\n![[raw/figures/Retry Paper-p1.png]]\n',
   'index.md': '# Index\n',
+  'log/2026-01-01-000000-relink-start.md': '---\ndate: 2026-01-01\nop: relink\n---\nStarted.\n',
 };
 
 function vault(root, id, files) {
@@ -130,7 +131,9 @@ test('a copy lands raw bytes unchanged, rewrites only links, logs once in each v
 
   const concept = readFileSync(join(f.docs, 'wiki/concepts/Retry Budget.md'), 'utf8');
   assert.ok(concept.includes('backing off (vault general: wiki/concepts/Backoff.md)'), concept);
-  assert.ok(!concept.includes('[[Backoff'), 'a page outside the selection never stays a link');
+  assert.ok(!concept.includes('[[Backoff'), 'a page outside the selection never stays a link, nested list items included');
+  assert.ok(concept.includes('\t- nested Backoff (vault general: wiki/concepts/Backoff.md) too'), concept);
+  assert.ok(concept.includes('\t  [[Indented Example]]'), 'a link in an indented fence is code and stays');
   assert.ok(concept.includes('[[Missing Page]]'), 'an unresolved link is left as written');
   assert.ok(concept.startsWith('---\ntype: concept\nsources: ["[[raw/clippings/Retry Paper.md]]"]\nai-generated: true\n---\n'), 'frontmatter is intact');
 
@@ -141,6 +144,7 @@ test('a copy lands raw bytes unchanged, rewrites only links, logs once in each v
   const overview = readFileSync(join(f.docs, 'wiki/authored/alpha/overview.md'), 'utf8');
   assert.ok(overview.includes('```\n[[Code Example]]\n```'), 'links in code are examples and stay');
   assert.ok(overview.includes('![[raw/attachments/diagram.png]]'));
+  assert.ok(overview.includes('Recorded in log/2026-01-01-000000-relink-start (vault general: log/2026-01-01-000000-relink-start.md).'), 'a log entry is the source vault\'s own history and becomes text');
 
   assert.equal(logs(f.docs, 'transfer-in').length, 1);
   assert.equal(logs(f.general, 'transfer-out').length, 1);
@@ -200,6 +204,17 @@ test('a clipping whose text does not match its source-hash blocks the transfer',
   assert.equal(r.status, 1);
   assert.match(r.stderr, /refusing to apply/);
   assert.deepEqual(snapshot(f.docs), before);
+
+  // The owner can accept copying it as it is: byte for byte, named in the plan and in both logs.
+  const accepted = planOf(f, [...SELECT, '--allow-hash-mismatch']);
+  assert.deepEqual(accepted.blocking, []);
+  assert.deepEqual(accepted.notes.mismatched, ['raw/clippings/Queue Notes.md']);
+  assert.notEqual(accepted.id, plan.id);
+  const ok = f.transfer('--apply', ...SELECT, '--allow-hash-mismatch', '--expect', accepted.id);
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.deepEqual(readFileSync(join(f.docs, 'raw/clippings/Queue Notes.md')), readFileSync(join(f.general, 'raw/clippings/Queue Notes.md')));
+  assert.match(readFileSync(join(f.docs, 'log', logs(f.docs, 'transfer-in')[0]), 'utf8'), /not matching their source-hash[\s\S]*raw\/clippings\/Queue Notes\.md/);
+  assert.match(readFileSync(join(f.general, 'log', logs(f.general, 'transfer-out')[0]), 'utf8'), /not matching their source-hash here:\n- `raw\/clippings\/Queue Notes\.md`/);
 });
 
 test('a sources: entry that leaves the selection blocks', (t) => {
@@ -231,6 +246,15 @@ test('a destination file that differs is a conflict: refused by default, kept wi
   assert.ok(existsSync(join(f.docs, 'raw/clippings/Retry Paper.md')));
 });
 
+test('a destination path that differs only in letter case is a conflict', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  mkdirSync(join(f.docs, 'wiki/sources'), { recursive: true });
+  writeFileSync(join(f.docs, 'wiki/sources/queue notes.md'), GENERAL['wiki/sources/Queue Notes.md']);
+  const [conflict] = planOf(f).conflicts;
+  assert.equal(conflict.path, 'wiki/sources/Queue Notes.md');
+  assert.match(conflict.detail, /letter case/);
+});
+
 test('a file a destination purge recorded is a conflict, since its reconcile would bin it again', (t) => {
   const f = fixture(); t.after(f.cleanup);
   mkdirSync(join(f.docs, '.recycle/2026-01-01-old'), { recursive: true });
@@ -242,9 +266,12 @@ test('a move removes at the source only what nothing there still needs, through 
   const f = fixture(); t.after(f.cleanup);
   const sourceBefore = snapshot(f.general);
   const plan = planOf(f, [...SELECT, '--mode', 'move']);
-  // Elsewhere stays and cites Queue Notes, so the source page and its clipping stay too.
+  // Elsewhere stays and cites Queue Notes, so the source page and its clipping stay too. Elsewhere and the kept
+  // Queue Notes also link to the overview, a seed: it is still removed, and they are collateral, as the hand
+  // map linking the removed Retry Budget is.
   assert.deepEqual(plan.removal.keep.map((k) => k.path), ['raw/clippings/Queue Notes.md', 'wiki/sources/Queue Notes.md']);
-  assert.deepEqual(plan.removal.collateral, ['moc/tasks.md']);
+  assert.ok(plan.removal.remove.includes('wiki/authored/alpha/overview.md'));
+  assert.deepEqual(plan.removal.collateral, ['moc/tasks.md', 'wiki/concepts/Elsewhere.md', 'wiki/sources/Queue Notes.md']);
   const r = f.transfer('--apply', ...SELECT, '--mode', 'move', '--expect', plan.id);
   assert.equal(r.status, 0, r.stderr);
 
@@ -258,12 +285,20 @@ test('a move removes at the source only what nothing there still needs, through 
   const bins = readdirSync(join(f.general, '.recycle'));
   assert.equal(bins.length, 1);
   const manifest = JSON.parse(readFileSync(join(f.general, '.recycle', bins[0], 'manifest.json'), 'utf8'));
-  assert.deepEqual(manifest.declines, [], 'a relocation declines nothing');
+  // Declined like a purge, so discovery at the source does not clip it again for its reconcile to bin.
+  assert.deepEqual(manifest.declines, ['https://example.com/Retry%20Paper']);
+  const declined = () => {
+    const file = join(f.general, '.wiki-master/declined.json');
+    return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')).map((d) => [d.url, d.reason]) : [];
+  };
+  assert.deepEqual(declined(), [['https://example.com/Retry%20Paper', `purged:${bins[0]}`]]);
+  assert.ok(!existsSync(join(f.docs, '.wiki-master/declined.json')), 'the destination declines nothing');
   assert.deepEqual(manifest.entries.map((e) => e.from).sort(), plan.removal.remove);
   assert.equal(logs(f.general, 'transfer-out').length, 1);
 
   const restore = f.run(PURGE, ['--restore', bins[0]]);
   assert.equal(restore.status, 0, restore.stderr);
+  assert.deepEqual(declined(), [], 'restore clears the declines the move recorded');
   const restored = snapshot(f.general);
   for (const p of plan.removal.remove) assert.equal(restored[p], sourceBefore[p], `purge --restore brings back ${p} as it was`);
 });

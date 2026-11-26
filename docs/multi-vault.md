@@ -170,8 +170,9 @@ through their own body links. Vault root files, `log/` and `_templates/` never t
   page at the destination gets its full path and keeps its displayed text. A `sources:`
   entry that leaves the selection blocks the transfer instead of being rewritten.
 - **Provenance is kept.** Raw files are copied byte for byte. A clipping whose stored text
-  does not match its `source-hash` blocks the transfer, and every copied clipping is
-  re-hashed at the destination. Frontmatter, `source-hash` and `source-hashes` are not
+  does not match its `source-hash` blocks the transfer unless `--allow-hash-mismatch` accepts
+  copying it as it is, named in the plan and both log entries; every other copied clipping
+  is re-hashed at the destination. Frontmatter, `source-hash` and `source-hashes` are not
   changed. Each vault gets one log entry naming the other vault and the plan id.
 - **Apply needs the reviewed plan.** `--apply` takes the same options and
   `--expect <plan-id>`, recomputes the plan and refuses a different id. A destination
@@ -182,9 +183,11 @@ through their own body links. Vault root files, `log/` and `_templates/` never t
 - **Resumable.** Rerunning the same apply after an interruption skips the files already
   there and writes the rest, and never writes a second log entry.
 - **Move = verified copy, then a purge.** `--mode move` removes at the source, through one
-  purge transaction in `.recycle/`, only the selected files that no remaining page links
-  to or cites; the rest stay in both vaults and the plan names what holds them. The
-  manifest names the transfer and records no declines; an interrupted removal is finished
+  purge transaction in `.recycle/`, the seeds and every selected file that no page outside
+  the selection links to or cites. A shared page stays in both vaults, with the evidence it
+  cites, and the plan names what holds it. The
+  manifest names the transfer, and each removed clipping's address is declined at the source as a
+  purge declines it, so discovery there does not clip it again; an interrupted removal is finished
   by the same apply, and `purge.mjs --restore <purge-id>` undoes it. Pages staying at the
   source that link to removed pages are listed as collateral for repair as plain text.
 

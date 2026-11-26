@@ -41,9 +41,12 @@ dedicated vault.
      case, or a purge in its `.recycle/` that names the file. Refused unless
      `--on-conflict keep-destination`, which leaves the destination's file and transfers the rest.
    - **BLOCKING:** a clipping whose text does not match its `source-hash`, or a `sources:` entry naming a
-     page outside the selection. Repair the clipping or add the page (as a seed or with a larger depth).
-   - **KEPT** (move only): selected files a page staying at the source still links to or cites. They are
-     copied and stay in both vaults.
+     page outside the selection. For the second, add the page as a seed (which also brings its direct
+     links) or raise the depth. For the first, find out why the text changed; when the owner accepts the
+     file as it is, `--allow-hash-mismatch` copies it byte for byte and names it in the plan and both logs.
+   - **KEPT** (move only): selected files other than the seeds that a page outside the selection links to
+     or cites, such as a concept or source page another project shares, and the evidence a kept page cites.
+     They are copied and stay in both vaults. Seeds are always removed.
    - **COLLATERAL** (move only): pages staying at the source that link to removed pages.
 
 3. **Review, then get one explicit approval.** Read the linked pages, not only their count: a direct link
@@ -61,9 +64,9 @@ dedicated vault.
    each naming the other vault and the plan id. If it stops partway (exit 1), **run the same apply again**:
    files already there are skipped, and each vault keeps one log entry.
 
-5. **Move only: the removal.** After the copy is verified, the selected files nothing else at the source
-   needs move into the source's `.recycle/` as one purge transaction whose manifest names the transfer.
-   It declines nothing. A file changed since the plan stays where it is and is reported. Repair the
+5. **Move only: the removal.** After the copy is verified, the seeds and the other selected files nothing
+   outside the selection needs move into the source's `.recycle/` as one purge transaction whose manifest names the transfer.
+   Each removed clipping's address is declined at the source, as a purge does. A file changed since the plan stays where it is and is reported. Repair the
    collateral pages' hand-written text as plain text naming the destination vault, never a link, and
    [validate those paths](../../wiki-setup/references/validation.md). `purge.mjs --restore <purge-id>`,
    bound to the source vault, undoes the removal; it does not touch the destination.

@@ -9,7 +9,8 @@ import { buildGraph } from './lib/graph.mjs';
 import { buildManifest, purgeId, binPathFor } from './lib/purge.mjs';
 import { planTransfer, pagesUnder, sha256Bytes, DEFAULT_DEPTH } from './lib/transfer.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
-import { readManifests, writeManifest, nextFreePurgeId, applyPurge } from './purge.mjs';
+import { readManifests, writeManifest, nextFreePurgeId, applyPurge, enrichPages } from './purge.mjs';
+import { loadDeclines, recordDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
 import { cliGuard, optionValues } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
@@ -68,7 +69,7 @@ export function parseArgs(argv) {
   if (!['refuse', 'keep-destination'].includes(onConflict)) throw new UsageError(`--on-conflict must be refuse or keep-destination (got "${onConflict}")`);
   const expect = one('expect');
   if (apply && !expect) throw new UsageError('--apply needs --expect <plan-id>, the id a reviewed --plan printed');
-  return { apply, from, to, seeds, folders, depth, mode, onConflict, expect, json: argv.includes('--json') };
+  return { apply, from, to, seeds, folders, depth, mode, onConflict, expect, allowHashMismatch: argv.includes('--allow-hash-mismatch'), json: argv.includes('--json') };
 }
 
 function loadVault(vault) {
@@ -87,7 +88,7 @@ export function computePlan(args, source, destination) {
     if (!under.length) return { errors: [`--seed-folder ${folder} holds no page in vault ${source.id}`] };
     seeds.push(...under);
   }
-  return planTransfer({ source: src, destination: dst, seeds, depth: args.depth, mode: args.mode, onConflict: args.onConflict });
+  return planTransfer({ source: src, destination: dst, seeds, depth: args.depth, mode: args.mode, onConflict: args.onConflict, allowHashMismatch: args.allowHashMismatch });
 }
 
 const kb = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -120,6 +121,11 @@ export function report(plan, log = console.log) {
     log(`\n  NOTE — links unresolved in ${plan.from} that will resolve at ${plan.to} (${plan.notes.attaches.length}):`);
     for (const a of plan.notes.attaches) log(`    ${a.page}: ${a.link} -> ${a.resolves}`);
   }
+  if (plan.notes.mismatched.length) {
+    log(`
+  HASH MISMATCH ACCEPTED — copied byte for byte, the mismatch kept and named in both logs (${plan.notes.mismatched.length}):`);
+    for (const p of plan.notes.mismatched) log(`    ${p}`);
+  }
   if (plan.notes.unhashed.length) {
     log(`\n  NOTE — clippings with no source-hash, verified by their bytes only (${plan.notes.unhashed.length}); adopt-clipping.mjs can stamp them:`);
     for (const p of plan.notes.unhashed) log(`    ${p}`);
@@ -127,7 +133,7 @@ export function report(plan, log = console.log) {
   if (plan.removal) {
     log(`\n  MOVE — removed at ${plan.from} through a purge transaction (${plan.removal.remove.length})`);
     if (plan.removal.keep.length) {
-      log(`  kept at ${plan.from} as well, because pages staying there still refer to them (${plan.removal.keep.length}):`);
+      log(`  kept at ${plan.from} as well, because pages outside the selection refer to them or to a page that does (${plan.removal.keep.length}):`);
       for (const k of plan.removal.keep) log(`    ${k.path}${k.by.length ? `  <- ${k.by.slice(0, 3).join(', ')}${k.by.length > 3 ? ` and ${k.by.length - 3} more` : ''}` : ''}`);
     }
     if (plan.removal.collateral.length) {
@@ -170,23 +176,25 @@ const list = (title, paths) => (paths.length ? `\n${title}\n${paths.map((p) => `
 
 function destinationBody(plan, written) {
   const plain = plan.linkChanges.filter((c) => c.kind === 'plain').length;
-  const hashed = plan.entries.filter((e) => e.sourceHash && e.state !== 'keep-destination').length;
+  const hashed = plan.entries.filter((e) => e.sourceHash && !e.hashMismatch && e.state !== 'keep-destination').length;
   return `Transfer \`${plan.id}\` (${plan.mode}) from vault \`${plan.from}\`: ${plan.totals.wiki} wiki page(s) and ${plan.totals.raw} raw file(s), ${kb(plan.totals.bytes)}.\n` +
     `Raw files are byte-identical to vault \`${plan.from}\`; ${hashed} source-hash(es) verified. ${plain} link(s) to pages outside the selection became plain text naming vault \`${plan.from}\`; ` +
     `${plan.linkChanges.length - plain} link(s) were given their full path.\n` +
     list('Seeds:', plan.seeds) +
     list('Written:', written) +
+    list('Copied as they are, their text already not matching their source-hash at the source:', plan.notes.mismatched) +
     list('Kept as this vault had them (conflicts):', plan.entries.filter((e) => e.state === 'keep-destination').map((e) => e.path));
 }
 
 function sourceBody(plan, removal) {
   const transferred = plan.entries.filter((e) => e.state !== 'keep-destination').map((e) => e.path);
   let body = `Transfer \`${plan.id}\` (${plan.mode}) to vault \`${plan.to}\`: ${transferred.length} file(s) copied there.\n` + list('Seeds:', plan.seeds);
+  body += list('Copied as they are, their text already not matching their source-hash here:', plan.notes?.mismatched ?? []);
   if (!removal) return body + list('Copied:', transferred);
   if (removal.purgeId) body += `\nRemoved here through purge \`${removal.purgeId}\`, restorable with \`purge.mjs --restore ${removal.purgeId}\`.\n`;
   else body += '\nNothing was removed here.\n';
   body += list('Removed:', removal.removed);
-  body += list('Copied and kept here, because pages here still refer to them:', plan.removal.keep.map((k) => k.path));
+  body += list('Copied and kept here, because pages outside the selection refer to them or to a page that does:', plan.removal.keep.map((k) => k.path));
   body += list('Changed since the plan, so not removed:', removal.changed);
   if (plan.removal.collateral.length) body += `\nCollateral needing reference repair:\n${plan.removal.collateral.map((c) => `- [[${c}]]`).join('\n')}\n`;
   return body;
@@ -198,7 +206,10 @@ const utf8Sha = (bytes) => createHash('sha256').update(bytes.toString('utf8')).d
 
 // Moves the manifest's entries into the source's bin. The manifest is written before anything moves and names
 // the transfer, so an interrupted removal is found and finished by the next apply of the same plan. A file whose
-// text is no longer what the manifest recorded is someone's newer work and stays where it is.
+// text is no longer what the manifest recorded is someone's newer work and stays where it is. Once every move has
+// succeeded, each removed clipping's address is declined at the source under the purge's own reason, as purge.mjs
+// does: otherwise discovery there could clip it again and the next --reconcile would bin the new copy by its hash.
+// --restore clears exactly these declines.
 function removeAtSource(source, manifest) {
   const changed = [];
   const entries = [];
@@ -210,6 +221,15 @@ function removeAtSource(source, manifest) {
   }
   const { failed } = applyPurge(source.path, { ...manifest, entries });
   const removed = manifest.entries.filter((e) => existsSync(checkedPath(source.path, binPathFor(manifest.id, e.from)))).map((e) => e.from);
+  if (!failed.length) {
+    const reason = `purged:${manifest.id}`;
+    const have = new Set(loadDeclines(source.path).filter((d) => d.reason === reason).map((d) => d.url));
+    for (const e of manifest.entries) {
+      if (!e.url || !removed.includes(e.from) || have.has(e.url)) continue;
+      recordDecline(source.path, e.url, reason);
+      have.add(e.url);
+    }
+  }
   return { removed, changed, failed };
 }
 
@@ -239,7 +259,7 @@ function finish(source, destination, plan, removal, log, err) {
 
 // What a move's manifest keeps of the plan: enough to finish the removal and write its log entry.
 const planRecord = (plan) => ({
-  id: plan.id, from: plan.from, to: plan.to, mode: plan.mode, seeds: plan.seeds, totals: plan.totals,
+  id: plan.id, from: plan.from, to: plan.to, mode: plan.mode, seeds: plan.seeds, totals: plan.totals, notes: { mismatched: plan.notes.mismatched },
   entries: plan.entries.map(({ path, state }) => ({ path, state })),
   removal: plan.removal,
 });
@@ -293,7 +313,7 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
   const bad = transferred.filter((e) => {
     const there = dst(e.path);
     if (there === null || sha256Bytes(there) !== e.outSha) return true;
-    return Boolean(e.sourceHash) && e.path.endsWith('.md') && clippingHash(there.toString('utf8')) !== e.sourceHash;
+    return Boolean(e.sourceHash) && !e.hashMismatch && e.path.endsWith('.md') && clippingHash(there.toString('utf8')) !== e.sourceHash;
   });
   if (bad.length) {
     for (const e of bad) err(`transfer: ${e.path} at ${plan.to} does not match the plan`);
@@ -319,11 +339,11 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
   }
   if (!removable.length) return finish(source, destination, plan, { purgeId: null, removed: [], changed, failed: [] }, log, err);
   const id = nextFreePurgeId(source.path, purgeId(`transfer to ${plan.to}`));
-  const { pages } = buildGraph(source.path);
+  const pages = enrichPages(source.path, buildGraph(source.path).pages);
   const hashes = Object.fromEntries(removable.map((p) => [p, utf8Sha(src(p))]));
   const manifest = buildManifest({ id, topic: `transfer to ${plan.to}`, date: id.slice(0, 10), purge: removable, collateral: plan.removal.collateral, pages, hashes });
-  // A relocation, not a rejection: the source declines nothing, so neither a restore nor a reconcile replays any.
-  manifest.declines = [];
+  // A figure sidecar carries its clipping's address too; one decline per address.
+  manifest.declines = [...new Set(manifest.declines)];
   manifest.transfer = { plan: planRecord(plan) };
   writeManifest(source.path, manifest);
   const r = removeAtSource(source, manifest);

@@ -36,12 +36,25 @@ const isMarkdown = (path) => path.endsWith('.md');
 
 const FRONTMATTER = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?=\r?\n|$)/;
 
+// prose() reads a line indented by a tab or four spaces as indented code. In a wiki page that is far more often a
+// nested list item, which Obsidian renders as a link, and a link the scan skipped would land at the destination as a
+// live link to a page that is not there. So leading whitespace is hidden from prose() (same length, so offsets hold):
+// a fence marker's becomes `>`, which prose() strips as a quote container and still sees the fence; any other line's
+// becomes a placeholder. Fenced code, inline code and comments are still examples.
+function linkMask(text) {
+  const shown = text.replace(/^[ \t]+/gm, (lead, offset) => {
+    const rest = text.slice(offset + lead.length, offset + lead.length + 3);
+    return (rest === '```' || rest === '~~~' ? '>' : '\u0001').repeat(lead.length);
+  });
+  return prose(shown);
+}
+
 // Every wikilink in a page, with the offsets of its original text. Links in code and comments are examples,
-// not links (the prose() mask), and are neither followed nor rewritten. `channel` is the resolution question
+// not links, and are neither followed nor rewritten. `channel` is the resolution question
 // the link asks: `provenance` for a `sources:` entry, `nav` for everything else, including other frontmatter
 // lists such as `depends-on` and `specced-in`.
 export function scanLinks(text) {
-  const mask = prose(text);
+  const mask = linkMask(text);
   const fm = text.match(FRONTMATTER);
   const fmEnd = fm ? fm[0].length : 0;
   const keyAt = (index) => {
@@ -122,7 +135,7 @@ export function pagesUnder(pages, folder) {
  * source / destination: { id, pages (buildGraph records), read(path) }; destination also { recycled }: entries
  * of its own purge manifests ({ from, 'source-hash' }), whose next --reconcile would re-bin a file landing there.
  */
-export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH, mode = 'copy', onConflict = 'refuse' }) {
+export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH, mode = 'copy', onConflict = 'refuse', allowHashMismatch = false }) {
   const errors = [];
   if (!['copy', 'move'].includes(mode)) errors.push(`mode must be copy or move (got "${mode}")`);
   if (!CONFLICT_MODES.includes(onConflict)) errors.push(`on-conflict must be ${CONFLICT_MODES.join(' or ')} (got "${onConflict}")`);
@@ -217,6 +230,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   const linkChanges = [];
   const attaches = [];
   const unhashed = [];
+  const mismatched = [];
   const conflicts = [];
   const outputs = new Map();
   let bytes = 0;
@@ -228,11 +242,16 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     const srcSha = sha(srcBytes);
     let out = srcBytes;
     const counts = { kept: 0, qualified: 0, plain: 0, unresolved: 0 };
+    let hashMismatch = false;
     if (isRaw(path)) {
       if (isMarkdown(path) && !path.startsWith('raw/figures/')) {
         if (!page.sourceHash) unhashed.push(path);
         else if (clippingHash(srcBytes.toString('utf8')) !== page.sourceHash) {
-          blocking.push({ path, reason: 'hash-mismatch', detail: 'the stored text does not match its source-hash, so it is not the capture the hash records' });
+          // Already so at the source. Refused unless the owner accepts copying it as it is: byte for byte, with
+          // the mismatch named in the plan and both log entries, and its source-hash left unverified.
+          hashMismatch = true;
+          if (allowHashMismatch) mismatched.push(path);
+          else blocking.push({ path, reason: 'hash-mismatch', detail: 'the stored text does not match its source-hash, so it is not the capture the hash records (--allow-hash-mismatch copies it as it is)' });
         }
       }
     } else if (isMarkdown(path)) {
@@ -247,8 +266,8 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
           kind = 'unresolved';
           const there = resolveIn(destIndex, link);
           if (there) attaches.push({ page: path, link: link.text, resolves: there });
-        } else if (isSystemPath(at)) {
-          kind = 'kept';
+        } else if (isSystemPath(at) && !at.includes('/')) {
+          kind = 'kept'; // index.md and the other root files: every vault has its own
         } else if (selectedPaths.has(at)) {
           if (resolveIn(destIndex, link) === at) kind = 'kept';
           else { kind = 'qualified'; replacement = qualifiedLink(link, at); }
@@ -294,30 +313,48 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
       path, reason: info.reason, depth: info.depth, via: info.via,
       layer: isRaw(path) ? 'raw' : 'wiki', bytes: out.length, srcSha, outSha, state, conflict, links: counts,
       ...(page.sourceHash ? { sourceHash: page.sourceHash } : {}),
+      ...(hashMismatch ? { hashMismatch } : {}),
     });
   }
 
-  // A move removes at the source only what nothing else there still needs. A selected page that a page staying
-  // behind links to or cites is copied and kept, and so, in turn, is everything a kept page refers to.
+  // A move removes at the source what is being moved and nothing another page there still needs:
+  //  - A seed that is not evidence is always removed: it is what the owner asked to move. Pages staying behind
+  //    that link to it become collateral, to be repaired as plain text, as a purge's are.
+  //  - Any other selected page stays (copied, in both vaults) when a page outside the selection links to or
+  //    cites it, such as a concept or source page another project shares.
+  //  - Evidence a kept page cites stays with it, raw files and source pages alike, so its provenance does not
+  //    break; a kept clipping keeps its figures and attachments. Nothing else is kept on a kept page's account:
+  //    a kept page that links to a removed page is collateral too.
   let removal = null;
   if (mode === 'move') {
     const transferred = new Set(entries.filter((e) => e.state === 'write' || e.state === 'present').map((e) => e.path));
+    const seedSet = new Set(seedList);
+    const isEvidence = (p) => isRaw(p) || p.startsWith('wiki/sources/');
     const inbound = inboundMap(srcPages, byName);
-    const remove = new Set(transferred);
-    const keptBy = new Map();
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const p of [...remove]) {
-        const holders = [...(inbound.get(p) ?? [])].filter((r) => !remove.has(r) && !isStructural(r));
-        if (holders.length) { remove.delete(p); keptBy.set(p, holders.sort()); changed = true; }
-      }
-    }
-    for (const p of transferred) if (!remove.has(p) && !keptBy.has(p)) keptBy.set(p, []);
     const targetsOf = (p) => [
       ...(p.outTargets ?? []).map((t) => resolveLinkTarget(byName, t, { nav: true })),
       ...(p.fmTargets ?? []).map((t) => resolveLinkTarget(byName, t, { nav: false })),
     ];
+    const keptBy = new Map();
+    for (const p of transferred) {
+      if (seedSet.has(p) && !isEvidence(p)) continue;
+      const holders = [...(inbound.get(p) ?? [])].filter((r) => !transferred.has(r) && !isStructural(r));
+      if (holders.length) keptBy.set(p, holders.sort());
+    }
+    const work = [...keptBy.keys()];
+    while (work.length) {
+      const k = work.pop();
+      const cited = [
+        ...targetsOf(byPath.get(k)).filter((t) => t && isEvidence(t)),
+        ...(isRaw(k) ? entries.filter((e) => e.via === k && isRaw(e.path)).map((e) => e.path) : []),
+      ];
+      for (const t of cited) {
+        if (!transferred.has(t) || keptBy.has(t)) continue;
+        keptBy.set(t, [k]);
+        work.push(t);
+      }
+    }
+    const remove = new Set([...transferred].filter((p) => !keptBy.has(p)));
     const collateral = srcPages
       .filter((p) => !remove.has(p.path) && isContent(p.path) && targetsOf(p).some((t) => remove.has(t)))
       .map((p) => p.path).sort();
@@ -329,7 +366,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   }
 
   const digest = sha(JSON.stringify({
-    version: PLAN_VERSION, from: source.id, to: destination.id, mode, depth, onConflict, seeds: seedList,
+    version: PLAN_VERSION, from: source.id, to: destination.id, mode, depth, onConflict, allowHashMismatch, seeds: seedList,
     // `write` and `present` are one decision: a resumed apply finds some of its own files already there.
     entries: entries.map((e) => [e.path, e.srcSha, e.outSha, e.state === 'present' ? 'write' : e.state]),
     remove: removal?.remove ?? [],
@@ -340,12 +377,12 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     digest,
     from: source.id,
     to: destination.id,
-    mode, depth, onConflict, seeds: seedList,
+    mode, depth, onConflict, allowHashMismatch, seeds: seedList,
     entries,
     linkChanges,
     conflicts,
     blocking,
-    notes: { unhashed, attaches },
+    notes: { unhashed, mismatched, attaches },
     removal,
     totals: { files: entries.length, wiki: count('wiki'), raw: count('raw'), bytes },
   };
