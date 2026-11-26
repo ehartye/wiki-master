@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.107.0 — 2026-11-26
+
+- New option `--seeds-file <file>` on `transfer.mjs`, repeatable. `--seeds a.md,b.md` splits its value on commas, so a page whose file name contains a comma could not be named as a seed at all; a seeds file names it.
+  - **Format.** A UTF-8 text file with one vault path per line, taken whole, so a comma stays part of the name. Blank lines and lines starting with `#` are skipped, and CRLF line ends and a leading byte-order mark are tolerated. Keep it outside the vaults; the script only reads it.
+  - **Combines.** It mixes with `--seeds` and `--seed-folder`. The same seeds give the same plan id however they are named.
+  - **Refusals.** A missing or unreadable file, an empty value and a file that lists no paths each exit 2. A listed path that is not a page in the source vault is refused like an unknown `--seeds` path.
+  - **Apply.** `--apply` reads the file again, so keep it, unchanged, until the apply is done.
+- `--seeds a.md,b.md` works as before.
+- Documentation: `transfer.mjs --help`, `docs/scripts.md`, `docs/multi-vault.md` and the maintainer's transfer reference.
+
 ## 0.106.0 — 2026-11-26
 
 - New option `--exclude <pattern>` on `transfer.mjs`, repeatable, as `--exclude=<p>` or `--exclude <p>`. A pattern is an exact vault path, a folder ending in `/`, or a glob in which `*` and `?` stay inside one path segment and `**` crosses segments. Matching is case-sensitive, like seed paths.
