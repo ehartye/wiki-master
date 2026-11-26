@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.103.0 — 2026-11-26
+
+- New script `transfer.mjs`: copies or moves wiki pages and the raw evidence they cite from one registered vault to another. Both vaults are named by registry ID (`--from`, `--to`); a vault reached only through `WIKI_MASTER_VAULT` must be registered first, and without a registry the script exits 2.
+- **Selection.** The selection is made of:
+  - the seeds: `--seeds a.md,b.md` and every page under each `--seed-folder <folder>`;
+  - the pages they link to or cite, up to `--depth` hops (default 1; 0 is the seeds only);
+  - the `wiki/sources/` pages their `sources:` names, followed until raw at any depth;
+  - the raw clippings, attachments and figure renders those pages cite or embed.
+
+  Nothing else is pulled in, and a raw page never extends the selection through its own body links. Vault root files (`VAULT.md`, `index.md` and the like), `log/` and `_templates/` never transfer.
+- **Plan and apply.** `--plan` (the default) writes nothing. It prints:
+  - every file, with its reason and the page that selected it;
+  - every changed link and what it becomes;
+  - the size, conflicts and blockers;
+  - a plan id: a digest of the selection, each file's source and output hash, and the decisions.
+
+  `--json` prints the same as data. `--apply --expect <plan-id>`, with the same options, recomputes the plan and exits 1 if the id differs.
+- **Provenance.** Raw files are copied byte for byte. Each file is written through a temporary copy and checked before it lands, and every transferred file is checked again afterwards. A clipping whose text does not match its `source-hash` blocks the transfer; `--allow-hash-mismatch` copies such a file as it is and names it in the plan and both log entries. Frontmatter is not changed. Each vault gets one `transfer-in` or `transfer-out` log entry naming the other vault and the plan id.
+- **Links.** A link to a page outside the selection becomes plain text, `label (vault <id>: <path>)`, and never a wikilink, embed or `sources:` entry naming the other vault. A `log/` or `_templates/` page counts as outside. A link inside the selection whose bare name would resolve to a different page at the destination gets its full path and keeps its displayed text, escaped in a table cell. A `sources:` entry that leaves the selection blocks the transfer instead. Links in fenced or inline code stay as written. A link on an indented line, such as a nested list item, is a link.
+- **Conflicts.** These are refused unless `--on-conflict keep-destination` leaves the destination's file in place:
+  - a different file at the same path;
+  - a path differing only in letter case;
+  - a file named by a purge manifest in the destination's `.recycle/`, which its next `--reconcile` would bin again.
+- **Move.** `--mode move` copies first, then removes at the source through one purge transaction, whose manifest names the transfer.
+  - Seeds are always removed.
+  - Any other selected file stays in both vaults when a page outside the selection links to it or cites it. So does the evidence a kept page cites.
+  - Pages left linking to removed pages are listed as collateral, to repair as plain text.
+  - Removed clippings' addresses are declined at the source under the purge's reason, as `purge.mjs` does.
+  - A file changed since the plan is left in place and reported.
+  - `purge.mjs --restore <purge-id>` undoes the removal and clears those declines.
+- **Resume.** Rerunning the same apply after an interruption finishes it. A copy skips the files already there. A removal is found by its manifest and finished under the same purge id. Each vault keeps one log entry. No git command is run.
+- Skills and documentation: `wiki-maintainer` has a transfer mode and `references/transfer.md`, with one approval for the reviewed plan and a refresh of each written vault. `docs/multi-vault.md` gains a transfer section. The evidence policy, the README, `wiki-researcher` and `wiki-project` now say that notes and evidence move between vaults only by a transfer, where they had said there was no route; copying them by hand stays forbidden. The purge restore section notes that a transfer's removal restores the same way.
+
 ## 0.102.0 — 2026-11-24
 
 - **Behavior change, `wiki-project`:** when the resolved vault has no folder for the project being documented, the agent confirms the vault before creating one. It resolves again from that project's own repository and uses the vault that repository routes to if the folder is there. Otherwise the vault counts as confirmed only when the user named it, a registry resolved it from that repository, or there is no registry, `WIKI_MASTER_VAULT` is unset and the default vault has a `VAULT.md`. A `VAULT.md` exclusion, or another registered vault that already has the folder or cannot be read, vetoes it unless the user named the vault.
