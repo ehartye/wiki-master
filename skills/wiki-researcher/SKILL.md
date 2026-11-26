@@ -36,7 +36,9 @@ unspecified request to use this role does not authorize processing the backlog.
    and keep your edits to what your task needs.
 4. Capture with the matching helper, passing the same research topic throughout a
    run. Keep raw evidence, attachments, summaries and derived pages in this selected
-   vault with local provenance; never copy or link foreign-vault evidence. Ingest
+   vault with local provenance; never copy or link foreign-vault evidence while
+   researching. Evidence the owner wants in another vault moves only by a
+   [transfer](../wiki-maintainer/references/transfer.md). Ingest
    only the authorized eligible set, reuse canonical pages and explain
    useful relationships under the
    [identity contract](../wiki-maintainer/references/efficacy.md).

@@ -1,6 +1,6 @@
 ---
 name: wiki-maintainer
-description: Use when asked to repair wiki citations or links, correct factual claims, connect concepts and task maps, apply triage decisions, file an authorized provenance-derived synthesis, or perform a native Obsidian action. Read-only health, freshness, lint and backlog reports belong to wiki-setup; original project documentation belongs to wiki-project.
+description: Use when asked to repair wiki citations or links, correct factual claims, connect concepts and task maps, apply triage decisions, file an authorized provenance-derived synthesis, copy or move pages and their evidence to another registered vault, or perform a native Obsidian action. Read-only health, freshness, lint and backlog reports belong to wiki-setup; original project documentation belongs to wiki-project.
 ---
 
 # Maintain content and perform requested app actions
@@ -15,7 +15,7 @@ not authorize filing. Pure filesystem edits need no running app; the final refre
    `context.mjs --purpose maintenance --json` (with `--select <id>` for an explicitly
    requested configured vault), and open its applicable instructions and descriptor.
    Bind the selected context for every helper; keep repairs and provenance within
-   that vault. Maintenance selection cannot redirect documentation or capture.
+   that vault (a transfer binds its two vaults by ID itself). Maintenance selection cannot redirect documentation or capture.
    Select the requested
    action below; use [wiki-setup](../wiki-setup/SKILL.md) for report-only work.
 2. Inspect the exact pages, current evidence and requested scope. Read
@@ -62,6 +62,13 @@ not authorize filing. Pure filesystem edits need no running app; the final refre
   reuse or create the proper synthesis and log it with `--op query`.
   Result: a sourced, validated page on disk. Original project prose routes to
   [wiki-project](../wiki-project/SKILL.md).
+- **Cross-vault transfer:** read [transfer](references/transfer.md).
+  Request: “Copy the Beacon project folder and its MOC into the docs vault.” Action:
+  bind both vaults, run `transfer.mjs --plan`, review its selection, link changes,
+  conflicts and blockers with the owner, then apply that plan with `--expect <plan-id>`.
+  Result: verified files and one log entry in each vault, links outside the selection
+  turned into plain text, and for a move a restorable removal at the source. Never copy
+  another vault's notes or evidence by hand.
 - **Native action:** read [Obsidian actions](references/obsidian-cli.md).
   Request: “Open the Beacon architecture note in Obsidian.” Action: invoke the
   guarded helper with the exact note path. Result: the requested app action, or a

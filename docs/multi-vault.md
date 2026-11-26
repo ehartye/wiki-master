@@ -134,7 +134,8 @@ local citation cannot be satisfied by a similarly named foreign page. Authored
 documents may use learned knowledge and ordinary original-source HTTPS citations.
 To store supporting evidence in the documentation vault, first include it in the
 research list and select it for a separately authorized original-source capture.
-There is no foreign-note copy, migration or special capture bypass.
+Existing notes and evidence move between vaults only by a transfer (below); there is
+no other foreign-note copy, migration or capture bypass.
 
 Graphs, catalogs, logs, indexes, caches and validation remain per vault. Exact-path
 filesystem authoring resolves its role first and validates a separate ledger in
@@ -142,6 +143,58 @@ each written vault. Helpers enforce their own routes and containment, not arbitr
 host shell writes. Complete and report each written vault separately; a capture
 with no wiki-page write needs its verification/log but no refresh. Obsidian Git
 owns vault Git operations.
+
+## Transferring content between vaults
+
+`transfer.mjs` copies or moves a bounded selection from one registered vault to
+another, for example one project's pages and the evidence behind them into a vault of
+their own. Both vaults are named by registry ID; a legacy root must be registered first.
+
+```sh
+node "<absolute-plugin-root>/scripts/transfer.mjs" --plan --from general --to docs --seed-folder wiki/authored/example-project --seeds moc/example-project.md
+node "<absolute-plugin-root>/scripts/transfer.mjs" --apply --from general --to docs --seed-folder wiki/authored/example-project --seeds moc/example-project.md --expect <plan-id>
+```
+
+The selection is the seeds, the pages they link to or cite up to `--depth` hops
+(default 1, the direct links), the `wiki/sources/` pages their `sources:` names
+(followed until raw), and the raw clippings, attachments and figure renders those
+pages cite or embed. Nothing outside it is pulled in, and raw pages never extend it
+through their own body links. Vault root files, `log/` and `_templates/` never transfer.
+
+- **The plan writes nothing.** It lists every file with its reason and the page that
+  selected it, every changed link, the size, conflicts and blockers, and ends with a plan
+  id: a digest of the selection, each file's source and output hash, and the decisions.
+- **Links stay inside each vault.** A link to a page outside the selection becomes plain
+  text, `label (vault <id>: <path>)`; it never becomes a wikilink, file link, URI, embed or
+  `sources:` entry naming the other vault. A link whose bare name would land on a different
+  page at the destination gets its full path and keeps its displayed text. A `sources:`
+  entry that leaves the selection blocks the transfer instead of being rewritten.
+- **Provenance is kept.** Raw files are copied byte for byte. A clipping whose stored text
+  does not match its `source-hash` blocks the transfer unless `--allow-hash-mismatch` accepts
+  copying it as it is, named in the plan and both log entries; every other copied clipping
+  is re-hashed at the destination. Frontmatter, `source-hash` and `source-hashes` are not
+  changed. Each vault gets one log entry naming the other vault and the plan id.
+- **Apply needs the reviewed plan.** `--apply` takes the same options and
+  `--expect <plan-id>`, recomputes the plan and refuses a different id. A destination
+  file that differs, a path differing only in letter case, or a file a destination purge
+  manifest names is a conflict: refused unless `--on-conflict keep-destination` keeps
+  the destination's file. Files are written through a temporary copy and checked before
+  they land.
+- **Resumable.** Rerunning the same apply after an interruption skips the files already
+  there and writes the rest, and never writes a second log entry.
+- **Move = verified copy, then a purge.** `--mode move` removes at the source, through one
+  purge transaction in `.recycle/`, the seeds and every selected file that no page outside
+  the selection links to or cites. A shared page stays in both vaults, with the evidence it
+  cites, and the plan names what holds it. The
+  manifest names the transfer, and each removed clipping's address is declined at the source as a
+  purge declines it, so discovery there does not clip it again; an interrupted removal is finished
+  by the same apply, and `purge.mjs --restore <purge-id>` undoes it. Pages staying at the
+  source that link to removed pages are listed as collateral for repair as plain text.
+
+Obsidian Git owns each vault's Git operations. Declines, triage
+queues, ledgers, caches and indexes stay per vault, and each written vault is refreshed
+separately. The procedure, with its single approval, is the maintainer's
+[transfer reference](../skills/wiki-maintainer/references/transfer.md).
 
 Native prerequisites explicitly target the selected selector and compare the
 returned canonical path. Targeting may activate or open a vault. An open nonactive
