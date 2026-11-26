@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { captureSelection, selectionOptions, validSelectedPath, githubObjectReader, publishImmutable } from '../scripts/lib/github-selection.mjs';
+import { captureSelection, selectionOptions, validSelectedPath, githubObjectReader, publishImmutable, selectionBudget } from '../scripts/lib/github-selection.mjs';
 import { writeDigest, main } from '../scripts/clip-gh.mjs';
 import { recordDecline, loadDeclines } from '../scripts/lib/decline.mjs';
 const sha = x=>createHash('sha1').update(x).digest('hex'), COMMIT='1'.repeat(40);
@@ -30,7 +30,7 @@ const snapshot=dir=>Object.fromEntries(files(dir).map(n=>[n,readFileSync(join(di
 test('options are opt-in, bounded, exact, and mutually exclusive before side effects',()=>{
   assert.equal(selectionOptions(['o/r']),null);
   assert.deepEqual(selectionOptions(['o/r','--path=b','--path=a','--ref=tag']),{paths:['a','b'],ref:'tag',readmeOnly:false});
-  for(const args of [['--path='],['--path=a','--path=a'],['--path=a','--readme-only'],['--readme-only','--force-full'],['--readme-only','--max-files=1'],['--path=a','extra'],['--readme-only','--decline=no'],['--path=a','--ref='],['--path=a','--quality=oops'],Array.from({length:33},(_,i)=>`--path=f${i}`)])assert.throws(()=>selectionOptions(['o/r',...args]));
+  for(const args of [['--path='],['--path=a','--path=a'],['--path=a','--readme-only'],['--readme-only','--force-full'],['--readme-only','--max-files=1'],['--path=a','extra'],['--readme-only','--decline=no'],['--path=a','--ref='],['--path=a','--quality=oops'],Array.from({length:65},(_,i)=>`--path=f${i}`)])assert.throws(()=>selectionOptions(['o/r',...args]));
   for(const p of ['../x','a/../x','/x','C:/x','a\\x','a//b','./a','a\0b','a\nb','a/'.repeat(17)+'b'])assert.equal(validSelectedPath(p),false,p);
   assert.equal(validSelectedPath('src/a #?%.js'),true);
 });
@@ -243,4 +243,13 @@ test('failure after exclusive staged-file creation never exposes incomplete immu
 test('publication failure after complete staging leaves no destination and no hidden stage',t=>{
   const f=fixture(t),r=captureSelection({...f.options,publish:(path,body)=>publishImmutable(path,body,{link(){throw Object.assign(Error('hard links unavailable'),{code:'ENOTSUP'});}})});
   assert.equal(r.status,'failed');assert.equal(r.clipped,0);assert.deepEqual(files(r.outDir),[]);
+});
+test('one call takes up to 64 paths, and its request and time budgets grow with the selection',t=>{
+  assert.equal(selectionOptions(['o/r',...Array.from({length:64},(_,i)=>`--path=f${i}`)]).paths.length,64);
+  assert.deepEqual(selectionBudget(32),{requests:128,ms:90000});assert.deepEqual(selectionBudget(64),{requests:224,ms:154000});
+  let count=0;const read=githubObjectReader('o','r',{now:()=>0,budget:selectionBudget(64),run(){count++;return '{}';}});
+  for(let i=0;i<224;i++)read('git/trees/id');assert.throws(()=>read('git/trees/id'),/budget/);assert.equal(count,224);
+  const sources=Object.fromEntries(Array.from({length:40},(_,i)=>[`src/f${i}.js`,`export const n = ${i};\n`]));const f=fixture(t,sources);
+  const r=captureSelection({...f.options,selection:{paths:Object.keys(sources).sort(),ref:'HEAD'}});
+  assert.equal(r.status,'clipped');assert.equal(r.clipped,40);
 });

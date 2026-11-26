@@ -53,9 +53,9 @@ Overflow or an unsuitable notice refuses the selection; this bounded root covera
 not a complete license analysis. The preset writes the README, any root notices and a
 selection manifest, rather than exactly one output document.
 
-Limits: 32 explicitly requested paths, depth 16 and path length 512; 256 KiB per file
+Limits: 64 explicitly requested paths, depth 16 and path length 512; 256 KiB per file
 (raised per call with `--max-file-size`, below) and 8 MiB total; 4,096 entries per visited tree; 128 API requests and a 90-second request
-budget, with at most 30 seconds per process and 2 MiB stdout per response. No globs,
+budget for up to 32 paths, plus 3 requests and 2 seconds for each path past 32, with at most 30 seconds per process and 2 MiB stdout per response. No globs,
 directories, symlinks, submodules, backslashes, colons or dot/empty path segments.
 Missing, binary/control-byte or invalid UTF-8 content is refused. Explicit selections
 may include lockfiles or short configs normally excluded/thin in full capture.

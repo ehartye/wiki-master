@@ -13,6 +13,14 @@ const MAX_TOTAL = 8 * 1024 * 1024;
 // destination check, so neither has to move.
 export const DEFAULT_MAX_FILE = 256 * 1024;
 export const MAX_FILE_CEILING = 1024 * 1024;
+// Paths one selected capture takes, and the request and time budgets it gets: the first 32 paths share the base
+// budget (128 requests, 90 seconds), and each path past 32 adds three requests and two seconds, enough for its blob
+// and the trees on its way.
+export const MAX_PATHS = 64;
+export function selectionBudget(pathCount = 0) {
+  const extra = Math.max(0, Math.min(pathCount, MAX_PATHS) - 32);
+  return { requests: 128 + 3 * extra, ms: 90000 + 2000 * extra };
+}
 const kib = (n) => `${Math.ceil(n / 1024)}K`;
 
 // --max-file-size=<n>[K|KB|KiB|M|MB|MiB], or a plain byte count. K and M are 1024 and 1048576 bytes. Refused when
@@ -56,7 +64,7 @@ export function selectionOptions(argv) {
   if (argv.filter(a => a.startsWith('--ref=')).length > 1) throw failure('Selection accepts one --ref');
   const ref = argv.find(a => a.startsWith('--ref='))?.slice(6) ?? 'HEAD';
   if (!ref || ref.length > 256 || /[\x00-\x20\x7f]/.test(ref)) throw failure('Invalid selected-capture ref');
-  if (paths.length > 32 || paths.some(p => !validSelectedPath(p))) throw failure('Select at most 32 exact repo-relative paths (no empty/dot segments, backslashes, colons or controls; depth <=16, length <=512)');
+  if (paths.length > MAX_PATHS || paths.some(p => !validSelectedPath(p))) throw failure('Select at most 64 exact repo-relative paths (no empty/dot segments, backslashes, colons or controls; depth <=16, length <=512)');
   if (new Set(paths).size !== paths.length) throw failure('Duplicate selected path');
   const quality = argv.find(a => a.startsWith('--quality='))?.slice(10) ?? 'medium';
   if (!QUALITY_TIERS.includes(quality)) throw failure('Invalid capture quality');
@@ -68,11 +76,11 @@ export function selectionOptions(argv) {
 }
 
 // gh supplies existing GitHub authentication. Fixed host; no redirects to download URLs or shell commands.
-export function githubObjectReader(owner, repo, { run = execFileSync, now = Date.now } = {}) {
+export function githubObjectReader(owner, repo, { run = execFileSync, now = Date.now, budget = selectionBudget() } = {}) {
   let requests = 0;
-  const deadline = now() + 90000;
+  const deadline = now() + budget.ms;
   return (route, jq) => {
-    if (++requests > 128 || now() >= deadline) throw failure('GitHub selection request/time budget exhausted', 'failed');
+    if (++requests > budget.requests || now() >= deadline) throw failure('GitHub selection request/time budget exhausted', 'failed');
     const args = ['api', '--hostname', 'github.com', '--method', 'GET', `repos/${encode(owner)}/${encode(repo)}/${route}`];
     if (jq) args.push('--jq', jq);
     try {
@@ -85,7 +93,7 @@ function prepare({ owner, repo, selection, read }) {
   const maxFile = selection?.maxFileSize ?? DEFAULT_MAX_FILE;
   if (!Number.isSafeInteger(maxFile) || maxFile < 1 || maxFile > MAX_FILE_CEILING) throw failure('Invalid per-file size cap');
   if (![owner, repo].every(s => /^[a-z0-9][a-z0-9._-]*$/i.test(s))) throw failure('Invalid GitHub repository identity');
-  if (!selection || !Array.isArray(selection.paths) || selection.paths.length > 32 || selection.paths.some(p=>!validSelectedPath(p)) || new Set(selection.paths).size !== selection.paths.length || (!selection.readmeOnly && !selection.paths.length) || (selection.readmeOnly && selection.paths.length) || typeof selection.ref !== 'string' || !selection.ref || selection.ref.length > 256 || /[\x00-\x20\x7f]/.test(selection.ref)) throw failure('Invalid bounded selection');
+  if (!selection || !Array.isArray(selection.paths) || selection.paths.length > MAX_PATHS || selection.paths.some(p=>!validSelectedPath(p)) || new Set(selection.paths).size !== selection.paths.length || (!selection.readmeOnly && !selection.paths.length) || (selection.readmeOnly && selection.paths.length) || typeof selection.ref !== 'string' || !selection.ref || selection.ref.length > 256 || /[\x00-\x20\x7f]/.test(selection.ref)) throw failure('Invalid bounded selection');
   const commit = read(`commits/${encode(selection.ref)}`, '{sha: .sha, tree: .commit.tree.sha}');
   if (!SHA.test(commit?.sha) || !SHA.test(commit?.tree) || (SHA.test(selection.ref) && commit.sha !== selection.ref)) throw failure('Invalid or mismatched resolved commit identity', 'failed');
   const cache = new Map();
@@ -205,7 +213,7 @@ export function publishImmutable(path, body, { write = writeFileSync, link = lin
   return { cleanupWarnings, ...(cleanupWarnings.length ? { staging: stage } : {}) };
 }
 
-export function captureSelection({ owner, repo, selection, vaultPath, quality = 'medium', topic, read = githubObjectReader(owner, repo), publish = publishImmutable }) {
+export function captureSelection({ owner, repo, selection, vaultPath, quality = 'medium', topic, read = githubObjectReader(owner, repo, { budget: selectionBudget(selection?.paths?.length) }), publish = publishImmutable }) {
   let plan;
   try { plan = prepare({ owner, repo, selection, read }); }
   catch (e) { return { status: 'failed', mode: 'selected', error: e.message, refused: e.selectionStatus === 'refused' ? 1 : 0, failed: e.selectionStatus === 'refused' ? 0 : 1, selected: 0, clipped: 0, unchanged: 0, entries: [] }; }

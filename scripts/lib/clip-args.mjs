@@ -185,7 +185,7 @@ export const CLIP_SPECS = {
       "  file. Pass --force-full (with a raised --max-files) to force the old exhaustive",
       "  per-file behavior on a large repo instead.",
       "",
-      "  --path (repeat, max 32) or --readme-only opts into clone-free authenticated",
+      "  --path (repeat, max 64) or --readme-only opts into clone-free authenticated",
       "  GitHub capture at one resolved commit (--ref accepts a branch, tag or full SHA).",
       "  Root LICENSE/NOTICE/COPYING files (max 8) accompany the selected files.",
       "  Immutable clips + a selection manifest go to raw/clippings/gh-selected/.",
