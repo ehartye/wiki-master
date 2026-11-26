@@ -122,6 +122,32 @@ function figurePaths(text) {
   return items.filter(Boolean).map((p) => p.replace(/^\[\[|\]\]$/g, ''));
 }
 
+// --exclude patterns: an exact vault path, a folder ending in `/` (everything under it), or a glob in which `*` and `?`
+// stay inside one path segment and `**` crosses segments. Matching is case-sensitive, like seed paths.
+const REGEX_SPECIAL = new Set([...'.+^${}()|[]\\']);
+export function excludeMatcher(patterns) {
+  const tests = patterns.map((raw) => {
+    const pattern = raw.split('\\').join('/');
+    if (pattern.endsWith('/')) return { raw, test: (path) => path.startsWith(pattern) };
+    let re = '';
+    for (let i = 0; i < pattern.length; i++) {
+      const c = pattern[i];
+      if (c === '*' && pattern[i + 1] === '*') {
+        const slash = pattern[i + 2] === '/';
+        re += slash ? '(?:.*/)?' : '.*';
+        i += slash ? 2 : 1;
+      } else if (c === '*') re += '[^/]*';
+      else if (c === '?') re += '[^/]';
+      else re += REGEX_SPECIAL.has(c) ? `\\${c}` : c;
+    }
+    const compiled = new RegExp(`^${re}$`);
+    return { raw, test: (path) => compiled.test(path) };
+  });
+  const matches = (path) => tests.some((t) => t.test(path));
+  matches.unused = (paths) => tests.filter((t) => !paths.some((path) => t.test(path))).map((t) => t.raw);
+  return matches;
+}
+
 // Expands a folder seed into its pages. A folder with no page is an error for the caller to report.
 export function pagesUnder(pages, folder) {
   const prefix = `${folder.replace(/\\/g, '/').replace(/\/+$/, '')}/`;
@@ -135,7 +161,7 @@ export function pagesUnder(pages, folder) {
  * source / destination: { id, pages (buildGraph records), read(path) }; destination also { recycled }: entries
  * of its own purge manifests ({ from, 'source-hash' }), whose next --reconcile would re-bin a file landing there.
  */
-export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH, mode = 'copy', onConflict = 'refuse', allowHashMismatch = false }) {
+export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH, mode = 'copy', onConflict = 'refuse', allowHashMismatch = false, exclude = [] }) {
   const errors = [];
   if (!['copy', 'move'].includes(mode)) errors.push(`mode must be copy or move (got "${mode}")`);
   if (!CONFLICT_MODES.includes(onConflict)) errors.push(`on-conflict must be ${CONFLICT_MODES.join(' or ')} (got "${onConflict}")`);
@@ -148,6 +174,11 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     if (!byPath.has(s)) errors.push(`seed is not a page in vault ${source.id}: ${s}`);
     else if (isSystemPath(s)) errors.push(`seed is a vault system file, which never transfers: ${s}`);
   }
+  // An exclusion that matches no page is a typo, and a typo here would move a page the owner meant to keep.
+  const excludeList = [...new Set(exclude)].sort();
+  const isExcluded = excludeMatcher(excludeList);
+  for (const pattern of isExcluded.unused(srcPages.map((p) => p.path))) errors.push(`--exclude ${pattern} matches no page in vault ${source.id}`);
+  if (!errors.length && seedList.every((p) => isExcluded(p))) errors.push('every seed is excluded');
   if (errors.length) return { errors };
 
   const byName = buildNameIndex(srcPages);
@@ -164,15 +195,22 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   const resolveIn = (index, link) => resolveLinkTarget(index, link.target, { nav: link.channel === 'nav' });
 
   const selected = new Map(); // path -> { reason, depth, via }
+  // Excluded pages are outside the selection: never selected, so links to them become plain text and a move never
+  // removes them. Each is listed with the page that would have brought it in.
+  const excluded = new Map();
   const add = (path, reason, d, via) => {
     if (selected.has(path) || isSystemPath(path)) return false;
+    if (isExcluded(path)) {
+      if (!excluded.has(path)) excluded.set(path, { reason, via });
+      return false;
+    }
     selected.set(path, { reason, depth: d, via });
     return true;
   };
   for (const s of seedList) add(s, 'seed', 0, null);
 
   // Navigation: links and citations from a non-raw page, one hop per depth level.
-  let frontier = seedList.filter((p) => !isRaw(p) && isMarkdown(p));
+  let frontier = seedList.filter((p) => selected.has(p) && !isRaw(p) && isMarkdown(p));
   for (let d = 1; d <= depth && frontier.length; d++) {
     const next = [];
     for (const from of frontier) {
@@ -207,6 +245,11 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     for (const link of linksOf(from)) {
       const to = resolveIn(byName, link);
       if (!to) continue;
+      if (link.channel === 'provenance' && isExcluded(to) && !isSystemPath(to)) {
+        if (!excluded.has(to)) excluded.set(to, { reason: isRaw(to) ? 'evidence' : 'cited', via: from });
+        blocking.push({ path: from, reason: 'provenance-excluded', detail: `sources: names ${to}, which --exclude keeps out of the selection; provenance cannot become text, so drop that exclusion or exclude this page too` });
+        continue;
+      }
       if (isRaw(to)) {
         if (add(to, 'evidence', null, from) && isMarkdown(to)) work.push(to);
       } else if (link.channel === 'provenance' && to.startsWith('wiki/sources/')) {
@@ -397,7 +440,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   }
 
   const digest = sha(JSON.stringify({
-    version: PLAN_VERSION, from: source.id, to: destination.id, mode, depth, onConflict, allowHashMismatch, seeds: seedList,
+    version: PLAN_VERSION, from: source.id, to: destination.id, mode, depth, onConflict, allowHashMismatch, seeds: seedList, exclude: excludeList,
     // `write` and `present` are one decision: a resumed apply finds some of its own files already there.
     entries: entries.map((e) => [e.path, e.srcSha, e.outSha, e.state === 'present' ? 'write' : e.state]),
     remove: removal?.remove ?? [],
@@ -409,7 +452,8 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     digest,
     from: source.id,
     to: destination.id,
-    mode, depth, onConflict, allowHashMismatch, seeds: seedList,
+    mode, depth, onConflict, allowHashMismatch, seeds: seedList, exclude: excludeList,
+    excluded: [...excluded].map(([path, e]) => ({ path, ...e })).sort((a, b) => (a.path < b.path ? -1 : 1)),
     entries,
     linkChanges,
     conflicts,

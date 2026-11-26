@@ -379,3 +379,56 @@ test('usage and configuration errors exit 2 and write nothing', (t) => {
   assert.equal(r.status, 2);
   assert.match(r.stderr, /registry/);
 });
+
+test('--exclude keeps pages out of the selection: listed, linked as text, and their own evidence left behind', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  for (const pattern of ['wiki/concepts/Retry Budget.md', 'wiki/concepts/', 'wiki/concepts/*.md', '**/Retry Budget.md']) {
+    const plan = planOf(f, [...SELECT, '--exclude', pattern]);
+    assert.deepEqual(plan.excluded, [{ path: 'wiki/concepts/Retry Budget.md', reason: 'linked', via: 'wiki/authored/alpha/overview.md' }], pattern);
+    assert.ok(!plan.entries.some((e) => e.path === 'wiki/concepts/Retry Budget.md' || e.path === 'raw/clippings/Retry Paper.md'), `${pattern}: the excluded page and the evidence only it cites stay out`);
+    assert.deepEqual(plan.blocking, []);
+  }
+  const plan = planOf(f, [...SELECT, '--exclude=wiki/concepts/Retry Budget.md']);
+  assert.notEqual(plan.id, planOf(f).id, 'the exclusions are part of the plan id');
+  const r = f.transfer('--apply', ...SELECT, '--exclude=wiki/concepts/Retry Budget.md', '--expect', plan.id);
+  assert.equal(r.status, 0, r.stderr);
+  const overview = readFileSync(join(f.docs, 'wiki/authored/alpha/overview.md'), 'utf8');
+  assert.ok(overview.includes('the Retry Budget (vault general: wiki/concepts/Retry Budget.md) idea'), overview);
+  assert.ok(!existsSync(join(f.docs, 'wiki/concepts/Retry Budget.md')));
+});
+
+test('a move never removes an excluded page, and links to it stay live at the source', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  const before = readFileSync(join(f.general, 'wiki/concepts/Retry Budget.md'));
+  const args = [...SELECT, '--mode', 'move', '--exclude', 'wiki/concepts/Retry Budget.md'];
+  const plan = planOf(f, args);
+  assert.ok(!plan.removal.remove.includes('wiki/concepts/Retry Budget.md'));
+  assert.ok(!plan.removal.inbound.some((l) => l.to.includes('wiki/concepts/Retry Budget.md')), 'the hand map keeps its link to the page that stays');
+  const r = f.transfer('--apply', ...args, '--expect', plan.id);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(readFileSync(join(f.general, 'wiki/concepts/Retry Budget.md')), before);
+  assert.ok(existsSync(join(f.general, 'raw/clippings/Retry Paper.md')), 'its evidence stays with it');
+  assert.ok(readFileSync(join(f.general, 'moc/tasks.md'), 'utf8').includes('[[Retry Budget]]'));
+  assert.ok(!existsSync(join(f.general, 'wiki/authored/alpha/overview.md')), 'the rest moved');
+});
+
+test('an exclusion that matches nothing, or that excludes every seed, is refused; one that cuts provenance blocks', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  for (const [args, message] of [
+    [[...SELECT, '--exclude', 'wiki/concepts/Retry Budgte.md'], /--exclude wiki\/concepts\/Retry Budgte\.md matches no page/],
+    [[...SELECT, '--exclude', 'wiki/authored/alpha/', '--exclude', 'moc/alpha.md'], /every seed is excluded/],
+    [[...SELECT, '--exclude='], /--exclude needs/],
+  ]) {
+    const r = f.transfer('--plan', ...args);
+    assert.equal(r.status, 2, `${args.join(' ')}: ${r.stderr}`);
+    assert.match(r.stderr, message);
+  }
+  const plan = planOf(f, [...SELECT, '--exclude', 'raw/clippings/Queue Notes.md']);
+  assert.deepEqual(plan.blocking.map((b) => [b.path, b.reason]), [['wiki/sources/Queue Notes.md', 'provenance-excluded']]);
+  const seedOut = planOf(f, [...SELECT, '--exclude', 'wiki/authored/alpha/architecture.md']);
+  assert.deepEqual(seedOut.excluded, [{ path: 'wiki/authored/alpha/architecture.md', reason: 'seed', via: null }]);
+  assert.ok(!seedOut.entries.some((e) => e.path === 'wiki/authored/alpha/architecture.md'));
+  // An excluded seed brings nothing in: neither the pages it links to nor the evidence it cites.
+  const narrow = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'wiki/concepts/Elsewhere.md,wiki/concepts/Backoff.md', '--exclude', 'wiki/concepts/Elsewhere.md']);
+  assert.deepEqual(narrow.entries.map((e) => e.path), ['raw/clippings/Backoff Notes.md', 'wiki/concepts/Backoff.md']);
+});

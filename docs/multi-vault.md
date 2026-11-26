@@ -160,6 +160,10 @@ The selection is the seeds, the pages they link to or cite up to `--depth` hops
 (followed until raw), and the raw clippings, attachments and figure renders those
 pages cite or embed. Nothing outside it is pulled in, and raw pages never extend it
 through their own body links. Vault root files, `log/` and `_templates/` never transfer.
+`--exclude <pattern>` (repeatable; an exact path, a folder ending in `/`, or a glob with `*` and `**`)
+keeps matching pages out of the selection even when a seed links to them. They are listed in the plan,
+links to them become plain text, and a move never removes them. A pattern matching no page is refused,
+and a `sources:` entry naming an excluded page blocks.
 
 - **The plan writes nothing.** It lists every file with its reason and the page that
   selected it, every changed link, the size, conflicts and blockers, and ends with a plan
