@@ -81,6 +81,18 @@ export const CLI_SPECS = {
     options: ['plan', 'apply', 'reconcile', 'restore', 'seeds'],
     usage: ['usage: node scripts/purge.mjs [--plan | --apply | --reconcile | --restore] "<topic>" [--seeds a.md,b.md]', '', 'Plans (default), applies, reconciles or restores the removal of a topic from the wiki and its evidence. Applying needs a reviewed plan.', VAULT],
   },
+  transfer: {
+    options: ['plan', 'apply', 'from', 'to', 'seeds', 'seed-folder', 'depth', 'mode', 'on-conflict', 'expect', 'json'],
+    usage: [
+      'usage: node scripts/transfer.mjs --plan|--apply --from <vault-id> --to <vault-id> (--seeds a.md,b.md | --seed-folder <folder>)... [--depth N] [--mode copy|move] [--on-conflict refuse|keep-destination] [--expect <plan-id>] [--json]',
+      '',
+      'Copies or moves wiki pages and the raw evidence they cite from one registered vault to another. The selection is the seed pages, the pages they link to or cite up to --depth hops (default 1; 0 is the seeds only), the source pages their sources: lists name, and the raw files those pages cite. Nothing else is pulled in.',
+      '--plan (the default) writes nothing. It prints each file and why it was selected, what every changed link becomes, the size, destination conflicts and anything blocking, and ends with a plan id. A link to a page outside the selection becomes plain text naming the vault and path; it never becomes a link to the other vault.',
+      '--apply needs --expect <plan-id> from a reviewed plan and the same selection options. It recomputes the plan and refuses if anything changed. Raw files are copied byte for byte and their source-hash verified; a clipping whose text does not match its source-hash blocks the transfer. A destination file that differs from the one being transferred is a conflict: refused unless --on-conflict keep-destination leaves the destination file in place. Each vault gets one log entry. Rerunning the same apply after an interruption finishes it.',
+      '--mode move copies first, then removes at the source, through a purge transaction in .recycle/, only the selected files no remaining page links to or cites; the rest stay in both vaults. Undo the removal with purge.mjs --restore <purge-id>. No git command is run.',
+      'Both vaults must be in the vault registry (WIKI_MASTER_CONFIG or ~/.config/wiki-master/vaults.json). Usage and configuration errors exit 2; a refused or failed apply exits 1.',
+    ],
+  },
   'refresh-index': {
     options: ['rebuild', 'status'],
     usage: [

@@ -306,3 +306,28 @@ test('a purge leaves HEAD and the index alone', (t) => {
   assert.equal(existsSync(join(root, 'wiki/concepts/Foo.md')), false, 'the purge ran');
   assert.deepEqual(state(), before);
 });
+
+test('a transfer move leaves HEAD and the index alone in both vaults', (t) => {
+  const vaults = ['one', 'two'].map((id) => {
+    const repo = repository(t);
+    writeFileSync(join(repo.root, 'VAULT.md'), `---\nschema-version: 1\nvault-id: ${id}\npurpose: Fixture\nincludes: [Fixture]\nexcludes: []\n---\n`);
+    mkdirSync(join(repo.root, 'wiki/authored'), { recursive: true });
+    if (id === 'one') writeFileSync(join(repo.root, 'wiki/authored/Note.md'), '---\ntype: authored\nsources: []\n---\n# Note\n\nSee [[Foo]].\n');
+    return { id, ...repo };
+  });
+  const home = mkdtempSync(join(tmpdir(), 'wm-transfer-git-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const config = join(home, 'vaults.json');
+  writeFileSync(config, JSON.stringify({ version: 1, defaultVault: 'one', vaults: vaults.map((v) => ({ id: v.id, path: v.root, obsidian: `Fixture ${v.id}` })) }));
+  const before = vaults.map((v) => v.state());
+  const env = { ...process.env, HOME: home, USERPROFILE: home, WIKI_MASTER_CONFIG: config, WIKI_MASTER_BROWSER: '/no/such/browser' };
+  for (const key of ['WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_PROJECT_ROOT']) delete env[key];
+  const args = ['--from', 'one', '--to', 'two', '--seeds', 'wiki/authored/Note.md', '--depth', '0', '--mode', 'move'];
+  const run = (...extra) => spawnSync(process.execPath, [join(SCRIPTS, 'transfer.mjs'), ...extra, ...args], { cwd: home, env, encoding: 'utf8', timeout: 60000 });
+  const plan = run('--plan', '--json');
+  assert.equal(plan.status, 0, plan.stderr);
+  const applied = run('--apply', '--expect', JSON.parse(plan.stdout).id);
+  assert.equal(applied.status, 0, `${applied.stdout}${applied.stderr}`);
+  assert.ok(existsSync(join(vaults[1].root, 'wiki/authored/Note.md')) && !existsSync(join(vaults[0].root, 'wiki/authored/Note.md')), 'the move ran');
+  assert.deepEqual(vaults.map((v) => v.state()), before);
+});

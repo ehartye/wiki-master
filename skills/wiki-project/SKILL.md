@@ -93,7 +93,8 @@ consequences, and the difference between not built and built but broken. The rep
 establishes behavior; the wiki records intent, including disagreements worth fixing.
 Knowledge learned elsewhere may inform original prose, with ordinary original-source
 HTTPS citations. Do not cite a foreign vault note, copy its evidence, or fabricate a
-local `sources:` path. Supporting captures require this documentation vault to be in
+local `sources:` path; moving existing pages and evidence between vaults is
+wiki-maintainer's [transfer](../wiki-maintainer/references/transfer.md). Supporting captures require this documentation vault to be in
 the research list and selected for a separately authorized original-source capture.
 
 ## Advanced references

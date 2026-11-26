@@ -11,8 +11,10 @@ search results do not authorize writing those connections into notes.
 Original project prose may use learned knowledge and original-source HTTPS citations.
 If supporting stored evidence is needed in the documentation vault, first include
 that vault in the research list and select it for a separately authorized capture
-from the original source. No foreign-note copying, migration or special capture
-bypass is provided. Descriptors guide placement; they are not semantic access controls.
+from the original source. Copying or moving notes and evidence between vaults is
+done only by an owner-approved [transfer](transfer.md), which keeps raw files byte
+for byte, verifies their hashes and turns links leaving the selection into plain text;
+never copy them by hand while researching or writing. Descriptors guide placement; they are not semantic access controls.
 Outside-root aliases are excluded/unsearched; internal aliases remain supported.
 
 ## Page schema and dates

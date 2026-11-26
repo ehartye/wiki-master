@@ -49,8 +49,8 @@ don't apply it unasked, and report the task as
 - **Capture only.** A capture that wrote no wiki page verifies its paths, logs once and needs
   no refresh, because clippings and log entries enter neither the catalogs nor the search index.
   See [finish the capture](../../wiki-researcher/references/capture.md#finish-capture-and-report).
-- **Purge.** `purge.mjs` writes its own log entry; [its skill](../../wiki-purge/SKILL.md) keeps
-  the plan and approval, and still ends with the refresh.
+- **Purge and transfer.** `purge.mjs` writes its own log entry and `transfer.mjs` one in each vault; [purge](../../wiki-purge/SKILL.md)
+  and [transfer](transfer.md) keep the plan and approval, and each written vault still ends with its own refresh.
 - **Re-clipping.** `apply-reclips.mjs` takes an exact target list and returns the paths it
   changed. A verified repair, a pending table verification and a quarantine are distinct
   outcomes, and a quarantine can close triage without making evidence citable. See

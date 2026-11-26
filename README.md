@@ -200,8 +200,11 @@ searches every configured research vault with separate coverage. Research with
 several destinations asks once per request before discovery/capture/ingestion;
 a supplied destination counts as the answer and does not persist into the next
 request. Each vault keeps its own provenance, graph, logs and indexes. Foreign
-vault note references and evidence copying are unsupported; original-source HTTPS
-citations remain permitted. Native targeting may activate/open its selected vault
+vault note references are unsupported, and notes and evidence move between vaults
+only through `node scripts/transfer.mjs`, a reviewed copy or move that keeps raw files
+byte for byte and turns links leaving the selection into plain text
+([details](docs/multi-vault.md#transferring-content-between-vaults)); original-source
+HTTPS citations remain permitted. Native targeting may activate/open its selected vault
 and reports failed probes without fallback.
 
 ### Tests and the vault
