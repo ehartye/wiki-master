@@ -34,7 +34,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | `rename-doubled-extension-clippings.mjs` | Renames raw clippings whose names double the extension (`README.md.md`) and repoints the citations to them. |
 | `rename-unsafe-clippings.mjs` | Gives raw clippings a name Obsidian indexes and a wikilink can carry, and repoints the citations to them. |
 | `purge.mjs` | Plans, applies, reconciles or restores the removal of a topic and its evidence; applying needs a reviewed plan. |
-| `transfer.mjs` | Plans and applies a copy or move of selected pages and the raw evidence they cite from one registered vault to another, keeping raw files byte for byte; applying needs the reviewed plan's id. |
+| `transfer.mjs` | Plans and applies a copy or move of selected pages and the raw evidence they cite from one registered vault to another, keeping raw files byte for byte; applying needs the reviewed plan's id. Seeds come from `--seeds a.md,b.md`, `--seed-folder` or `--seeds-file` (one path per line, for names that contain a comma). |
 
 ## Capture
 
