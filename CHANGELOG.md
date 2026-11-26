@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.106.0 — 2026-11-26
+
+- New option `--exclude <pattern>` on `transfer.mjs`, repeatable, as `--exclude=<p>` or `--exclude <p>`. A pattern is an exact vault path, a folder ending in `/`, or a glob in which `*` and `?` stay inside one path segment and `**` crosses segments. Matching is case-sensitive, like seed paths.
+  - **Outside the selection.** An excluded page is outside the selection even when a seed links to it or the seed folder holds it. Links to it become plain text, `label (vault <source>: <path>)`, like any page outside the selection.
+  - **Listed in the plan.** The plan lists it under EXCLUDED with the page that would have brought it in; `--json` adds `exclude` and `excluded`.
+  - **Never removed.** A move never removes an excluded page. Its links to pages the move removes are rewritten like any other inbound link.
+  - **Excluded seeds.** An excluded seed brings in nothing it links to or cites.
+- A pattern that matches no page in the source vault, an exclusion of every seed, and an empty value each exit 2 before anything is written. A typo therefore cannot move a page that was meant to stay.
+- A `sources:` entry naming an excluded page blocks the plan with `provenance-excluded`.
+- The exclusions are part of the plan id.
+- Documentation: `docs/multi-vault.md`, the maintainer's transfer reference and `transfer.mjs --help`.
+
 ## 0.105.0 — 2026-11-26
 
 - New option `--max-file-size=<n>K|<n>M` on `clip-gh.mjs` (or a plain byte count; `K` is 1,024 bytes and `M` 1,048,576). It raises the 256 KiB per-file cap for one call, in both the selected (`--path`, `--readme-only`) and the clone mode, up to a hard ceiling of 1 MiB.
