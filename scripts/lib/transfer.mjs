@@ -319,13 +319,16 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
 
   // A move removes at the source what is being moved and nothing another page there still needs:
   //  - A seed that is not evidence is always removed: it is what the owner asked to move. Pages staying behind
-  //    that link to it become collateral, to be repaired as plain text, as a purge's are.
+  //    that link to it have those links rewritten as plain text (below).
   //  - Any other selected page stays (copied, in both vaults) when a page outside the selection links to or
   //    cites it, such as a concept or source page another project shares.
   //  - Evidence a kept page cites stays with it, raw files and source pages alike, so its provenance does not
   //    break; a kept clipping keeps its figures and attachments. Nothing else is kept on a kept page's account:
-  //    a kept page that links to a removed page is collateral too.
+  //    a kept page that links to a removed page has that link rewritten too.
   let removal = null;
+  const inboundLinks = [];
+  const rewrites = [];
+  const rewriteOutputs = new Map();
   if (mode === 'move') {
     const transferred = new Set(entries.filter((e) => e.state === 'write' || e.state === 'present').map((e) => e.path));
     const seedSet = new Set(seedList);
@@ -355,13 +358,41 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
       }
     }
     const remove = new Set([...transferred].filter((p) => !keptBy.has(p)));
-    const collateral = srcPages
-      .filter((p) => !remove.has(p.path) && isContent(p.path) && targetsOf(p).some((t) => remove.has(t)))
-      .map((p) => p.path).sort();
+
+    // Inbound links: a page staying at the source that links to a removed page would be left with a dangling
+    // link. Each such link becomes plain text naming the page's new vault and path, as an outbound link leaving
+    // the selection does, and the apply writes it before anything is removed. Raw bodies are never edited, and
+    // log/ entries are history; neither counts as a broken link. A `sources:` entry cannot become text without
+    // losing provenance, so one naming a removed page blocks the move.
+    for (const p of srcPages) {
+      if (remove.has(p.path) || !isContent(p.path) || !isMarkdown(p.path)) continue;
+      if (!targetsOf(p).some((t) => remove.has(t))) continue;
+      const text = textOf(p.path);
+      let result = '';
+      let cursor = 0;
+      for (const link of linksOf(p.path)) {
+        const at = resolveIn(byName, link);
+        if (!at || !remove.has(at)) continue;
+        if (link.channel === 'provenance') {
+          blocking.push({ path: p.path, reason: 'cites-moved-page', detail: `sources: names ${at}, which the move removes from ${source.id}; cite another page, or copy instead of moving` });
+          continue;
+        }
+        const replacement = plainReference(link, { vault: destination.id, path: at });
+        inboundLinks.push({ page: p.path, from: link.text, to: replacement });
+        result += text.slice(cursor, link.start) + replacement;
+        cursor = link.end;
+      }
+      if (!cursor) continue;
+      const before = source.read(p.path);
+      const after = Buffer.from(result + text.slice(cursor), 'utf8');
+      rewriteOutputs.set(p.path, after);
+      rewrites.push({ path: p.path, beforeSha: sha(before), afterSha: sha(after) });
+    }
     removal = {
       remove: [...remove].sort(),
       keep: [...keptBy].map(([path, by]) => ({ path, by })).sort((a, b) => (a.path < b.path ? -1 : 1)),
-      collateral,
+      inbound: inboundLinks,
+      rewrites,
     };
   }
 
@@ -370,6 +401,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     // `write` and `present` are one decision: a resumed apply finds some of its own files already there.
     entries: entries.map((e) => [e.path, e.srcSha, e.outSha, e.state === 'present' ? 'write' : e.state]),
     remove: removal?.remove ?? [],
+    rewrites: rewrites.map((r) => [r.path, r.beforeSha, r.afterSha]),
   }));
   const count = (layer) => entries.filter((e) => e.layer === layer).length;
   const plan = {
@@ -388,5 +420,6 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   };
   // The bytes each entry lands as, for apply. Not enumerable, so a printed or serialized plan leaves them out.
   Object.defineProperty(plan, 'outputs', { value: outputs });
+  Object.defineProperty(plan, 'rewriteOutputs', { value: rewriteOutputs });
   return plan;
 }
