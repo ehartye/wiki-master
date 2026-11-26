@@ -34,7 +34,7 @@ export function isSystemPath(path) {
 const isRaw = (path) => path.startsWith('raw/');
 const isMarkdown = (path) => path.endsWith('.md');
 
-const FRONTMATTER = /^﻿?---\r?\n[\s\S]*?\r?\n---(?=\r?\n|$)/;
+const FRONTMATTER = /^\uFEFF?---\r?\n[\s\S]*?\r?\n---(?=\r?\n|$)/;
 
 // Every wikilink in a page, with the offsets of its original text. Links in code and comments are examples,
 // not links (the prose() mask), and are neither followed nor rewritten. `channel` is the resolution question
