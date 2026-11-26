@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.104.0 — 2026-11-26
+
+- **Behavior change, `transfer.mjs --mode move`:** links into removed pages are rewritten, not left dangling. Until now a move removed pages that other pages staying in the source vault still linked to, and only listed those pages as collateral to repair by hand.
+  - The plan lists, under INBOUND LINKS, every link from a page staying at the source to a page the move removes, with the text it becomes. That text is `label (vault <destination>: <path>)`, the treatment a link leaving the selection gets. The rewrites are part of the plan id, so a plan made with 0.103.0 gets a new id.
+  - The apply writes the purge manifest first. It then keeps each page to be rewritten, as it was, in `.recycle/<purge-id>/transfer-originals/`. Next it rewrites the links, each page through a temporary copy that is checked before it lands. Only then are files removed, so no page left at the source keeps a link to a removed page.
+  - A resumed apply finishes the same rewrites. A page changed since the plan is left alone and reported, and its links are repaired by hand.
+  - A `sources:` entry on a staying page that names a removed page blocks the move with `cites-moved-page`, because provenance cannot become text. Cite another page, or copy instead of moving.
+  - Raw bodies and `log/` entries are never edited.
+  - `purge.mjs --restore` brings back the removed files and leaves the rewritten links as text; the pages as they were remain beside the manifest.
+  - The source's `transfer-out` log entry counts the rewritten links and names the pages. The manifest's `collateral` lists the rewritten pages.
+- `docs/multi-vault.md`, the maintainer's transfer reference, the purge restore section and the `transfer.mjs --help` text describe inbound links.
+
 ## 0.103.0 — 2026-11-26
 
 - New script `transfer.mjs`: copies or moves wiki pages and the raw evidence they cite from one registered vault to another. Both vaults are named by registry ID (`--from`, `--to`); a vault reached only through `WIKI_MASTER_VAULT` must be registered first, and without a registry the script exits 2.
