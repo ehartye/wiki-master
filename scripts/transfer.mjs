@@ -69,7 +69,10 @@ export function parseArgs(argv) {
   if (!['refuse', 'keep-destination'].includes(onConflict)) throw new UsageError(`--on-conflict must be refuse or keep-destination (got "${onConflict}")`);
   const expect = one('expect');
   if (apply && !expect) throw new UsageError('--apply needs --expect <plan-id>, the id a reviewed --plan printed');
-  return { apply, from, to, seeds, folders, depth, mode, onConflict, expect, allowHashMismatch: argv.includes('--allow-hash-mismatch'), json: argv.includes('--json') };
+  const excludeValues = optionValues(argv, 'exclude');
+  if (excludeValues.some((v) => !v.trim())) throw new UsageError('--exclude needs a path, a folder ending in / or a glob');
+  const exclude = excludeValues.map((v) => v.trim().replace(/\\/g, '/'));
+  return { apply, from, to, seeds, folders, depth, mode, onConflict, expect, exclude, allowHashMismatch: argv.includes('--allow-hash-mismatch'), json: argv.includes('--json') };
 }
 
 function loadVault(vault) {
@@ -88,7 +91,7 @@ export function computePlan(args, source, destination) {
     if (!under.length) return { errors: [`--seed-folder ${folder} holds no page in vault ${source.id}`] };
     seeds.push(...under);
   }
-  return planTransfer({ source: src, destination: dst, seeds, depth: args.depth, mode: args.mode, onConflict: args.onConflict, allowHashMismatch: args.allowHashMismatch });
+  return planTransfer({ source: src, destination: dst, seeds, depth: args.depth, mode: args.mode, onConflict: args.onConflict, allowHashMismatch: args.allowHashMismatch, exclude: args.exclude });
 }
 
 const kb = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -102,6 +105,10 @@ export function report(plan, log = console.log) {
     if (!rows.length || reason === 'seed') continue;
     log(`\n  ${title} (${rows.length}):`);
     for (const e of rows) log(`    ${e.path}${e.depth ? ` (depth ${e.depth})` : ''}  <- ${e.via}`);
+  }
+  if (plan.excluded.length) {
+    log(`\n  EXCLUDED — kept out of the selection by --exclude ${plan.exclude.join(', ')}; they stay in ${plan.from}, and links to them become plain text (${plan.excluded.length}):`);
+    for (const e of plan.excluded) log(`    ${e.path}${e.via ? `  <- ${e.via}` : '  (seed)'}`);
   }
   const states = (s) => plan.entries.filter((e) => e.state === s);
   if (states('present').length) log(`\n  already at the destination, identical (${states('present').length}): skipped on apply`);

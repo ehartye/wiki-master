@@ -19,6 +19,12 @@ dedicated vault.
 - **Cited:** the `wiki/sources/` pages a selected page's `sources:` names, followed until raw, at any depth,
   so every transferred page's provenance resolves in the destination.
 - **Evidence:** the raw clippings, attachments and figure renders a selected page cites or embeds.
+- **Excluded:** pages matched by `--exclude <pattern>` (repeatable): an exact path, a folder ending in `/`,
+  or a glob in which `*` stays inside one path segment and `**` crosses segments. An excluded page is
+  outside the selection even when a seed links to it or the seed folder holds it. It is listed in the plan
+  with the page that would have brought it in, it stays where it is, and a move never removes it. A pattern
+  that matches no page is refused (exit 2), so a typo cannot move a page meant to stay. A `sources:` entry
+  naming an excluded page blocks (`provenance-excluded`).
 - Nothing else. A link to a page outside the selection becomes plain text, `label (vault <id>: <path>)`,
   never a link to the other vault. A link inside the selection whose bare name would resolve to a different
   page at the destination is given its full path, keeping its displayed text. Links in code stay as written.
@@ -53,7 +59,7 @@ dedicated vault.
      cite another page, or copy instead of moving.
 
 3. **Review, then get one explicit approval.** Read the linked pages, not only their count: a direct link
-   from a seed can be another project's page. Strike what does not belong by naming the seeds exactly or
+   from a seed can be another project's page. Strike what does not belong with `--exclude`, by naming the seeds exactly or by
    lowering `--depth`, and plan again. Then present the plan id, the counts by layer and reason, the size,
    the links that become text, the conflicts and their resolution, and for a move what is removed, what is
    kept and which pages there get their links rewritten. Say in the same request that Obsidian Git publishes both vaults on its next run.
