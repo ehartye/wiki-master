@@ -96,7 +96,9 @@ otherwise finish with `refresh-index.mjs`.
   move holds them back: close whatever holds it open and run `--restore` again.
 - A move made by [transfer](../../wiki-maintainer/references/transfer.md) removes its files through a
   purge transaction like any other, so the same command restores them at the source. It clears the
-  declines the move recorded, and the copy in the other vault is untouched.
+  declines the move recorded, and the copy in the other vault is untouched. Links the move rewrote
+  as plain text on pages that stayed are not changed back; those pages as they were are in
+  `.recycle/<purge-id>/transfer-originals/`.
 - Anything the manifest claims but the bin cannot supply is reported as **MISSING**
   with a non-zero exit. **Never read a bare `restored N file(s)` as success** without
   checking that line.

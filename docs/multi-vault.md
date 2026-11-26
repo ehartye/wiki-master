@@ -188,8 +188,14 @@ through their own body links. Vault root files, `log/` and `_templates/` never t
   cites, and the plan names what holds it. The
   manifest names the transfer, and each removed clipping's address is declined at the source as a
   purge declines it, so discovery there does not clip it again; an interrupted removal is finished
-  by the same apply, and `purge.mjs --restore <purge-id>` undoes it. Pages staying at the
-  source that link to removed pages are listed as collateral for repair as plain text.
+  by the same apply, and `purge.mjs --restore <purge-id>` undoes it.
+- **Inbound links.** The plan lists every link from a page staying at the source to a page
+  the move removes. Apply rewrites each one to plain text naming the page's new vault and
+  path, `label (vault <destination>: <path>)`, the treatment outbound links get, before
+  anything is removed, so no page left there has a dangling link. Each rewritten page is kept
+  as it was in `.recycle/<purge-id>/transfer-originals/`; a restore leaves the rewritten text
+  in place. A `sources:` entry naming a removed page blocks the move. Raw bodies and `log/`
+  entries are never edited.
 
 Obsidian Git owns each vault's Git operations. Declines, triage
 queues, ledgers, caches and indexes stay per vault, and each written vault is refreshed

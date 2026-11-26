@@ -6,6 +6,7 @@ import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { clipperText } from '../scripts/lib/clipping-hash.mjs';
+import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
 
 // The transfer command at its seam: two registered fixture vaults in a temp folder, the CLI run as a child, and
 // the files on disk compared afterwards. Content is made up.
@@ -13,6 +14,7 @@ import { clipperText } from '../scripts/lib/clipping-hash.mjs';
 const SCRIPT = resolve('scripts/transfer.mjs');
 const PURGE = resolve('scripts/purge.mjs');
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const graphOf = (vaultPath) => computeGraphMetrics(buildGraph(vaultPath));
 
 function clipping(title, body, extra = '') {
   // A clipper hashes the bare Markdown and stores it after one blank line, with one line break after it.
@@ -267,13 +269,25 @@ test('a move removes at the source only what nothing there still needs, through 
   const sourceBefore = snapshot(f.general);
   const plan = planOf(f, [...SELECT, '--mode', 'move']);
   // Elsewhere stays and cites Queue Notes, so the source page and its clipping stay too. Elsewhere and the kept
-  // Queue Notes also link to the overview, a seed: it is still removed, and they are collateral, as the hand
-  // map linking the removed Retry Budget is.
+  // Queue Notes also link to the overview, a seed: it is still removed. Every link left pointing at a removed
+  // page, theirs and the hand map's link to the removed Retry Budget, is listed and becomes plain text.
   assert.deepEqual(plan.removal.keep.map((k) => k.path), ['raw/clippings/Queue Notes.md', 'wiki/sources/Queue Notes.md']);
   assert.ok(plan.removal.remove.includes('wiki/authored/alpha/overview.md'));
-  assert.deepEqual(plan.removal.collateral, ['moc/tasks.md', 'wiki/concepts/Elsewhere.md', 'wiki/sources/Queue Notes.md']);
+  const inbound = [
+    { page: 'moc/tasks.md', from: '[[Retry Budget]]', to: 'Retry Budget (vault docs: wiki/concepts/Retry Budget.md)' },
+    { page: 'wiki/concepts/Elsewhere.md', from: '[[wiki/authored/alpha/overview|the alpha overview]]', to: 'the alpha overview (vault docs: wiki/authored/alpha/overview.md)' },
+    { page: 'wiki/sources/Queue Notes.md', from: '[[wiki/authored/alpha/overview|alpha]]', to: 'alpha (vault docs: wiki/authored/alpha/overview.md)' },
+  ];
+  assert.deepEqual(plan.removal.inbound, inbound);
+  assert.deepEqual(graphOf(f.general).brokenLinks.filter((b) => !plan.removal.remove.includes(b.source)), [], 'the fixture starts with no broken link on a page that stays');
   const r = f.transfer('--apply', ...SELECT, '--mode', 'move', '--expect', plan.id);
   assert.equal(r.status, 0, r.stderr);
+
+  for (const l of inbound) {
+    const text = readFileSync(join(f.general, l.page), 'utf8');
+    assert.ok(text.includes(l.to) && !text.includes(l.from), `${l.page}: ${text}`);
+  }
+  assert.deepEqual(graphOf(f.general).brokenLinks, [], 'no page left at the source links to a removed page');
 
   for (const p of plan.removal.remove) {
     assert.ok(!existsSync(join(f.general, p)), `${p} is removed at the source`);
@@ -294,7 +308,11 @@ test('a move removes at the source only what nothing there still needs, through 
   assert.deepEqual(declined(), [['https://example.com/Retry%20Paper', `purged:${bins[0]}`]]);
   assert.ok(!existsSync(join(f.docs, '.wiki-master/declined.json')), 'the destination declines nothing');
   assert.deepEqual(manifest.entries.map((e) => e.from).sort(), plan.removal.remove);
+  for (const l of inbound) {
+    assert.equal(sha(readFileSync(join(f.general, '.recycle', bins[0], 'transfer-originals', l.page))), sourceBefore[l.page], `${l.page} is kept as it was`);
+  }
   assert.equal(logs(f.general, 'transfer-out').length, 1);
+  assert.match(readFileSync(join(f.general, 'log', logs(f.general, 'transfer-out')[0]), 'utf8'), /3 link\(s\) here to removed pages became plain text naming vault `docs`/);
 
   const restore = f.run(PURGE, ['--restore', bins[0]]);
   assert.equal(restore.status, 0, restore.stderr);
@@ -303,17 +321,34 @@ test('a move removes at the source only what nothing there still needs, through 
   for (const p of plan.removal.remove) assert.equal(restored[p], sourceBefore[p], `purge --restore brings back ${p} as it was`);
 });
 
+test('a move refuses while a page staying at the source cites a moved page in sources:', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  writeFileSync(join(f.general, 'wiki/syntheses/Cites Alpha.md'), '---\ntype: synthesis\nsources: ["[[wiki/authored/alpha/overview]]"]\nai-generated: true\n---\n# Cites Alpha\n\nText.\n');
+  const plan = planOf(f, [...SELECT, '--mode', 'move']);
+  assert.deepEqual(plan.blocking.map((b) => [b.path, b.reason]), [['wiki/syntheses/Cites Alpha.md', 'cites-moved-page']]);
+  const before = { general: snapshot(f.general), docs: snapshot(f.docs) };
+  const r = f.transfer('--apply', ...SELECT, '--mode', 'move', '--expect', plan.id);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /cites-moved-page/);
+  assert.deepEqual({ general: snapshot(f.general), docs: snapshot(f.docs) }, before);
+  assert.deepEqual(planOf(f).blocking, [], 'a copy removes nothing, so the citation still resolves');
+});
+
 test('a move interrupted after its manifest is written finishes on the same apply', (t) => {
   const f = fixture(); t.after(f.cleanup);
   const plan = planOf(f, [...SELECT, '--mode', 'move']);
   assert.equal(f.transfer('--apply', ...SELECT, '--mode', 'move', '--expect', plan.id).status, 0);
-  // Put two binned files back where they were, as though the removal stopped before moving them.
+  // Put two binned files back where they were, and one page's links back as they were, as though the apply
+  // stopped after writing its manifest.
   const [bin] = readdirSync(join(f.general, '.recycle'));
   for (const p of plan.removal.remove.slice(0, 2)) renameSync(join(f.general, '.recycle', bin, p), join(f.general, p));
+  writeFileSync(join(f.general, 'wiki/concepts/Elsewhere.md'), GENERAL['wiki/concepts/Elsewhere.md']);
   const r = f.transfer('--apply', ...SELECT, '--mode', 'move', '--expect', plan.id);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /resuming the removal/);
   for (const p of plan.removal.remove) assert.ok(!existsSync(join(f.general, p)), `${p} is removed`);
+  assert.ok(readFileSync(join(f.general, 'wiki/concepts/Elsewhere.md'), 'utf8').includes('the alpha overview (vault docs: wiki/authored/alpha/overview.md)'), 'the rewrite is finished too');
+  assert.deepEqual(graphOf(f.general).brokenLinks, []);
   assert.equal(readdirSync(join(f.general, '.recycle')).length, 1, 'the same purge is finished, not a second one started');
   assert.equal(logs(f.general, 'transfer-out').length, 1);
   assert.equal(logs(f.docs, 'transfer-in').length, 1);

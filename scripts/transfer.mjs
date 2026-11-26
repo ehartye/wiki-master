@@ -6,7 +6,7 @@ import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { resolveContext, requireSelectedTarget, contextEnv, ContextError } from './lib/context.mjs';
 import { commandLines } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
-import { buildManifest, purgeId, binPathFor } from './lib/purge.mjs';
+import { buildManifest, purgeId, binPathFor, BIN_DIR } from './lib/purge.mjs';
 import { planTransfer, pagesUnder, sha256Bytes, DEFAULT_DEPTH } from './lib/transfer.mjs';
 import { clippingHash } from './lib/clipping-hash.mjs';
 import { readManifests, writeManifest, nextFreePurgeId, applyPurge, enrichPages } from './purge.mjs';
@@ -136,9 +136,13 @@ export function report(plan, log = console.log) {
       log(`  kept at ${plan.from} as well, because pages outside the selection refer to them or to a page that does (${plan.removal.keep.length}):`);
       for (const k of plan.removal.keep) log(`    ${k.path}${k.by.length ? `  <- ${k.by.slice(0, 3).join(', ')}${k.by.length > 3 ? ` and ${k.by.length - 3} more` : ''}` : ''}`);
     }
-    if (plan.removal.collateral.length) {
-      log(`  COLLATERAL — pages staying at ${plan.from} that link to removed pages; repair them as plain text naming vault ${plan.to} (${plan.removal.collateral.length}):`);
-      for (const c of plan.removal.collateral) log(`    ${c}`);
+    if (plan.removal.inbound.length) {
+      log(`  INBOUND LINKS — pages staying at ${plan.from} that link to removed pages; apply rewrites each link to plain text naming vault ${plan.to} (${plan.removal.inbound.length} link(s) in ${plan.removal.rewrites.length} page(s)):`);
+      let page = null;
+      for (const l of plan.removal.inbound) {
+        if (l.page !== page) { page = l.page; log(`    ${page}`); }
+        log(`      ${l.from} -> ${l.to}`);
+      }
     }
   }
   if (plan.conflicts.length) {
@@ -196,7 +200,12 @@ function sourceBody(plan, removal) {
   body += list('Removed:', removal.removed);
   body += list('Copied and kept here, because pages outside the selection refer to them or to a page that does:', plan.removal.keep.map((k) => k.path));
   body += list('Changed since the plan, so not removed:', removal.changed);
-  if (plan.removal.collateral.length) body += `\nCollateral needing reference repair:\n${plan.removal.collateral.map((c) => `- [[${c}]]`).join('\n')}\n`;
+  if (removal.rewritten?.length) {
+    const links = plan.removal.inbound.filter((l) => removal.rewritten.includes(l.page)).length;
+    body += `\n${links} link(s) here to removed pages became plain text naming vault \`${plan.to}\`. The pages as they were are kept in \`.recycle/${removal.purgeId}/${ORIGINALS}/\`.\n`;
+    body += list('Links rewritten in:', removal.rewritten);
+  }
+  body += list('Changed since the plan, so their links to removed pages were not rewritten:', removal.unrewritten ?? []);
   return body;
 }
 
@@ -233,7 +242,27 @@ function removeAtSource(source, manifest) {
   return { removed, changed, failed };
 }
 
+// The pages staying at the source whose links to removed pages become plain text. The manifest carries each
+// page's planned text, and the page as it was is kept beside the manifest, so a resumed apply finishes the same
+// rewrite and nothing is lost. A page already rewritten is skipped; one changed since the plan is left alone and
+// reported, since its links can no longer be rewritten as reviewed.
+const ORIGINALS = 'transfer-originals';
+function rewriteInbound(source, manifest) {
+  const rewritten = [];
+  const unrewritten = [];
+  for (const r of manifest.transfer.rewrites ?? []) {
+    const now = readIn(source)(r.path);
+    const nowSha = now === null ? null : sha256Bytes(now);
+    if (nowSha === r.afterSha) { rewritten.push(r.path); continue; }
+    if (nowSha !== r.beforeSha) { unrewritten.push(r.path); continue; }
+    writeVerified(source.path, r.path, Buffer.from(r.after, 'utf8'), r.afterSha);
+    rewritten.push(r.path);
+  }
+  return { rewritten, unrewritten };
+}
+
 function finish(source, destination, plan, removal, log, err) {
+  for (const p of removal?.unrewritten ?? []) err(`  changed at ${plan.from} since it was planned, so its links to removed pages were not rewritten: ${p}`);
   if (removal?.failed.length) {
     for (const x of removal.failed) err(`  could not be removed: ${x.from} — ${x.reason}`);
     err('Close whatever holds them open, then run the same --apply again to finish this transfer.');
@@ -247,7 +276,7 @@ function finish(source, destination, plan, removal, log, err) {
   log('NEXT: refresh the destination');
   for (const line of commandLines(REFRESH, '', destination.env)) log(`  ${line}`);
   if (plan.mode === 'move') {
-    log(plan.removal.collateral.length ? 'then repair the collateral pages at the source and refresh it' : 'and refresh the source');
+    log('and refresh the source');
     for (const line of commandLines(REFRESH, '', source.env)) log(`  ${line}`);
     if (removal?.purgeId) {
       log(`To undo the removal at ${plan.from}:`);
@@ -275,8 +304,9 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
     if (pending) {
       const plan = pending.transfer.plan;
       log(`resuming the removal of transfer ${plan.id} at ${plan.from} (purge ${pending.id})`);
+      const w = rewriteInbound(source, pending);
       const r = removeAtSource(source, pending);
-      return finish(source, destination, plan, { purgeId: pending.id, ...r }, log, err);
+      return finish(source, destination, plan, { purgeId: pending.id, ...w, ...r }, log, err);
     }
   }
 
@@ -341,14 +371,28 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
   const id = nextFreePurgeId(source.path, purgeId(`transfer to ${plan.to}`));
   const pages = enrichPages(source.path, buildGraph(source.path).pages);
   const hashes = Object.fromEntries(removable.map((p) => [p, utf8Sha(src(p))]));
-  const manifest = buildManifest({ id, topic: `transfer to ${plan.to}`, date: id.slice(0, 10), purge: removable, collateral: plan.removal.collateral, pages, hashes });
+  const manifest = buildManifest({ id, topic: `transfer to ${plan.to}`, date: id.slice(0, 10), purge: removable, collateral: plan.removal.rewrites.map((r) => r.path), pages, hashes });
   // A figure sidecar carries its clipping's address too; one decline per address.
   manifest.declines = [...new Set(manifest.declines)];
-  manifest.transfer = { plan: planRecord(plan) };
+  manifest.transfer = {
+    plan: planRecord(plan),
+    rewrites: plan.removal.rewrites.map((r) => ({ ...r, after: plan.rewriteOutputs.get(r.path).toString('utf8') })),
+  };
+  // The manifest is the journal, written before any page here changes. Each page whose links are rewritten is
+  // kept as it was beside it, then rewritten, and only then is anything removed.
   writeManifest(source.path, manifest);
+  for (const r of plan.removal.rewrites) {
+    const before = src(r.path);
+    if (before === null || sha256Bytes(before) !== r.beforeSha) continue;
+    const kept = checkedPath(source.path, BIN_DIR, id, ORIGINALS, r.path);
+    mkdirSync(dirname(kept), { recursive: true });
+    writeFileSync(kept, before);
+  }
+  const w = rewriteInbound(source, manifest);
+  log(`rewrote ${plan.removal.inbound.length} link(s) in ${w.rewritten.length} page(s) at ${plan.from} to plain text naming vault ${plan.to}`);
   const r = removeAtSource(source, manifest);
   log(`removed ${r.removed.length} file(s) at ${plan.from} into .recycle/${id}/`);
-  return finish(source, destination, plan, { purgeId: id, ...r, changed: [...changed, ...r.changed] }, log, err);
+  return finish(source, destination, plan, { purgeId: id, ...w, ...r, changed: [...changed, ...r.changed] }, log, err);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

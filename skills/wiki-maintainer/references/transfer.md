@@ -47,13 +47,16 @@ dedicated vault.
    - **KEPT** (move only): selected files other than the seeds that a page outside the selection links to
      or cites, such as a concept or source page another project shares, and the evidence a kept page cites.
      They are copied and stay in both vaults. Seeds are always removed.
-   - **COLLATERAL** (move only): pages staying at the source that link to removed pages.
+   - **INBOUND LINKS** (move only): every link from a page staying at the source to a page the move
+     removes, with the plain text it becomes, `label (vault <destination>: <path>)`. Apply rewrites them
+     before removing anything. A `sources:` entry naming a removed page is BLOCKING (`cites-moved-page`):
+     cite another page, or copy instead of moving.
 
 3. **Review, then get one explicit approval.** Read the linked pages, not only their count: a direct link
    from a seed can be another project's page. Strike what does not belong by naming the seeds exactly or
    lowering `--depth`, and plan again. Then present the plan id, the counts by layer and reason, the size,
    the links that become text, the conflicts and their resolution, and for a move what is removed, what is
-   kept and the collateral. Say in the same request that Obsidian Git publishes both vaults on its next run.
+   kept and which pages there get their links rewritten. Say in the same request that Obsidian Git publishes both vaults on its next run.
    Nothing else asks later.
 
 4. **Apply** with the same options and the reviewed id:
@@ -66,13 +69,16 @@ dedicated vault.
 
 5. **Move only: the removal.** After the copy is verified, the seeds and the other selected files nothing
    outside the selection needs move into the source's `.recycle/` as one purge transaction whose manifest names the transfer.
-   Each removed clipping's address is declined at the source, as a purge does. A file changed since the plan stays where it is and is reported. Repair the
-   collateral pages' hand-written text as plain text naming the destination vault, never a link, and
-   [validate those paths](../../wiki-setup/references/validation.md). `purge.mjs --restore <purge-id>`,
-   bound to the source vault, undoes the removal; it does not touch the destination.
+   First the listed inbound links become plain text; each rewritten page is kept as it was in
+   `.recycle/<purge-id>/transfer-originals/`. Then the files move. Each removed clipping's address is declined
+   at the source, as a purge does. A file changed since the plan stays where it is and is reported, and so
+   does a page changed since the plan, whose links are then not rewritten: repair that page by hand as plain
+   text naming the destination vault, never a link. [Validate the rewritten pages](../../wiki-setup/references/validation.md).
+   `purge.mjs --restore <purge-id>`, bound to the source vault, undoes the removal; it leaves the rewritten
+   links as text and does not touch the destination.
 
 6. **Refresh each written vault** once, with that vault's binding, as [completion](operations.md)
-   describes: the destination always, the source after a move or a collateral repair. The helper prints both
+   describes: the destination always, the source after a move. The helper prints both
    commands. Then repeat the broken-link check in each vault and compare with step 1.
 
 7. **Report** the plan id, the counts written, already present, kept and removed, the purge id for a move,
