@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { buildNameIndex, resolveLinkTarget, isContent } from './graph.mjs';
 import { sortedByPath, inboundMap, isStructural } from './purge.mjs';
-import { clippingHash } from './clipping-hash.mjs';
+import { verifyClippingHash, EQUIVALENT_HASH_STATUSES } from './clipping-hash.mjs';
 import { prose } from './prose.mjs';
 
 // Planning for a copy or move of wiki content from one registered vault to another (scripts/transfer.mjs).
@@ -274,6 +274,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
   const attaches = [];
   const unhashed = [];
   const mismatched = [];
+  const equivalent = [];
   const conflicts = [];
   const outputs = new Map();
   let bytes = 0;
@@ -288,13 +289,19 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     let hashMismatch = false;
     if (isRaw(path)) {
       if (isMarkdown(path) && !path.startsWith('raw/figures/')) {
-        if (!page.sourceHash) unhashed.push(path);
-        else if (clippingHash(srcBytes.toString('utf8')) !== page.sourceHash) {
+        // Every hashed Markdown file under raw/ outside raw/figures/ is checked, not only those under raw/clippings/.
+        const status = page.sourceHash ? verifyClippingHash(srcBytes.toString('utf8'), page.sourceHash) : null;
+        if (!status) unhashed.push(path);
+        else if (status === 'mismatch') {
           // Already so at the source. Refused unless the owner accepts copying it as it is: byte for byte, with
           // the mismatch named in the plan and both log entries, and its source-hash left unverified.
           hashMismatch = true;
           if (allowHashMismatch) mismatched.push(path);
           else blocking.push({ path, reason: 'hash-mismatch', detail: 'the stored text does not match its source-hash, so it is not the capture the hash records (--allow-hash-mismatch copies it as it is)' });
+        } else if (EQUIVALENT_HASH_STATUSES.includes(status)) {
+          // The same text in another form (other line endings, or without a final line break): not a defect, so it
+          // transfers without --allow-hash-mismatch and is named in the plan as a note.
+          equivalent.push({ path, status });
         }
       }
     } else if (isMarkdown(path)) {
@@ -458,7 +465,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     linkChanges,
     conflicts,
     blocking,
-    notes: { unhashed, mismatched, attaches },
+    notes: { unhashed, mismatched, equivalent, attaches },
     removal,
     totals: { files: entries.length, wiki: count('wiki'), raw: count('raw'), bytes },
   };

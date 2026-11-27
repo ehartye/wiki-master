@@ -51,10 +51,12 @@ dedicated vault.
    - **CONFLICTS:** the destination already has a different file at the path, a path differing only in letter
      case, or a purge in its `.recycle/` that names the file. Refused unless
      `--on-conflict keep-destination`, which leaves the destination's file and transfers the rest.
-   - **BLOCKING:** a clipping whose text does not match its `source-hash`, or a `sources:` entry naming a
-     page outside the selection. For the second, add the page as a seed (which also brings its direct
-     links) or raise the depth. For the first, find out why the text changed; when the owner accepts the
-     file as it is, `--allow-hash-mismatch` copies it byte for byte and names it in the plan and both logs.
+   - **BLOCKING:** a clipping whose text does not match its `source-hash` (`hash-mismatch`), or a `sources:`
+     entry naming a page outside the selection. For the second, add the page as a seed (which also brings its
+     direct links) or raise the depth. For the first, find out why the text changed; when the owner accepts
+     the file as it is, `--allow-hash-mismatch` copies it byte for byte and names it in the plan and both logs.
+     A clipping whose text differs only in line endings or a final line break (`crlf-variant`,
+     `trailing-newline`) is not a mismatch: the plan lists it in a NOTE and it transfers without the flag.
    - **KEPT** (move only): selected files other than the seeds that a page outside the selection links to
      or cites, such as a concept or source page another project shares, and the evidence a kept page cites.
      They are copied and stay in both vaults. Seeds are always removed.

@@ -8,7 +8,7 @@ import { commandLines } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { buildManifest, purgeId, binPathFor, BIN_DIR } from './lib/purge.mjs';
 import { planTransfer, pagesUnder, sha256Bytes, DEFAULT_DEPTH } from './lib/transfer.mjs';
-import { clippingHash } from './lib/clipping-hash.mjs';
+import { verifyClippingHash } from './lib/clipping-hash.mjs';
 import { readManifests, writeManifest, nextFreePurgeId, applyPurge, enrichPages } from './purge.mjs';
 import { loadDeclines, recordDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
@@ -149,6 +149,10 @@ export function report(plan, log = console.log) {
     log(`
   HASH MISMATCH ACCEPTED — copied byte for byte, the mismatch kept and named in both logs (${plan.notes.mismatched.length}):`);
     for (const p of plan.notes.mismatched) log(`    ${p}`);
+  }
+  if (plan.notes.equivalent.length) {
+    log(`\n  NOTE — clippings whose text is the text their source-hash records, in another form (other line endings, or without a final line break); not a mismatch, so they transfer as they are (${plan.notes.equivalent.length}):`);
+    for (const e of plan.notes.equivalent) log(`    ${e.path} (${e.status})`);
   }
   if (plan.notes.unhashed.length) {
     log(`\n  NOTE — clippings with no source-hash, verified by their bytes only (${plan.notes.unhashed.length}); adopt-clipping.mjs can stamp them:`);
@@ -367,7 +371,8 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
   const bad = transferred.filter((e) => {
     const there = dst(e.path);
     if (there === null || sha256Bytes(there) !== e.outSha) return true;
-    return Boolean(e.sourceHash) && !e.hashMismatch && e.path.endsWith('.md') && clippingHash(there.toString('utf8')) !== e.sourceHash;
+    // The plan's own check again: a match or an equivalent form passes, a real mismatch the plan did not accept fails.
+    return Boolean(e.sourceHash) && !e.hashMismatch && e.path.endsWith('.md') && verifyClippingHash(there.toString('utf8'), e.sourceHash) === 'mismatch';
   });
   if (bad.length) {
     for (const e of bad) err(`transfer: ${e.path} at ${plan.to} does not match the plan`);
