@@ -84,18 +84,57 @@ test('the mismatch is the only new defect: without that clipping the count is on
   assert.equal(without.clippingHashes.mismatch, 0);
 });
 
-test('a supplied or hand-made clipping gets the owner-review and re-adoption fix, not recapture', (t) => {
-  const { root } = fixture(t, {
-    'wiki/sources/source.md': SOURCE,
-    'raw/clippings/match.md': clip(sha(MD)),
-    'raw/clippings/supplied.md': clip(sha('Other words.'), { extra: 'extraction: manual\n' }),
-  });
-  const [issue] = mismatches(scanIntegrity(root));
-  assert.equal(issue.source, 'raw/clippings/supplied.md');
+// One mismatched clipping in a vault, with the frontmatter given; returns its issue.
+function mismatchOf(t, name, frontmatter) {
+  const text = `---\ntitle: "T"\n${frontmatter}created: 2026-01-01\nsource-hash: ${sha('Other words.')}\ntags: [clippings]\n---\n\n${MD}\n`;
+  const { root } = fixture(t, { 'wiki/sources/source.md': SOURCE, 'raw/clippings/match.md': clip(sha(MD)), [name]: text });
+  const [issue, ...more] = mismatches(scanIntegrity(root));
+  assert.deepEqual(more, []);
+  assert.equal(issue.source, name);
+  return issue;
+}
+
+test('a supplied clipping with a web source may not be recapturable: owner review, re-adoption, recapture or a transfer the owner approves', (t) => {
+  const issue = mismatchOf(t, 'raw/clippings/supplied.md', 'source: "https://example.test/changelog"\nextraction: manual\n');
+  assert.equal(issue.capture, 'manual');
+  assert.equal(issue.clipper, 'clip.mjs');
+  assert.match(issue.verification, /may not be recapturable/);
+  assert.doesNotMatch(issue.verification, /cannot be recaptured/);
   assert.match(issue.verification, /owner/);
   assert.match(issue.verification, /adopt-clipping\.mjs/);
-  assert.doesNotMatch(issue.verification, /--recapture/);
+  assert.match(issue.verification, /--allow-hash-mismatch/);
+  assert.match(issue.verification, /clip\.mjs <source> --recapture/, 'its source is a web page, so a recapture is one of the paths');
 });
+
+test('a hand-made clipping with no web source names no clipper it cannot know', (t) => {
+  const issue = mismatchOf(t, 'raw/clippings/notes.md', 'source: "notes from a meeting"\n');
+  assert.equal(issue.capture, 'manual');
+  assert.equal(issue.clipper, null);
+  assert.match(issue.verification, /may not be recapturable/);
+  assert.match(issue.verification, /the clipper that captured it/);
+  assert.doesNotMatch(issue.verification, /scripts\/clip[-.]/);
+});
+
+// A web capture's fix names the clipper that matches it, from its source, its extraction or its folder.
+const CLIPPERS = [
+  ['a web page', 'raw/clippings/page.md', 'source: "https://example.test/page"\n', 'clip.mjs'],
+  ['a GitHub file', 'raw/clippings/gh/o/r/README.md', 'source: "https://github.com/o/r/blob/main/README.md"\n', 'clip-gh.mjs'],
+  ['a PDF by its address', 'raw/clippings/paper.md', 'source: "https://example.test/files/paper.pdf"\n', 'clip-pdf.mjs'],
+  ['a PDF by its extraction', 'raw/clippings/scan.md', 'source: "https://example.test/files/scan"\nextraction: ocr\n', 'clip-pdf.mjs'],
+  ['a Word document', 'raw/clippings/memo.md', 'source: "https://example.test/files/memo.docx"\n', 'clip-docx.mjs'],
+  ['a slide deck', 'raw/clippings/deck.md', 'source: "https://example.test/files/deck.pptx"\n', 'clip-pptx.mjs'],
+  ['a spreadsheet', 'raw/clippings/sheet.md', 'source: "https://example.test/files/sheet.xlsx"\n', 'clip-xlsx.mjs'],
+  ['a Confluence page', 'raw/clippings/space.md', 'source: "https://example.atlassian.net/wiki/spaces/S/pages/1/Page"\n', 'clip-confluence.mjs'],
+];
+for (const [kind, name, frontmatter, clipper] of CLIPPERS) {
+  test(`the fix for ${kind} names ${clipper}`, (t) => {
+    const issue = mismatchOf(t, name, frontmatter);
+    assert.equal(issue.capture, 'web');
+    assert.equal(issue.clipper, clipper);
+    assert.ok(issue.verification.includes(`node scripts/${clipper}`), issue.verification);
+    for (const other of new Set(CLIPPERS.map((c) => c[3]))) if (other !== clipper) assert.ok(!issue.verification.includes(`scripts/${other}`), `${other} is not named`);
+  });
+}
 
 test('the report prints the mismatch with its fix and one count line for the equivalent statuses', (t) => {
   const { root } = fixture(t);
