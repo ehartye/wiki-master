@@ -16,22 +16,29 @@ const LF = String.fromCharCode(10);
 // The gate is the product's own read (pdfToText on a one-page fixture), NOT an
 // exit-code check: Xpdf's pdftotext exits 99 for -v, so the naive version skipped
 // these tests on exactly the installs whose -table mode they are meant to cover,
-// and presence alone let through an Xpdf that crashes when the home folder is not
-// the real profile. That crash is intermittent, so one lucky fixture read could
-// open the gate; on Windows an Xpdf pdftotext is refused by its banner instead.
-test('the pdftotext gate passes a pdftotext that reads the fixture, and names what happened otherwise', () => {
-  const crash = Object.assign(new Error('Command failed'), { status: 3221225477, signal: null });
-  const reads = 'pdftotext capability probe\n\f';
-  const xpdfOnWindows = 'needs a pdftotext that reads a PDF reliably; found Xpdf pdftotext, which crashes intermittently when USERPROFILE is not the real profile (as under npm test)';
-  assert.deepEqual(textCapability({ present: true, flavor: 'xpdf', platform: 'win32', text: reads }), { ok: false, reason: xpdfOnWindows });
-  assert.deepEqual(textCapability({ present: true, flavor: 'xpdf', platform: 'linux', text: reads }), { ok: true, reason: null });
-  assert.deepEqual(textCapability({ present: true, flavor: 'poppler', platform: 'win32', text: reads }), { ok: true, reason: null });
-  assert.deepEqual(textCapability({ present: true, text: 'pdftotext capability probe\n\f' }), { ok: true, reason: null });
+// and presence alone let through an Xpdf 4.06 that crashes on most reads when the
+// home folder is not the real profile. The crash is intermittent, so the gate
+// refuses Xpdf 4.06 by name and asks every other pdftotext for five good reads in
+// a row; Git for Windows' Xpdf 4.00 passes that and keeps these tests running.
+test('the pdftotext gate passes five good fixture reads, refuses Xpdf 4.06 by name, and says what happened otherwise', () => {
+  const good = { text: 'pdftotext capability probe\n\f' };
+  const five = [good, good, good, good, good];
+  const crash = { error: Object.assign(new Error('Command failed'), { status: 3221225477, signal: null }) };
+  const xpdf = (version) => ({ present: true, flavor: 'xpdf', banner: `pdftotext version ${version} [www.xpdfreader.com]\nCopyright 1996-2025 Glyph & Cog, LLC\n` });
+  const poppler = { present: true, flavor: 'poppler', banner: 'pdftotext version 24.08.0\nCopyright 2005-2024 The Poppler Developers - http://poppler.freedesktop.org\n' };
+
+  assert.deepEqual(textCapability({ ...xpdf('4.06'), reads: five }), { ok: false, reason: 'needs a pdftotext that reads a PDF reliably; found Xpdf pdftotext 4.06, which crashed on most reads when USERPROFILE is not the real profile (as under npm test)' });
+  assert.deepEqual(textCapability({ ...xpdf('4.00'), reads: five }), { ok: true, reason: null });
+  assert.deepEqual(textCapability({ ...poppler, reads: five }), { ok: true, reason: null });
+  // A Poppler whose version happens to read 4.06 is not Xpdf.
+  assert.deepEqual(textCapability({ present: true, flavor: 'poppler', banner: 'pdftotext version 4.06\n', reads: five }), { ok: true, reason: null });
+
   assert.equal(textCapability({ present: false }).reason, 'needs pdftotext; found none that answers -h or -v');
-  assert.equal(textCapability({ present: true, error: crash }).reason, 'needs a pdftotext that reads a PDF; pdftotext crashed (exit 3221225477) reading a one-page fixture');
-  assert.equal(textCapability({ present: true, error: { status: null, signal: 'SIGSEGV' } }).reason, 'needs a pdftotext that reads a PDF; pdftotext crashed (SIGSEGV) reading a one-page fixture');
-  assert.equal(textCapability({ present: true, error: { status: 1 } }).reason, 'needs a pdftotext that reads a PDF; pdftotext exited 1 reading a one-page fixture');
-  assert.equal(textCapability({ present: true, text: '' }).reason, 'needs a pdftotext that reads a PDF; pdftotext read "" from a fixture that says "pdftotext capability probe"');
+  assert.equal(textCapability({ ...xpdf('4.00'), reads: [good, crash] }).reason, 'needs a pdftotext that reads a PDF reliably; pdftotext crashed (exit 3221225477) on read 2 of 5');
+  assert.equal(textCapability({ ...poppler, reads: [{ error: { status: null, signal: 'SIGSEGV' } }] }).reason, 'needs a pdftotext that reads a PDF reliably; pdftotext crashed (SIGSEGV) on read 1 of 5');
+  assert.equal(textCapability({ ...poppler, reads: [good, good, good, { error: { status: 1 } }] }).reason, 'needs a pdftotext that reads a PDF reliably; pdftotext exited 1 on read 4 of 5');
+  assert.equal(textCapability({ ...poppler, reads: [{ text: '' }] }).reason, 'needs a pdftotext that reads a PDF reliably; read 1 of 5 returned the wrong text ("") from a fixture that says "pdftotext capability probe"');
+  assert.equal(textCapability({ ...poppler, reads: [good, good] }).reason, 'needs a pdftotext that reads a PDF reliably; only 2 of 5 reads ran');
 });
 
 test('detectTabular separates a real table from a two-column paper', gated('pdftotext', () => {
