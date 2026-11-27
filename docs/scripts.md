@@ -81,6 +81,7 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | `setup-obsidian-git.mjs` | Checks or sets up the Obsidian Git plugin, which handles all git operations in the vault. |
 | `obsidian.mjs` | Proxy to the Obsidian CLI; exits 1 when the CLI prints a refusal. |
 | `log-entry.mjs` | Writes one log entry and prints its path. |
+| `source-stub.mjs` | Prints a new source page's provenance frontmatter (`sources` and the clippings' recorded `source-hashes`) for a list of clippings, refusing one whose text no longer matches its hash. Read-only. |
 | `refresh-index.mjs` | The last step of an authoring task: regenerates the catalogs and refreshes the semantic index. |
 | `triage.mjs` | Opens the disposition queue of degraded captures and findings in a local browser page. |
 

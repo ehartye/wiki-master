@@ -154,6 +154,18 @@ export const CLI_SPECS = {
     options: [],
     usage: ['usage: node scripts/resolve-evidence.mjs <page-path>...   (or page paths on stdin)', '', 'Walks the citation graph from each wiki page to its raw evidence and prints it, so a search hit leads to the original text in one command.', 'Read-only.', VAULT],
   },
+  'source-stub': {
+    options: ['paths-file'],
+    usage: [
+      'usage: node scripts/source-stub.mjs <clipping>... | --paths-file <ledger>',
+      '',
+      'Prints the frontmatter block of a new source page that summarizes the named clippings: type: source, created and updated set to today (local time), status: draft, sources as quoted wikilinks to each clipping\'s vault path, source-hashes holding each clipping\'s recorded source-hash (the value the ingest backlog joins on), both in the order given, and ai-generated: true. A clipping named twice is listed once.',
+      'A clipping is a vault path (raw/clippings/<name>.md), an absolute path, or a path relative to the current directory that names a file there. --paths-file reads the paths from a ledger: a JSON array of vault-relative paths.',
+      'Every clipping is checked before anything is printed. A path outside raw/clippings/, a missing file, a clipping with no source-hash, and one whose text is not the text its source-hash was recorded over (health.mjs lists it as source-hash-mismatch) are each refused: every refused clipping is named on stderr, nothing is printed and the exit code is 1. A clipping whose hash was recorded over the same text with CRLF line endings or one more final line break is cited, with a note on stderr.',
+      'Exit 2: no clipping named, both clippings and --paths-file given, or a ledger that cannot be read or holds an invalid path. Read-only.',
+      VAULT,
+    ],
+  },
   'scan-private-terms': {
     options: ['json', 'known', 'root', 'terms-file'],
     usage: [

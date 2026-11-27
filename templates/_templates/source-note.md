@@ -5,6 +5,7 @@ updated:
 reviewed:
 status: draft
 sources:
+source-hashes:
 ai-generated: true
 ---
 # {{title}}
