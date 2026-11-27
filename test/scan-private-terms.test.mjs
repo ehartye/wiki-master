@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, unlinkSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -76,6 +76,80 @@ test('the CLI finds a term in a tracked and in an untracked file, prints where, 
   assert.doesNotMatch(r.stdout + r.stderr, /zorblax/i, 'the term must never be echoed');
   assert.doesNotMatch(r.stdout, /clean\.md|other\.txt/);
   assert.match(r.stdout, /2 hit\(s\) in 2 file\(s\)/);
+  assert.doesNotMatch(r.stdout, /folder walk/, 'a git repository is listed by git, not walked');
+});
+
+// A folder with no git work tree around it: a fresh temp folder (the suite's temp root is not inside a repository).
+function plainFolder(t, files) {
+  const dir = mkdtempSync(join(tmpdir(), 'wm-terms-plain-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  for (const [name, data] of Object.entries(files)) { mkdirSync(dirname(join(dir, name)), { recursive: true }); writeFileSync(join(dir, name), data); }
+  const probe = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: dir, encoding: 'utf8' });
+  assert.notEqual(probe.status, 0, 'the test folder must sit outside every git work tree, or git would list it');
+  return dir;
+}
+
+test('a folder outside any git work tree is walked: binary files, tool folders and links that leave it are skipped, and the report says so', (t) => {
+  const bs = String.fromCharCode(92);
+  const home = ['C:', 'Users', 'alex', 'repos', 'x'].join(bs); // built from parts, so this file holds no home path
+  const dir = plainFolder(t, {
+    'notes/a.md': `see ${home}\n`,
+    'clean.md': 'nothing here\n',
+    'bin.dat': Buffer.concat([Buffer.from(`${home} `), Buffer.from([0, 1, 2])]),
+    '.obsidian/workspace.json': `${home}\n`,
+    '.git/notes.txt': `${home}\n`, // no HEAD, so git does not take it for a repository
+    '.wiki-master/state.md': `${home}\n`,
+    '.recycle/old.md': `${home}\n`,
+    'node_modules/pkg/index.js': `${home}\n`,
+    'sub/node_modules/pkg/index.js': `${home}\n`,
+  });
+  const outside = mkdtempSync(join(tmpdir(), 'wm-terms-outside-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  writeFileSync(join(outside, 'far.md'), `${home}\n`);
+  symlinkSync(outside, join(dir, 'out-dir'), 'junction'); // a directory link that leaves the root
+  symlinkSync(dir, join(dir, 'notes', 'loop'), 'junction'); // a link back to the root must not loop or count twice
+  try { symlinkSync(join(outside, 'far.md'), join(dir, 'out-file.md'), 'file'); } catch (e) { if (e.code !== 'EPERM') throw e; t.diagnostic('file links need a privilege here; only directory links were checked'); }
+
+  const r = scan(dir, null);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  const lines = r.stdout.trim().split(/\r?\n/);
+  assert.equal(lines.length, 3, r.stdout);
+  assert.match(lines[0], /^folder walk: /, 'the report says the folder was walked');
+  assert.match(lines[0], /no git listing/);
+  assert.equal(lines[1], 'notes/a.md:1 home-path-windows');
+  assert.match(lines[2], /^1 hit\(s\) in 1 file\(s\); 2 file\(s\) scanned/);
+  assert.equal(r.stderr, '');
+
+  const j = JSON.parse(scan(dir, null, ['--json']).stdout);
+  assert.equal(j.listing, 'folder walk', '--json marks a walked folder');
+  assert.deepEqual(j.hits, [{ file: 'notes/a.md', line: 1, rule: 'home-path-windows' }]);
+
+  // Without git on the PATH there is no git listing either, so the folder is walked the same way.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.toUpperCase() !== 'PATH'));
+  const nogit = spawnSync(process.execPath, [SCRIPT, '--root', dir], { encoding: 'utf8', timeout: 30000, env: { ...env, PATH: outside } });
+  assert.equal(nogit.status, 1, nogit.stdout + nogit.stderr);
+  assert.match(nogit.stdout, /^folder walk: .*git/);
+  assert.match(nogit.stdout, /^notes\/a\.md:1 home-path-windows$/m);
+});
+
+test('a root that does not exist or is not a folder exits 2 with its own message', (t) => {
+  const dir = plainFolder(t, { 'file.md': 'text\n' });
+  const missing = scan(join(dir, 'no-such-folder'), null);
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /^scan-private-terms: the root folder does not exist/m);
+  const file = scan(join(dir, 'file.md'), null);
+  assert.equal(file.status, 2);
+  assert.match(file.stderr, /^scan-private-terms: the root is not a folder/m);
+  for (const r of [missing, file]) assert.doesNotMatch(r.stderr, /cannot be listed|fatal:/);
+});
+
+test('a git listing that fails inside a repository exits 2 and names the git error', (t) => {
+  const dir = repo(t, { tracked: { 'p.md': 'clean\n' } });
+  writeFileSync(join(dir, '.git', 'index'), 'garbage'); // git still finds the repository, but cannot read its index
+  const r = scan(dir, null);
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^scan-private-terms: the repository cannot be listed: git ls-files failed: .*index/m);
+  assert.doesNotMatch(r.stdout, /folder walk/, 'a broken repository is not walked as a plain folder');
 });
 
 test('a clean tree exits 0; ignored files, deleted files and binary files are not scanned', (t) => {
@@ -98,6 +172,7 @@ test('--json lists hits as path, line and rule, with counts', (t) => {
   assert.deepEqual(j.hits, [{ file: 'p.md', line: 1, rule: 'term #1' }]);
   assert.equal(j.count, 1);
   assert.equal(j.files, 1);
+  assert.deepEqual(Object.keys(j), ['count', 'files', 'hits'], 'a git listing adds no listing field');
   assert.doesNotMatch(r.stdout, /zorblax/i);
 });
 
