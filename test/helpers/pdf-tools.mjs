@@ -5,10 +5,11 @@
 //           pdftocairo and pdfinfo, and the pdftotext capability below
 //   ocr     ocrReachable (pdftoppm -v and tesseract --version exit 0), and the pdftotext capability below
 //   title   diagnosePdf's -v probe of the resolved pdfinfo exits 0, and pdfinfoTitle reads a fixture PDF's title
-//   pdftotext  pdftotextPresent, and the product's pdfToText reads a one-page fixture's text. On Windows an Xpdf
-//              pdftotext (by the product's banner check, pdftotextCapabilities().flavor) is refused without a read:
-//              Xpdf 4.06 answers -h and -v, but crashes on some reads and not others when USERPROFILE is not the
-//              real profile, as under npm test, so one lucky read cannot be trusted
+//   pdftotext  the product's pdfToText reads a one-page fixture's text correctly READS times in a row. The flavor
+//              and banner are diagnosePdf's: its pdftotext -h and -v probes, judged by pdftotextCapabilities.
+//              Xpdf 4.06 is refused by name without a read: it answers -h and -v, but when USERPROFILE is not
+//              the real profile (as under npm test) it crashed on most reads and not others, so even a run of
+//              good reads cannot be trusted. Other builds, such as Git for Windows' Xpdf 4.00, read reliably.
 //
 //   test('...', gated('raster', (t) => { ... }));
 //
@@ -21,7 +22,6 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnosePdf } from '../../scripts/lib/pdf-doctor.mjs';
-import { pdftotextCapabilities, pdftotextPresent } from '../../scripts/lib/pdf-extract.mjs';
 import { ocrReachable, pdfinfoTitle, pdfToText } from '../../scripts/clip-pdf.mjs';
 import { resolveTool } from '../../scripts/lib/pdf-figures.mjs';
 import { makePdf, prosePages } from '../fixtures/make-pdf.mjs';
@@ -29,6 +29,7 @@ import { makePdf, prosePages } from '../fixtures/make-pdf.mjs';
 export const STRICT_ENV = 'WIKI_MASTER_TEST_REQUIRE_POPPLER';
 const FIXTURE_TITLE = 'A Plausible Report Title';
 const FIXTURE_TEXT = 'pdftotext capability probe';
+export const READS = 5;
 const OK = Object.freeze({ ok: true, reason: null });
 
 // What a failed diagnosePdf probe found, as words: "found a pdftoppm that exits 99 on -v (Xpdf)".
@@ -85,13 +86,22 @@ function ended(tool, error) {
   return `${tool} failed (${error?.code ?? error?.message ?? 'unknown error'})`;
 }
 
-// `present` is pdftotextPresent(); `flavor` is pdftotextCapabilities().flavor; `text` is what pdfToText read from a
-// fixture saying FIXTURE_TEXT, or `error` what it threw.
-export function textCapability({ present, flavor, platform = process.platform, text, error }) {
+const goodRead = (read) => !read.error && String(read.text).includes(FIXTURE_TEXT);
+
+// `present` and `flavor` are pdftotextPresent's and pdftotextCapabilities' judgments of diagnosePdf's -h and -v probes;
+// `banner` is those probes' output; `reads` is each fixture read in order, { text } or { error }, up to the first bad one.
+export function textCapability({ present, flavor, banner = '', reads = [] }) {
   if (!present) return { ok: false, reason: 'needs pdftotext; found none that answers -h or -v' };
-  if (platform === 'win32' && flavor === 'xpdf') return { ok: false, reason: 'needs a pdftotext that reads a PDF reliably; found Xpdf pdftotext, which crashes intermittently when USERPROFILE is not the real profile (as under npm test)' };
-  if (error) return { ok: false, reason: `needs a pdftotext that reads a PDF; ${ended('pdftotext', error)} reading a one-page fixture` };
-  if (!String(text).includes(FIXTURE_TEXT)) return { ok: false, reason: `needs a pdftotext that reads a PDF; pdftotext read ${JSON.stringify(String(text).trim().slice(0, 80))} from a fixture that says ${JSON.stringify(FIXTURE_TEXT)}` };
+  const version = /pdftotext version (\S+)/i.exec(banner)?.[1];
+  const needs = 'needs a pdftotext that reads a PDF reliably';
+  if (flavor === 'xpdf' && version === '4.06') return { ok: false, reason: `${needs}; found Xpdf pdftotext 4.06, which crashed on most reads when USERPROFILE is not the real profile (as under npm test)` };
+  for (const [i, read] of reads.entries()) {
+    if (goodRead(read)) continue;
+    const n = `${i + 1} of ${READS}`;
+    if (read.error) return { ok: false, reason: `${needs}; ${ended('pdftotext', read.error)} on read ${n}` };
+    return { ok: false, reason: `${needs}; read ${n} returned the wrong text (${JSON.stringify(String(read.text).trim().slice(0, 80))}) from a fixture that says ${JSON.stringify(FIXTURE_TEXT)}` };
+  }
+  if (reads.length < READS) return { ok: false, reason: `${needs}; only ${reads.length} of ${READS} reads ran` };
   return OK;
 }
 
@@ -105,12 +115,19 @@ function withFixture(name, pages, options, use) {
 
 const readFixtureTitle = () => withFixture('titled.pdf', prosePages(1), { info: { title: FIXTURE_TITLE } }, (pdf) => pdfinfoTitle(pdf, { tool: resolveTool('pdfinfo') }));
 
-function readFixtureText() {
-  if (!pdftotextPresent()) return { present: false };
-  const { flavor } = pdftotextCapabilities();
-  if (process.platform === 'win32' && flavor === 'xpdf') return { present: true, flavor };
+async function readFixtureText() {
+  const { flavor, probes } = (await diagnose()).capabilities.text;
+  const seen = { present: flavor !== 'unknown', flavor, banner: probes.map((p) => `${p.stdout ?? ''}${p.stderr ?? ''}`).join('\n') };
+  if (!textCapability({ ...seen, reads: Array(READS).fill({ text: FIXTURE_TEXT }) }).ok) return seen; // refused before any read
   return withFixture('text.pdf', [[{ x: 60, y: 700, text: FIXTURE_TEXT }]], {}, (pdf) => {
-    try { return { present: true, flavor, text: pdfToText(pdf) }; } catch (error) { return { present: true, flavor, error }; }
+    const reads = [];
+    while (reads.length < READS) {
+      let read;
+      try { read = { text: pdfToText(pdf) }; } catch (error) { read = { error }; }
+      reads.push(read);
+      if (!goodRead(read)) break;
+    }
+    return { ...seen, reads };
   });
 }
 
@@ -121,7 +138,7 @@ const PROBES = {
     const version = (await diagnose()).capabilities.figureDetection.prerequisites.pdfinfo;
     return titleCapability({ version, title: version?.outcome === 'passed' ? readFixtureTitle() : undefined });
   },
-  pdftotext: async () => textCapability(readFixtureText()),
+  pdftotext: async () => textCapability(await readFixtureText()),
 };
 
 const cache = new Map();
