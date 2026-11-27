@@ -303,6 +303,8 @@ test('home-path-relative lets through a path that starts with an allow entry, at
   ]) assert.deepEqual(ids(`see ${climbs} now`), ['home-path-relative'], `${climbs} should be flagged`);
   assert.deepEqual([...rule.used], [], 'a path that climbs does not count as a use of the entry it starts with');
   assert.deepEqual(ids('cd ~/..'), [], 'no folder name: says nothing about a layout');
+  assert.deepEqual(ids(`copy it under ${entry}/.`), [], 'a full stop after a trailing slash ends the sentence; it is not a . segment');
+  assert.deepEqual(ids(`see ${under('~', '/', 'plugins', 'demo')}/..`), ['home-path-relative'], 'a trailing .. is kept as a segment');
 });
 
 test('the allow file needs a # comment above every entry, and each entry must be a home-relative path', () => {
