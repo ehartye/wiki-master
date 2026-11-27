@@ -139,9 +139,14 @@ test('a missing recorded hash is a caller error, not a status', () => {
   for (const recorded of [undefined, null, '', '   ', 42]) assert.throws(() => verifyClippingHash(frame(MD), recorded), TypeError, String(recorded));
 });
 
-// Every clipping fixture under test/fixtures that records a full SHA-256 verifies as a match. The purge fixtures
+// Every clipping fixture that records a full SHA-256 verifies as a match or an equivalent, never a mismatch. The
+// fixtures under test/fixtures/clipping-hash/ pin one recorded hash per status, as literal values in committed files, so
+// a change to the rule that would turn a historic hash into a mismatch fails here. Their file name is the status they
+// must get; every other fixture must be a match. The repository stores text as LF (.gitattributes), so the CR-bearing
+// match-raw case cannot be a committed file: it is the literal below, its hash pinned the same way. The purge fixtures
 // carry short placeholder tags (aaa1111), which are no hash of anything: they are listed so a new one is seen.
-test('every clipping fixture that records a full hash still verifies as a match; the rest are named placeholders', () => {
+const MATCH_RAW_LITERAL = ['in-test literal: match-raw.md', '---\r\ntitle: "Recorded by the old rule, carriage returns kept"\r\nsource: "https://example.test/captured"\r\ncreated: 2026-01-01\r\ntags: [clippings]\r\nsource-hash: 0e472e7ed98c88f1db6db7c40bb8c45a8f4ecbfa53df8c5f773ff10338fd4e24\r\n---\r\n\r\n# A captured page\r\n\r\nThe first paragraph of the captured page.\r\n\r\n```\r\nexample();\r\n```\r\n\r\nThe last paragraph.\r\n'];
+test('every clipping fixture that records a full hash verifies as its pinned status, never a mismatch; the rest are named placeholders', () => {
   const root = fileURLToPath(new URL('./fixtures/', import.meta.url));
   const found = [];
   (function walk(dir, rel) {
@@ -152,11 +157,18 @@ test('every clipping fixture that records a full hash still verifies as a match;
     }
   })(root, '');
   const placeholders = [];
-  for (const [path, text] of found) {
-    const recorded = text.match(/^source-hash:\s*"?([0-9a-fA-F]+)"?\s*$/m)?.[1];
+  const verified = {};
+  for (const [path, text] of [...found, MATCH_RAW_LITERAL]) {
+    const recorded = text.match(/^source-hash:\s*"?([0-9a-fA-F]+)"?\s*\r?$/m)?.[1];
     if (!recorded) continue;
-    if (recorded.length === 64) assert.equal(verifyClippingHash(text, recorded), 'match', path);
-    else placeholders.push(path);
+    if (recorded.length !== 64) { placeholders.push(path); continue; }
+    const pinned = /(^|\/)clipping-hash\/raw\/clippings\/|^in-test literal: /.test(path) ? path.replace(/^in-test literal: /, '').split('/').pop().replace(/\.md$/, '') : 'match';
+    const status = verifyClippingHash(text, recorded);
+    assert.equal(status, pinned, path);
+    verified[status] = (verified[status] ?? 0) + 1;
   }
   assert.deepEqual(placeholders.sort(), ['purge-vault/raw/clippings/Only-aaa1111.md', 'purge-vault/raw/clippings/Shared-bbb2222.md']);
+  // Not vacuous: at least one fixture of each status other than mismatch was verified.
+  for (const status of CLIPPING_HASH_STATUSES.filter((s) => s !== 'mismatch')) assert.ok(verified[status] >= 1, `no ${status} fixture verified: ${JSON.stringify(verified)}`);
+  assert.ok(Object.values(verified).reduce((a, b) => a + b, 0) >= 4);
 });
