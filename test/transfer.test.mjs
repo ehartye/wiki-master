@@ -290,6 +290,40 @@ test('a clipping whose carriage returns survived, hashed with them, transfers si
   assert.doesNotMatch(inLog, /equivalent form|not matching their source-hash/);
 });
 
+test('an equivalent-form clipping the destination keeps under keep-destination is not named as transferring, in the plan or the logs', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  const recordedOver = (file, hashed) => file.replace(/^source-hash: [0-9a-f]{64}$/m, `source-hash: ${sha(hashed)}`);
+  const queue = recordedOver(clipping('Queue Notes', 'Queues hold items.\nThey drain in order.'), 'Queues hold items.\r\nThey drain in order.');
+  const retry = recordedOver(clipping('Retry Paper', 'Retries are budgeted.\nEach one waits.', 'figures: ["raw/figures/Retry Paper-p1.md"]\n'), 'Retries are budgeted.\nEach one waits.\n');
+  assert.equal(verifyClippingHash(queue, queue.match(/^source-hash: (\S+)$/m)[1]), 'crlf-variant', 'fixture precondition');
+  assert.equal(verifyClippingHash(retry, retry.match(/^source-hash: (\S+)$/m)[1]), 'trailing-newline', 'fixture precondition');
+  writeFileSync(join(f.general, 'raw/clippings/Queue Notes.md'), queue);
+  writeFileSync(join(f.general, 'raw/clippings/Retry Paper.md'), retry);
+  // The destination already has its own Queue Notes clipping, and keeps it.
+  const theirs = clipping('Queue Notes', 'Their own queue notes.');
+  mkdirSync(join(f.docs, 'raw/clippings'), { recursive: true });
+  writeFileSync(join(f.docs, 'raw/clippings/Queue Notes.md'), theirs);
+  const args = [...SELECT, '--on-conflict', 'keep-destination'];
+
+  const plan = planOf(f, args);
+  assert.equal(plan.entries.find((e) => e.path === 'raw/clippings/Queue Notes.md').state, 'keep-destination', 'fixture precondition');
+  assert.deepEqual(plan.blocking, []);
+  assert.deepEqual(plan.notes.equivalent, [{ path: 'raw/clippings/Retry Paper.md', status: 'trailing-newline' }]);
+  const printed = f.transfer('--plan', ...args);
+  assert.equal(printed.status, 0, printed.stderr);
+  assert.match(printed.stdout, /NOTE — clippings whose text is the text their source-hash records, in another form[^\n]*\(1\):\n {4}raw\/clippings\/Retry Paper\.md \(trailing-newline\)\n/);
+  assert.doesNotMatch(printed.stdout, /Queue Notes\.md \(crlf-variant\)/);
+
+  const r = f.transfer('--apply', ...args, '--expect', plan.id);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readFileSync(join(f.docs, 'raw/clippings/Queue Notes.md'), 'utf8'), theirs, 'the destination keeps its own file');
+  const inLog = readFileSync(join(f.docs, 'log', logs(f.docs, 'transfer-in')[0]), 'utf8');
+  assert.match(inLog, /; 1 source-hash\(es\) verified, 1 of them in an equivalent form\./);
+  assert.match(inLog, /in another form \(other line endings, or without a final line break\):\n- `raw\/clippings\/Retry Paper\.md` \(trailing-newline\)\n/);
+  assert.doesNotMatch(inLog, /Queue Notes\.md` \(crlf-variant\)/);
+  assert.doesNotMatch(readFileSync(join(f.general, 'log', logs(f.general, 'transfer-out')[0]), 'utf8'), /Queue Notes\.md` \(crlf-variant\)/);
+});
+
 test('a sources: entry that leaves the selection blocks', (t) => {
   const f = fixture(); t.after(f.cleanup);
   const plan = planOf(f, ['--from', 'general', '--to', 'docs', '--seeds', 'wiki/syntheses/Digest.md', '--depth', '0']);
