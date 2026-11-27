@@ -55,7 +55,8 @@ const hasInvisible = (s) => {
 // means it is not one. Windows matches its variable names without regard to case; a shell does not.
 const ci = (word) => word.replace(/[A-Za-z]/g, (c) => `[${c.toUpperCase()}${c.toLowerCase()}]`);
 const TOKENS = String.raw`(?:~|\$HOME|\$\{HOME\}|%${ci('USERPROFILE')}%|\$${ci('env')}:${ci('USERPROFILE')})`;
-const HOME_TOKEN = new RegExp(String.raw`(?<![\w~.\\/-])${TOKENS}(?=[\\/])`, 'g');
+// An escaped line end or tab (`\n`, `\r`, `\t` in JSON or source text) before the token still starts a path.
+const HOME_TOKEN = new RegExp(String.raw`(?:(?<![\w~.\\/-])|(?<=\\[nrt]))${TOKENS}(?=[\\/])`, 'g');
 const STARTS_WITH_TOKEN = new RegExp(String.raw`^${TOKENS}[\\/]`);
 // The path runs to the first space, quote, bracket or list punctuation. A backslash before n, r or t that no letter
 // follows is an escaped line end or tab in JSON or source text (a tilde underline in a recorded log), not a folder.

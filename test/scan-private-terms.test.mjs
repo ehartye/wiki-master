@@ -231,6 +231,8 @@ test('home-path-relative flags two segments after a home token, and lets one seg
     under('%userprofile%', bs, 'repos', 'x'), // Windows names its variables without regard to case
     `cd "${under('$HOME', '/', 'code', 'demo')}" && ls`,
     `see [notes](${under('~', '/', 'repos', 'demo')}).`,
+    `{"output": "done${bs}n${under('~', '/', 'repos', 'x')}"}`, // after a JSON-escaped line end, as in a recorded transcript
+    `"${bs}r${bs}n${under('%USERPROFILE%', bs + bs, 'repos', 'x')}"`,
   ];
   for (const s of hits) assert.deepEqual(ids(s), ['home-path-relative'], `${s} should be flagged`);
   const fine = [
