@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.109.0 — 2026-11-27
+
+- `scan-private-terms.mjs` can scan a folder before `git init`.
+  - **Folder walk.** When the root is not inside a git work tree, the scan walks the folder instead of exiting 2, and the report's first line says so. Inside a repository the output is unchanged.
+    - It skips `.git`, `.obsidian`, `.wiki-master`, `.recycle`, `node_modules`, binary files, and links that leave the root.
+  - **Nothing goes unscanned without notice.** Every folder or file the scan could not read, and every file over 5 MB, is named on stderr, with root-relative paths. After a walk, `--json` also lists them under `unreadable` and `tooLarge`.
+  - **Distinct errors.** Each of these has its own exit-2 message:
+    - a missing root;
+    - a root that is a file;
+    - a root that cannot be read (checked for both read and enter permission);
+    - a git listing that fails.
+- **New built-in rule, `home-path-relative`.**
+  - **What it flags.** A home token followed by at least two folder names. The tokens are `~/`, `$HOME/`, `${HOME}/`, `%USERPROFILE%\` and `$env:USERPROFILE\`.
+  - **What it lets pass:**
+    - a first segment that is a dot-folder (`~/.config/...`);
+    - any `<placeholder>` segment;
+    - an entry in the root's `.private-terms-allow`.
+  - **Climbing paths.** A path that climbs with `.` or `..` is always a hit.
+  - **The allow file.** Each entry needs its own comment line and at least two folder names, and must not already be exempt. An entry nothing uses fails the scan.
+  - `validate-authored --terms-file` reads `.private-terms-allow` at the vault root.
+- Every `scan-private-terms` option accepts `--name value` and `--name=value`. Before, `--root=<dir>` was ignored and the current folder was scanned. `--help` lists every option, every `--json` field and every exit code.
+
 ## 0.108.0 — 2026-11-27
 
 - `npm test` now gives the CI result on a developer machine that has its own vault registry, Xpdf PDF tools or a WSL bash.
