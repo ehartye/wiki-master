@@ -64,11 +64,16 @@ test('the scaffolded .gitattributes says clipping hashes ignore line endings, so
   assert.doesNotMatch(lines.filter((line) => line && !line.startsWith('#')).join(' '), /-text/, 'the note is a comment; no rule is added');
 });
 
-test('initialization.md says clipping hashes ignore line endings, so hash checks need no -text rule', () => {
-  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8');
-  assert.match(text, /hash(es)? ignore line endings/i);
-  assert.match(text, /-text/);
-  assert.match(text, /not needed/i);
+// New hashes ignore line endings; a hash recorded under the earlier rule over mixed line endings can still mismatch, so the
+// reference must not promise that normalization can never break a recorded hash.
+test('initialization.md says new clipping hashes ignore line endings, older ones go through the equivalence statuses, and an existing -text rule stays', () => {
+  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8').replace(/\s+/g, ' ');
+  assert.match(text, /hashes recorded now ignore line endings/i);
+  assert.match(text, /-text` rule is not needed for hash checks/);
+  assert.doesNotMatch(text, /cannot break a recorded/);
+  assert.match(text, /earlier rule[^.]*equivalence statuses/);
+  assert.match(text, /mixed line endings[^.]*`source-hash-mismatch`/);
+  assert.match(text, /Leave an existing `[^`]*-text` rule as it is/);
 });
 
 // A timer commits whatever changed, and using the app changes these on every machine.
