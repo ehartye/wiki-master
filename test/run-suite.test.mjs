@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { contextEnv } from '../scripts/lib/context.mjs';
 
 // `npm test` runs test/run-suite.mjs, which gives the run its own temp root: every test's tmpdir() is inside it,
-// it is removed when the run passes and kept, with its path printed, when the run fails. The fixture test files are
-// written outside the repository at run time, because `node --test` runs every .mjs below test/.
+// it is removed when the run passes and kept, with its path printed, when the run fails. The tests also get a home
+// folder inside that root and none of the parent's vault-binding variables. The fixture test files are written
+// outside the repository at run time, because `node --test` runs every .mjs below test/.
 
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), 'run-suite.mjs');
 
@@ -23,6 +25,10 @@ function run(args, extraEnv = {}) {
   if (!('NODE_TEST_CONTEXT' in extraEnv)) delete env.NODE_TEST_CONTEXT;
   return spawnSync(process.execPath, [RUNNER, ...args], { encoding: 'utf8', env, timeout: 60000 });
 }
+// The variables a vault-bound command hands its children (contextEnv), with every optional binding present: the
+// runner must keep all of them from the tests, so this list follows the product code rather than a copy of it.
+const VAULT_BINDING = Object.keys(contextEnv({ selected: { id: 'docs', path: join(tmpdir(), 'vault'), selector: 'vault', available: false },
+  configPath: join(tmpdir(), 'vaults.json'), repositoryRoot: join(tmpdir(), 'repo') }, {}));
 const rootOf = (stdout) => /run-suite: temp root (.+)$/m.exec(stdout)?.[1]?.trim();
 
 test('a passing run that leaks one folder reports it, removes its root and exits 0', (t) => {
@@ -75,6 +81,42 @@ test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
   const root = rootOf(r.stdout);
   t.after(() => root && rmSync(root, { recursive: true, force: true }));
   assert.equal(r.status, 128 + 9, r.stdout + r.stderr);
+});
+
+test('the tests get a home inside the run root and no inherited vault binding, and keep the browser guard', (t) => {
+  const { dir, file } = fixture(t, 'env.test.mjs', (d) => `import { test } from 'node:test';
+import { existsSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+test('records what it sees', () => {
+  writeFileSync(${JSON.stringify(join(d, 'seen.json'))}, JSON.stringify({ env: process.env, homedir: homedir(), tmpdir: tmpdir(), homeIsThere: existsSync(process.env.HOME) }));
+});
+`);
+  const machineHome = join(dir, 'machine-home');
+  const inherited = {
+    HOME: machineHome, USERPROFILE: machineHome, XDG_CONFIG_HOME: join(machineHome, '.config'),
+    ...Object.fromEntries(VAULT_BINDING.map((name) => [name, join(dir, `machine-${name.toLowerCase()}`)])),
+    WIKI_MASTER_BROWSER: join(dir, 'recording-stub.sh'), WIKI_MASTER_BROWSER_RECORD: join(dir, 'browser-launches.txt'),
+  };
+  assert.deepEqual([...VAULT_BINDING].sort(),
+    ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME'],
+    'the parent sets every vault binding, the optional ones included');
+  const r = run([file], inherited);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const root = rootOf(r.stdout);
+  assert.ok(root, r.stdout);
+  const seen = JSON.parse(readFileSync(join(dir, 'seen.json'), 'utf8'));
+  const home = join(root, 'home');
+  assert.equal(seen.env.HOME, home);
+  assert.equal(seen.env.USERPROFILE, home);
+  assert.equal(seen.env.XDG_CONFIG_HOME, join(home, '.config'));
+  assert.equal(seen.homedir, home, 'os.homedir() follows the run home');
+  assert.ok(seen.homeIsThere, 'the run home exists while the tests run');
+  for (const name of VAULT_BINDING) assert.equal(seen.env[name], undefined, `${name} does not reach the tests`);
+  assert.equal(seen.env.WIKI_MASTER_BROWSER, inherited.WIKI_MASTER_BROWSER);
+  assert.equal(seen.env.WIKI_MASTER_BROWSER_RECORD, inherited.WIKI_MASTER_BROWSER_RECORD);
+  assert.equal(seen.tmpdir, root, 'the temp folder is still the run root');
+  for (const name of ['APPDATA', 'LOCALAPPDATA']) assert.equal(seen.env[name], process.env[name], `${name} is left alone`);
+  assert.match(r.stdout, /left behind: 0\b/, 'the run home is the runner\'s own, not a leftover');
 });
 
 test('loaded as a test file by node --test, the runner does nothing', () => {
