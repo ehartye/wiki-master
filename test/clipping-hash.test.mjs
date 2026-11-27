@@ -10,7 +10,7 @@ import { docxClipContent } from '../scripts/clip-docx.mjs';
 import { pptxClipContent } from '../scripts/clip-pptx.mjs';
 import { xlsxClipContent } from '../scripts/clip-xlsx.mjs';
 import { confluenceClipContent } from '../scripts/clip-confluence.mjs';
-import { fileClipContent } from '../scripts/clip-gh.mjs';
+import { fileClipContent, repoManifestContent, moduleListingContent, digestManifestContent } from '../scripts/clip-gh.mjs';
 import { plainTextPage } from '../scripts/lib/plain-text.mjs';
 
 // A clipping's source-hash is the SHA-256 of its body with the line endings made LF. A vault's Git attributes (`text=auto
@@ -59,6 +59,14 @@ const WRITERS = [
   ['clip-confluence', (body) => confluenceClipContent({ title: 'T', source: 's', body, created: '2026-11-27' })],
   ['clip-gh (a Markdown file)', (content) => fileClipContent({ owner: 'o', repo: 'r', ref: 'main', relPath: 'docs/a.md', content, created: '2026-11-27' })],
   ['clip-gh (a code file)', (content) => fileClipContent({ owner: 'o', repo: 'r', ref: 'main', relPath: 'src/a.js', content, created: '2026-11-27' })],
+  // The repository summaries build their Markdown from strings GitHub returns: the description, file paths, module names.
+  ['clip-gh repo manifest (the description)', (description) => repoManifestContent({ owner: 'o', repo: 'r', ref: 'main', description, includedPaths: ['a.js'], created: '2026-11-27' })],
+  ['clip-gh repo manifest (a file path)', (path) => repoManifestContent({ owner: 'o', repo: 'r', ref: 'main', description: 'D', includedPaths: [path], created: '2026-11-27' })],
+  ['clip-gh module listing (the module name)', (moduleName) => moduleListingContent({ owner: 'o', repo: 'r', ref: 'main', moduleName, files: [{ path: 'a.js', size: 1 }], created: '2026-11-27' })],
+  ['clip-gh module listing (a file path)', (path) => moduleListingContent({ owner: 'o', repo: 'r', ref: 'main', moduleName: 'src', files: [{ path, size: 1 }], created: '2026-11-27' })],
+  ['clip-gh digest (the description)', (description) => digestManifestContent({ owner: 'o', repo: 'r', ref: 'main', description, created: '2026-11-27' })],
+  ['clip-gh digest (a module name)', (name) => digestManifestContent({ owner: 'o', repo: 'r', ref: 'main', description: 'D', moduleGroups: [{ name, files: ['a.js'] }], created: '2026-11-27' })],
+  ['clip-gh digest (an anchor file path)', (path) => digestManifestContent({ owner: 'o', repo: 'r', ref: 'main', description: 'D', anchorFiles: [path], created: '2026-11-27' })],
 ];
 for (const [name, write] of WRITERS) {
   test(`${name} stores LF for lone CR and CRLF input, and records the hash of what it stores`, () => {
@@ -68,6 +76,7 @@ for (const [name, write] of WRITERS) {
     assert.match(out.md, /First line\nsecond line\n\nThird paragraph/);
     assert.equal(clippingHash(out.body), out.hash);
     assert.equal(verifyClippingHash(out.body, out.hash), 'match', 'what a writer stores verifies as a match');
+    assert.equal(verifyClippingHash(out.body.replace(/\n/g, '\r\n'), out.hash), 'match', 'and still does after a CRLF checkout');
   });
 }
 
