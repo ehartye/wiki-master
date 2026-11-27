@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, unlinkSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, unlinkSync, symlinkSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -275,6 +275,10 @@ test('the allow file needs a # comment above every entry, and each entry must be
   assert.throws(() => privateTerms.parseAllow(`# why\n${entry}\n${under('~', '/', 'plugins', 'two')}\n`), /line 3\b/, 'one comment documents one entry');
   assert.throws(() => privateTerms.parseAllow(`# why\n\n${entry}\n`), /line 3\b/, 'a blank line parts a comment from the entry');
   assert.throws(() => privateTerms.parseAllow('# why\nplugins/demo\n'), (e) => /line 2\b/.test(e.message) && /home/.test(e.message));
+  // An entry allows one documented path, never a whole folder: two folder names at least, and no way back up.
+  for (const broad of ['~/', '$HOME/', '~/plugins', '~/plugins/', under('%USERPROFILE%', bs, 'plugins'), '~/plugins/...', under('~', '/', 'plugins', '..', 'repos'), under('~', '/', 'plugins', 'demo', '..')]) {
+    assert.throws(() => privateTerms.parseAllow(`# why\n${broad}\n`), (e) => e instanceof privateTerms.AllowFileError && /line 2\b/.test(e.message) && /two folder names/.test(e.message), `${broad} is too broad`);
+  }
 });
 
 test('the CLI reads .private-terms-allow at the root: an allowed path passes, an undocumented entry exits 2, an unused entry fails by name', (t) => {
@@ -310,6 +314,43 @@ test('the CLI reads .private-terms-allow at the root: an allowed path passes, an
   const own = scan(comment, null);
   assert.equal(own.status, 1, own.stdout + own.stderr);
   assert.match(own.stdout, /^\.private-terms-allow:1 home-path-relative$/m);
+
+  // An entry that would switch the rule off for every path is refused, not silently used.
+  const everything = repo(t, { tracked: { 'notes.md': `see ${layout}\n`, '.private-terms-allow': '# everything\n~/\n' } });
+  const broad = scan(everything, null);
+  assert.equal(broad.status, 2, broad.stdout + broad.stderr);
+  assert.match(broad.stderr, /^scan-private-terms: \.private-terms-allow line 2: /m);
+
+  // An allow file that is there but cannot be read is refused too.
+  const folder = repo(t, { tracked: { 'p.md': 'clean\n', '.private-terms-allow/keep.md': 'x\n' } });
+  const unreadable = scan(folder, null);
+  assert.equal(unreadable.status, 2, unreadable.stdout + unreadable.stderr);
+  assert.match(unreadable.stderr, /^scan-private-terms: \.private-terms-allow cannot be read/m);
+});
+
+const unreadableRoots = process.platform === 'win32' ? 'a folder\'s own permissions do not stop its owner reading it on Windows'
+  : process.getuid?.() === 0 ? 'the superuser reads any folder' : false;
+test('a root that cannot be read exits 2 with the root\'s own message, not the allow file\'s', { skip: unreadableRoots }, (t) => {
+  const dir = plainFolder(t, { 'a.md': 'clean\n', '.private-terms-allow': `# why\n${under('~', '/', 'plugins', 'demo')}\n` });
+  chmodSync(dir, 0o000);
+  let r;
+  try { r = scan(dir, null); } finally { chmodSync(dir, 0o700); }
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^scan-private-terms: the root folder cannot be read/m);
+  assert.doesNotMatch(r.stderr, /private-terms-allow/);
+});
+
+test('--help describes the folder walk, the allow file and what fails the scan', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^usage: node scripts\/scan-private-terms\.mjs/);
+  assert.match(r.stdout, /not in a git work tree/);
+  assert.match(r.stdout, /walked/);
+  assert.match(r.stdout, /\.private-terms-allow/);
+  assert.match(r.stdout, /home-relative/);
+  assert.match(r.stdout, /unused allow entry/);
+  assert.match(r.stdout, /stale --known entry/);
+  assert.match(r.stdout, /Exit 2/);
 });
 
 test('--known lists files whose hits are reported but do not fail the scan; a stale entry fails it', (t) => {
