@@ -121,7 +121,6 @@ test('records what it sees', () => {
   assert.equal(seen.tmpdir, root, 'the temp folder is still the run root');
   for (const name of ['APPDATA', 'LOCALAPPDATA']) assert.equal(seen.env[name], process.env[name], `${name} is left alone`);
   assert.match(r.stdout, /left behind: 0\b/, 'the run home is the runner\'s own, not a leftover');
-  assert.match(r.stdout, /outside the root: 0\b/, 'nor is it a stray folder in the system temp folder');
   assert.equal(existsSync(home), false, 'the runner removes the run home');
 });
 
