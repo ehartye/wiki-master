@@ -339,24 +339,77 @@ test('a root that cannot be read exits 2 with the root\'s own message, not the a
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.match(r.stderr, /^scan-private-terms: the root folder cannot be read/m);
   assert.doesNotMatch(r.stderr, /private-terms-allow/);
+
+  // Readable but not searchable (r without x): its names can be listed, but no file in it can be opened.
+  const listable = plainFolder(t, { 'a.md': 'clean\n' });
+  for (const [mode, allowFile] of [[0o400, false], [0o600, true]]) {
+    if (allowFile) writeFileSync(join(listable, '.private-terms-allow'), `# why\n${under('~', '/', 'plugins', 'demo')}\n`);
+    chmodSync(listable, mode);
+    try { r = scan(listable, null); } finally { chmodSync(listable, 0o700); }
+    assert.equal(r.status, 2, `mode ${mode.toString(8)}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /^scan-private-terms: the root folder cannot be read/m, `mode ${mode.toString(8)}`);
+    assert.doesNotMatch(r.stderr, /private-terms-allow/, `mode ${mode.toString(8)}`);
+  }
 });
 
-test('a walk names each folder it cannot read on stderr, root-relative, and in --json; the hits still decide the exit', { skip: unreadableRoots }, (t) => {
+test('a scan names each folder and file it cannot read, root-relative; a walk lists them in --json; the hits still decide the exit', { skip: unreadableRoots }, (t) => {
   const bs = String.fromCharCode(92);
   const home = ['C:', 'Users', 'alex', 'repos', 'x'].join(bs); // built from parts, so this file holds no home path
-  const dir = plainFolder(t, { 'clean.md': 'nothing here\n', 'sub/a.md': `${home}\n`, 'deep/locked/b.md': `${home}\n`, 'deep/open.md': 'fine\n' });
-  const locked = [join(dir, 'sub'), join(dir, 'deep', 'locked')];
-  for (const d of locked) chmodSync(d, 0o000);
+  const dir = plainFolder(t, {
+    'clean.md': 'nothing here\n', 'deep/open.md': 'fine\n',
+    'sub/a.md': `${home}\n`, 'deep/locked/b.md': `${home}\n`, // no permissions
+    'rnox/c.md': `${home}\n`, 'chained/deeper/d.md': `${home}\n`, // readable but not searchable, as after chmod -R 600
+    'locked.md': `${home}\n`, // a file with no permissions
+  });
+  const at = (p) => join(dir, ...p.split('/'));
+  const modes = [['sub', 0o000], ['deep/locked', 0o000], ['rnox', 0o600], ['chained/deeper', 0o600], ['chained', 0o600], ['locked.md', 0o000]];
+  for (const [p, mode] of modes) chmodSync(at(p), mode);
   let r, j;
-  try { r = scan(dir, null); j = JSON.parse(scan(dir, null, ['--json']).stdout); } finally { for (const d of locked) chmodSync(d, 0o700); }
-  assert.equal(r.status, 0, 'no hit was found, so the exit is 0; the notice does not change it');
-  const notices = r.stderr.split(/\r?\n/).filter((l) => l.includes('unreadable folder'));
-  assert.equal(notices.length, 2, r.stderr);
-  assert.match(notices[0], /^scan-private-terms: unreadable folder: deep\/locked\/ /);
-  assert.match(notices[1], /^scan-private-terms: unreadable folder: sub\/ /);
-  assert.ok(!r.stderr.includes(dir), 'a notice names the folder from the root, never by its absolute path');
+  try { r = scan(dir, null); j = JSON.parse(scan(dir, null, ['--json']).stdout); } finally { for (const [p] of [...modes].reverse()) chmodSync(at(p), p.endsWith('.md') ? 0o600 : 0o700); }
+  assert.equal(r.status, 0, 'no hit was found, so the exit is 0; the notices do not change it');
+  const notices = r.stderr.split(/\r?\n/).filter((l) => l.includes('unreadable'));
+  assert.deepEqual(notices.map((l) => l.replace(/ \(E[A-Z]+\).*$/, '')), [
+    'scan-private-terms: unreadable folder: chained/',
+    'scan-private-terms: unreadable folder: deep/locked/',
+    'scan-private-terms: unreadable file: locked.md',
+    'scan-private-terms: unreadable folder: rnox/',
+    'scan-private-terms: unreadable folder: sub/',
+  ], r.stderr);
+  for (const l of notices) assert.match(l, /\(E[A-Z]+\): .*not scanned$/, 'each notice gives the error code and says what was not scanned');
+  assert.ok(!r.stderr.includes(dir), 'a notice names the path from the root, never its absolute path');
   assert.match(r.stdout, /0 hit\(s\) in 0 file\(s\); 2 file\(s\) scanned/);
-  assert.deepEqual(j.unreadable, ['deep/locked/', 'sub/']);
+  assert.deepEqual(j.unreadable, ['chained/', 'deep/locked/', 'locked.md', 'rnox/', 'sub/']);
+});
+
+test('in a git repository an unreadable tracked file is named on stderr, and the --json keys stay as they were', { skip: unreadableRoots }, (t) => {
+  const dir = repo(t, { tracked: { 'a.md': `${SECRET}\n`, 'ok.md': 'clean\n' } });
+  chmodSync(join(dir, 'a.md'), 0o000);
+  let r, j;
+  try { r = scan(dir, `${SECRET}\n`); j = JSON.parse(scan(dir, `${SECRET}\n`, ['--json']).stdout); } finally { chmodSync(join(dir, 'a.md'), 0o600); }
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stderr, /^scan-private-terms: unreadable file: a\.md \(EACCES\): not scanned$/m);
+  assert.doesNotMatch(r.stdout, /folder walk/);
+  assert.deepEqual(Object.keys(j), ['count', 'files', 'hits'], 'a git listing adds no field');
+});
+
+test('every option reads its value as --name value or --name=value; an option with no value exits 2', (t) => {
+  const dir = repo(t, { tracked: { 'old/data.json': `${SECRET}\n`, 'src/code.js': `${SECRET}\n` } });
+  const terms = `${dir}.terms.txt`; writeFileSync(terms, `${SECRET}\n`);
+  const known = `${dir}.known.txt`; writeFileSync(known, 'old/data.json\n'); t.after(() => rmSync(known, { force: true }));
+  const run = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', timeout: 30000 }); // cwd: this repository, not dir
+  const spaced = run(['--root', dir, '--terms-file', terms, '--known', known]);
+  assert.equal(spaced.status, 1, spaced.stdout + spaced.stderr);
+  assert.match(spaced.stdout, /^src\/code\.js:1 term #1$/m);
+  assert.match(spaced.stdout, /^1 known hit\(s\) in 1 file\(s\)/m);
+  for (const args of [[`--root=${dir}`, `--terms-file=${terms}`, `--known=${known}`], [`--root=${dir}`, '--terms-file', terms, `--known=${known}`]]) {
+    const r = run(args);
+    assert.deepEqual([r.status, r.stdout, r.stderr], [spaced.status, spaced.stdout, spaced.stderr], args.join(' '));
+  }
+  for (const args of [['--root='], ['--root', dir, '--terms-file='], ['--root', dir, '--known'], ['--root', '--json'], ['--root', dir, '--json=yes']]) {
+    const r = run(args);
+    assert.equal(r.status, 2, `${args.join(' ')}: ${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /^scan-private-terms: --[a-z-]+ (needs a value|takes no value)/m, args.join(' '));
+  }
 });
 
 test('--help describes the folder walk, the allow file and what fails the scan', () => {
@@ -369,8 +422,17 @@ test('--help describes the folder walk, the allow file and what fails the scan',
   assert.match(r.stdout, /home-relative/);
   assert.match(r.stdout, /unused allow entry/);
   assert.match(r.stdout, /stale --known entry/);
-  assert.match(r.stdout, /Exit 2/);
-  assert.match(r.stdout, /cannot read/, 'the help says a walk names the folders it cannot read');
+  assert.match(r.stdout, /cannot read/, 'the help says a scan names the folders and files it cannot read');
+  // One line per option, with its default and, for --json, every field it can add.
+  assert.match(r.stdout, /^ {2}--root <dir> .*default: the current directory/m);
+  assert.match(r.stdout, /^ {2}--terms-file <file> .*WIKI_MASTER_PRIVATE_TERMS_FILE/m);
+  assert.match(r.stdout, /^ {2}--known <file> /m);
+  const json = r.stdout.split(/\r?\n/).find((l) => /^ {2}--json /.test(l)) ?? '';
+  for (const field of ['count', 'files', 'hits', 'listing', 'unreadable', 'known', 'stale', 'allow']) assert.match(json, new RegExp(`\\b${field}\\b`), `--json line names ${field}`);
+  assert.match(r.stdout, /--name=<value>/, 'the help gives both spellings of an option');
+  // Every exit 2.
+  const exit2 = r.stdout.split(/\r?\n/).find((l) => l.startsWith('Exit 2')) ?? '';
+  for (const cause of [/terms file/, /--known file/, /\.private-terms-allow/, /no value/, /unknown option/, /missing/, /is a file/, /cannot be read/, /git listing/]) assert.match(exit2, cause, `Exit 2 names ${cause}`);
 });
 
 test('--known lists files whose hits are reported but do not fail the scan; a stale entry fails it', (t) => {
