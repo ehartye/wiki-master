@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { contextEnv } from '../scripts/lib/context.mjs';
@@ -145,6 +145,45 @@ test('resolves the default vault', () => {
   const outcome = JSON.parse(readFileSync(join(dir, 'outcome.json'), 'utf8'));
   assert.match(outcome.refused ?? `resolved ${outcome.path}`, /outside the temporary directory/);
   assert.equal(outcome.home, homeOf(root));
+});
+
+// Every WIKI_MASTER_* variable the plugin's scripts read, classified once. DROPPED: the runner removes it, because an
+// inherited value would bind the tests to the machine's vault or change how they choose one; a test that needs it sets
+// it itself. KEPT: it reaches the tests unchanged, because it selects a tool or an opt-in and never a vault. A new name
+// in scripts/ fails the first test below until it is added to one list; the second proves the runner does as listed.
+const DROPPED = [...VAULT_BINDING, 'WIKI_MASTER_REQUIRE_VAULT'];
+const KEPT = ['WIKI_MASTER_BROWSER', 'WIKI_MASTER_BROWSER_RECORD', 'WIKI_MASTER_BROWSER_TESTS', 'WIKI_MASTER_CONFLUENCER_SCRIPTS',
+  'WIKI_MASTER_EMBED_MODEL', 'WIKI_MASTER_PRIVATE_TERMS_FILE'];
+const SCRIPTS = join(dirname(RUNNER), '..', 'scripts');
+
+test('every WIKI_MASTER_* variable the scripts read is classified as dropped or kept by the runner', () => {
+  assert.deepEqual(DROPPED.filter((name) => KEPT.includes(name)), [], 'a variable is in both lists');
+  const read = new Map();
+  for (const entry of readdirSync(SCRIPTS, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath ?? entry.path, entry.name);
+    for (const [name] of readFileSync(path, 'utf8').matchAll(/WIKI_MASTER_[A-Z0-9_]*[A-Z0-9]/g)) {
+      if (!read.has(name)) read.set(name, relative(SCRIPTS, path));
+    }
+  }
+  assert.ok(read.has('WIKI_MASTER_VAULT'), 'the scan reads the scripts');
+  const unclassified = [...read].filter(([name]) => !DROPPED.includes(name) && !KEPT.includes(name)).map(([name, where]) => `${name} (scripts/${where.replaceAll('\\', '/')})`);
+  assert.deepEqual(unclassified, [], 'add each to DROPPED or KEPT in test/run-suite.test.mjs, and to the runner if dropped');
+});
+
+test('the runner drops exactly the DROPPED variables and passes the KEPT ones through', (t) => {
+  const { dir, file } = fixture(t, 'names.test.mjs', (d) => `import { test } from 'node:test';
+import { writeFileSync } from 'node:fs';
+test('records the WIKI_MASTER_* names it sees', () => {
+  writeFileSync(${JSON.stringify(join(d, 'names.json'))}, JSON.stringify(Object.keys(process.env).filter((n) => n.toUpperCase().startsWith('WIKI_MASTER_'))));
+});
+`);
+  // Plain values that select nothing, so no test the fixture runs could act on them.
+  const r = run([file], Object.fromEntries([...DROPPED, ...KEPT].map((name) => [name, join(dir, `parent-${name.toLowerCase()}`)])));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const seen = JSON.parse(readFileSync(join(dir, 'names.json'), 'utf8')).map((name) => name.toUpperCase());
+  assert.deepEqual(DROPPED.filter((name) => seen.includes(name)), [], 'dropped variables reached the tests');
+  assert.deepEqual(KEPT.filter((name) => !seen.includes(name)), [], 'kept variables did not reach the tests');
 });
 
 test('loaded as a test file by node --test, the runner does nothing', () => {
