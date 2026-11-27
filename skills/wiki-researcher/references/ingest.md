@@ -93,10 +93,19 @@ the selected batch, perform steps 4–6 once so the task has one log and one ref
    the page becomes a `provenanceGap` and its clipping reads as unparsed, even
    though the ingest itself was correct. List the resolved vault's exact `raw/clippings/` directory or reuse the path
    from step 1 rather than reconstructing it.
-   Also record `source-hashes: [<sha256>, …]` — the `source-hash` frontmatter value
-   of each clipping you summarized (read it from the clipping's frontmatter). This
-   is the machine key the ingest-backlog metric joins on — immune to filename and
-   citation drift; the `sources: ["[[…]]"]` wikilink stays for navigation.
+   Also record `source-hashes: [<sha256>, …]` — the recorded `source-hash` value
+   of each clipping you summarized. This is the machine key the ingest-backlog
+   metric joins on — immune to filename and citation drift; the `sources: ["[[…]]"]`
+   wikilink stays for navigation. **Print both fields rather than typing them:**
+   `node "<absolute-plugin-root>/scripts/source-stub.mjs" <clipping>...` (or
+   `--paths-file <ledger>`) prints a new page's frontmatter with `sources` and
+   `source-hashes` in the order given, each clipping's current recorded hash (so
+   it is also the way to update a page's hashes after a clipping is re-adopted),
+   and today's `created`/`updated`; add `reviewed` yourself. Exit 1 names each
+   clipping it refuses (outside `raw/clippings/`, missing, no `source-hash`, or text
+   that no longer matches its hash) and prints nothing: do not cite a refused
+   clipping, report it with the reason. A note on stderr about a CRLF or
+   final-line-break variant is not a refusal.
    Existing citation drift routes to [authorized maintenance repair](../../wiki-maintainer/references/maintenance.md); ingestion does not silently expand its scope to bulk repairs.
    **Figures.** If the clipping's frontmatter lists `figures:`, open each sidecar
    (`raw/figures/<slug>-p<N>.md`) and **look at the PNG with the Read tool** before
