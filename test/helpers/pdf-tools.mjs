@@ -5,6 +5,8 @@
 //           pdftocairo and pdfinfo, and a pdftotext it can identify
 //   ocr     ocrReachable (pdftoppm -v and tesseract --version exit 0), and pdftotextPresent
 //   title   diagnosePdf's -v probe of the resolved pdfinfo exits 0, and pdfinfoTitle reads a fixture PDF's title
+//   pdftotext  pdftotextPresent, and the product's pdfToText reads a one-page fixture's text (an Xpdf pdftotext
+//              answers -h and -v but crashes on every PDF when USERPROFILE is not the real profile)
 //
 //   test('...', gated('raster', (t) => { ... }));
 //
@@ -18,12 +20,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnosePdf } from '../../scripts/lib/pdf-doctor.mjs';
 import { pdftotextPresent } from '../../scripts/lib/pdf-extract.mjs';
-import { ocrReachable, pdfinfoTitle } from '../../scripts/clip-pdf.mjs';
+import { ocrReachable, pdfinfoTitle, pdfToText } from '../../scripts/clip-pdf.mjs';
 import { resolveTool } from '../../scripts/lib/pdf-figures.mjs';
 import { makePdf, prosePages } from '../fixtures/make-pdf.mjs';
 
 export const STRICT_ENV = 'WIKI_MASTER_TEST_REQUIRE_POPPLER';
 const FIXTURE_TITLE = 'A Plausible Report Title';
+const FIXTURE_TEXT = 'pdftotext capability probe';
 const OK = Object.freeze({ ok: true, reason: null });
 
 // What a failed diagnosePdf probe found, as words: "found a pdftoppm that exits 99 on -v (Xpdf)".
@@ -71,15 +74,39 @@ export function titleCapability({ version, title }) {
   return OK;
 }
 
+// How a failed tool run ended, from what execFileSync threw. A Windows exit code at or above 0xC0000000 is an NTSTATUS
+// exception such as an access violation, not an exit the tool chose.
+function ended(tool, error) {
+  if (error?.code === 'ENOENT') return `found no ${tool}`;
+  if (error?.signal) return `${tool} crashed (${error.signal})`;
+  if (typeof error?.status === 'number') return error.status >= 0xC0000000 ? `${tool} crashed (exit ${error.status})` : `${tool} exited ${error.status}`;
+  return `${tool} failed (${error?.code ?? error?.message ?? 'unknown error'})`;
+}
+
+// `present` is pdftotextPresent(); `text` is what pdfToText read from a fixture saying FIXTURE_TEXT, or `error` what it
+// threw.
+export function textCapability({ present, text, error }) {
+  if (!present) return { ok: false, reason: 'needs pdftotext; found none that answers -h or -v' };
+  if (error) return { ok: false, reason: `needs a pdftotext that reads a PDF; ${ended('pdftotext', error)} reading a one-page fixture` };
+  if (!String(text).includes(FIXTURE_TEXT)) return { ok: false, reason: `needs a pdftotext that reads a PDF; pdftotext read ${JSON.stringify(String(text).trim().slice(0, 80))} from a fixture that says ${JSON.stringify(FIXTURE_TEXT)}` };
+  return OK;
+}
+
 let diagnosis;
 const diagnose = () => (diagnosis ??= diagnosePdf());
 
-function readFixtureTitle() {
+function withFixture(name, pages, options, use) {
   const dir = mkdtempSync(join(tmpdir(), 'wm-pdf-tools-'));
-  try {
-    const pdf = makePdf(prosePages(1), join(dir, 'titled.pdf'), { info: { title: FIXTURE_TITLE } });
-    return pdfinfoTitle(pdf, { tool: resolveTool('pdfinfo') });
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  try { return use(makePdf(pages, join(dir, name), options)); } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+const readFixtureTitle = () => withFixture('titled.pdf', prosePages(1), { info: { title: FIXTURE_TITLE } }, (pdf) => pdfinfoTitle(pdf, { tool: resolveTool('pdfinfo') }));
+
+function readFixtureText() {
+  if (!pdftotextPresent()) return { present: false };
+  return withFixture('text.pdf', [[{ x: 60, y: 700, text: FIXTURE_TEXT }]], {}, (pdf) => {
+    try { return { present: true, text: pdfToText(pdf) }; } catch (error) { return { present: true, error }; }
+  });
 }
 
 const PROBES = {
@@ -89,6 +116,7 @@ const PROBES = {
     const version = (await diagnose()).capabilities.figureDetection.prerequisites.pdfinfo;
     return titleCapability({ version, title: version?.outcome === 'passed' ? readFixtureTitle() : undefined });
   },
+  pdftotext: async () => textCapability(readFixtureText()),
 };
 
 const cache = new Map();
