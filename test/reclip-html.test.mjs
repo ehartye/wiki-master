@@ -99,6 +99,17 @@ test('apply with a page read with CRLF line endings writes a clipping with no ca
   assert.equal(clippingHash(raw), sha(NEW_BODY));
 });
 
+test('apply on a clipping that is CRLF on disk writes it back with LF throughout, frontmatter included, and keeps its fields', async (t) => {
+  const dir = vault(t, { raw: rawClipping().replace(/\n/g, '\r\n') });
+  const r = await runReclips({ vaultPath: dir, apply: true, targets: ['raw/clippings/run-api.md'], readPage: page(NEW_BODY), obtain: forbidden, extract: forbidden });
+  assert.equal(r.reclipped, 1, JSON.stringify(r.results));
+  const raw = read(dir, 'raw/clippings/run-api.md');
+  assert.ok(!raw.includes('\r'), 'no carriage return on disk');
+  for (const line of ['title: "Run API"', `source: "${URL_}"`, 'created: 2025-01-01', 'topic: "API review"', `source-hash: ${sha(NEW_BODY)}`]) assert.match(raw, new RegExp(`^${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), line);
+  assert.ok(raw.endsWith(`\n---\n\n${NEW_BODY}\n`));
+  assert.equal(clippingHash(raw), sha(NEW_BODY));
+});
+
 test('readPageForReclip: warnings make it partial; ignored page chrome is counted', async () => {
   const clip = await readPageForReclip(URL_, { extract: () => ({ contentMarkdown: NEW_BODY, fidelityWarnings: [{ kind: 'heading', label: 'Example' }], fidelityAssessment: { checked: 12, ignored: [{ label: 'Was this helpful?' }] } }) });
   assert.equal(clip.fidelity, 'partial');

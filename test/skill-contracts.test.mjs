@@ -161,6 +161,15 @@ test('capture.md routes every format and names adopt-clipping.mjs for hand-clipp
     assert.ok(linked.includes(route), 'capture.md routes to ' + route);
 });
 
+// Clipping hashes ignore line endings (lib/clipping-hash.mjs), so the capture reference must not still teach the CRLF-body hash.
+test('capture.md says hashes ignore line endings, and that an old CRLF-text hash is not recognized on recapture', () => {
+  const capture = flat(read('skills/wiki-researcher/references/capture.md'));
+  assert.doesNotMatch(capture, /hash of its CRLF body/);
+  assert.match(capture, /hash(es)? ignore line endings/i);
+  assert.match(capture, /other line endings[^.]*`unchanged`/);
+  assert.match(capture, /recorded hash came from CRLF text[^.]*not recognized/);
+});
+
 // The commands now do what the earlier release's by-hand recipes did, so no changed reference may still teach the recipes.
 test('no changed reference still carries the by-hand recipes for a thin documentation page', () => {
   const interim = /two things (?:to try by hand|can recover)|tries neither on its own|render the page yourself/i;
