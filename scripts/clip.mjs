@@ -27,6 +27,7 @@ import { landingDocument, landingLine, landingReason } from './lib/landing.mjs';
 import { unopenedTabsNote, retryKeptNote, shortfallNote } from './lib/clip-notes.mjs';
 import { ledgerRow, redactAddress, ledgerFileProblem, ledgerAppendProblem, appendLedgerRow } from './lib/clip-ledger.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 export const THIN_WORD_FLOOR = 100;
 
@@ -1040,6 +1041,9 @@ function clipCore(url, argv, { vaultPath, extract, writeClipping, readText, prob
   const expandCoverage = coverage ? formatCoverage(coverage) : undefined;
   const clippingsDir = checkedPath(vaultPath, 'raw', 'clippings');
   const created = todayOf();
+  // Supplied, twin, plain-text, static and rendered text all meet here, after every reassignment of `md`: it is stored with LF
+  // line endings and hashed as stored, so a Git line-ending conversion cannot break the hash (lib/clipping-hash.mjs).
+  md = normalizeLineEndings(md);
   const hash = createHash('sha256').update(md).digest('hex');
   // Text identical to any capture already holding this URL is not a new capture: nothing is written.
   const sameText = () => newestCapture(capturesNow().filter((e) => e.sourceHash === hash));

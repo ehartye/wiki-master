@@ -45,10 +45,11 @@ contents. A differing ordinary file is a successful skip, not an error. An exist
 `vault-schema.md` or `.gitattributes` is kept like any other file, so an older vault's
 schema can still describe the old git policy; report that as a difference, do not rewrite it.
 
-The scaffolded `.gitattributes` also carries a comment about hashed evidence. A vault that keeps a
-captured source whose recorded hash must still match its bytes needs a scoped `-text` rule such as
-`<path-to-evidence>/** -text`, because line-ending normalization can change the bytes the hash covers. Tell
-the vault owner this; add the rule only on a yes, and scope it to the evidence folder rather than the whole vault.
+The scaffolded `.gitattributes` also carries a comment about hashed evidence. Clipping hashes ignore line endings,
+so Git's line-ending normalization cannot break a recorded `source-hash`, and a `-text` rule is not needed for
+hash checks. Do not suggest one for that reason. Leave an existing `<path-to-evidence>/** -text` rule as it is:
+it does no harm. Add one only when the owner asks to keep a folder byte for byte for another reason, and scope
+it to that folder rather than the whole vault.
 
 An existing `.gitignore` is kept too. If it does not list the per-machine Obsidian files, Obsidian
 Git's timer keeps committing them as the app changes them, so offer to add these lines, and edit it

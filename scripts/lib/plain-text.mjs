@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { normalizeLineEndings } from './clipping-hash.mjs';
 import { looksBinaryBytes } from './binary-content.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
@@ -64,7 +65,7 @@ export function fenceFor(text) {
 export function plainTextPage(url, text) {
   const u = new URL(url);
   const name = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() ?? u.hostname);
-  const body = String(text).replace(/\r\n/g, '\n').trimEnd();
+  const body = normalizeLineEndings(text).trimEnd();
   const fence = fenceFor(body);
   return { title: name, contentMarkdown: `${fence}\n${body}\n${fence}` };
 }

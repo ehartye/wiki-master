@@ -24,6 +24,7 @@ import {
 import { pdftotextCapabilities, pdftotextPresent, tabularity, chooseExtraction, parseMode, dependencyReport, SAMPLE_PAGES } from './lib/pdf-extract.mjs';
 import { diagnosePdf, formatPdfDoctor } from './lib/pdf-doctor.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -180,7 +181,7 @@ export function assessFidelity(text) {
 // glyphs) always outranks a floor, because wrong characters are the worse defect.
 export function pdfClipContent({ title, source, text, quality = 'medium', created = today(), extraction, fidelityFloor, topic } = {}) {
   const cleaned = stripRunningHeadersFooters(text || '');
-  const md = cleaned.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const md = normalizeLineEndings(cleaned).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const assessed = assessFidelity(md).degraded ? 'degraded' : 'high';
   const fidelity = assessed === 'degraded' ? 'degraded' : (fidelityFloor || 'high');
   const hash = createHash('sha256').update(md).digest('hex');

@@ -16,6 +16,7 @@ import { looksBinaryBytes } from './lib/binary-content.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
 // real source file (a config, a short script) is still worth a clipping.
@@ -182,7 +183,7 @@ export function repoClipFileName(relPath, { existing = new Set(), claimed = new 
 export function fileClipContent({ owner, repo, ref, relPath, content, quality = 'medium', created = today(), topic } = {}) {
   const source = githubBlobUrl(owner, repo, ref, relPath);
   const title = `${repo}/${relPath} at ${ref}`;
-  const raw = String(content || '').replace(/\r\n/g, '\n');
+  const raw = normalizeLineEndings(content || '');
   const isMarkdown = /\.mdx?$/i.test(relPath);
   const lang = languageHintForExt(extname(relPath));
   const md = isMarkdown ? raw.trim() : `\`\`\`${lang}\n${raw.replace(/\n+$/, '')}\n\`\`\``;

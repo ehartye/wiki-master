@@ -5,6 +5,7 @@ import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { buildFrontmatter, slugify } from '../clip.mjs';
 import { QUALITY_TIERS } from './quality-tiers.mjs';
 import { localDate } from './local-date.mjs';
+import { normalizeLineEndings } from './clipping-hash.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const MAX_TOTAL = 8 * 1024 * 1024;
@@ -161,7 +162,7 @@ function prepare({ owner, repo, selection, read }) {
 function clipping(file, options) {
   const { owner, repo, commit, quality, topic } = options;
   const source = `https://github.com/${encode(owner)}/${encode(repo)}/blob/${commit}/${file.path.split('/').map(encode).join('/')}`;
-  const text = file.content.replace(/\r\n/g, '\n');
+  const text = normalizeLineEndings(file.content);
   let fenceLength = 3;
   for (const m of text.matchAll(/`+/g)) fenceLength = Math.max(fenceLength, m[0].length + 1);
   const fence = '`'.repeat(fenceLength);
