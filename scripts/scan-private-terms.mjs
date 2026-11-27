@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { parseTerms, scanRepo, builtinRules, readAllow, checkRoot, ALLOW_FILE, ListingError, WALK_SKIP } from './lib/private-terms.mjs';
+import { parseTerms, scanRepo, builtinRules, readAllow, checkRoot, ALLOW_FILE, ListingError, WALK_SKIP, MAX_BYTES } from './lib/private-terms.mjs';
 import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 import { CLI_SPECS } from './lib/cli-specs.mjs';
 cliGuard(import.meta.url);
@@ -61,12 +61,13 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const byFile = new Set(hits.map((h) => h.file)).size;
   const knownSummary = { count: knownHits.length, files: new Set(knownHits.map((h) => h.file)).size };
   // A git listing's JSON is unchanged; a walk adds its marker and the folders and files it could not read.
-  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.path) } : {};
+  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.path), tooLarge: result.tooLarge } : {};
   // Each on stderr, in --json too and in a git listing too, named from the root: an absolute path would name the machine.
   for (const u of result.unreadable) {
     console.error(u.path.endsWith('/') ? `scan-private-terms: unreadable folder: ${u.path} (${u.code}): its files were not scanned`
       : `scan-private-terms: unreadable file: ${u.path} (${u.code}): not scanned`);
   }
+  for (const f of result.tooLarge) console.error(`scan-private-terms: file too large: ${f} (over ${MAX_BYTES / 1024 / 1024} MB): not scanned`);
   const used = rules.find((r) => r.id === 'home-path-relative').used;
   const unused = allow.filter((a) => !used.has(a.entry));
   const allowSummary = allow.length ? { allow: { entries: allow.length, unused: unused.map((a) => a.entry) } } : {}; // none without an allow file

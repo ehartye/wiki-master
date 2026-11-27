@@ -64,12 +64,22 @@ const PATH_TAIL = /^(?:(?!\\[nrt](?![A-Za-z0-9]))[^\s'"`()[\]{},;|*?])*/;
 const PLACEHOLDER_SEGMENT = /<[^<>]+>/;
 const NAMED = /[\p{L}\p{N}]/u; // a segment with no letter or digit (an ellipsis) names no folder
 
+const DOT_SEGMENT = (seg) => seg === '.' || seg === '..';
+
+// The sentence punctuation after a path, but not a trailing `..` segment: that is part of the path. A lone `.` after a
+// separator ends a sentence (`under ~/.tool/.`), so it goes.
+const TRAILING = /[.,:;!?]+$/;
+const withoutPunctuation = (tail) => tail.replace(TRAILING, (p, at) => (/[\\/]$/.test(tail.slice(0, at)) && /^\.\.(?!\.)/.test(p) ? '..' : ''));
+
 // Each home-relative path on the line, as written: token and path, without the sentence punctuation after it.
+// `segments` are the folder names; `climbs` says a `.` or `..` segment is in it, so the path may lead out of the
+// folder it starts in.
 function homePaths(s) {
   const found = [];
   for (const m of s.matchAll(HOME_TOKEN)) {
-    const tail = PATH_TAIL.exec(s.slice(m.index + m[0].length))[0].replace(/[.,:;!?]+$/, '');
-    found.push({ text: m[0] + tail, segments: tail.split(/[\\/]/).filter((seg) => NAMED.test(seg)) });
+    const tail = withoutPunctuation(PATH_TAIL.exec(s.slice(m.index + m[0].length))[0]);
+    const parts = tail.split(/[\\/]/);
+    found.push({ text: m[0] + tail, segments: parts.filter((seg) => NAMED.test(seg)), climbs: parts.some(DOT_SEGMENT) });
   }
   return found;
 }
@@ -78,13 +88,16 @@ const allows = (entry, text) => text === entry || (text.startsWith(entry) && (/[
 
 // The home-path-relative rule over an allow list ({ entry, line } items, from parseAllow). `used` collects the entries
 // that let a path through; `silent` is the same rule without that record, for the allow file's own lines, whose
-// entries would otherwise count as used by themselves.
+// entries would otherwise count as used by themselves. A path with a `.` or `..` segment and two folder names is a hit
+// whatever it starts with: a `..` after an allowed prefix or a dot-folder leads back out into a layout.
 export function homeRelativeRule(allow = []) {
   const used = new Set();
   const check = (record) => (s) => {
     let hit = false;
     for (const p of homePaths(s)) {
-      if (p.segments.length < 2 || p.segments[0].startsWith('.') || p.segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) continue;
+      if (p.segments.length < 2) continue;
+      if (p.climbs) { hit = true; continue; }
+      if (p.segments[0].startsWith('.') || p.segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) continue;
       const by = allow.filter((a) => allows(a.entry, p.text));
       if (!by.length) hit = true;
       else if (record) for (const a of by) used.add(a.entry);
@@ -113,9 +126,12 @@ export function parseAllow(text) {
     if (!STARTS_WITH_TOKEN.test(line)) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must be a home-relative path (~, $HOME, \${HOME}, %USERPROFILE% or $env:USERPROFILE, then / or \\)`);
     // `~/` or `~/plugins` would let through every path below it, and the unused check could never catch that.
     const segments = line.replace(STARTS_WITH_TOKEN, '').split(/[\\/]/).filter(Boolean);
-    if (segments.filter((seg) => NAMED.test(seg)).length < 2 || segments.some((seg) => seg === '.' || seg === '..')) {
+    if (segments.filter((seg) => NAMED.test(seg)).length < 2 || segments.some(DOT_SEGMENT)) {
       throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must give at least two folder names after the home token, and no . or .. segment, so that it allows one documented path and not a whole folder`);
     }
+    // The rule never flags these, so no text could use the entry; say why now rather than call it unused later.
+    if (segments[0].startsWith('.')) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: already exempt: dot-folder (a path whose first segment starts with a dot is never flagged, so it needs no entry)`);
+    if (segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: already exempt: placeholder (a path with a <placeholder> segment is never flagged, so it needs no entry)`);
     entries.push({ entry: line, line: i + 1 });
     documented = false;
   }
@@ -124,11 +140,12 @@ export function parseAllow(text) {
 
 // The allow file in a folder, parsed; none (or no such folder) gives no entries. A folder that cannot be read is the
 // listing's error, with the listing's message, not the allow file's: the file is read before the listing starts.
-export function readAllow(dir) {
+// `name` is what the folder is called in that message: the scan's root, or validate-authored's vault.
+export function readAllow(dir, name = 'root') {
   let text;
   try { text = readFileSync(join(dir, ALLOW_FILE), 'utf8'); } catch (err) {
     if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return [];
-    checkRoot(dir); // a root that cannot be read gets the listing's message
+    checkRoot(dir, name); // a folder that cannot be read gets the listing's message
     throw new AllowFileError(`${ALLOW_FILE} cannot be read`);
   }
   return parseAllow(text);
@@ -155,7 +172,8 @@ export function scanText(text, rules) {
   return hits;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// A file larger than this is not read; the scan names it instead, so a clean report cannot hide it.
+export const MAX_BYTES = 5 * 1024 * 1024;
 
 // A root that cannot be listed: its message is fit to print as it is, and names no matched text.
 export class ListingError extends Error {}
@@ -194,14 +212,14 @@ function gitFiles(root) {
 const searchable = (dir) => accessSync(dir, constants.R_OK | constants.X_OK);
 
 // The root must be a folder that can be walked; the message says which of these it is not. Called before anything
-// reads inside the root, so the root's own problem is the one reported.
-export function checkRoot(root) {
+// reads inside the root, so the root's own problem is the one reported. `name` is what the messages call it.
+export function checkRoot(root, name = 'root') {
   let st;
   try { st = statSync(root); } catch (err) {
-    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'the root folder does not exist' : 'the root folder cannot be read');
+    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? `the ${name} folder does not exist` : `the ${name} folder cannot be read`);
   }
-  if (!st.isDirectory()) throw new ListingError('the root is not a folder');
-  try { searchable(root); } catch { throw new ListingError('the root folder cannot be read'); }
+  if (!st.isDirectory()) throw new ListingError(`the ${name} is not a folder`);
+  try { searchable(root); } catch { throw new ListingError(`the ${name} folder cannot be read`); }
 }
 
 // Every file under the root, as root-relative paths with forward slashes, sorted. Skips the WALK_SKIP folders, links
@@ -253,11 +271,13 @@ export function scanRepo(root, rules) {
   let files = 0;
   const listing = listFiles(root);
   const unreadable = [...listing.unreadable];
+  const tooLarge = [];
   for (const file of listing.files) {
     let buf;
     try {
       const st = statSync(join(root, file));
-      if (!st.isFile() || st.size > MAX_BYTES) continue;
+      if (!st.isFile()) continue;
+      if (st.size > MAX_BYTES) { tooLarge.push(file); continue; }
       buf = readFileSync(join(root, file));
     } catch (err) {
       // Gone since it was listed (a tracked file deleted in the working tree, a broken link): nothing to scan.
@@ -270,6 +290,6 @@ export function scanRepo(root, rules) {
     const own = file === ALLOW_FILE ? rules.map((r) => r.silent ?? r) : rules; // its entries do not use themselves up
     for (const h of scanText(buf.toString('utf8'), own)) hits.push({ file, ...h });
   }
-  // Folders (with a trailing slash) and files the scan could not read, sorted by path.
-  return { hits, files, walked: listing.walked, unreadable: unreadable.sort(byPath) };
+  // Folders (with a trailing slash) and files the scan could not read, sorted by path, and the files over MAX_BYTES.
+  return { hits, files, walked: listing.walked, unreadable: unreadable.sort(byPath), tooLarge: tooLarge.sort() };
 }

@@ -274,7 +274,7 @@ export function main(argv = process.argv.slice(2)) {
     if (terms) {
       // The vault root's allow file lets through the home-relative paths a public page names on purpose. Only the
       // ledger's pages are checked, so an entry none of them uses is not a defect here.
-      try { termRules = [...builtinRules(readAllow(vaultPath)), ...terms]; } catch (error) { throw new InputError(error.message); }
+      try { termRules = [...builtinRules(readAllow(vaultPath, 'vault')), ...terms]; } catch (error) { throw new InputError(error.message); }
     }
     const result = validateAuthored(vaultPath, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
     for (const s of result.skippedPaths ?? []) console.error(`validate-authored: skipped path ${s.path} (${s.reason})`);
