@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { runReclips } from '../scripts/lib/reclip.mjs';
 import { clippingKind, retainedShare, readPageForReclip, MIN_RETAINED } from '../scripts/lib/reclip-html.mjs';
 import { scanIntegrity } from '../scripts/lib/integrity.mjs';
+import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
 import { extractHtml } from '../scripts/lib/html-extract.mjs';
 import { loadIssueLog, openIssues } from '../scripts/lib/triage.mjs';
 
@@ -79,6 +80,23 @@ test('readPageForReclip: a clean static read becomes a clip with no extraction m
   assert.equal(clip.extraction, undefined);
   assert.equal(clip.fidelityChecks, 12);
   assert.equal(clip.fidelityIgnored, 0);
+});
+
+test('readPageForReclip: a page read with CRLF or lone-CR line endings gives LF text and the hash of that text', async () => {
+  const clip = await readPageForReclip(URL_, { extract: () => ({ contentMarkdown: NEW_BODY.replace(/\n/g, '\r\n').replace('\r\n\r\n', '\r\r'), fidelityWarnings: [], fidelityAssessment: { checked: 12, ignored: [] } }) });
+  assert.equal(clip.md, NEW_BODY);
+  assert.equal(clip.hash, sha(NEW_BODY));
+});
+
+test('apply with a page read with CRLF line endings writes a clipping with no carriage return, whose hash matches', async (t) => {
+  const dir = vault(t);
+  const readPage = (u) => readPageForReclip(u, { extract: () => ({ contentMarkdown: NEW_BODY.replace(/\n/g, '\r\n'), fidelityWarnings: [], fidelityAssessment: { checked: 12, ignored: [] } }) });
+  const r = await runReclips({ vaultPath: dir, apply: true, targets: ['raw/clippings/run-api.md'], readPage, obtain: forbidden, extract: forbidden });
+  assert.equal(r.reclipped, 1, JSON.stringify(r.results));
+  const raw = read(dir, 'raw/clippings/run-api.md');
+  assert.ok(!raw.includes('\r'), 'no carriage return on disk');
+  assert.match(raw, new RegExp(`^source-hash: ${sha(NEW_BODY)}$`, 'm'));
+  assert.equal(clippingHash(raw), sha(NEW_BODY));
 });
 
 test('readPageForReclip: warnings make it partial; ignored page chrome is counted', async () => {
