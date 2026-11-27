@@ -184,6 +184,10 @@ find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'wm-*' -mtime +7 -exec rm -rf {} +
 Get-ChildItem $env:TEMP -Filter 'wm-*' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) | Remove-Item -Recurse -Force
 ```
 
+### Home folder and vault variables
+
+`npm test` also hides the machine's home folder and the vault your shell is bound to. It points `HOME` and `USERPROFILE` at an empty `home` folder inside the run's temp root and `XDG_CONFIG_HOME` at its `.config`, so no test reads your vault registry. It removes the vault-binding variables `WIKI_MASTER_CONFIG`, `WIKI_MASTER_VAULT`, `WIKI_MASTER_VAULT_ID`, `WIKI_MASTER_VAULT_NAME` and `WIKI_MASTER_PROJECT_ROOT`. Every other variable reaches the tests unchanged, including `WIKI_MASTER_BROWSER`, `WIKI_MASTER_BROWSER_RECORD`, `APPDATA` and `LOCALAPPDATA`. A direct `node --test` run does none of this: it sees your real home, registry and vault variables, so on a machine with a registry it can fail tests that pass under `npm test`.
+
 ### Project and research vaults
 
 Use [multi-vault routing](docs/multi-vault.md) and
