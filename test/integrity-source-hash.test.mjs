@@ -94,28 +94,45 @@ function mismatchOf(t, name, frontmatter) {
   return issue;
 }
 
-test('a supplied clipping with a web source may not be recapturable: owner review, re-adoption, recapture or a transfer the owner approves', (t) => {
+// Every route leaves the owner a re-adoption and a transfer they approve, and none edits the body.
+const ownerPaths = (issue) => {
+  assert.match(issue.verification, /adopt-clipping\.mjs/);
+  assert.match(issue.verification, /--allow-hash-mismatch/);
+  assert.match(issue.verification, /Never edit the body/);
+};
+
+test('a page a person saved (extraction: manual) is captured again from a newly saved copy, never fetched', (t) => {
   const issue = mismatchOf(t, 'raw/clippings/supplied.md', 'source: "https://example.test/changelog"\nextraction: manual\n');
   assert.equal(issue.capture, 'manual');
   assert.equal(issue.clipper, 'clip.mjs');
   assert.match(issue.verification, /may not be recapturable/);
-  assert.doesNotMatch(issue.verification, /cannot be recaptured/);
   assert.match(issue.verification, /owner/);
-  assert.match(issue.verification, /adopt-clipping\.mjs/);
-  assert.match(issue.verification, /--allow-hash-mismatch/);
-  assert.match(issue.verification, /clip\.mjs <source> --recapture/, 'its source is a web page, so a recapture is one of the paths');
+  assert.ok(issue.verification.includes('`node scripts/clip.mjs <source> --from-file <path> --recapture`'), issue.verification);
+  assert.match(issue.verification, /supply the original again[^;]*--from-file <path> --recapture/, 'supplying the original names the command');
+  assert.doesNotMatch(issue.verification, /clip\.mjs <source> --recapture/, 'a fetch would replace the person-saved text with another page');
+  ownerPaths(issue);
 });
 
-test('a hand-made clipping with no web source names no clipper it cannot know', (t) => {
-  const issue = mismatchOf(t, 'raw/clippings/notes.md', 'source: "notes from a meeting"\n');
-  assert.equal(issue.capture, 'manual');
-  assert.equal(issue.clipper, null);
-  assert.match(issue.verification, /may not be recapturable/);
-  assert.match(issue.verification, /the clipper that captured it/);
-  assert.doesNotMatch(issue.verification, /scripts\/clip[-.]/);
-});
+// No clipper writes extraction: user-supplied-*, and none writes a clipping whose source is not a web address.
+for (const [kind, name, frontmatter] of [
+  ['a supplied transcript of a web video', 'raw/clippings/talk.md', 'source: "https://video.example.test/watch?v=abc"\nextraction: user-supplied-transcript\n'],
+  ['a hand-made clipping with no web source', 'raw/clippings/notes.md', 'source: "notes from a meeting"\n'],
+]) {
+  test(`${kind} names no clipper and no fetch route: owner review, the original supplied again, re-adoption`, (t) => {
+    const issue = mismatchOf(t, name, frontmatter);
+    assert.equal(issue.capture, 'manual');
+    assert.equal(issue.clipper, null);
+    assert.match(issue.verification, /no clipper/i);
+    assert.match(issue.verification, /compare/);
+    assert.match(issue.verification, /supply the original again/);
+    assert.doesNotMatch(issue.verification, /scripts\/clip[-.]/, 'no clipper command');
+    assert.doesNotMatch(issue.verification, /--recapture|--from-file/);
+    ownerPaths(issue);
+  });
+}
 
-// A web capture's fix names the clipper that matches it, from its source, its extraction or its folder.
+// A web capture's fix names the clipper that matches it, from its source, its extraction or its folder, and says what
+// running that clipper again does to this clipping.
 const CLIPPERS = [
   ['a web page', 'raw/clippings/page.md', 'source: "https://example.test/page"\n', 'clip.mjs'],
   ['a GitHub file', 'raw/clippings/gh/o/r/README.md', 'source: "https://github.com/o/r/blob/main/README.md"\n', 'clip-gh.mjs'],
@@ -126,13 +143,33 @@ const CLIPPERS = [
   ['a spreadsheet', 'raw/clippings/sheet.md', 'source: "https://example.test/files/sheet.xlsx"\n', 'clip-xlsx.mjs'],
   ['a Confluence page', 'raw/clippings/space.md', 'source: "https://example.atlassian.net/wiki/spaces/S/pages/1/Page"\n', 'clip-confluence.mjs'],
 ];
+// The clippers that refuse a source address the vault already holds, which a mismatched clipping always holds.
+const REFUSE_BY_SOURCE = new Set(['clip-pdf.mjs', 'clip-docx.mjs', 'clip-pptx.mjs', 'clip-xlsx.mjs', 'clip-confluence.mjs']);
 for (const [kind, name, frontmatter, clipper] of CLIPPERS) {
-  test(`the fix for ${kind} names ${clipper}`, (t) => {
+  test(`the fix for ${kind} names ${clipper} and says what running it again does`, (t) => {
     const issue = mismatchOf(t, name, frontmatter);
     assert.equal(issue.capture, 'web');
     assert.equal(issue.clipper, clipper);
     assert.ok(issue.verification.includes(`node scripts/${clipper}`), issue.verification);
     for (const other of new Set(CLIPPERS.map((c) => c[3]))) if (other !== clipper) assert.ok(!issue.verification.includes(`scripts/${other}`), `${other} is not named`);
+    assert.doesNotMatch(issue.verification, /may report/);
+    if (clipper === 'clip.mjs') {
+      assert.ok(issue.verification.includes('`node scripts/clip.mjs <source> --recapture`'));
+      assert.match(issue.verification, /new dated clipping beside this one/);
+      assert.match(issue.verification, /never edited/);
+    } else if (clipper === 'clip-gh.mjs') {
+      // clip-gh writes the file again under the same name when its text differs from every hash the vault holds.
+      assert.match(issue.verification, /replaces this clipping in place/);
+      assert.match(issue.verification, /only after/);
+      assert.match(issue.verification, /the ref its source address names/);
+      assert.doesNotMatch(issue.verification, /never edited|already clipped/);
+    } else {
+      assert.ok(REFUSE_BY_SOURCE.has(clipper));
+      assert.match(issue.verification, /will report the source as already clipped/);
+      assert.match(issue.verification, /purge[^.]*then[^.]*clip/i, 'purge it, then clip the source again');
+      assert.doesNotMatch(issue.verification, /never edited/);
+    }
+    ownerPaths(issue);
   });
 }
 
