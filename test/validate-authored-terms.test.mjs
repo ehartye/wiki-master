@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -139,4 +139,24 @@ test('--terms-file reports a home-relative layout, and the vault root\'s .privat
   assert.match(bad.stderr, /^validate-authored: \.private-terms-allow line 1: /m);
   const plain = w.run();
   assert.equal(plain.status, 0, 'without --terms-file the allow file is not read');
+});
+
+test('a vault allow entry the rule already exempts is refused with the reason, since no page could ever use it', (t) => {
+  const w = world(t);
+  w.put('.private-terms-allow', '# a tool config path, which needs no entry\n~/.config/app\n');
+  const r = w.run('--terms-file', w.terms);
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^validate-authored: \.private-terms-allow line 2: .*already exempt: dot-folder/m);
+});
+
+const unreadableVaults = process.platform === 'win32' ? 'a folder\'s own permissions do not stop its owner reading it on Windows'
+  : process.getuid?.() === 0 ? 'the superuser reads any folder' : false;
+test('with --terms-file a vault folder that cannot be read exits 2 naming the vault, not a scan root', { skip: unreadableVaults }, (t) => {
+  const w = world(t);
+  const vault = join(w.root, 'vault');
+  chmodSync(vault, 0o000);
+  let r;
+  try { r = w.run('--terms-file', w.terms); } finally { chmodSync(vault, 0o700); }
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^validate-authored: the vault folder cannot be read$/m);
 });

@@ -31,6 +31,14 @@ function repo(t, files) {
   return dir;
 }
 
+// The environment without the owner's terms variables, so a fixture scan runs only the rules the test names. Only
+// the owner's-terms check of this repository (the last test) passes them on.
+function bareEnv() {
+  const env = { ...process.env };
+  delete env.WIKI_MASTER_PRIVATE_TERMS_FILE; delete env.PRIVATE_TERMS_FILE;
+  return env;
+}
+
 function scan(dir, terms, extra = []) {
   const args = [SCRIPT, '--root', dir, ...extra];
   if (terms !== null) {
@@ -38,8 +46,23 @@ function scan(dir, terms, extra = []) {
     writeFileSync(f, terms);
     args.push('--terms-file', f);
   }
-  return spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 30000 });
+  return spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 30000, env: bareEnv() });
 }
+
+test('a fixture scan ignores the owner\'s terms variables, so a machine that sets them gets the same results', (t) => {
+  const dir = repo(t, { tracked: { 'p.md': `${SECRET}\n` } });
+  const terms = `${dir}.owner-terms.txt`;
+  writeFileSync(terms, `${SECRET}\n`);
+  t.after(() => rmSync(terms, { force: true }));
+  const saved = { a: process.env.WIKI_MASTER_PRIVATE_TERMS_FILE, b: process.env.PRIVATE_TERMS_FILE };
+  process.env.WIKI_MASTER_PRIVATE_TERMS_FILE = terms; process.env.PRIVATE_TERMS_FILE = terms;
+  let r;
+  try { r = scan(dir, null); } finally {
+    for (const [k, v] of [['WIKI_MASTER_PRIVATE_TERMS_FILE', saved.a], ['PRIVATE_TERMS_FILE', saved.b]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /with the built-in patterns only/);
+});
 
 test('parseTerms reads plain terms and /regex/flags lines, skips blanks and comments, and numbers each rule', () => {
   const rules = parseTerms(['# a comment', '', '  Zorblax Prime  ', String.raw`/\bPip\b/`, String.raw`/\bsaloon\b/i`].join('\n'));
@@ -127,7 +150,7 @@ test('a folder outside any git work tree is walked: binary files, tool folders a
   assert.deepEqual(j.hits, [{ file: 'notes/a.md', line: 1, rule: 'home-path-windows' }]);
 
   // Without git on the PATH there is no git listing either, so the folder is walked the same way.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => k.toUpperCase() !== 'PATH'));
+  const env = Object.fromEntries(Object.entries(bareEnv()).filter(([k]) => k.toUpperCase() !== 'PATH'));
   const nogit = spawnSync(process.execPath, [SCRIPT, '--root', dir], { encoding: 'utf8', timeout: 30000, env: { ...env, PATH: outside } });
   assert.equal(nogit.status, 1, nogit.stdout + nogit.stderr);
   assert.match(nogit.stdout, /^folder walk: .*git/);
@@ -189,7 +212,7 @@ test('--json lists hits as path, line and rule, with counts', (t) => {
 test('without a terms file only the built-in patterns run; an unreadable terms file exits 2', (t) => {
   const dir = repo(t, { tracked: { 'p.md': `${SECRET}\n` } });
   assert.equal(scan(dir, null).status, 0, 'no terms file means no term rules');
-  const r = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--terms-file', join(dir, 'no-such-file.txt')], { encoding: 'utf8', timeout: 30000 });
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', dir, '--terms-file', join(dir, 'no-such-file.txt')], { encoding: 'utf8', timeout: 30000, env: bareEnv() });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /terms file/i);
 });
@@ -267,6 +290,19 @@ test('home-path-relative lets through a path that starts with an allow entry, at
   assert.deepEqual(ids(under('$HOME', '/', 'plugins', 'demo')), ['home-path-relative'], 'an entry is matched as written, token and all');
   assert.deepEqual([...rule.used].sort(), [entry, win].sort());
   assert.deepEqual(privateTerms.BUILTIN_RULES.map((r) => r.id), ['home-path-windows', 'home-path-posix', 'home-path-relative', 'gpu-model', 'invisible-character']);
+
+  // A . or .. segment can climb out of an allowed or exempt folder into a layout, so such a path is a hit.
+  rule.used.clear();
+  for (const climbs of [
+    under('~', '/', 'plugins', 'demo', '..', '..', 'repos', 'y'),
+    under('%USERPROFILE%', bs, 'plugins', 'demo', '..', 'other'),
+    under('~', '/', 'plugins', 'demo', '..'),
+    under('~', '/', 'plugins', 'demo', '.', 'x'),
+    under('~', '/', '.x', '..', 'repos', 'y'), // not a dot-folder path once it climbs back out
+    under('~', '/', '<name>', '..', 'repos'),
+  ]) assert.deepEqual(ids(`see ${climbs} now`), ['home-path-relative'], `${climbs} should be flagged`);
+  assert.deepEqual([...rule.used], [], 'a path that climbs does not count as a use of the entry it starts with');
+  assert.deepEqual(ids('cd ~/..'), [], 'no folder name: says nothing about a layout');
 });
 
 test('the allow file needs a # comment above every entry, and each entry must be a home-relative path', () => {
@@ -280,6 +316,11 @@ test('the allow file needs a # comment above every entry, and each entry must be
   // An entry allows one documented path, never a whole folder: two folder names at least, and no way back up.
   for (const broad of ['~/', '$HOME/', '~/plugins', '~/plugins/', under('%USERPROFILE%', bs, 'plugins'), '~/plugins/...', under('~', '/', 'plugins', '..', 'repos'), under('~', '/', 'plugins', 'demo', '..')]) {
     assert.throws(() => privateTerms.parseAllow(`# why\n${broad}\n`), (e) => e instanceof privateTerms.AllowFileError && /line 2\b/.test(e.message) && /two folder names/.test(e.message), `${broad} is too broad`);
+  }
+  // An entry the rule already lets through could never be used: refused with the reason, not reported as unused later.
+  for (const [exempt, reason] of [['~/.config/app', /already exempt: dot-folder/], [under('$env:USERPROFILE', bs, '.tool', 'x'), /already exempt: dot-folder/],
+    ['~/<a>/<b>', /already exempt: placeholder/], ['~/plugins/<name>', /already exempt: placeholder/]]) {
+    assert.throws(() => privateTerms.parseAllow(`# why\n${exempt}\n`), (e) => e instanceof privateTerms.AllowFileError && /line 2\b/.test(e.message) && reason.test(e.message), `${exempt} is already exempt`);
   }
 });
 
@@ -393,11 +434,34 @@ test('in a git repository an unreadable tracked file is named on stderr, and the
   assert.deepEqual(Object.keys(j), ['count', 'files', 'hits'], 'a git listing adds no field');
 });
 
+test('a file over 5 MB is named on stderr as not scanned, in a walk (and its --json) and in a git listing; the exit stays the hits\'', (t) => {
+  const big = Buffer.concat([Buffer.from(`${SECRET}\n`), Buffer.alloc(5 * 1024 * 1024, 'a'), Buffer.from('\n')]); // over the limit by a few bytes
+  const atLimit = Buffer.alloc(5 * 1024 * 1024, 'b'); // exactly 5 MB is still scanned
+  const notice = /^scan-private-terms: file too large: logs\/big\.log \(over 5 MB\): not scanned$/m;
+
+  const dir = plainFolder(t, { 'logs/big.log': big, 'limit.txt': atLimit, 'ok.md': 'clean\n' });
+  const r = scan(dir, `${SECRET}\n`);
+  assert.equal(r.status, 0, 'the big file was not scanned, so its term is no hit; the notice does not change the exit');
+  assert.match(r.stderr, notice);
+  assert.equal(r.stderr.split(/\r?\n/).filter(Boolean).length, 1, r.stderr);
+  assert.ok(!r.stderr.includes(dir), 'named from the root, never by its absolute path');
+  assert.match(r.stdout, /0 hit\(s\) in 0 file\(s\); 2 file\(s\) scanned/);
+  const j = JSON.parse(scan(dir, `${SECRET}\n`, ['--json']).stdout);
+  assert.deepEqual(j.tooLarge, ['logs/big.log']);
+  assert.deepEqual(j.unreadable, []);
+
+  const git = repo(t, { untracked: { 'logs/big.log': big, 'ok.md': 'clean\n' } });
+  const g = scan(git, `${SECRET}\n`);
+  assert.equal(g.status, 0, g.stdout + g.stderr);
+  assert.match(g.stderr, notice);
+  assert.deepEqual(Object.keys(JSON.parse(scan(git, `${SECRET}\n`, ['--json']).stdout)), ['count', 'files', 'hits'], 'a git listing adds no field');
+});
+
 test('every option reads its value as --name value or --name=value; an option with no value exits 2', (t) => {
   const dir = repo(t, { tracked: { 'old/data.json': `${SECRET}\n`, 'src/code.js': `${SECRET}\n` } });
   const terms = `${dir}.terms.txt`; writeFileSync(terms, `${SECRET}\n`);
   const known = `${dir}.known.txt`; writeFileSync(known, 'old/data.json\n'); t.after(() => rmSync(known, { force: true }));
-  const run = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', timeout: 30000 }); // cwd: this repository, not dir
+  const run = (args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: 'utf8', timeout: 30000, env: bareEnv() }); // cwd: this repository, not dir
   const spaced = run(['--root', dir, '--terms-file', terms, '--known', known]);
   assert.equal(spaced.status, 1, spaced.stdout + spaced.stderr);
   assert.match(spaced.stdout, /^src\/code\.js:1 term #1$/m);
@@ -414,7 +478,7 @@ test('every option reads its value as --name value or --name=value; an option wi
 });
 
 test('--help describes the folder walk, the allow file and what fails the scan', () => {
-  const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8', timeout: 30000 });
+  const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8', timeout: 30000, env: bareEnv() });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^usage: node scripts\/scan-private-terms\.mjs/);
   assert.match(r.stdout, /not in a git work tree/);
@@ -424,16 +488,17 @@ test('--help describes the folder walk, the allow file and what fails the scan',
   assert.match(r.stdout, /unused allow entry/);
   assert.match(r.stdout, /stale --known entry/);
   assert.match(r.stdout, /cannot read/, 'the help says a scan names the folders and files it cannot read');
+  assert.match(r.stdout, /over 5 MB/, 'the help says a file over the size limit is named and not scanned');
   // One line per option, with its default and, for --json, every field it can add.
   assert.match(r.stdout, /^ {2}--root <dir> .*default: the current directory/m);
   assert.match(r.stdout, /^ {2}--terms-file <file> .*WIKI_MASTER_PRIVATE_TERMS_FILE/m);
   assert.match(r.stdout, /^ {2}--known <file> /m);
   const json = r.stdout.split(/\r?\n/).find((l) => /^ {2}--json /.test(l)) ?? '';
-  for (const field of ['count', 'files', 'hits', 'listing', 'unreadable', 'known', 'stale', 'allow']) assert.match(json, new RegExp(`\\b${field}\\b`), `--json line names ${field}`);
+  for (const field of ['count', 'files', 'hits', 'listing', 'unreadable', 'tooLarge', 'known', 'stale', 'allow']) assert.match(json, new RegExp(`\\b${field}\\b`), `--json line names ${field}`);
   assert.match(r.stdout, /--name=<value>/, 'the help gives both spellings of an option');
   // Every exit 2.
   const exit2 = r.stdout.split(/\r?\n/).find((l) => l.startsWith('Exit 2')) ?? '';
-  for (const cause of [/terms file/, /--known file/, /\.private-terms-allow/, /no value/, /unknown option/, /missing/, /is a file/, /cannot be read/, /git listing/]) assert.match(exit2, cause, `Exit 2 names ${cause}`);
+  for (const cause of [/terms file/, /--known file/, /\.private-terms-allow/, /no value/, /unknown option/, /missing/, /is a file/, /cannot be read/, /git listing/, /already exempt/]) assert.match(exit2, cause, `Exit 2 names ${cause}`);
 });
 
 test('--known lists files whose hits are reported but do not fail the scan; a stale entry fails it', (t) => {
@@ -464,9 +529,8 @@ test('--known lists files whose hits are reported but do not fail the scan; a st
 });
 
 test('this repository is clean under the built-in patterns, and under the owner\'s terms when a file is named', (t) => {
-  const bare = { ...process.env }; // the built-in run must not pick up the owner's terms from the environment
-  delete bare.WIKI_MASTER_PRIVATE_TERMS_FILE; delete bare.PRIVATE_TERMS_FILE;
-  const builtin = spawnSync(process.execPath, [SCRIPT, '--root', ROOT], { encoding: 'utf8', timeout: 120000, env: bare });
+  // The built-in run must not pick up the owner's terms from the environment; the second run names them.
+  const builtin = spawnSync(process.execPath, [SCRIPT, '--root', ROOT], { encoding: 'utf8', timeout: 120000, env: bareEnv() });
   assert.equal(builtin.status, 0, `the built-in patterns found something in the repository:\n${builtin.stdout}`);
   const file = process.env.WIKI_MASTER_PRIVATE_TERMS_FILE || process.env.PRIVATE_TERMS_FILE;
   if (!file) { t.skip('no WIKI_MASTER_PRIVATE_TERMS_FILE or PRIVATE_TERMS_FILE is set, so the owner\'s own terms were not checked'); return; }
