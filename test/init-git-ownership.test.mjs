@@ -72,7 +72,7 @@ test('initialization.md says new clipping hashes ignore line endings, older ones
   assert.match(text, /-text` rule is not needed for hash checks/);
   assert.doesNotMatch(text, /cannot break a recorded/);
   assert.match(text, /earlier rule[^.]*equivalence statuses/);
-  assert.match(text, /mixed line endings[^.]*`source-hash-mismatch`/);
+  assert.match(text, /mixed line endings[^`]{0,200}`source-hash-mismatch`/, 'the sentence may link the health check, whose path has a dot');
   assert.match(text, /Leave an existing `[^`]*-text` rule as it is/);
 });
 
