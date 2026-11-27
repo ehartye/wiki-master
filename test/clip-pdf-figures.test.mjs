@@ -13,6 +13,7 @@ import {
 import { main as clipMain, pdfClipContent } from '../scripts/clip-pdf.mjs';
 import { buildGraph, computeGraphMetrics } from '../scripts/lib/graph.mjs';
 import { scanIntegrity } from '../scripts/health.mjs';
+import { gated, rasterCapability } from './helpers/pdf-tools.mjs';
 
 // ------------------------------------------------------------------ arguments
 
@@ -229,9 +230,27 @@ test('renderFigures without pdftoppm is a clear, non-fatal skip', () => {
 
 // ------------------------------------------------------------------ real poppler
 
+// The tests below run only where diagnosePdf judges the figure tools usable: a pdftoppm that renders a PNG page, and
+// pdfimages, pdftocairo and pdfinfo that answer -v. Presence alone let Xpdf's pdftoppm, which has no -png, through.
+test('the raster gate passes Poppler, and names the tool and what it found otherwise', () => {
+  const probe = (command, outcome, status, stdout = '') => ({ command, args: ['-v'], outcome, status, stdout, stderr: '' });
+  const diagnosis = ({ raster = probe('pdftoppm', 'passed', 0), pdfimages = probe('pdfimages', 'passed', 0), flavor = 'poppler' } = {}) => ({
+    capabilities: {
+      text: { flavor },
+      figureRaster: raster,
+      figureDetection: { prerequisites: { pdfimages, pdftocairo: probe('pdftocairo', 'passed', 0), pdfinfo: probe('pdfinfo', 'passed', 0) } },
+    },
+  });
+  assert.deepEqual(rasterCapability(diagnosis()), { ok: true, reason: null });
+  const xpdf = probe('pdftoppm', 'unusable', 99, 'pdftoppm version 4.06 [www.xpdfreader.com]\nUsage: pdftoppm [options] <PDF-file> <PPM-root>\n');
+  assert.deepEqual(rasterCapability(diagnosis({ raster: xpdf })), { ok: false, reason: 'needs Poppler pdftoppm; found a pdftoppm that exits 99 on a one-page PNG render (Xpdf)' });
+  assert.equal(rasterCapability(diagnosis({ raster: { command: 'pdftoppm', outcome: 'missing' } })).reason, 'needs Poppler pdftoppm; found no pdftoppm');
+  assert.equal(rasterCapability(diagnosis({ raster: { ...probe('pdftoppm', 'invalid-output', 0) } })).reason, 'needs Poppler pdftoppm; found a pdftoppm that wrote no valid PNG on a one-page PNG render');
+  assert.equal(rasterCapability(diagnosis({ pdfimages: probe('pdfimages', 'unusable', 99) })).reason, 'needs Poppler pdfimages; found a pdfimages that exits 99 on -v (Xpdf?)');
+  assert.equal(rasterCapability(diagnosis({ flavor: 'unknown' })).reason, 'needs pdftotext; found none that answers -h or -v');
+});
+
 const tools = resolveFigureTools();
-const HAVE_POPPLER = Boolean(tools.pdftoppm && tools.pdfimages && tools.pdftocairo && tools.pdfinfo && tools.pdftotext);
-const real = { skip: HAVE_POPPLER ? false : 'poppler not installed' };
 
 // Three pages: prose, a vector plot with almost no text, and an embedded raster.
 function buildPdf(out) {
@@ -268,7 +287,7 @@ function tempVault() {
   return dir;
 }
 
-test('auto picks the vector plot and the embedded raster, not the prose page', real, () => {
+test('auto picks the vector plot and the embedded raster, not the prose page', gated('raster', () => {
   const dir = tempVault();
   try {
     const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
@@ -283,9 +302,9 @@ test('auto picks the vector plot and the embedded raster, not the prose page', r
     // Page 2 at 200 dpi on a 612x792pt page is 1700x2200.
     assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1700, 2200]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
-});
+}));
 
-test('rendering is idempotent, dedupes identical images, and respects hand-cropped figures', real, () => {
+test('rendering is idempotent, dedupes identical images, and respects hand-cropped figures', gated('raster', () => {
   const dir = tempVault();
   try {
     const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
@@ -307,9 +326,9 @@ test('rendering is idempotent, dedupes identical images, and respects hand-cropp
     assert.deepEqual(kept.kept, ['raw/figures/Doc-p2.md']);
     assert.match(readFileSync(md, 'utf8'), /crop: 10,10,500,500/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
-});
+}));
 
-test('explicit page lists and "all" render exactly those pages; a bad page is an error', real, () => {
+test('explicit page lists and "all" render exactly those pages; a bad page is an error', gated('raster', () => {
   const dir = tempVault();
   try {
     const pdf = join(dir, 'in.pdf'); buildPdf(pdf);
@@ -318,9 +337,9 @@ test('explicit page lists and "all" render exactly those pages; a bad page is an
     assert.match(readFileSync(join(dir, 'raw', 'figures', 'D-p1.md'), 'utf8'), /none detected \(page selected by request/);
     assert.throws(() => renderFigures({ pdfPath: pdf, vaultPath: dir, clippingPath: 'raw/clippings/D.md', title: 'D', source: pdf, selection: { mode: 'list', pages: [9], max: 40 }, log: () => {} }), /beyond the document's 3 pages/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
-});
+}));
 
-test('--figures-only renders for an existing clipping, edits only its frontmatter, and a re-run changes nothing', real, () => {
+test('--figures-only renders for an existing clipping, edits only its frontmatter, and a re-run changes nothing', gated('raster', () => {
   const dir = tempVault();
   const prev = process.env.WIKI_MASTER_VAULT;
   try {
@@ -359,9 +378,9 @@ test('--figures-only renders for an existing clipping, edits only its frontmatte
     if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('--figures-only refuses a PDF that is not the clipping\'s source, unless told otherwise', real, () => {
+test('--figures-only refuses a PDF that is not the clipping\'s source, unless told otherwise', gated('raster', () => {
   const dir = tempVault();
   const prev = process.env.WIKI_MASTER_VAULT;
   try {
@@ -384,9 +403,9 @@ test('--figures-only refuses a PDF that is not the clipping\'s source, unless to
     if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('--figures-only on a clipping with no source-hash warns instead of refusing', real, () => {
+test('--figures-only on a clipping with no source-hash warns instead of refusing', gated('raster', () => {
   const dir = tempVault();
   const prev = process.env.WIKI_MASTER_VAULT;
   try {
@@ -404,9 +423,9 @@ test('--figures-only on a clipping with no source-hash warns instead of refusing
     if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('a full clip with --figures writes the clipping, each sidecar and each image', real, () => {
+test('a full clip with --figures writes the clipping, each sidecar and each image', gated('raster', () => {
   const dir = tempVault();
   const prev = process.env.WIKI_MASTER_VAULT;
   const origLog = console.log; const origErr = console.error;
@@ -425,4 +444,4 @@ test('a full clip with --figures writes the clipping, each sidecar and each imag
     if (prev === undefined) delete process.env.WIKI_MASTER_VAULT; else process.env.WIKI_MASTER_VAULT = prev;
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));

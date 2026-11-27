@@ -5,8 +5,8 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { main, pdfToTextOcr, toolFailure, ocrToolPresence } from '../scripts/clip-pdf.mjs';
-import { pdftotextPresent } from '../scripts/lib/pdf-extract.mjs';
+import { main, pdfToTextOcr, toolFailure } from '../scripts/clip-pdf.mjs';
+import { gated, ocrCapability } from './helpers/pdf-tools.mjs';
 
 const SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), '..', 'scripts');
 
@@ -151,10 +151,25 @@ test('an OCR that reads nothing is still the thin outcome, with its decline', (t
   assert.equal(v.declines().length, 1);
 });
 
-// The whole command against the real tools, where they are installed: the file starts like a PDF and nothing can open it.
-const ocr = ocrToolPresence();
-const REAL_TOOLS = pdftotextPresent() && ocr.pdftoppm && ocr.tesseract;
-test('clip-pdf.mjs on a PDF that no tool can open prints no stack trace and exits like other failed captures', { skip: !REAL_TOOLS && 'needs pdftotext, pdftoppm and tesseract' }, (t) => {
+// The OCR gate is the product's own: ocrReachable, which needs pdftoppm -v and tesseract --version to exit 0. A presence
+// check let Xpdf's pdftoppm (exit 99 on -v) through, and the command then reported no OCR toolchain at all.
+test('the OCR gate follows ocrReachable, and names the tool and what it found otherwise', () => {
+  const probe = (command, args, outcome, status, stdout = '') => ({ command, args, outcome, status, stdout, stderr: '' });
+  const passed = [probe('pdftoppm', ['-v'], 'passed', 0), probe('tesseract', ['--version'], 'passed', 0)];
+  const diagnosis = (probes = passed) => ({ capabilities: { ocrRuntimeGate: { probes } } });
+  assert.deepEqual(ocrCapability({ reachable: true, text: true, diagnosis: diagnosis() }), { ok: true, reason: null });
+  const xpdf = [probe('pdftoppm', ['-v'], 'unusable', 99, 'pdftoppm version 4.06 [www.xpdfreader.com]\n'), passed[1]];
+  assert.deepEqual(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis(xpdf) }), { ok: false, reason: 'needs Poppler pdftoppm and tesseract for OCR; found a pdftoppm that exits 99 on -v (Xpdf)' });
+  const noTesseract = [passed[0], { command: 'tesseract', args: ['--version'], outcome: 'missing' }];
+  assert.equal(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis(noTesseract) }).reason, 'needs Poppler pdftoppm and tesseract for OCR; found no tesseract');
+  assert.equal(ocrCapability({ reachable: true, text: false, diagnosis: diagnosis() }).reason, 'needs pdftotext; found none');
+  // ocrReachable decides, even when the doctor's probes disagree with it.
+  assert.equal(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis() }).ok, false);
+  assert.equal(ocrCapability({ reachable: true, text: true, diagnosis: diagnosis(xpdf) }).ok, true);
+});
+
+// The whole command against the real tools, where they are usable: the file starts like a PDF and nothing can open it.
+test('clip-pdf.mjs on a PDF that no tool can open prints no stack trace and exits like other failed captures', gated('ocr', (t) => {
   const v = vault(t);
   const r = spawnSync(process.execPath, [join(SCRIPTS, 'clip-pdf.mjs'), v.pdf, `--source=${SOURCE}`, '--topic=Scans', '--title=A scan'], { encoding: 'utf8', env: { ...process.env, WIKI_MASTER_VAULT: v.root } });
   const shown = `${r.stdout}\n${r.stderr}`;
@@ -164,4 +179,4 @@ test('clip-pdf.mjs on a PDF that no tool can open prints no stack trace and exit
   assert.deepEqual(v.names(), []);
   assert.deepEqual(v.declines(), []);
   assert.deepEqual(v.rows().map((row) => [row.url, row.kind, row.topic]), [[SOURCE, 'failed', 'Scans']]);
-});
+}));
