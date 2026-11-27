@@ -29,12 +29,15 @@ const wmEntries = (dir) => new Set(readdirSync(dir).filter((n) => n.startsWith('
 // derives the same list from contextEnv and fails if they differ.
 const VAULT_BINDING = ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_PROJECT_ROOT'];
 const HOME_DIR = 'home';
+// The variables that name the home folder: Git reads HOME; Node's os.homedir() and Python on Windows read USERPROFILE.
+const HOME_VARIABLES = ['HOME', 'USERPROFILE'];
 const entriesIn = (dir) => { try { return readdirSync(dir).length; } catch { return 0; } };
 
 // The child's environment. Windows treats variable names case-insensitively, so a name is matched in any case there.
 function testEnv(parent, root, home) {
   const key = (name) => (process.platform === 'win32' ? name.toUpperCase() : name);
-  const set = { TMPDIR: root, TEMP: root, TMP: root, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: join(home, '.config') };
+  const set = { TMPDIR: root, TEMP: root, TMP: root, XDG_CONFIG_HOME: join(home, '.config') };
+  for (const name of HOME_VARIABLES) set[name] = home;
   const drop = new Set([...VAULT_BINDING, ...Object.keys(set)].map(key));
   const env = Object.fromEntries(Object.entries(parent).filter(([name]) => !drop.has(key(name))));
   return { ...env, ...set };
