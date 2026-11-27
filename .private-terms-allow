@@ -1,0 +1,10 @@
+# Home-relative paths this repository names on purpose. scripts/scan-private-terms.mjs lets a path through when it
+# starts with one of the entries below, at a segment boundary, and fails when an entry matches no text, so the list
+# stays precise. Each entry needs a comment on the line straight above it. A path that only shows a machine's layout
+# does not belong here: write it with a <placeholder> instead.
+#
+# The Codex install and update steps (docs/codex.md, and its copy in the eval/plugin-docs-vault corpus) tell the user
+# where to copy the plugin; a placeholder would leave a command that cannot be run.
+~/plugins/wiki-master
+# The Windows form of the same install path, in the same steps.
+%USERPROFILE%\plugins\wiki-master

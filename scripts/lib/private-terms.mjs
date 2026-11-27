@@ -48,13 +48,95 @@ const hasInvisible = (s) => {
   }
   return false;
 };
-// Patterns that name a person's machine whatever the list says.
-export const BUILTIN_RULES = [
-  { id: 'home-path-windows', test: (s) => WINDOWS_HOME.test(s) },
-  { id: 'home-path-posix', test: (s) => POSIX_HOME.test(s) },
-  { id: 'gpu-model', test: (s) => GPU.test(s) },
-  { id: 'invisible-character', test: hasInvisible },
-];
+// A path under the home folder written through its token: `~`, `$HOME`, `${HOME}`, `%USERPROFILE%` or
+// `$env:USERPROFILE`, then `/` or `\`. Two segments after the token name a layout (a folder and a repository in it),
+// so they are a hit unless the first segment is a dot-folder (where tools keep their config), a segment holds a
+// `<placeholder>`, or the path starts with an entry of the allow file. A word, a dot or a slash running into the token
+// means it is not one. Windows matches its variable names without regard to case; a shell does not.
+const ci = (word) => word.replace(/[A-Za-z]/g, (c) => `[${c.toUpperCase()}${c.toLowerCase()}]`);
+const TOKENS = String.raw`(?:~|\$HOME|\$\{HOME\}|%${ci('USERPROFILE')}%|\$${ci('env')}:${ci('USERPROFILE')})`;
+const HOME_TOKEN = new RegExp(String.raw`(?<![\w~.\\/-])${TOKENS}(?=[\\/])`, 'g');
+const STARTS_WITH_TOKEN = new RegExp(String.raw`^${TOKENS}[\\/]`);
+// The path runs to the first space, quote, bracket or list punctuation. A backslash before n, r or t that no letter
+// follows is an escaped line end or tab in JSON or source text (a tilde underline in a recorded log), not a folder.
+const PATH_TAIL = /^(?:(?!\\[nrt](?![A-Za-z0-9]))[^\s'"`()[\]{},;|*?])*/;
+const PLACEHOLDER_SEGMENT = /<[^<>]+>/;
+const NAMED = /[\p{L}\p{N}]/u; // a segment with no letter or digit (an ellipsis) names no folder
+
+// Each home-relative path on the line, as written: token and path, without the sentence punctuation after it.
+function homePaths(s) {
+  const found = [];
+  for (const m of s.matchAll(HOME_TOKEN)) {
+    const tail = PATH_TAIL.exec(s.slice(m.index + m[0].length))[0].replace(/[.,:;!?]+$/, '');
+    found.push({ text: m[0] + tail, segments: tail.split(/[\\/]/).filter((seg) => NAMED.test(seg)) });
+  }
+  return found;
+}
+
+const allows = (entry, text) => text === entry || (text.startsWith(entry) && (/[\\/]$/.test(entry) || /^[\\/]/.test(text.slice(entry.length))));
+
+// The home-path-relative rule over an allow list ({ entry, line } items, from parseAllow). `used` collects the entries
+// that let a path through; `silent` is the same rule without that record, for the allow file's own lines, whose
+// entries would otherwise count as used by themselves.
+export function homeRelativeRule(allow = []) {
+  const used = new Set();
+  const check = (record) => (s) => {
+    let hit = false;
+    for (const p of homePaths(s)) {
+      if (p.segments.length < 2 || p.segments[0].startsWith('.') || p.segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) continue;
+      const by = allow.filter((a) => allows(a.entry, p.text));
+      if (!by.length) hit = true;
+      else if (record) for (const a of by) used.add(a.entry);
+    }
+    return hit;
+  };
+  return { id: 'home-path-relative', test: check(true), used, silent: { id: 'home-path-relative', test: check(false) } };
+}
+
+// The allow file: one home-relative path prefix per line, as the text writes it, each on the line straight after a
+// `#` comment that says why it is allowed (GitHub's advice for secret-scanning exclusions: keep each one precise and
+// documented). It applies to home-path-relative only. Read at the root of a scan and at the root of a vault.
+export const ALLOW_FILE = '.private-terms-allow';
+// An allow file that cannot be used: its message names the line, fit to print as it is.
+export class AllowFileError extends Error {}
+
+export function parseAllow(text) {
+  const entries = [];
+  const lines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/);
+  let documented = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { documented = false; continue; }
+    if (line.startsWith('#')) { documented = true; continue; }
+    if (!documented) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry needs a # comment on the line above it saying why it is allowed`);
+    if (!STARTS_WITH_TOKEN.test(line)) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must be a home-relative path (~, $HOME, \${HOME}, %USERPROFILE% or $env:USERPROFILE, then / or \\)`);
+    entries.push({ entry: line, line: i + 1 });
+    documented = false;
+  }
+  return entries;
+}
+
+// The allow file in a folder, parsed; none (or no such folder) gives no entries.
+export function readAllow(dir) {
+  let text;
+  try { text = readFileSync(join(dir, ALLOW_FILE), 'utf8'); } catch (err) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return [];
+    throw new AllowFileError(`${ALLOW_FILE} cannot be read`);
+  }
+  return parseAllow(text);
+}
+
+// Patterns that name a person's machine whatever the list says, with home-path-relative over an allow list.
+export function builtinRules(allow = []) {
+  return [
+    { id: 'home-path-windows', test: (s) => WINDOWS_HOME.test(s) },
+    { id: 'home-path-posix', test: (s) => POSIX_HOME.test(s) },
+    homeRelativeRule(allow),
+    { id: 'gpu-model', test: (s) => GPU.test(s) },
+    { id: 'invisible-character', test: hasInvisible },
+  ];
+}
+export const BUILTIN_RULES = builtinRules();
 
 export function scanText(text, rules) {
   const hits = [];
@@ -152,7 +234,8 @@ export function scanRepo(root, rules) {
     } catch { continue; } // deleted since the index was written, or unreadable
     if (buf.subarray(0, 8000).includes(0)) continue; // binary
     files++;
-    for (const h of scanText(buf.toString('utf8'), rules)) hits.push({ file, ...h });
+    const own = file === ALLOW_FILE ? rules.map((r) => r.silent ?? r) : rules; // its entries do not use themselves up
+    for (const h of scanText(buf.toString('utf8'), own)) hits.push({ file, ...h });
   }
   return { hits, files, walked: listing.walked };
 }

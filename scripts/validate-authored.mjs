@@ -7,7 +7,7 @@ import { isContent } from './lib/graph.mjs';
 import { scanIntegrity } from './lib/integrity.mjs';
 import { readGraphCache } from './lib/graph-cache-read.mjs';
 import { parseNote } from './lib/note.mjs';
-import { parseTerms, scanText, BUILTIN_RULES } from './lib/private-terms.mjs';
+import { parseTerms, scanText, builtinRules, readAllow } from './lib/private-terms.mjs';
 import { checkLedgerPaths, readLedger } from './lib/ledger.mjs';
 import { DEPENDS_ON_KEY, dependsOnEntries, analyzeBacklog } from './lib/backlog-deps.mjs';
 import { readBacklogItems } from './lib/backlog-read.mjs';
@@ -29,6 +29,9 @@ cliGuard(import.meta.url);
 // reads) and the built-in machine patterns, for pages that are written for a public repository. A hit is a
 // `private-term` defect with its line and rule number, never the text. --terms-projects limits that check to the
 // pages whose `project:` (its first segment) is named, so a private project's own pages may name themselves.
+// A `.private-terms-allow` file at the vault root, read with --terms-file when present, lets through the
+// home-relative paths such pages name on purpose (an install path, say), as the same file does for the repository
+// scan; an entry that no checked page uses is not a defect, because only the ledger's pages are checked.
 //
 // Exit 0 clean, 1 defects, 2 bad input. The integrity scan still covers the whole
 // vault because ambiguity is vault-wide; only the report is scoped to the ledger. With the
@@ -260,13 +263,20 @@ export function main(argv = process.argv.slice(2)) {
     if (!values['paths-file']) throw new InputError('--paths-file <JSON array of vault-relative paths> is required (usage: node validate-authored.mjs --paths-file <ledger.json> [--json] [--no-cache])');
     if (values['terms-projects'] && !values['terms-file']) throw new InputError('--terms-projects needs --terms-file');
     let termRules = null;
+    let terms = null;
     if (values['terms-file']) {
       let text;
       try { text = readFileSync(values['terms-file'], 'utf8'); } catch { throw new InputError('the terms file cannot be read'); }
-      try { termRules = [...BUILTIN_RULES, ...parseTerms(text)]; } catch (error) { throw new InputError(error.message); }
+      try { terms = parseTerms(text); } catch (error) { throw new InputError(error.message); }
     }
     const termProjects = values['terms-projects'] ? values['terms-projects'].split(',').map(s => s.trim()).filter(Boolean) : null;
-    const result = validateAuthored(resolveOperationVault('maintenance').path, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
+    const vaultPath = resolveOperationVault('maintenance').path;
+    if (terms) {
+      // The vault root's allow file lets through the home-relative paths a public page names on purpose. Only the
+      // ledger's pages are checked, so an entry none of them uses is not a defect here.
+      try { termRules = [...builtinRules(readAllow(vaultPath)), ...terms]; } catch (error) { throw new InputError(error.message); }
+    }
+    const result = validateAuthored(vaultPath, readLedgerFile(values['paths-file']), { termRules, termProjects, noCache: values['no-cache'] === true });
     for (const s of result.skippedPaths ?? []) console.error(`validate-authored: skipped path ${s.path} (${s.reason})`);
     if (values.json) console.log(JSON.stringify(result, null, 2));
     else {
