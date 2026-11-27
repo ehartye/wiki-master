@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseTerms, scanText, BUILTIN_RULES } from '../scripts/lib/private-terms.mjs';
+import * as privateTerms from '../scripts/lib/private-terms.mjs';
 
 // The public repository must not name the owner's other projects or machines: that language belongs in the wiki.
 // The scanner reads the owner's private list from a file kept outside the repository, scans tracked and
@@ -208,6 +209,105 @@ test('the built-in patterns catch home paths, GPU models and invisible character
   for (const fine of [String.raw`C:\Users\you\repos`, String.raw`C:\Users\<name>\x`, String.raw`C:\Users\%USERNAME%\x`, '/Users/you/code', '/home/runner/work/x', 'cd ~/repos', 'the Users guide', 'an RTX-class GPU']) {
     assert.deepEqual(ids(fine), [], `${fine} should not be flagged`);
   }
+});
+
+// A home-relative path names the owner's layout once it has two segments after the home token. The samples are
+// built from parts, so this file holds no such path itself and the repository's own scan stays clean.
+const bs = String.fromCharCode(92);
+const under = (token, sep, ...segments) => [token, ...segments].join(sep);
+
+test('home-path-relative flags two segments after a home token, and lets one segment, dot-folders and placeholders through', () => {
+  const ids = (s) => scanText(s, BUILTIN_RULES).map((h) => h.rule);
+  const hits = [
+    under('~', '/', 'repos', 'x'),
+    `see ${under('~', '/', 'repos', 'demo', 'notes')}`,
+    under('$HOME', '/', 'repos', 'x'),
+    under('${HOME}', '/', 'repos', 'x'),
+    under('%USERPROFILE%', bs, 'repos', 'x'),
+    under('%USERPROFILE%', '/', 'repos', 'x'),
+    under('$env:USERPROFILE', bs, 'repos', 'x'),
+    under('$env:USERPROFILE', '/', 'repos', 'x'),
+    under('~', bs, 'repos', 'x'),
+    under('%userprofile%', bs, 'repos', 'x'), // Windows names its variables without regard to case
+    `cd "${under('$HOME', '/', 'code', 'demo')}" && ls`,
+    `see [notes](${under('~', '/', 'repos', 'demo')}).`,
+  ];
+  for (const s of hits) assert.deepEqual(ids(s), ['home-path-relative'], `${s} should be flagged`);
+  const fine = [
+    'cd ~/repos', // one segment says nothing about a layout
+    '~/.config/wiki-master/vaults.json', // a dot-folder is where tools keep their config
+    under('$env:USERPROFILE', bs, '.wiki-master-vault', '.recycle'),
+    '~/<repos>/<plugin>', // a placeholder
+    under('~', '/', 'repos', 'demo', '<name>'),
+    under('~', '/', 'repos', '<name>-worktrees', 'x'),
+    under('~', '/', 'repos', '...'), // an ellipsis is not a folder name
+    'a~/repos/x/y', // not a home token: a word runs into it
+    `outputLength ~${bs}r${bs}n   2 |`, // a tilde before JSON-escaped line ends is not a path
+    `${'$'}{home}${bs}n${bs}n`, // a lower-case shell variable is not HOME
+  ];
+  for (const s of fine) assert.deepEqual(ids(s), [], `${s} should not be flagged`);
+});
+
+test('home-path-relative lets through a path that starts with an allow entry, at a segment boundary, and records which entries were used', () => {
+  const entry = under('~', '/', 'plugins', 'demo');
+  const win = under('%USERPROFILE%', bs, 'plugins', 'demo');
+  const rules = privateTerms.builtinRules([{ entry, line: 2 }, { entry: win, line: 4 }, { entry: under('~', '/', 'plugins', 'unused'), line: 6 }]);
+  const rule = rules.find((r) => r.id === 'home-path-relative');
+  const ids = (s) => scanText(s, rules).map((h) => h.rule);
+  assert.deepEqual(ids(`copy it to \`${entry}\``), [], 'the entry itself');
+  assert.deepEqual(ids(`run ${under('~', '/', 'plugins', 'demo', 'x')} now`), [], 'a path below the entry');
+  assert.deepEqual(ids(`refresh the copy under ${entry}.`), [], 'sentence punctuation after the entry');
+  assert.deepEqual(ids(`on Windows ${under('%USERPROFILE%', bs, 'plugins', 'demo', 'skills')}`), []);
+  assert.deepEqual(ids(under('~', '/', 'plugins', 'demo-other', 'x')), ['home-path-relative'], 'a prefix only allows whole segments');
+  assert.deepEqual(ids(`${entry} and ${under('~', '/', 'repos', 'x')}`), ['home-path-relative'], 'an allowed path does not hide a second path on the line');
+  assert.deepEqual(ids(under('$HOME', '/', 'plugins', 'demo')), ['home-path-relative'], 'an entry is matched as written, token and all');
+  assert.deepEqual([...rule.used].sort(), [entry, win].sort());
+  assert.deepEqual(privateTerms.BUILTIN_RULES.map((r) => r.id), ['home-path-windows', 'home-path-posix', 'home-path-relative', 'gpu-model', 'invisible-character']);
+});
+
+test('the allow file needs a # comment above every entry, and each entry must be a home-relative path', () => {
+  const entry = under('~', '/', 'plugins', 'demo');
+  assert.deepEqual(privateTerms.parseAllow(`# the documented install path\n${entry}\n\n# and its Windows form\r\n${under('%USERPROFILE%', bs, 'plugins', 'demo')}\n`),
+    [{ entry, line: 2 }, { entry: under('%USERPROFILE%', bs, 'plugins', 'demo'), line: 5 }]);
+  assert.throws(() => privateTerms.parseAllow(`${entry}\n`), (e) => e instanceof privateTerms.AllowFileError && /line 1\b/.test(e.message) && /comment/.test(e.message));
+  assert.throws(() => privateTerms.parseAllow(`# why\n${entry}\n${under('~', '/', 'plugins', 'two')}\n`), /line 3\b/, 'one comment documents one entry');
+  assert.throws(() => privateTerms.parseAllow(`# why\n\n${entry}\n`), /line 3\b/, 'a blank line parts a comment from the entry');
+  assert.throws(() => privateTerms.parseAllow('# why\nplugins/demo\n'), (e) => /line 2\b/.test(e.message) && /home/.test(e.message));
+});
+
+test('the CLI reads .private-terms-allow at the root: an allowed path passes, an undocumented entry exits 2, an unused entry fails by name', (t) => {
+  const entry = under('~', '/', 'plugins', 'demo');
+  const layout = under('~', '/', 'repos', 'demo', 'notes');
+  const allowed = repo(t, { tracked: { 'install.md': `copy to \`${entry}\`\n`, '.private-terms-allow': `# the documented install path\n${entry}\n` } });
+  const ok = scan(allowed, null);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  assert.match(ok.stdout, /^0 hit\(s\)/m);
+
+  const layoutRepo = repo(t, { tracked: { 'notes.md': `line one\nsee ${layout}\n` } });
+  const hit = scan(layoutRepo, null);
+  assert.equal(hit.status, 1, hit.stdout + hit.stderr);
+  assert.match(hit.stdout, /^notes\.md:2 home-path-relative$/m);
+  assert.doesNotMatch(hit.stdout, /repos/, 'the matched path is never printed');
+
+  const undocumented = repo(t, { tracked: { 'install.md': `${entry}\n`, '.private-terms-allow': `${entry}\n` } });
+  const bad = scan(undocumented, null);
+  assert.equal(bad.status, 2, bad.stdout + bad.stderr);
+  assert.match(bad.stderr, /^scan-private-terms: \.private-terms-allow line 1: /m);
+
+  // The entry's own line in the allow file does not count as a use, or no entry could ever go unused.
+  const unused = repo(t, { tracked: { 'install.md': `copy to ${entry}\n`, '.private-terms-allow': `# used\n${entry}\n# no longer named anywhere\n${under('~', '/', 'plugins', 'gone')}\n` } });
+  const stale = scan(unused, null);
+  assert.equal(stale.status, 1, stale.stdout + stale.stderr);
+  assert.match(stale.stdout, new RegExp(`^unused allow entry: \\.private-terms-allow:4 ${under('~', '/', 'plugins', 'gone')} `, 'm'));
+  assert.doesNotMatch(stale.stdout, /install\.md/);
+  const j = JSON.parse(scan(unused, null, ['--json']).stdout);
+  assert.deepEqual(j.allow, { entries: 2, unused: [under('~', '/', 'plugins', 'gone')] });
+
+  // A layout in the allow file's own comment is still a hit: only its entries are allowed.
+  const comment = repo(t, { tracked: { 'install.md': `${entry}\n`, '.private-terms-allow': `# copied from ${layout}\n${entry}\n` } });
+  const own = scan(comment, null);
+  assert.equal(own.status, 1, own.stdout + own.stderr);
+  assert.match(own.stdout, /^\.private-terms-allow:1 home-path-relative$/m);
 });
 
 test('--known lists files whose hits are reported but do not fail the scan; a stale entry fails it', (t) => {
