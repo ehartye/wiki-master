@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.110.0 — 2026-11-27
+
+- **Behavior change: clipping hashes ignore line endings.**
+  - `clipperText` and `clippingHash` turn CRLF and lone CR into LF before hashing, and every clipper now stores LF.
+  - That covers `clip-gh`'s repository manifest, module listings and digest, the GitHub selection, and HTML re-clips, frontmatter included.
+  - A clipping committed into an `eol=lf` vault keeps a matching `source-hash`.
+  - Recorded hashes are never rewritten.
+- **One shared check.** `verifyClippingHash` (in `scripts/lib/clipping-hash.mjs`) classifies a clipping against its recorded hash:
+  - `match`;
+  - `match-raw`: the old rule, with CRs kept on disk;
+  - `crlf-variant`: the hash was taken over CRLF text that is now LF;
+  - `trailing-newline`: one final line break differs;
+  - `mismatch`.
+
+  The first two are matches, the next two are equivalent forms, and only `mismatch` is a defect.
+- **Health: new `source-hash-mismatch` issue.** It names each real mismatch, with fix text for the way the clipping was captured. Equivalent forms get one count line.
+  - A web page: `--recapture`, which writes a new dated clipping.
+  - A page a person saved: `--from-file <path> --recapture`.
+  - A user-supplied transcript: owner review, and no fetch route.
+  - `clip-gh`: owner review first, because a rerun replaces the clipping in place.
+  - The PDF, Office and Confluence clippers: a rerun will report "already clipped".
+
+  The integrity derive id changed, so the first `health` or `refresh-index` run after upgrading reads every clipping once.
+- **`adopt-clipping`** reports a held hash as a conflict only when it really mismatches.
+- **`transfer.mjs`** blocks only on a real mismatch.
+  - Equivalent forms transfer without `--allow-hash-mismatch`. They are listed by path and status in the plan's NOTE and in both logs.
+  - The transfer-in count reads "N source-hash(es) verified, M of them in an equivalent form." when M is above 0.
+  - A clipping the destination keeps is not listed.
+- **New `source-stub.mjs <clipping>… | --paths-file <ledger>`.**
+  - It prints a source page's provenance frontmatter, with `sources` and the recorded `source-hashes` in order.
+  - It refuses a path outside `raw/clippings/`, a missing clipping, one with no hash, and a real mismatch.
+  - The source-note template gains `source-hashes:`.
+- **Things that now behave differently:**
+  - A `--recapture` of a clipping whose hash was recorded over CRLF text (`match-raw`, `crlf-variant`) is not reported `unchanged`: it writes a dated second capture.
+  - A GitHub-selection file holding lone CRs gets a new identity name on re-selection.
+  - Vaults no longer need a `-text` rule for hash checks.
+
 ## 0.109.0 — 2026-11-27
 
 - `scan-private-terms.mjs` can scan a folder before `git init`.
