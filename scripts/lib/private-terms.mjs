@@ -102,7 +102,8 @@ function gitFiles(root) {
 // that leave the root, broken links and links to folders (a folder inside the root is walked where it is, so a link
 // back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link.
 function walkFiles(root) {
-  const top = realpathSync(root);
+  const real = realpathSync.native; // resolves short names and substituted drives, so the root and a link's target compare alike
+  const top = real(root);
   const inside = (p) => { const rel = relative(top, p); return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)); };
   const files = [];
   const visit = (dir, prefix) => {
@@ -118,7 +119,7 @@ function walkFiles(root) {
       if (e.isDirectory()) visit(full, `${name}/`);
       else if (e.isFile()) files.push(name);
       else if (e.isSymbolicLink()) {
-        try { if (inside(realpathSync(full)) && statSync(full).isFile()) files.push(name); } catch { /* a broken link */ }
+        try { if (inside(real(full)) && statSync(full).isFile()) files.push(name); } catch { /* a broken link */ }
       }
     }
   };
