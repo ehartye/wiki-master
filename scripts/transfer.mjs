@@ -207,10 +207,8 @@ function hasLogEntry(vaultPath, op, id) {
 const list = (title, paths) => (paths.length ? `\n${title}\n${paths.map((p) => `- \`${p}\``).join('\n')}\n` : '');
 
 // The transferred clippings whose text is the text their source-hash records in another form, each with its status.
-function equivalentIn(plan) {
-  const kept = new Set(plan.entries.filter((e) => e.state === 'keep-destination').map((e) => e.path));
-  return (plan.notes?.equivalent ?? []).filter((e) => !kept.has(e.path));
-}
+// The plan already leaves out a file the destination keeps, so the plan's NOTE and both logs name the same files.
+const equivalentIn = (plan) => plan.notes?.equivalent ?? [];
 const listEquivalent = (rows) => (rows.length
   ? `\nVerified as the text their source-hash records, in another form (other line endings, or without a final line break):\n${rows.map((e) => `- \`${e.path}\` (${e.status})`).join('\n')}\n`
   : '');
