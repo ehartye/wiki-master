@@ -14,6 +14,7 @@ import { buildNameIndex, resolveLinkTarget, wikilinks, GRAPH_CACHE_RACY_MS } fro
 import { acquireGate, lockAddress } from './cli-transport.mjs';
 import { clippingKind, readPageForReclip, retainedShare, MIN_RETAINED } from './reclip-html.mjs';
 import { olderCaptures } from './topic.mjs';
+import { normalizeLineEndings } from './clipping-hash.mjs';
 
 const norm = url => issueKey(url, '');
 const layout = text => scalar(text, 'fidelity') === 'tabular' || ['table-aware','table-flattened'].includes(scalar(text,'extraction'));
@@ -37,7 +38,9 @@ export function mergeReclip(original, clip) {
   // The page fields are undefined for a PDF clip (so nothing is added or removed); for a page they follow what
   // clip.mjs writes: the checks counted, the page chrome set aside only when there was some.
   const updated = metadata(original, {'source-hash':clip.hash, fidelity:clip.fidelity === 'high' ? undefined : clip.fidelity, extraction:clip.extraction, 'extraction-retry':clip.extractionRetry, 'fidelity-checks':clip.fidelityChecks, 'fidelity-ignored':clip.fidelityIgnored>0?clip.fidelityIgnored:undefined});
-  return updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`;
+  // Written with LF throughout, frontmatter included, as every clipper writes (lib/clipping-hash.mjs): a clipping that was
+  // CRLF on disk does not keep its carriage returns through a re-clip.
+  return normalizeLineEndings(updated.slice(0,block(updated)[0].length) + `\n${clip.md}\n`);
 }
 export function extractForReclip(path, meta, {mode='auto', plan=planExtraction, readPdf=pdfToText, readOcr=pdfToTextOcr, canOcr=ocrReachable} = {}) {
   const ext=extname(path).toLowerCase();
