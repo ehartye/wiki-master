@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as clipPdf from '../scripts/clip-pdf.mjs';
-import { resolveTool } from '../scripts/lib/pdf-figures.mjs';
+import { gated, titleCapability, STRICT_ENV } from './helpers/pdf-tools.mjs';
 import { makePdf, prosePages } from './fixtures/make-pdf.mjs';
 
 const { main, pdfinfoTitle, titleFromPdf } = clipPdf;
@@ -173,8 +173,40 @@ test('pdfinfoTitle reads the Title: line, and is null without the tool, without 
   assert.equal(calls[0].options.stdio?.[2], 'ignore', 'stderr is not inherited');
 });
 
-const pdfinfo = resolveTool('pdfinfo');
-test('a generated PDF with an /Info title is named by the real pdfinfo, and one without falls to its stem', { skip: pdfinfo ? false : 'pdfinfo not installed' }, (t) => {
+// The real-pdfinfo test runs only where pdfinfo answers -v with exit 0 and prints a fixture's title. Presence alone let
+// an Xpdf pdfinfo through (exit 99 on -v), and one that crashed came back as a null title.
+test('the pdfinfo title gate passes Poppler, and names the tool and what it found otherwise', () => {
+  const version = (outcome, status, stdout = '') => ({ command: 'pdfinfo', args: ['-v'], outcome, status, stdout, stderr: '' });
+  assert.deepEqual(titleCapability({ version: version('passed', 0), title: 'A Plausible Report Title' }), { ok: true, reason: null });
+  assert.equal(titleCapability({ version: version('unusable', 99, 'pdfinfo version 4.06 [www.xpdfreader.com]\n') }).reason, 'needs Poppler pdfinfo; found a pdfinfo that exits 99 on -v (Xpdf)');
+  assert.equal(titleCapability({ version: { command: 'pdfinfo', outcome: 'missing' } }).reason, 'needs Poppler pdfinfo; found no pdfinfo');
+  assert.equal(titleCapability({ version: version('passed', 0), title: null }).reason, 'needs a pdfinfo that prints a PDF\'s title; found a pdfinfo that printed null for a fixture titled "A Plausible Report Title"');
+});
+
+// A gated test skips with the capability's reason, runs where the capability holds, and under the strict variable fails
+// with that same reason, so a machine meant to have Poppler cannot pass by skipping.
+test('gated: skip with the reason, run when usable, fail with the reason in strict mode', async () => {
+  const missing = async () => ({ ok: false, reason: 'needs Poppler pdfinfo; found no pdfinfo' });
+  const usable = async () => ({ ok: true, reason: null });
+  const ctx = () => { const c = { skipped: [] }; c.skip = (r) => c.skipped.push(r); return c; };
+  let ran = 0;
+  const body = () => { ran += 1; };
+
+  const skipped = ctx();
+  await gated('title', body, { capability: missing, env: {} })(skipped);
+  assert.deepEqual([skipped.skipped, ran], [['needs Poppler pdfinfo; found no pdfinfo'], 0]);
+
+  const run = ctx();
+  await gated('title', body, { capability: usable, env: { [STRICT_ENV]: '1' } })(run);
+  assert.deepEqual([run.skipped, ran], [[], 1]);
+
+  const strict = ctx();
+  await assert.rejects(gated('title', body, { capability: missing, env: { [STRICT_ENV]: '1' } })(strict), (e) => e.message.startsWith('needs Poppler pdfinfo; found no pdfinfo'));
+  assert.deepEqual([strict.skipped, ran], [[], 1]);
+  assert.equal(STRICT_ENV, 'WIKI_MASTER_TEST_REQUIRE_POPPLER');
+});
+
+test('a generated PDF with an /Info title is named by the real pdfinfo, and one without falls to its stem', gated('title', (t) => {
   const dir = mkdtempSync(join(realpathSync(tmpdir()), 'wm-pdf-title-info-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const titled = makePdf(prosePages(1), join(dir, 'titled_scan.pdf'), { info: { title: 'A Plausible Report Title' } });
@@ -192,4 +224,4 @@ test('a generated PDF with an /Info title is named by the real pdfinfo, and one 
   assert.equal(stem.title, 'bare scan');
   assert.deepEqual(stem.err, [warning('bare scan', 'the file name')]);
   assert.deepEqual(readdirSync(dir).sort(), ['bare_scan.pdf', 'marked_scan.pdf', 'titled_scan.pdf']);
-});
+}));

@@ -4,20 +4,31 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { detectTabular, planExtraction, pdfClipContent, pdfToText } from '../scripts/clip-pdf.mjs';
-import { pdftotextCapabilities, pdftotextPresent, tabularity } from '../scripts/lib/pdf-extract.mjs';
+import { pdftotextCapabilities, tabularity } from '../scripts/lib/pdf-extract.mjs';
+import { gated, textCapability } from './helpers/pdf-tools.mjs';
 import { makePdf, tablePages, prosePages } from './fixtures/make-pdf.mjs';
 
 const LF = String.fromCharCode(10);
 
 // These exercise the detector against a REAL pdftotext, which is where the
 // thresholds actually live. pdftotext is not guaranteed on CI, so skip rather
-// than fail when it is absent -- a missing tool is not a broken detector.
-// Use the shared probe, NOT an exit-code check: Xpdf's pdftotext exits 99 for
-// -v, so the naive version skipped these tests on exactly the installs whose
-// -table mode they are meant to cover.
-const skip = pdftotextPresent() ? false : 'pdftotext not installed';
+// than fail when it cannot read a PDF -- a missing tool is not a broken detector.
+// The gate is the product's own read (pdfToText on a one-page fixture), NOT an
+// exit-code check: Xpdf's pdftotext exits 99 for -v, so the naive version skipped
+// these tests on exactly the installs whose -table mode they are meant to cover,
+// and presence alone let through an Xpdf that crashes on every PDF when the home
+// folder is not the real profile.
+test('the pdftotext gate passes a pdftotext that reads the fixture, and names what happened otherwise', () => {
+  const crash = Object.assign(new Error('Command failed'), { status: 3221225477, signal: null });
+  assert.deepEqual(textCapability({ present: true, text: 'pdftotext capability probe\n\f' }), { ok: true, reason: null });
+  assert.equal(textCapability({ present: false }).reason, 'needs pdftotext; found none that answers -h or -v');
+  assert.equal(textCapability({ present: true, error: crash }).reason, 'needs a pdftotext that reads a PDF; pdftotext crashed (exit 3221225477) reading a one-page fixture');
+  assert.equal(textCapability({ present: true, error: { status: null, signal: 'SIGSEGV' } }).reason, 'needs a pdftotext that reads a PDF; pdftotext crashed (SIGSEGV) reading a one-page fixture');
+  assert.equal(textCapability({ present: true, error: { status: 1 } }).reason, 'needs a pdftotext that reads a PDF; pdftotext exited 1 reading a one-page fixture');
+  assert.equal(textCapability({ present: true, text: '' }).reason, 'needs a pdftotext that reads a PDF; pdftotext read "" from a fixture that says "pdftotext capability probe"');
+});
 
-test('detectTabular separates a real table from a two-column paper', { skip }, () => {
+test('detectTabular separates a real table from a two-column paper', gated('pdftotext', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wm-tab-'));
   try {
     const table = makePdf(tablePages(), join(dir, 'table.pdf'));
@@ -33,9 +44,9 @@ test('detectTabular separates a real table from a two-column paper', { skip }, (
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('the -layout detector used on poppler still sees the table', { skip }, () => {
+test('the -layout detector used on poppler still sees the table', gated('pdftotext', () => {
   // Poppler has no -table mode, so it cannot RECOVER the rows -- but it must
   // still DETECT them, because detection is what produces the warning and the
   // degraded stamp. If detection failed here, poppler users would silently get
@@ -48,9 +59,9 @@ test('the -layout detector used on poppler still sees the table', { skip }, () =
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('aligned mode re-attaches every row key that reading-order mode detaches', { skip: skip || (!pdftotextCapabilities().table && 'no -table mode') }, () => {
+test('aligned mode re-attaches every row key that reading-order mode detaches', { skip: !pdftotextCapabilities().table && 'no -table mode' }, gated('pdftotext', () => {
   // The bug, end to end: in reading-order mode the standard codes stand alone
   // (detached from their text); in -table mode each one leads its row.
   const dir = mkdtempSync(join(tmpdir(), 'wm-tab3-'));
@@ -79,9 +90,9 @@ test('aligned mode re-attaches every row key that reading-order mode detaches', 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('a poppler install cannot silently flatten a table: it warns and marks it degraded', { skip }, () => {
+test('a poppler install cannot silently flatten a table: it warns and marks it degraded', gated('pdftotext', () => {
   // The branch that carries the guarantee, and the one that CANNOT be reached on
   // a machine that has -table -- so the capability set is injected rather than
   // probed. Poppler ships no -table mode, so there is no faithful reading
@@ -128,9 +139,9 @@ test('a poppler install cannot silently flatten a table: it warns and marks it d
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test('a prose document is untouched by all of this', { skip }, () => {
+test('a prose document is untouched by all of this', gated('pdftotext', () => {
   // The regression that would hurt most: routing a two-column paper through an
   // aligned mode interleaves its columns and makes every quote untraceable.
   const dir = mkdtempSync(join(tmpdir(), 'wm-tab5-'));
@@ -145,4 +156,4 @@ test('a prose document is untouched by all of this', { skip }, () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
