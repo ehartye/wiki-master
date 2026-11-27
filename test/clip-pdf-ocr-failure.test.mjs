@@ -157,15 +157,18 @@ test('the OCR gate follows ocrReachable, and names the tool and what it found ot
   const probe = (command, args, outcome, status, stdout = '') => ({ command, args, outcome, status, stdout, stderr: '' });
   const passed = [probe('pdftoppm', ['-v'], 'passed', 0), probe('tesseract', ['--version'], 'passed', 0)];
   const diagnosis = (probes = passed) => ({ capabilities: { ocrRuntimeGate: { probes } } });
-  assert.deepEqual(ocrCapability({ reachable: true, text: true, diagnosis: diagnosis() }), { ok: true, reason: null });
+  // `text` is the pdftotext gate: the command reads the PDF's text layer before it decides on OCR.
+  const reads = { ok: true, reason: null };
+  const crashes = { ok: false, reason: 'needs a pdftotext that reads a PDF; pdftotext crashed (exit 3221225477) reading a one-page fixture' };
+  assert.deepEqual(ocrCapability({ reachable: true, text: reads, diagnosis: diagnosis() }), { ok: true, reason: null });
   const xpdf = [probe('pdftoppm', ['-v'], 'unusable', 99, 'pdftoppm version 4.06 [www.xpdfreader.com]\n'), passed[1]];
-  assert.deepEqual(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis(xpdf) }), { ok: false, reason: 'needs Poppler pdftoppm and tesseract for OCR; found a pdftoppm that exits 99 on -v (Xpdf)' });
+  assert.deepEqual(ocrCapability({ reachable: false, text: reads, diagnosis: diagnosis(xpdf) }), { ok: false, reason: 'needs Poppler pdftoppm and tesseract for OCR; found a pdftoppm that exits 99 on -v (Xpdf)' });
   const noTesseract = [passed[0], { command: 'tesseract', args: ['--version'], outcome: 'missing' }];
-  assert.equal(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis(noTesseract) }).reason, 'needs Poppler pdftoppm and tesseract for OCR; found no tesseract');
-  assert.equal(ocrCapability({ reachable: true, text: false, diagnosis: diagnosis() }).reason, 'needs pdftotext; found none');
+  assert.equal(ocrCapability({ reachable: false, text: reads, diagnosis: diagnosis(noTesseract) }).reason, 'needs Poppler pdftoppm and tesseract for OCR; found no tesseract');
+  assert.deepEqual(ocrCapability({ reachable: true, text: crashes, diagnosis: diagnosis() }), crashes);
   // ocrReachable decides, even when the doctor's probes disagree with it.
-  assert.equal(ocrCapability({ reachable: false, text: true, diagnosis: diagnosis() }).ok, false);
-  assert.equal(ocrCapability({ reachable: true, text: true, diagnosis: diagnosis(xpdf) }).ok, true);
+  assert.equal(ocrCapability({ reachable: false, text: reads, diagnosis: diagnosis() }).ok, false);
+  assert.equal(ocrCapability({ reachable: true, text: reads, diagnosis: diagnosis(xpdf) }).ok, true);
 });
 
 // The whole command against the real tools, where they are usable: the file starts like a PDF and nothing can open it.

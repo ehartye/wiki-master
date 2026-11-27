@@ -2,8 +2,8 @@
 // never expects Poppler behavior from a tool the product itself would refuse:
 //
 //   raster  diagnosePdf's figure render (the resolved pdftoppm writes a PNG page), its -v probes of pdfimages,
-//           pdftocairo and pdfinfo, and a pdftotext it can identify
-//   ocr     ocrReachable (pdftoppm -v and tesseract --version exit 0), and pdftotextPresent
+//           pdftocairo and pdfinfo, and the pdftotext capability below
+//   ocr     ocrReachable (pdftoppm -v and tesseract --version exit 0), and the pdftotext capability below
 //   title   diagnosePdf's -v probe of the resolved pdfinfo exits 0, and pdfinfoTitle reads a fixture PDF's title
 //   pdftotext  pdftotextPresent, and the product's pdfToText reads a one-page fixture's text (an Xpdf pdftotext
 //              answers -h and -v but crashes on every PDF when USERPROFILE is not the real profile)
@@ -44,22 +44,22 @@ function found(probe, tool, what) {
 }
 
 // The figures tests render with the resolved pdftoppm, detect pages with pdfimages and pdftocairo, count pages with
-// pdfinfo and read text with pdftotext.
-export function rasterCapability(diagnosis) {
+// pdfinfo and read text with pdftotext. `text` is the pdftotext capability: Poppler's raster tools behind an Xpdf
+// pdftotext that crashes is a mix the product's own degraded-text advice can produce.
+export function rasterCapability(diagnosis, text) {
   const c = diagnosis.capabilities;
   if (c.figureRaster.outcome !== 'passed') return { ok: false, reason: `needs Poppler pdftoppm; ${found(c.figureRaster, 'pdftoppm', 'a one-page PNG render')}` };
   for (const tool of ['pdfimages', 'pdftocairo', 'pdfinfo']) {
     const probe = c.figureDetection.prerequisites[tool];
     if (probe?.outcome !== 'passed') return { ok: false, reason: `needs Poppler ${tool}; ${found(probe, tool, '-v')}` };
   }
-  if (c.text.flavor === 'unknown') return { ok: false, reason: 'needs pdftotext; found none that answers -h or -v' };
-  return OK;
+  return text.ok ? OK : text;
 }
 
 // `reachable` is ocrReachable(), the product's gate, and it decides; the doctor's probes of the same two commands only
-// say which tool failed.
+// say which tool failed. `text` is the pdftotext capability: the command reads the text layer before it decides on OCR.
 export function ocrCapability({ reachable, text, diagnosis }) {
-  if (!text) return { ok: false, reason: 'needs pdftotext; found none' };
+  if (!text.ok) return text;
   if (reachable) return OK;
   const failing = diagnosis.capabilities.ocrRuntimeGate.probes.find((p) => p.outcome !== 'passed');
   const what = failing ? found(failing, failing.command, failing.args?.join(' ')) : 'ocrReachable is false, though the doctor\'s probes passed';
@@ -110,8 +110,8 @@ function readFixtureText() {
 }
 
 const PROBES = {
-  raster: async () => rasterCapability(await diagnose()),
-  ocr: async () => ocrCapability({ reachable: ocrReachable(), text: pdftotextPresent(), diagnosis: await diagnose() }),
+  raster: async () => rasterCapability(await diagnose(), await pdfCapability('pdftotext')),
+  ocr: async () => ocrCapability({ reachable: ocrReachable(), text: await pdfCapability('pdftotext'), diagnosis: await diagnose() }),
   title: async () => {
     const version = (await diagnose()).capabilities.figureDetection.prerequisites.pdfinfo;
     return titleCapability({ version, title: version?.outcome === 'passed' ? readFixtureTitle() : undefined });

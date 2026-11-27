@@ -231,23 +231,27 @@ test('renderFigures without pdftoppm is a clear, non-fatal skip', () => {
 // ------------------------------------------------------------------ real poppler
 
 // The tests below run only where diagnosePdf judges the figure tools usable: a pdftoppm that renders a PNG page, and
-// pdfimages, pdftocairo and pdfinfo that answer -v. Presence alone let Xpdf's pdftoppm, which has no -png, through.
+// pdfimages, pdftocairo and pdfinfo that answer -v, and a pdftotext that reads a PDF (page counts, page text and the
+// full clip read through it). Presence alone let Xpdf's pdftoppm, which has no -png, through, and a Poppler raster
+// set behind an Xpdf pdftotext that crashes failed the tests instead of skipping them.
 test('the raster gate passes Poppler, and names the tool and what it found otherwise', () => {
   const probe = (command, outcome, status, stdout = '') => ({ command, args: ['-v'], outcome, status, stdout, stderr: '' });
-  const diagnosis = ({ raster = probe('pdftoppm', 'passed', 0), pdfimages = probe('pdfimages', 'passed', 0), flavor = 'poppler' } = {}) => ({
+  const diagnosis = ({ raster = probe('pdftoppm', 'passed', 0), pdfimages = probe('pdfimages', 'passed', 0) } = {}) => ({
     capabilities: {
-      text: { flavor },
       figureRaster: raster,
       figureDetection: { prerequisites: { pdfimages, pdftocairo: probe('pdftocairo', 'passed', 0), pdfinfo: probe('pdfinfo', 'passed', 0) } },
     },
   });
-  assert.deepEqual(rasterCapability(diagnosis()), { ok: true, reason: null });
+  const reads = { ok: true, reason: null };
+  const crashes = { ok: false, reason: 'needs a pdftotext that reads a PDF; pdftotext crashed (exit 3221225477) reading a one-page fixture' };
+  assert.deepEqual(rasterCapability(diagnosis(), reads), { ok: true, reason: null });
   const xpdf = probe('pdftoppm', 'unusable', 99, 'pdftoppm version 4.06 [www.xpdfreader.com]\nUsage: pdftoppm [options] <PDF-file> <PPM-root>\n');
-  assert.deepEqual(rasterCapability(diagnosis({ raster: xpdf })), { ok: false, reason: 'needs Poppler pdftoppm; found a pdftoppm that exits 99 on a one-page PNG render (Xpdf)' });
-  assert.equal(rasterCapability(diagnosis({ raster: { command: 'pdftoppm', outcome: 'missing' } })).reason, 'needs Poppler pdftoppm; found no pdftoppm');
-  assert.equal(rasterCapability(diagnosis({ raster: { ...probe('pdftoppm', 'invalid-output', 0) } })).reason, 'needs Poppler pdftoppm; found a pdftoppm that wrote no valid PNG on a one-page PNG render');
-  assert.equal(rasterCapability(diagnosis({ pdfimages: probe('pdfimages', 'unusable', 99) })).reason, 'needs Poppler pdfimages; found a pdfimages that exits 99 on -v (Xpdf?)');
-  assert.equal(rasterCapability(diagnosis({ flavor: 'unknown' })).reason, 'needs pdftotext; found none that answers -h or -v');
+  assert.deepEqual(rasterCapability(diagnosis({ raster: xpdf }), reads), { ok: false, reason: 'needs Poppler pdftoppm; found a pdftoppm that exits 99 on a one-page PNG render (Xpdf)' });
+  assert.equal(rasterCapability(diagnosis({ raster: { command: 'pdftoppm', outcome: 'missing' } }), reads).reason, 'needs Poppler pdftoppm; found no pdftoppm');
+  assert.equal(rasterCapability(diagnosis({ raster: { ...probe('pdftoppm', 'invalid-output', 0) } }), reads).reason, 'needs Poppler pdftoppm; found a pdftoppm that wrote no valid PNG on a one-page PNG render');
+  assert.equal(rasterCapability(diagnosis({ pdfimages: probe('pdfimages', 'unusable', 99) }), reads).reason, 'needs Poppler pdfimages; found a pdfimages that exits 99 on -v (Xpdf?)');
+  // Poppler raster tools behind a pdftotext that cannot read a PDF: the pdftotext gate's own reason.
+  assert.deepEqual(rasterCapability(diagnosis(), crashes), crashes);
 });
 
 const tools = resolveFigureTools();
