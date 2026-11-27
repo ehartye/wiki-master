@@ -161,7 +161,7 @@ for (const [kind, name, frontmatter, clipper] of CLIPPERS) {
       // clip-gh writes the file again under the same name when its text differs from every hash the vault holds.
       assert.match(issue.verification, /replaces this clipping in place/);
       assert.match(issue.verification, /only after/);
-      assert.match(issue.verification, /recorded commit/);
+      assert.match(issue.verification, /the ref its source address names/);
       assert.doesNotMatch(issue.verification, /never edited|already clipped/);
     } else {
       assert.ok(REFUSE_BY_SOURCE.has(clipper));

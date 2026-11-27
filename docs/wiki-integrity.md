@@ -49,7 +49,7 @@ Only `mismatch` is a defect (`source-hash-mismatch` above). Recorded hashes are 
 |---|---|---|
 | A web page (`clip.mjs`) | `clip.mjs <source> --recapture` writes a new dated clipping beside it and never edits it | Recapture, then ingest and cite the new clipping; this one stays open until it is purged or re-adopted |
 | A page a person saved (`extraction: manual`) | A fetch would replace the person's text with another page | Review; re-adopt; or save the page again from a signed-in browser and run `clip.mjs <source> --from-file <path> --recapture` |
-| A GitHub file (`clip-gh.mjs`) | Replaces the clipping in place when the repository's text differs from every hash the vault holds (the held text is gone); leaves it as it is when the text is unchanged | Review first, against the file at the recorded commit or the vault's history; then re-adopt, or run `clip-gh.mjs` again |
+| A GitHub file (`clip-gh.mjs`) | Replaces the clipping in place when the repository's text differs from every hash the vault holds (the held text is gone); leaves it as it is when the text is unchanged | Review first, against the file at the ref its source address names or an earlier copy of the vault; then re-adopt, or run `clip-gh.mjs` again |
 | A PDF, Word, PowerPoint, Excel or Confluence clipping | Reports the source as already clipped, because the vault holds its address | Review and re-adopt; or purge it (wiki-purge), then clip the source again |
 | A supplied transcript (`user-supplied-*`) or a clipping with no web source | No clipper wrote it; there is nothing to fetch | Review; re-adopt; or supply the original again as a new clipping and adopt it |
 
