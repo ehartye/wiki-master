@@ -9,10 +9,12 @@ import { contextEnv } from '../scripts/lib/context.mjs';
 
 // `npm test` runs test/run-suite.mjs, which gives the run its own temp root: every test's tmpdir() is inside it,
 // it is removed when the run passes and kept, with its path printed, when the run fails. The tests also get a home
-// folder inside that root and none of the parent's vault-binding variables. The fixture test files are written
-// outside the repository at run time, because `node --test` runs every .mjs below test/.
+// folder beside that root, outside their temp directory, which the runner removes at the end, and none of the parent's
+// vault-binding variables. The fixture test files are written outside the repository at run time, because
+// `node --test` runs every .mjs below test/.
 
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), 'run-suite.mjs');
+const VAULT_LIB = pathToFileURL(join(dirname(RUNNER), '..', 'scripts', 'lib', 'vault.mjs')).href;
 
 function fixture(t, name, source) {
   const dir = mkdtempSync(join(realpathSync(tmpdir()), 'wm-run-suite-fixture-'));
@@ -30,6 +32,7 @@ function run(args, extraEnv = {}) {
 const VAULT_BINDING = Object.keys(contextEnv({ selected: { id: 'docs', path: join(tmpdir(), 'vault'), selector: 'vault', available: false },
   configPath: join(tmpdir(), 'vaults.json'), repositoryRoot: join(tmpdir(), 'repo') }, {}));
 const rootOf = (stdout) => /run-suite: temp root (.+)$/m.exec(stdout)?.[1]?.trim();
+const homeOf = (root) => `${root}-home`;
 
 test('a passing run that leaks one folder reports it, removes its root and exits 0', (t) => {
   const { dir, file } = fixture(t, 'leak.test.mjs', (d) => `import { test } from 'node:test';
@@ -58,6 +61,7 @@ test('fails', () => { assert.equal(1, 2); });
   t.after(() => root && rmSync(root, { recursive: true, force: true }));
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.ok(root && existsSync(root), 'a failing run keeps its root');
+  assert.equal(existsSync(homeOf(root)), false, 'the run home is removed even when the run fails');
   assert.match(r.stdout, new RegExp(`kept .*${root.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}`));
 });
 
@@ -83,7 +87,7 @@ test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
   assert.equal(r.status, 128 + 9, r.stdout + r.stderr);
 });
 
-test('the tests get a home inside the run root and no inherited vault binding, and keep the browser guard', (t) => {
+test('the tests get a home beside the run root and no inherited vault binding, and keep the browser guard', (t) => {
   const { dir, file } = fixture(t, 'env.test.mjs', (d) => `import { test } from 'node:test';
 import { existsSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -105,7 +109,7 @@ test('records what it sees', () => {
   const root = rootOf(r.stdout);
   assert.ok(root, r.stdout);
   const seen = JSON.parse(readFileSync(join(dir, 'seen.json'), 'utf8'));
-  const home = join(root, 'home');
+  const home = homeOf(root);
   assert.equal(seen.env.HOME, home);
   assert.equal(seen.env.USERPROFILE, home);
   assert.equal(seen.env.XDG_CONFIG_HOME, join(home, '.config'));
@@ -117,6 +121,25 @@ test('records what it sees', () => {
   assert.equal(seen.tmpdir, root, 'the temp folder is still the run root');
   for (const name of ['APPDATA', 'LOCALAPPDATA']) assert.equal(seen.env[name], process.env[name], `${name} is left alone`);
   assert.match(r.stdout, /left behind: 0\b/, 'the run home is the runner\'s own, not a leftover');
+  assert.equal(existsSync(home), false, 'the runner removes the run home');
+});
+
+test('a test that names no vault is refused by the test-vault guard, not given a shared default vault', (t) => {
+  const { dir, file } = fixture(t, 'default.test.mjs', (d) => `import { test } from 'node:test';
+import { writeFileSync } from 'node:fs';
+import { resolveVault } from ${JSON.stringify(VAULT_LIB)};
+test('resolves the default vault', () => {
+  let outcome;
+  try { outcome = { path: resolveVault(process.env).path }; } catch (error) { outcome = { refused: error.message }; }
+  writeFileSync(${JSON.stringify(join(d, 'outcome.json'))}, JSON.stringify({ ...outcome, home: process.env.HOME }));
+});
+`);
+  const r = run([file], { WIKI_MASTER_VAULT: join(dir, 'machine-vault') });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const root = rootOf(r.stdout);
+  const outcome = JSON.parse(readFileSync(join(dir, 'outcome.json'), 'utf8'));
+  assert.match(outcome.refused ?? `resolved ${outcome.path}`, /outside the temporary directory/);
+  assert.equal(outcome.home, homeOf(root));
 });
 
 test('loaded as a test file by node --test, the runner does nothing', () => {
