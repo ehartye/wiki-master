@@ -89,10 +89,10 @@ test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
 
 test('the tests get a home beside the run root and no inherited vault binding, and keep the browser guard', (t) => {
   const { dir, file } = fixture(t, 'env.test.mjs', (d) => `import { test } from 'node:test';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 test('records what it sees', () => {
-  writeFileSync(${JSON.stringify(join(d, 'seen.json'))}, JSON.stringify({ env: process.env, homedir: homedir(), tmpdir: tmpdir(), homeIsThere: existsSync(process.env.HOME) }));
+  writeFileSync(${JSON.stringify(join(d, 'seen.json'))}, JSON.stringify({ env: process.env, homedir: homedir(), tmpdir: tmpdir(), homeIsThere: existsSync(process.env.HOME), homeMode: statSync(process.env.HOME).mode }));
 });
 `);
   const machineHome = join(dir, 'machine-home');
@@ -100,6 +100,8 @@ test('records what it sees', () => {
     HOME: machineHome, USERPROFILE: machineHome, XDG_CONFIG_HOME: join(machineHome, '.config'),
     ...Object.fromEntries(VAULT_BINDING.map((name) => [name, join(dir, `machine-${name.toLowerCase()}`)])),
     WIKI_MASTER_BROWSER: join(dir, 'recording-stub.sh'), WIKI_MASTER_BROWSER_RECORD: join(dir, 'browser-launches.txt'),
+    // A shell that must not touch the real vault sets this (README); a test that needs it sets it itself.
+    WIKI_MASTER_REQUIRE_VAULT: '1',
   };
   assert.deepEqual([...VAULT_BINDING].sort(),
     ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME'],
@@ -115,7 +117,10 @@ test('records what it sees', () => {
   assert.equal(seen.env.XDG_CONFIG_HOME, join(home, '.config'));
   assert.equal(seen.homedir, home, 'os.homedir() follows the run home');
   assert.ok(seen.homeIsThere, 'the run home exists while the tests run');
+  // Windows has no POSIX mode bits to check; on a shared POSIX /tmp the home must be as private as the mkdtemp root.
+  if (process.platform !== 'win32') assert.equal(seen.homeMode & 0o777, 0o700, 'the run home is readable by its owner only');
   for (const name of VAULT_BINDING) assert.equal(seen.env[name], undefined, `${name} does not reach the tests`);
+  assert.equal(seen.env.WIKI_MASTER_REQUIRE_VAULT, undefined, 'WIKI_MASTER_REQUIRE_VAULT does not reach the tests');
   assert.equal(seen.env.WIKI_MASTER_BROWSER, inherited.WIKI_MASTER_BROWSER);
   assert.equal(seen.env.WIKI_MASTER_BROWSER_RECORD, inherited.WIKI_MASTER_BROWSER_RECORD);
   assert.equal(seen.tmpdir, root, 'the temp folder is still the run root');
