@@ -5,8 +5,10 @@
 //           pdftocairo and pdfinfo, and the pdftotext capability below
 //   ocr     ocrReachable (pdftoppm -v and tesseract --version exit 0), and the pdftotext capability below
 //   title   diagnosePdf's -v probe of the resolved pdfinfo exits 0, and pdfinfoTitle reads a fixture PDF's title
-//   pdftotext  pdftotextPresent, and the product's pdfToText reads a one-page fixture's text (an Xpdf pdftotext
-//              answers -h and -v but crashes on every PDF when USERPROFILE is not the real profile)
+//   pdftotext  pdftotextPresent, and the product's pdfToText reads a one-page fixture's text. On Windows an Xpdf
+//              pdftotext (by the product's banner check, pdftotextCapabilities().flavor) is refused without a read:
+//              Xpdf 4.06 answers -h and -v, but crashes on some reads and not others when USERPROFILE is not the
+//              real profile, as under npm test, so one lucky read cannot be trusted
 //
 //   test('...', gated('raster', (t) => { ... }));
 //
@@ -19,7 +21,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diagnosePdf } from '../../scripts/lib/pdf-doctor.mjs';
-import { pdftotextPresent } from '../../scripts/lib/pdf-extract.mjs';
+import { pdftotextCapabilities, pdftotextPresent } from '../../scripts/lib/pdf-extract.mjs';
 import { ocrReachable, pdfinfoTitle, pdfToText } from '../../scripts/clip-pdf.mjs';
 import { resolveTool } from '../../scripts/lib/pdf-figures.mjs';
 import { makePdf, prosePages } from '../fixtures/make-pdf.mjs';
@@ -83,10 +85,11 @@ function ended(tool, error) {
   return `${tool} failed (${error?.code ?? error?.message ?? 'unknown error'})`;
 }
 
-// `present` is pdftotextPresent(); `text` is what pdfToText read from a fixture saying FIXTURE_TEXT, or `error` what it
-// threw.
-export function textCapability({ present, text, error }) {
+// `present` is pdftotextPresent(); `flavor` is pdftotextCapabilities().flavor; `text` is what pdfToText read from a
+// fixture saying FIXTURE_TEXT, or `error` what it threw.
+export function textCapability({ present, flavor, platform = process.platform, text, error }) {
   if (!present) return { ok: false, reason: 'needs pdftotext; found none that answers -h or -v' };
+  if (platform === 'win32' && flavor === 'xpdf') return { ok: false, reason: 'needs a pdftotext that reads a PDF reliably; found Xpdf pdftotext, which crashes intermittently when USERPROFILE is not the real profile (as under npm test)' };
   if (error) return { ok: false, reason: `needs a pdftotext that reads a PDF; ${ended('pdftotext', error)} reading a one-page fixture` };
   if (!String(text).includes(FIXTURE_TEXT)) return { ok: false, reason: `needs a pdftotext that reads a PDF; pdftotext read ${JSON.stringify(String(text).trim().slice(0, 80))} from a fixture that says ${JSON.stringify(FIXTURE_TEXT)}` };
   return OK;
@@ -104,8 +107,10 @@ const readFixtureTitle = () => withFixture('titled.pdf', prosePages(1), { info: 
 
 function readFixtureText() {
   if (!pdftotextPresent()) return { present: false };
+  const { flavor } = pdftotextCapabilities();
+  if (process.platform === 'win32' && flavor === 'xpdf') return { present: true, flavor };
   return withFixture('text.pdf', [[{ x: 60, y: 700, text: FIXTURE_TEXT }]], {}, (pdf) => {
-    try { return { present: true, text: pdfToText(pdf) }; } catch (error) { return { present: true, error }; }
+    try { return { present: true, flavor, text: pdfToText(pdf) }; } catch (error) { return { present: true, flavor, error }; }
   });
 }
 

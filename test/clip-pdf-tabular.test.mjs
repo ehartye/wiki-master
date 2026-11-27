@@ -16,10 +16,16 @@ const LF = String.fromCharCode(10);
 // The gate is the product's own read (pdfToText on a one-page fixture), NOT an
 // exit-code check: Xpdf's pdftotext exits 99 for -v, so the naive version skipped
 // these tests on exactly the installs whose -table mode they are meant to cover,
-// and presence alone let through an Xpdf that crashes on every PDF when the home
-// folder is not the real profile.
+// and presence alone let through an Xpdf that crashes when the home folder is not
+// the real profile. That crash is intermittent, so one lucky fixture read could
+// open the gate; on Windows an Xpdf pdftotext is refused by its banner instead.
 test('the pdftotext gate passes a pdftotext that reads the fixture, and names what happened otherwise', () => {
   const crash = Object.assign(new Error('Command failed'), { status: 3221225477, signal: null });
+  const reads = 'pdftotext capability probe\n\f';
+  const xpdfOnWindows = 'needs a pdftotext that reads a PDF reliably; found Xpdf pdftotext, which crashes intermittently when USERPROFILE is not the real profile (as under npm test)';
+  assert.deepEqual(textCapability({ present: true, flavor: 'xpdf', platform: 'win32', text: reads }), { ok: false, reason: xpdfOnWindows });
+  assert.deepEqual(textCapability({ present: true, flavor: 'xpdf', platform: 'linux', text: reads }), { ok: true, reason: null });
+  assert.deepEqual(textCapability({ present: true, flavor: 'poppler', platform: 'win32', text: reads }), { ok: true, reason: null });
   assert.deepEqual(textCapability({ present: true, text: 'pdftotext capability probe\n\f' }), { ok: true, reason: null });
   assert.equal(textCapability({ present: false }).reason, 'needs pdftotext; found none that answers -h or -v');
   assert.equal(textCapability({ present: true, error: crash }).reason, 'needs a pdftotext that reads a PDF; pdftotext crashed (exit 3221225477) reading a one-page fixture');
