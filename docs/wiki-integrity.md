@@ -25,10 +25,23 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 | `malformed-frontmatter` | A page opens with a frontmatter fence but its metadata is not read: the fence line carries a stray carriage return (`---\r\r\n`) or is never closed, or the block holds a carriage return that is not half of a CRLF. Carriage returns in the body are not this rule. It replaces the `missing-evidence` the unread `sources:` would otherwise cause. |
 | `missing-evidence` | A substantive derived page lacks its evidence route. Source summaries need a direct raw citation; other derived pages need a route within three evidence hops. |
 | `cites-retired-page` | A page cites a page marked `citation-status: retired`, through `sources:` or an explicit factual-body link into `raw/` or `wiki/sources/`. The issue names the citing page, the link and `retiredPath`. A retired page citing another, a plain navigation link and an entry on a map page are not reported. |
+| `source-hash-mismatch` | A clipping under `raw/clippings/` whose recorded `source-hash` has the status `mismatch` (see Clipping hashes below): its text is not the text the hash was made over, in any form the check recognises. The issue's source is the clipping, its line is the `source-hash` line, and `capture` is `web` or `manual`. A web capture is recaptured (`clip.mjs <source> --recapture` writes a new clipping and leaves this one alone). A `manual` one (`extraction: manual` or `user-supplied-*`, or a source that is not a web address) cannot be fetched again: the owner compares it with the original, and once confirmed its `source-hash` line is removed, it is re-adopted with `adopt-clipping.mjs --apply`, and the new hash replaces the old one in the `source-hashes` of each source page that cites it. Neither fix edits the body. Until it is fixed, `transfer.mjs` blocks the clipping unless the owner approves `--allow-hash-mismatch`. |
 
 **Retired pages.** `citation-status: retired` is how a note says it is a lead and must not be cited as support. A retired page is not provenance-eligible (no `missing-evidence`), no evidence route runs through it, and `coverage.retired` counts it (the report adds `N retired.` to its second line only when N is above zero). It is a different state from `citation-status: restricted`, which re-clip quarantine writes on a page that leans on a quarantined clipping: that page is working documentation and stays under the evidence check. Marking a note retired is the owner's call; the tool changes nothing until a page carries the marker.
 
 **Stray carriage returns (unscored).** A carriage return anywhere in a content page that is not half of a CRLF (a doubled `\r\r\n`, or one left by a tool that wrote `\r \r`) is listed in `strayCarriageReturns` (page and first line) and in one report line, `Stray carriage returns: N page(s)`, printed only when N is above zero. It is not a defect and does not move the count or the status: the page stays readable, and damage to the frontmatter is the named `malformed-frontmatter` rule above. An all-CRLF page, and anything under `raw/` or `log/`, is never listed. Normalise a listed page with a checked repair (the line sequence must be unchanged), as `wiki-maintainer` repair mode does for frontmatter.
+
+**Clipping hashes.** Each Markdown file under `raw/clippings/` that records a `source-hash` is checked with `verifyClippingHash` (`scripts/lib/clipping-hash.mjs`), which returns one status:
+
+| Status | The recorded hash equals the hash of | Kind |
+|---|---|---|
+| `match` | the body with its line endings made LF (the current rule) | match |
+| `match-raw` | the body as it is, carriage returns kept (the rule before line endings were normalized) | match |
+| `crlf-variant` | the same text with CRLF line endings, under the old rule: the file has since been converted to LF | equivalent |
+| `trailing-newline` | the body with one more final line break, under either rule | equivalent |
+| `mismatch` | none of these | defect |
+
+Only `mismatch` is a defect (`source-hash-mismatch` above). Recorded hashes are never rewritten. The result's `clippingHashes` counts the checked clippings by status (`checked` is their total), and `equivalentClippingHashes` lists the two equivalent statuses (page and status). The report adds one line, `Clipping hashes recorded over an equivalent text: crlf-variant N, trailing-newline M (unscored; ...)`, only when either is above zero. They are not defects and do not move the count or the status. A clipping with no `source-hash` is not checked here; `--legacy` and `--backlog` list it as missing one. Other files under `raw/` are not checked, because no clipper wrote them or their hash. A scoped scan counts and reports only the named clippings. The status is kept in the graph cache with the rest of the scan, so a warm scan re-reads only the clippings that changed.
 
 **Backlog items outside the status vocabulary (unscored).** A page under `wiki/authored/` with `kind: backlog-item` whose `backlog-status` is missing or is not one of `in-progress`, `planned`, `blocked`, `shipped`, `dropped` is listed in `unrecognizedBacklogStatus` (page and status, `null` when absent) and in one report line, `Backlog items with a missing or unrecognized status: N`, printed only when N is above zero. The project's generated roadmap already lists such an item under "Unrecognized status"; this makes a whole-vault check say so too. It is not a defect and does not move the count or the status. Set the status to a value in the vocabulary (`done` is `shipped`, `proposed` is `planned`).
 
@@ -52,7 +65,7 @@ detection is explicitly outside coverage. Qualified evidence paths express citat
 intent and are therefore checked more strictly than navigation.
 
 The scanner excludes templates, raw bodies, logs, system/dot files, code examples,
-comments and embeds. It understands wikilinks and table-escaped aliases. It reports
+comments and embeds; a clipping's body is read only to check it against its `source-hash`. It understands wikilinks and table-escaped aliases. It reports
 heading/block validation, Markdown-style links, external URLs and factual correctness
 as unchecked. The existing graph remains the legacy/navigation helper contract; the
 integrity scanner reads current content with its stricter syntax and ambiguity rules.

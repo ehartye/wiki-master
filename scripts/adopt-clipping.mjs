@@ -10,7 +10,7 @@ import { vaultPath as checkedPath } from './lib/vault-path.mjs';
 import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { resolveOperationVault, isUnder } from './lib/vault.mjs';
-import { clippingHash } from './lib/clipping-hash.mjs';
+import { clippingHash, verifyClippingHash } from './lib/clipping-hash.mjs';
 import { QUALITY_TIERS } from './lib/quality-tiers.mjs';
 import { unquoteValue } from './lib/known-urls.mjs';
 import { normalizeTopic } from './lib/topic.mjs';
@@ -122,8 +122,9 @@ function plan(arg) {
     if (tidy.dropped) { edited = tidy.block; removed.push(field); }
   }
   const conflicts = [];
-  const want = (field, value, held, render) => {
-    if (held !== null) { if (held !== value) conflicts.push({ field, held, wanted: value }); return; }
+  // `same(held)` says whether a value the file already holds agrees with the one wanted; by default, when they are equal.
+  const want = (field, value, held, render, same = (h) => h === value) => {
+    if (held !== null) { if (!same(held)) conflicts.push({ field, held, wanted: value }); return; }
     const line = render(value);
     const filled = fillEmpty(edited, field, line);
     if (filled === null) appended.push(line); else edited = filled;
@@ -131,7 +132,9 @@ function plan(arg) {
   };
   if (quality !== undefined) want('quality', quality, heldQuality, (v) => `quality: ${v}`);
   if (topic !== null) want('topic', topic, normalizeTopic(scalar(block, 'topic') ?? ''), (v) => `topic: ${JSON.stringify(v)}`);
-  want('source-hash', clippingHash(text), scalar(block, 'source-hash'), (v) => `source-hash: ${v}`);
+  // A held hash is checked through the shared predicate: one recorded over the same text by the old rule (carriage returns
+  // kept), or over a line-ending or final-line-break variant of it, agrees. Only a real mismatch is a conflict.
+  want('source-hash', clippingHash(text), scalar(block, 'source-hash'), (v) => `source-hash: ${v}`, (h) => verifyClippingHash(text, h) !== 'mismatch');
 
   const next = added.length || removed.length ? fm[1] + edited + appended.map((l) => newline + l).join('') + fm[3] + text.slice(fm[0].length) : text;
   return { path: file, arg, next, text, added, removed, conflicts };

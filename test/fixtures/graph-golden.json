@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "derive": "integrity-prepare-1",
+  "derive": "integrity-prepare-2",
   "cases": [
     {
       "path": "wiki/concepts/plain.md",
@@ -627,28 +627,9 @@
         "declaresNoSources": false
       },
       "extra": {
-        "bodyLinks": [
-          {
-            "target": "not a link to follow",
-            "malformed": false,
-            "line": 6,
-            "text": "[[not a link to follow]]",
-            "factual": true
-          }
-        ],
-        "sourceLinks": [],
-        "outTargets": [
-          "not a link to follow"
-        ],
-        "fmTargets": [],
-        "evidenceTargets": [
-          "not a link to follow"
-        ],
-        "declaresNoSources": false,
-        "frontmatterDamage": null,
-        "strayCarriageReturn": 0,
-        "words": 6,
-        "provenanceLine": 6
+        "sourceHashStatus": "mismatch",
+        "sourceHashLine": 3,
+        "sourceHashText": "source-hash: \"0123456789abcdef\""
       }
     }
   ]

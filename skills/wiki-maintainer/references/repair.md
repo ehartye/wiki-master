@@ -35,7 +35,14 @@ of a source is a citation contract even on a stub.
    citations. For `cites-retired-page`, the cited page is marked
    `citation-status: retired` and says it must not be cited as support: find evidence
    that supports the claim or drop the claim, and never clear the issue by removing the
-   marker. Raw bodies remain immutable. The issue's `verification` gives its
+   marker. For `source-hash-mismatch`, the clipping's text is not the text its
+   `source-hash` was recorded over. Never edit its body or hash to clear it. When
+   `capture` is `web`, recapture it (`clip.mjs <source> --recapture`) and ingest the new
+   clipping. When it is `manual`, ask the owner to compare it with the original; only after
+   they confirm, drop its `source-hash` line, re-adopt it with `adopt-clipping.mjs --apply`,
+   and put the new hash in the `source-hashes` of each source page citing it. The
+   `crlf-variant` and `trailing-newline` counts are not defects and need no repair.
+   Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
 3. **Apply justified repairs.** Keep your edits to what your task needs: only the
    assigned pages. Preserve `reviewed` for mechanical edits. If a helper's apply

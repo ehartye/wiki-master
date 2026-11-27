@@ -2,12 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { renameUnsafeClippings } from '../scripts/rename-unsafe-clippings.mjs';
 import { scanIntegrity } from '../scripts/health.mjs';
 
 const GH = 'raw/clippings/gh/o/r';
-const clipping = (title) => `---\ntitle: "${title}"\nsource: "https://example.com"\nsource-hash: "${'a'.repeat(64)}"\n---\n\nEvidence for ${title}.\n`;
+// The recorded hash is the real hash of the body, so health's source-hash check has nothing to report.
+const clipping = (title) => `---\ntitle: "${title}"\nsource: "https://example.com"\nsource-hash: "${createHash('sha256').update(`Evidence for ${title}.`).digest('hex')}"\n---\n\nEvidence for ${title}.\n`;
 const BODY = 'A substantive summary of the repository: its build, its ignore rules and the checks it runs on every push.';
 const source = (name, cites, extra = '') => `---\ntype: source\nstatus: maintained\nsources:\n${cites.map((c) => `  - "[[${c}]]"`).join('\n')}\n---\n${BODY}\n${extra}`;
 

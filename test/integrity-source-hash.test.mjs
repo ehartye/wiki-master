@@ -42,11 +42,11 @@ const OLD = Date.now() / 1000 - 3600;
 function fixture(t, files = EACH) {
   const root = mkdtempSync(join(realpathSync(tmpdir()), 'wm-source-hash-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const put = (path, text) => {
+  const put = (path, text, time = OLD) => {
     const abs = join(root, path);
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, text);
-    utimesSync(abs, OLD, OLD);
+    utimesSync(abs, time, time);
   };
   for (const [path, text] of Object.entries(files)) put(path, text);
   return { root, put };
@@ -154,7 +154,8 @@ test('the cache keeps each clipping\'s status: a warm scan reads no file and equ
 test('a clipping repaired after the refresh is re-read, alone, and its mismatch clears in the same warm run', (t) => {
   const { root, put } = fixture(t);
   writeCache(root);
-  put('raw/clippings/nested/mismatch.md', clip(sha(MD), { md: MD }));
+  // The repaired file has the same size (one 64-digit hash for another), so only its new time tells the cache.
+  put('raw/clippings/nested/mismatch.md', clip(sha(MD)), OLD + 60);
   const w = warm(root);
   assert.deepEqual(w.reads, ['raw/clippings/nested/mismatch.md']);
   assert.equal(mismatches(w.scan).length, 0);

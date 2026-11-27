@@ -310,7 +310,7 @@ test('the writer stores entries as a cold read gives them, and drops the paths i
   for (const [path, entry] of Object.entries(data.entries)) {
     const text = readFileSync(join(root, path), 'utf8'), st = statSync(join(root, path));
     const page = markdownPage(path, text);
-    assert.deepEqual(entry, json({ size: st.size, mtimeMs: st.mtimeMs, page, ...(path.startsWith('wiki/') ? { extra: deriveIntegrity(path, text, page) } : {}) }), path);
+    assert.deepEqual(entry, json({ size: st.size, mtimeMs: st.mtimeMs, page, ...(deriveIntegrity.covers(path) ? { extra: deriveIntegrity(path, text, page) } : {}) }), path);
   }
 });
 

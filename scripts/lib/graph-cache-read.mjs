@@ -2,7 +2,8 @@ import { vaultPath as checkedPath } from './vault-path.mjs';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GRAPH_CACHE_FILE, graphCacheKey } from './graph.mjs';
-import { INTEGRITY_DERIVE_ID } from './integrity.mjs';
+import { INTEGRITY_DERIVE_ID, isHashedClipping } from './integrity.mjs';
+import { CLIPPING_HASH_STATUSES } from './clipping-hash.mjs';
 
 // The read side of the graph record cache (see GRAPH_CACHE_FORMAT in graph.mjs), for validate-authored.mjs and
 // health.mjs. It reads and never writes: this module imports no write function, and the writer
@@ -27,7 +28,7 @@ const isPage = (page, path) => isObject(page) && page.path === path && isString(
   && count(page.words) && count(page.updateCalloutCount) && typeof page.declaresNoSources === 'boolean'
   && optional(page.sourceHash, isString) && optional(page.sourceHashes, strings);
 
-// The shape deriveIntegrity gives.
+// The shape deriveIntegrity gives a content page.
 const isLink = link => isObject(link) && isString(link.target) && typeof link.malformed === 'boolean' && count(link.line) && isString(link.text);
 const isExtra = extra => isObject(extra)
   && Array.isArray(extra.bodyLinks) && extra.bodyLinks.every(link => isLink(link) && typeof link.factual === 'boolean')
@@ -36,6 +37,10 @@ const isExtra = extra => isObject(extra)
   && typeof extra.declaresNoSources === 'boolean'
   && (extra.frontmatterDamage === null || (isObject(extra.frontmatterDamage) && count(extra.frontmatterDamage.line) && isString(extra.frontmatterDamage.text)))
   && count(extra.strayCarriageReturn) && count(extra.words) && count(extra.provenanceLine);
+// The shape it gives a clipping: its hash status (null when it records no hash), and the line and text of its source-hash.
+const isClippingExtra = extra => isObject(extra)
+  && (extra.sourceHashStatus === null || CLIPPING_HASH_STATUSES.includes(extra.sourceHashStatus))
+  && count(extra.sourceHashLine) && isString(extra.sourceHashText);
 
 // Returns { derive, entries, lookup(path, stat, wantExtra) } or null. `lookup` gives { page, extra? } or null.
 export function readGraphCache(vaultPath, { derive = INTEGRITY_DERIVE_ID, readFile = readFileSync } = {}) {
@@ -53,7 +58,7 @@ export function readGraphCache(vaultPath, { derive = INTEGRITY_DERIVE_ID, readFi
       if (!isObject(entry) || entry.size !== stat.size || entry.mtimeMs !== stat.mtimeMs) return null;
       if (!isPage(entry.page, path)) return null;
       if (!wantExtra) return { page: entry.page };
-      return isExtra(entry.extra) ? { page: entry.page, extra: entry.extra } : null;
+      return (isHashedClipping(path) ? isClippingExtra : isExtra)(entry.extra) ? { page: entry.page, extra: entry.extra } : null;
     },
   };
 }

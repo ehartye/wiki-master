@@ -4,6 +4,7 @@ import { buildGraph, citationBody, isContent, isEvidencePath, isMoc, isStub } fr
 import { frontmatterDamage, normalizeIdentity, parseNote, strayCarriageReturn, withoutComment } from './note.mjs';
 import { blank, prose } from './prose.mjs';
 import { unrecognizedBacklogItems } from './authored-group.mjs';
+import { CLIPPING_HASH_STATUSES, EQUIVALENT_HASH_STATUSES, verifyClippingHash } from './clipping-hash.mjs';
 
 export { prose };
 
@@ -32,9 +33,27 @@ function links(text, { clean = true, offset = 0 } = {}) {
 // The fields the integrity scan adds to a content page, from its path and text alone (the graph record cache rests
 // on that: it stores this result keyed by the file's size and time). Bump INTEGRITY_DERIVE_ID by hand in the same
 // change that alters this function's output; the golden fixture in test/graph-cache.test.mjs fails until it is.
-export const INTEGRITY_DERIVE_ID = 'integrity-prepare-1';
+export const INTEGRITY_DERIVE_ID = 'integrity-prepare-2';
+
+// A clipping whose text the scan checks against its recorded source-hash: a Markdown file under raw/clippings/. Other
+// raw/ files (figure sidecars, research notes, book scans) are evidence too, but no clipper wrote them or their hash.
+export const isHashedClipping = path => path.startsWith('raw/clippings/') && path.endsWith('.md');
+
+// For a clipping, the derive is its hash status alone: { sourceHashStatus, sourceHashLine, sourceHashText }, where the
+// status is verifyClippingHash's, or null when the clipping records no source-hash (health lists those as missing one),
+// and the line and text are those of the source-hash line. The recorded value is the one the graph reads (page.sourceHash).
+function deriveClipping(markdown, page) {
+  const recorded = page?.sourceHash;
+  if (!recorded) return { sourceHashStatus: null, sourceHashLine: 0, sourceHashText: '' };
+  const fence = markdown.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0] ?? '';
+  const at = fence.search(/^source-hash:/m);
+  const line = at < 0 ? 0 : fence.slice(0, at).split('\n').length;
+  const text = at < 0 ? '' : fence.slice(at).split('\n', 1)[0].replace(/\r$/, '');
+  return { sourceHashStatus: verifyClippingHash(markdown, recorded), sourceHashLine: line, sourceHashText: text };
+}
 
 export function deriveIntegrity(path, markdown, page) {
+  if (isHashedClipping(path)) return deriveClipping(markdown, page);
   const { body, metadata } = parseNote(markdown);
   const prefix = markdown.slice(0, markdown.length - body.length);
   const offset = prefix.split('\n').length - 1;
@@ -66,6 +85,8 @@ export function deriveIntegrity(path, markdown, page) {
     provenanceLine: start < 0 ? offset + 1 : start + 1,
   };
 }
+// The paths buildGraph runs this derive on (and the graph cache keeps an extra for): content pages and clippings.
+deriveIntegrity.covers = path => isContent(path) || isHashedClipping(path);
 
 function resolver(pages) {
   const exact = new Map(), stems = new Map(), labels = new Map();
@@ -108,6 +129,18 @@ const VERIFY = {
   'malformed-frontmatter': 'Open the file with its bytes visible, normalise the damaged line ending or close the fence without changing any text, rerun health and verify the page\'s metadata is now read.',
   'missing-evidence': 'Verify the substantive claims against evidence and restore the required citation trail; rerun health. Do not add unrelated citations or weaken status to clear this issue.',
   'cites-retired-page': 'The cited page is marked citation-status: retired, which says it is a lead and must not be cited as support. Replace the citation with evidence that supports the claim, or drop the claim; do not clear the issue by removing the marker.',
+  // A web capture: the text can be fetched again.
+  'source-hash-mismatch': 'The clipping\'s text is not the text its source-hash was recorded over, and no line-ending or final-line-break variant of it is. Recapture it from its source with `node scripts/clip.mjs <source> --recapture`, which writes a new clipping and leaves this one as it is, then ingest the new clipping. Never edit the body or the recorded hash to clear this; rerun health and verify the issue is gone.',
+};
+// A clipping supplied as a file, transcribed or made by hand: there is no source to fetch it from again.
+const VERIFY_MANUAL_HASH = 'The clipping\'s text is not the text its source-hash was recorded over, and no line-ending or final-line-break variant of it is. It was supplied or made by hand, so it cannot be recaptured: ask the owner to compare the text with the original. If the owner confirms the text, remove its source-hash line and re-adopt it with `node scripts/adopt-clipping.mjs <path> --apply`, then replace the old hash with the new one in the source-hashes of each source page that cites it; otherwise the owner supplies the original again. Never edit the body to clear this; rerun health and verify the issue is gone.';
+
+// A clipping that cannot be fetched again from its source: one supplied as a file or a transcript (extraction: manual,
+// user-supplied-*), or one whose source is not a web address.
+const isManualCapture = page => {
+  const meta = page?.metadata ?? {};
+  const extraction = String(meta.extraction ?? '');
+  return /manual|supplied/i.test(extraction) || !/^https?:\/\//i.test(String(meta.source ?? '').trim());
 };
 
 // A page that disclaims itself as evidence ("lead, not evidence") carries `citation-status: retired`. It is not
@@ -189,17 +222,36 @@ export function scanIntegrity(vaultPath, { sources, cache = null, readFile = rea
     if (!hasEvidence && !citationDefect && !p.frontmatterDamage) add(issues, 'missing-evidence', p, { line: p.provenanceLine,
       text: sourcePage ? 'Substantive source page has no unambiguous direct citation to raw evidence.' : 'Substantive derived page has no unambiguous evidence route to raw within three hops.' });
   }
+  // Each clipping against its recorded source-hash. Only a real mismatch is a defect; the equivalent statuses are listed.
+  const hashed = [];
+  for (const [path, record] of graph.records) {
+    const status = isHashedClipping(path) ? record.extra?.sourceHashStatus : null;
+    if (!status) continue;
+    hashed.push({ page: path, status });
+    if (status !== 'mismatch') continue;
+    const manual = isManualCapture(record.page);
+    add(issues, 'source-hash-mismatch', record.page, { line: record.extra.sourceHashLine, text: record.extra.sourceHashText },
+      { capture: manual ? 'manual' : 'web', ...(manual ? { verification: VERIFY_MANUAL_HASH } : {}) });
+  }
   const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sorted = map => [...map.values()].sort((a, b) => compare(a.source, b.source) || compare(a.rule, b.rule) || compare(a.target, b.target));
   const scoped = list => (sources ? list.filter(x => sources.has(x.source ?? x.page)) : list);
   const findings = scoped(sorted(issues));
-  return { version: 1, status: !content.length ? 'empty' : findings.length ? 'defects' : 'clear',
+  const checkedClippings = scoped(hashed).sort((a, b) => compare(a.page, b.page));
+  const clippingHashes = { checked: checkedClippings.length,
+    ...Object.fromEntries(CLIPPING_HASH_STATUSES.map(status => [status, checkedClippings.filter(x => x.status === status).length])) };
+  // A clipping is a defect without any content page, so a vault of clippings alone is not reported as empty when one mismatches.
+  return { version: 1, status: findings.length ? 'defects' : !content.length ? 'empty' : 'clear',
     defectCount: findings.length, issues: findings, forwardLinks: scoped(sorted(forwards)),
     ...(sources ? { pages: content.map(p => p.path).filter(path => sources.has(path)).sort(compare) } : {}),
     // Unscored and never scoped: entries the walk skipped (a link cycle, a link or file that vanished). Omitted when none.
     ...(graph.skippedPaths.length ? { skippedPaths: graph.skippedPaths } : {}),
     // Unscored: a page with a carriage return that is not half of a CRLF. It stays readable, so it is not a defect.
     strayCarriageReturns: scoped(content.filter(p => p.strayCarriageReturn).map(p => ({ page: p.path, line: p.strayCarriageReturn })).sort((a, b) => compare(a.page, b.page))),
+    // The clippings under raw/clippings/ checked against a recorded source-hash, counted by verifyClippingHash status.
+    clippingHashes,
+    // Unscored: a clipping whose hash was recorded over the same text with other line endings, or with one more final line break.
+    equivalentClippingHashes: checkedClippings.filter(x => EQUIVALENT_HASH_STATUSES.includes(x.status)),
     // Unscored: a backlog item whose status the generated roadmap cannot place (it lists them under "Unrecognized status").
     unrecognizedBacklogStatus: scoped(unrecognizedBacklogItems(content.filter(p => p.path.startsWith('wiki/authored/') && p.kind === 'backlog-item'))
       .map(p => ({ page: p.path, status: p.backlogStatus ?? null })).sort((a, b) => compare(a.page, b.page))),
@@ -217,6 +269,7 @@ export function integrityReport(r) {
   if (r.status === 'empty') lines.push('No content pages were checked; this is not a health verdict.');
   if (r.skippedPaths?.length) lines.push(`Skipped paths: ${r.skippedPaths.length} (unscored): ${r.skippedPaths.slice(0, 5).map(x => `${x.path} (${x.reason})`).join(', ')}${r.skippedPaths.length > 5 ? ', ...' : ''}`);
   if (r.strayCarriageReturns?.length) lines.push(`Stray carriage returns: ${r.strayCarriageReturns.length} page(s) (unscored; the page is readable, but a bare return can split a line wrongly): ${r.strayCarriageReturns.slice(0, 5).map(x => `${x.page}:${x.line}`).join(', ')}${r.strayCarriageReturns.length > 5 ? ', ...' : ''}`);
+  if (r.equivalentClippingHashes?.length) lines.push(`Clipping hashes recorded over an equivalent text: ${EQUIVALENT_HASH_STATUSES.map(status => `${status} ${r.clippingHashes[status]}`).join(', ')} (unscored; the same text with other line endings or one more final line break, so nothing to repair): ${r.equivalentClippingHashes.slice(0, 5).map(x => x.page).join(', ')}${r.equivalentClippingHashes.length > 5 ? ', ...' : ''}`);
   if (r.unrecognizedBacklogStatus?.length) lines.push(`Backlog items with a missing or unrecognized status: ${r.unrecognizedBacklogStatus.length} (unscored; the project's generated roadmap lists them under "Unrecognized status"): ${r.unrecognizedBacklogStatus.slice(0, 5).map(x => `${x.page} (${x.status ?? 'no status'})`).join(', ')}${r.unrecognizedBacklogStatus.length > 5 ? ', ...' : ''}`);
   for (const issue of r.issues) lines.push(`  ${issue.id} ${issue.rule} ${issue.source}:${issue.line}${issue.target ? ` -> ${JSON.stringify(issue.target)}` : ''}`, `    ${issue.evidence.replace(/\s+/g, ' ')}`, `    Verify: ${issue.verification}`);
   lines.push('Structural integrity only; factual truth and completeness require separate review.',
