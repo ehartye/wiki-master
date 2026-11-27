@@ -66,9 +66,9 @@ export function sourceStub(vault, items, { today = localDate() } = {}) {
   for (const { arg, file } of items) {
     const r = check(vault, file);
     if (r.problem) { refused.push(`${arg}: ${r.problem}`); continue; }
-    const key = r.path.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
+    // The path comes from the real path, so one file named two ways (by case on Windows, or through a link) is one key.
+    if (seen.has(r.path)) continue;
+    seen.add(r.path);
     cited.push(r);
     if (EQUIVALENT_HASH_STATUSES.includes(r.status)) notes.push(`${r.path}: ${r.status}: ${NOTE[r.status]}; it is cited with the hash as recorded`);
   }
