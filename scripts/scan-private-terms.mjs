@@ -52,7 +52,10 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const count = hits.length;
   const byFile = new Set(hits.map((h) => h.file)).size;
   const knownSummary = { count: knownHits.length, files: new Set(knownHits.map((h) => h.file)).size };
-  const walked = result.walked ? { listing: 'folder walk' } : {}; // a git listing's output is unchanged
+  // A git listing's output is unchanged; a walk adds its marker and the folders it could not read.
+  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.folder) } : {};
+  // Each on stderr, in --json too, named from the root: an absolute path would name the machine.
+  for (const u of result.unreadable) console.error(`scan-private-terms: unreadable folder: ${u.folder} (${u.code}): its files were not scanned`);
   const used = rules.find((r) => r.id === 'home-path-relative').used;
   const unused = allow.filter((a) => !used.has(a.entry));
   const allowSummary = allow.length ? { allow: { entries: allow.length, unused: unused.map((a) => a.entry) } } : {}; // none without an allow file

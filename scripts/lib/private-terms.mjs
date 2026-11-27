@@ -190,17 +190,21 @@ function gitFiles(root) {
 
 // Every file under the root, as root-relative paths with forward slashes, sorted. Skips the WALK_SKIP folders, links
 // that leave the root, broken links and links to folders (a folder inside the root is walked where it is, so a link
-// back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link.
+// back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link. A folder
+// below the root that cannot be read is returned in `unreadable` (root-relative, with a trailing slash, and the
+// error code), so the report can say what was not scanned.
 function walkFiles(root) {
   const real = realpathSync.native; // resolves short names and substituted drives, so the root and a link's target compare alike
   const top = real(root);
   const inside = (p) => { const rel = relative(top, p); return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)); };
   const files = [];
+  const unreadable = [];
   const visit = (dir, prefix) => {
     let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch {
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch (err) {
       if (!prefix) throw new ListingError('the root folder cannot be read');
-      return; // a folder below the root that cannot be read is skipped, as an unreadable file is
+      unreadable.push({ folder: prefix, code: err.code ?? 'error' });
+      return;
     }
     for (const e of entries) {
       if (SKIP.has(e.name)) continue;
@@ -214,10 +218,12 @@ function walkFiles(root) {
     }
   };
   visit(root, '');
-  return files.sort();
+  const byFolder = (a, b) => (a.folder < b.folder ? -1 : a.folder > b.folder ? 1 : 0);
+  return { files: files.sort(), unreadable: unreadable.sort(byFolder) };
 }
 
-// The files to scan, and whether they came from a walk: null for a git listing, else why no git listing was available.
+// The files to scan; whether they came from a walk (null for a git listing, else why no git listing was available);
+// and, for a walk, the folders it could not read.
 export function listFiles(root) {
   let st;
   try { st = statSync(root); } catch (err) {
@@ -225,8 +231,8 @@ export function listFiles(root) {
   }
   if (!st.isDirectory()) throw new ListingError('the root is not a folder');
   const state = gitState(root);
-  if (state === 'git') return { files: gitFiles(root), walked: null };
-  return { files: walkFiles(root), walked: state === 'no-git' ? 'git could not be run' : 'the root is not in a git work tree' };
+  if (state === 'git') return { files: gitFiles(root), walked: null, unreadable: [] };
+  return { ...walkFiles(root), walked: state === 'no-git' ? 'git could not be run' : 'the root is not in a git work tree' };
 }
 
 export function scanRepo(root, rules) {
@@ -245,5 +251,5 @@ export function scanRepo(root, rules) {
     const own = file === ALLOW_FILE ? rules.map((r) => r.silent ?? r) : rules; // its entries do not use themselves up
     for (const h of scanText(buf.toString('utf8'), own)) hits.push({ file, ...h });
   }
-  return { hits, files, walked: listing.walked };
+  return { hits, files, walked: listing.walked, unreadable: listing.unreadable };
 }
