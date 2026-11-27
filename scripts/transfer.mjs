@@ -206,15 +206,26 @@ function hasLogEntry(vaultPath, op, id) {
 
 const list = (title, paths) => (paths.length ? `\n${title}\n${paths.map((p) => `- \`${p}\``).join('\n')}\n` : '');
 
+// The transferred clippings whose text is the text their source-hash records in another form, each with its status.
+function equivalentIn(plan) {
+  const kept = new Set(plan.entries.filter((e) => e.state === 'keep-destination').map((e) => e.path));
+  return (plan.notes?.equivalent ?? []).filter((e) => !kept.has(e.path));
+}
+const listEquivalent = (rows) => (rows.length
+  ? `\nVerified as the text their source-hash records, in another form (other line endings, or without a final line break):\n${rows.map((e) => `- \`${e.path}\` (${e.status})`).join('\n')}\n`
+  : '');
+
 function destinationBody(plan, written) {
   const plain = plan.linkChanges.filter((c) => c.kind === 'plain').length;
   const hashed = plan.entries.filter((e) => e.sourceHash && !e.hashMismatch && e.state !== 'keep-destination').length;
+  const equivalent = equivalentIn(plan);
   return `Transfer \`${plan.id}\` (${plan.mode}) from vault \`${plan.from}\`: ${plan.totals.wiki} wiki page(s) and ${plan.totals.raw} raw file(s), ${kb(plan.totals.bytes)}.\n` +
-    `Raw files are byte-identical to vault \`${plan.from}\`; ${hashed} source-hash(es) verified. ${plain} link(s) to pages outside the selection became plain text naming vault \`${plan.from}\`; ` +
+    `Raw files are byte-identical to vault \`${plan.from}\`; ${hashed} source-hash(es) verified${equivalent.length ? `, ${equivalent.length} of them in an equivalent form` : ''}. ${plain} link(s) to pages outside the selection became plain text naming vault \`${plan.from}\`; ` +
     `${plan.linkChanges.length - plain} link(s) were given their full path.\n` +
     list('Seeds:', plan.seeds) +
     list('Written:', written) +
     list('Copied as they are, their text already not matching their source-hash at the source:', plan.notes.mismatched) +
+    listEquivalent(equivalent) +
     list('Kept as this vault had them (conflicts):', plan.entries.filter((e) => e.state === 'keep-destination').map((e) => e.path));
 }
 
@@ -222,6 +233,7 @@ function sourceBody(plan, removal) {
   const transferred = plan.entries.filter((e) => e.state !== 'keep-destination').map((e) => e.path);
   let body = `Transfer \`${plan.id}\` (${plan.mode}) to vault \`${plan.to}\`: ${transferred.length} file(s) copied there.\n` + list('Seeds:', plan.seeds);
   body += list('Copied as they are, their text already not matching their source-hash here:', plan.notes?.mismatched ?? []);
+  body += listEquivalent(equivalentIn(plan));
   if (!removal) return body + list('Copied:', transferred);
   if (removal.purgeId) body += `\nRemoved here through purge \`${removal.purgeId}\`, restorable with \`purge.mjs --restore ${removal.purgeId}\`.\n`;
   else body += '\nNothing was removed here.\n';

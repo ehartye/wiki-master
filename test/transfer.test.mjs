@@ -254,7 +254,40 @@ test('a clipping whose text is its source-hash\'s text in another form moves wit
   assert.equal(r.status, 0, r.stderr);
   assert.equal(readFileSync(join(f.docs, 'raw/clippings/Queue Notes.md'), 'utf8'), queue);
   assert.equal(readFileSync(join(f.docs, 'raw/clippings/Retry Paper.md'), 'utf8'), retry);
-  assert.doesNotMatch(readFileSync(join(f.docs, 'log', logs(f.docs, 'transfer-in')[0]), 'utf8'), /not matching their source-hash/);
+  // Both log entries name them by path and status, and the verified count says how many were in another form.
+  const listed = /Verified as the text their source-hash records, in another form \(other line endings, or without a final line break\):\n- `raw\/clippings\/Queue Notes\.md` \(crlf-variant\)\n- `raw\/clippings\/Retry Paper\.md` \(trailing-newline\)\n/;
+  const inLog = readFileSync(join(f.docs, 'log', logs(f.docs, 'transfer-in')[0]), 'utf8');
+  assert.doesNotMatch(inLog, /not matching their source-hash/);
+  assert.match(inLog, /; 2 source-hash\(es\) verified, 2 of them in an equivalent form\./);
+  assert.match(inLog, listed);
+  const outLog = readFileSync(join(f.general, 'log', logs(f.general, 'transfer-out')[0]), 'utf8');
+  assert.doesNotMatch(outLog, /not matching their source-hash/);
+  assert.match(outLog, listed);
+
+  // The help says the same.
+  const help = f.transfer('--help');
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /differs from its source-hash's text only in line endings or a final line break is not a mismatch: it transfers without --allow-hash-mismatch/);
+});
+
+test('a clipping whose carriage returns survived, hashed with them, transfers silently: no note and no block', (t) => {
+  const f = fixture(); t.after(f.cleanup);
+  // A vault that marks its evidence `-text` keeps a CRLF body as written; the hash recorded by the old rule covers it.
+  const body = 'Queues hold items.\r\nThey drain in order.';
+  const queue = clipping('Queue Notes', body).replace(/^source-hash: [0-9a-f]{64}$/m, `source-hash: ${sha(body)}`);
+  assert.equal(verifyClippingHash(queue, queue.match(/^source-hash: (\S+)$/m)[1]), 'match-raw', 'fixture precondition');
+  writeFileSync(join(f.general, 'raw/clippings/Queue Notes.md'), queue);
+
+  const plan = planOf(f);
+  assert.deepEqual(plan.blocking, []);
+  assert.deepEqual(plan.notes.mismatched, []);
+  assert.deepEqual(plan.notes.equivalent, []);
+  const r = f.transfer('--apply', ...SELECT, '--expect', plan.id);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readFileSync(join(f.docs, 'raw/clippings/Queue Notes.md'), 'utf8'), queue, 'the carriage returns land as they were');
+  const inLog = readFileSync(join(f.docs, 'log', logs(f.docs, 'transfer-in')[0]), 'utf8');
+  assert.match(inLog, /; 2 source-hash\(es\) verified\. /);
+  assert.doesNotMatch(inLog, /equivalent form|not matching their source-hash/);
 });
 
 test('a sources: entry that leaves the selection blocks', (t) => {

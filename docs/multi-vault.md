@@ -181,7 +181,10 @@ and a `sources:` entry naming an excluded page blocks.
 - **Provenance is kept.** Raw files are copied byte for byte. A clipping whose stored text
   does not match its `source-hash` blocks the transfer unless `--allow-hash-mismatch` accepts
   copying it as it is, named in the plan and both log entries; every other copied clipping
-  is re-hashed at the destination. Frontmatter, `source-hash` and `source-hashes` are not
+  is re-hashed at the destination. A clipping whose text differs from its `source-hash`'s
+  text only in line endings or a final line break (`crlf-variant`, `trailing-newline`) is
+  not a mismatch: it transfers without the flag, and the plan and both log entries name it
+  with its status. Frontmatter, `source-hash` and `source-hashes` are not
   changed. Each vault gets one log entry naming the other vault and the plan id.
 - **Apply needs the reviewed plan.** `--apply` takes the same options and
   `--expect <plan-id>`, recomputes the plan and refuses a different id. A destination
