@@ -131,7 +131,7 @@ test('the same block comes from a --paths-file ledger, a path given twice is lis
   t.after(() => rmSync(ledgerDir, { recursive: true, force: true }));
   const ledger = join(ledgerDir, 'ledger.json');
   // Saved by Windows PowerShell, a ledger often starts with a byte-order mark.
-  writeFileSync(ledger, `﻿${JSON.stringify(['raw/clippings/sub/b.md', 'raw/clippings/a.md', 'raw/clippings/sub/b.md'])}`);
+  writeFileSync(ledger, `\uFEFF${JSON.stringify(['raw/clippings/sub/b.md', 'raw/clippings/a.md', 'raw/clippings/sub/b.md'])}`);
   const fromLedger = run(['--paths-file', ledger], v.root);
   assert.equal(fromLedger.code, 0, fromLedger.err);
   const date = fromLedger.out.match(/^created: (\S+)$/m)?.[1];
