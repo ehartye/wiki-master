@@ -8,8 +8,8 @@ import { spawnSync } from 'node:child_process';
 import { contextEnv } from '../scripts/lib/context.mjs';
 
 // `npm test` runs test/run-suite.mjs, which gives the run its own temp root: every test's tmpdir() is inside it,
-// it is removed when the run passes and kept, with its path printed, when the run fails. The tests also get a home
-// folder inside that root and none of the parent's vault-binding variables. The fixture test files are written
+// it is removed when the run passes and kept, with its path printed, when the run fails. The tests also get a HOME
+// inside that root and none of the parent's vault-binding variables. The fixture test files are written
 // outside the repository at run time, because `node --test` runs every .mjs below test/.
 
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), 'run-suite.mjs');
@@ -83,7 +83,7 @@ test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
   assert.equal(r.status, 128 + 9, r.stdout + r.stderr);
 });
 
-test('the tests get a home inside the run root and no inherited vault binding, and keep the browser guard', (t) => {
+test('the tests get a HOME inside the run root and no inherited vault binding, and keep USERPROFILE and the browser guard', (t) => {
   const { dir, file } = fixture(t, 'env.test.mjs', (d) => `import { test } from 'node:test';
 import { existsSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -92,8 +92,9 @@ test('records what it sees', () => {
 });
 `);
   const machineHome = join(dir, 'machine-home');
+  const machineProfile = join(dir, 'machine-profile');
   const inherited = {
-    HOME: machineHome, USERPROFILE: machineHome, XDG_CONFIG_HOME: join(machineHome, '.config'),
+    HOME: machineHome, USERPROFILE: machineProfile, XDG_CONFIG_HOME: join(machineHome, '.config'),
     ...Object.fromEntries(VAULT_BINDING.map((name) => [name, join(dir, `machine-${name.toLowerCase()}`)])),
     WIKI_MASTER_BROWSER: join(dir, 'recording-stub.sh'), WIKI_MASTER_BROWSER_RECORD: join(dir, 'browser-launches.txt'),
   };
@@ -107,9 +108,10 @@ test('records what it sees', () => {
   const seen = JSON.parse(readFileSync(join(dir, 'seen.json'), 'utf8'));
   const home = join(root, 'home');
   assert.equal(seen.env.HOME, home);
-  assert.equal(seen.env.USERPROFILE, home);
+  assert.equal(seen.env.USERPROFILE, machineProfile, 'USERPROFILE is left alone: some Windows PDF tools crash without the real profile');
   assert.equal(seen.env.XDG_CONFIG_HOME, join(home, '.config'));
-  assert.equal(seen.homedir, home, 'os.homedir() follows the run home');
+  // Node's os.homedir() reads USERPROFILE on Windows and HOME elsewhere; the registry lookup reads HOME first on both.
+  assert.equal(seen.homedir, process.platform === 'win32' ? machineProfile : home);
   assert.ok(seen.homeIsThere, 'the run home exists while the tests run');
   for (const name of VAULT_BINDING) assert.equal(seen.env[name], undefined, `${name} does not reach the tests`);
   assert.equal(seen.env.WIKI_MASTER_BROWSER, inherited.WIKI_MASTER_BROWSER);
