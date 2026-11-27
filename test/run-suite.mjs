@@ -6,10 +6,11 @@
 // point at an empty home folder beside the root, <root>-home (Git reads HOME; Node and, on Windows, Python read
 // USERPROFILE, so both move together), and XDG_CONFIG_HOME at its .config, so no test resolves the machine's vault
 // registry. The home is outside the tests' temp directory on purpose: the default vault under it is then refused by
-// the test-vault guard, so a test that names no vault fails instead of sharing one with every other test. The variables a
-// vault-bound command hands its children (contextEnv in scripts/lib/context.mjs) are removed. Every other variable
-// passes through, WIKI_MASTER_BROWSER and WIKI_MASTER_BROWSER_RECORD included, and APPDATA and LOCALAPPDATA stay,
-// because tool discovery reads them. A test that needs its own home or registry still sets it; its value wins.
+// the test-vault guard, so a test that names no vault fails instead of sharing one with every other test. The
+// variables a vault-bound command hands its children (contextEnv in scripts/lib/context.mjs) are removed, and so is
+// WIKI_MASTER_REQUIRE_VAULT. Every other variable passes through, WIKI_MASTER_BROWSER and WIKI_MASTER_BROWSER_RECORD
+// included, and APPDATA and LOCALAPPDATA stay, because tool discovery reads them. A test that needs its own home,
+// registry or strict-vault switch still sets it; its value wins.
 //
 //   npm test                         # the whole suite
 //   npm test -- test/x.test.mjs      # arguments are passed to node --test
@@ -31,6 +32,9 @@ const wmEntries = (dir) => new Set(readdirSync(dir).filter((n) => n.startsWith('
 // The variables contextEnv (scripts/lib/context.mjs) sets to bind a child process to a vault. run-suite.test.mjs
 // derives the same list from contextEnv and fails if they differ.
 const VAULT_BINDING = ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_PROJECT_ROOT'];
+// Also removed: the strict-vault switch the README tells a shell that must not touch the real vault to set. The
+// tests' own vaults are under the temp root already; a test that needs the switch sets it itself.
+const VAULT_GUARDS = ['WIKI_MASTER_REQUIRE_VAULT'];
 // The variables that name the home folder: Git reads HOME; Node's os.homedir() and Python on Windows read USERPROFILE.
 const HOME_VARIABLES = ['HOME', 'USERPROFILE'];
 const entriesIn = (dir) => { try { return readdirSync(dir).length; } catch { return 0; } };
@@ -41,7 +45,7 @@ function testEnv(parent, root, home) {
   const key = (name) => (process.platform === 'win32' ? name.toUpperCase() : name);
   const set = { TMPDIR: root, TEMP: root, TMP: root, XDG_CONFIG_HOME: join(home, '.config') };
   for (const name of HOME_VARIABLES) set[name] = home;
-  const drop = new Set([...VAULT_BINDING, ...Object.keys(set)].map(key));
+  const drop = new Set([...VAULT_BINDING, ...VAULT_GUARDS, ...Object.keys(set)].map(key));
   const env = Object.fromEntries(Object.entries(parent).filter(([name]) => !drop.has(key(name))));
   return { ...env, ...set };
 }
@@ -61,7 +65,7 @@ if (startedDirectly() && !process.env.NODE_TEST_CONTEXT) {
   const before = wmEntries(systemTemp);
   const root = mkdtempSync(join(systemTemp, 'wm-run-'));
   const home = `${root}-home`;
-  mkdirSync(home);
+  mkdirSync(home, { mode: 0o700 }); // as private as the mkdtemp root, on a shared temp folder too
   console.log(`run-suite: temp root ${root}`);
   const child = spawn(process.execPath, ['--test', ...process.argv.slice(2)], {
     stdio: 'inherit',

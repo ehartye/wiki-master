@@ -16,8 +16,8 @@ import { tempVault, isUnderTemp } from './helpers/temp-vault.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // The owner's home, as a folder at the root of the drive that does not exist: outside the temp directory and the
-// plugin folder, as a real home is. `npm test` gives the tests a home inside the temp directory, so these checks name
-// this one in each env instead of taking os.homedir().
+// plugin folder, as a real home is. `npm test` gives the tests a home of its own, <root>-home beside the run's temp
+// root, so these checks name this one in each env instead of taking os.homedir().
 const HOME = join(parse(ROOT).root, 'wm-no-such-home');
 const REAL = join(HOME, '.wiki-master-vault');
 
