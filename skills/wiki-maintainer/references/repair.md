@@ -36,12 +36,14 @@ of a source is a citation contract even on a stub.
    `citation-status: retired` and says it must not be cited as support: find evidence
    that supports the claim or drop the claim, and never clear the issue by removing the
    marker. For `source-hash-mismatch`, the clipping's text is not the text its
-   `source-hash` was recorded over. Never edit its body or hash to clear it. When
-   `capture` is `web`, recapture it (`clip.mjs <source> --recapture`) and ingest the new
-   clipping. When it is `manual`, ask the owner to compare it with the original; only after
-   they confirm, drop its `source-hash` line, re-adopt it with `adopt-clipping.mjs --apply`,
-   and put the new hash in the `source-hashes` of each source page citing it. The
-   `crlf-variant` and `trailing-newline` counts are not defects and need no repair.
+   `source-hash` was recorded over. Never edit its body. When `capture` is `web`,
+   recapture it (`clip.mjs <source> --recapture`), then ingest and cite the new clipping;
+   the old one is not edited, so its issue stays open for the owner to settle by a purge
+   or a re-adoption. When it is `manual`, ask the owner to compare it with the original.
+   Re-adopt only after the owner confirms the text: drop its `source-hash` line, run
+   `adopt-clipping.mjs --apply`, and put the new hash in place of the old one in the
+   `source-hashes` of each source page citing it. The `crlf-variant` and
+   `trailing-newline` counts are not defects and need no repair.
    Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
 3. **Apply justified repairs.** Keep your edits to what your task needs: only the

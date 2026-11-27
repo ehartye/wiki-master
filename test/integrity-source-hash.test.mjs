@@ -119,6 +119,8 @@ test('health.mjs exits as it does for any other integrity defect, and lists the 
   const text = run(root);
   assert.equal(text.status, baseline.status, text.stderr);
   assert.match(text.stdout, /source-hash-mismatch raw\/clippings\/nested\/mismatch\.md/);
+  assert.match(text.stdout, /Verify: .*--recapture/);
+  assert.match(text.stdout, /crlf-variant 1, trailing-newline 1 \(unscored/);
   const json = run(root, ['--json']);
   assert.equal(json.status, baseline.status, json.stderr);
   const r = JSON.parse(json.stdout);
@@ -173,4 +175,15 @@ test('a cached clipping entry with the wrong extra shape is a miss: that file al
   const w = warm(root);
   assert.deepEqual(w.reads.sort(), ['raw/clippings/crlf-variant.md', 'raw/clippings/match.md']);
   assert.deepEqual(JSON.parse(JSON.stringify(w.scan)), JSON.parse(JSON.stringify(scanIntegrity(root))));
+});
+
+test('the refresh path keeps a clipping\'s status too: refreshCatalogs hands the derive to buildGraph whole', async (t) => {
+  const { refreshCatalogs } = await import('../scripts/lib/catalogs.mjs');
+  const { root } = fixture(t);
+  const { records, builtAtMs, changed } = refreshCatalogs(root, { derive: deriveIntegrity });
+  assert.equal(records.get('raw/clippings/nested/mismatch.md').extra.sourceHashStatus, 'mismatch');
+  writeGraphCache(root, records, { builtAtMs, exclude: changed });
+  const w = warm(root);
+  assert.ok(!w.reads.some((path) => path.startsWith('raw/clippings/')), `no clipping is read again: ${w.reads}`);
+  assert.equal(mismatches(w.scan).length, 1);
 });
