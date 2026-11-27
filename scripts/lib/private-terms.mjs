@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { accessSync, constants, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 // The public repository must not name the owner's other projects or machines (that language belongs in the wiki).
@@ -128,7 +128,7 @@ export function readAllow(dir) {
   let text;
   try { text = readFileSync(join(dir, ALLOW_FILE), 'utf8'); } catch (err) {
     if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return [];
-    try { readdirSync(dir); } catch { throw new ListingError('the root folder cannot be read'); }
+    checkRoot(dir); // a root that cannot be read gets the listing's message
     throw new AllowFileError(`${ALLOW_FILE} cannot be read`);
   }
   return parseAllow(text);
@@ -188,10 +188,26 @@ function gitFiles(root) {
   return [...new Set(r.stdout.split('\0').filter(Boolean))].sort();
 }
 
+// A folder can be walked when its names can be read and its entries opened: r without x lists names whose files
+// cannot be opened, so a successful readdir alone does not show the folder can be scanned. On Windows, X_OK checks
+// only that the folder exists.
+const searchable = (dir) => accessSync(dir, constants.R_OK | constants.X_OK);
+
+// The root must be a folder that can be walked; the message says which of these it is not. Called before anything
+// reads inside the root, so the root's own problem is the one reported.
+export function checkRoot(root) {
+  let st;
+  try { st = statSync(root); } catch (err) {
+    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'the root folder does not exist' : 'the root folder cannot be read');
+  }
+  if (!st.isDirectory()) throw new ListingError('the root is not a folder');
+  try { searchable(root); } catch { throw new ListingError('the root folder cannot be read'); }
+}
+
 // Every file under the root, as root-relative paths with forward slashes, sorted. Skips the WALK_SKIP folders, links
 // that leave the root, broken links and links to folders (a folder inside the root is walked where it is, so a link
 // back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link. A folder
-// below the root that cannot be read is returned in `unreadable` (root-relative, with a trailing slash, and the
+// below the root that cannot be read is returned in `unreadable` (root-relative path with a trailing slash, and the
 // error code), so the report can say what was not scanned.
 function walkFiles(root) {
   const real = realpathSync.native; // resolves short names and substituted drives, so the root and a link's target compare alike
@@ -201,9 +217,9 @@ function walkFiles(root) {
   const unreadable = [];
   const visit = (dir, prefix) => {
     let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch (err) {
+    try { searchable(dir); entries = readdirSync(dir, { withFileTypes: true }); } catch (err) {
       if (!prefix) throw new ListingError('the root folder cannot be read');
-      unreadable.push({ folder: prefix, code: err.code ?? 'error' });
+      unreadable.push({ path: prefix, code: err.code ?? 'error' });
       return;
     }
     for (const e of entries) {
@@ -218,18 +234,15 @@ function walkFiles(root) {
     }
   };
   visit(root, '');
-  const byFolder = (a, b) => (a.folder < b.folder ? -1 : a.folder > b.folder ? 1 : 0);
-  return { files: files.sort(), unreadable: unreadable.sort(byFolder) };
+  return { files: files.sort(), unreadable };
 }
+
+const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 
 // The files to scan; whether they came from a walk (null for a git listing, else why no git listing was available);
 // and, for a walk, the folders it could not read.
 export function listFiles(root) {
-  let st;
-  try { st = statSync(root); } catch (err) {
-    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'the root folder does not exist' : 'the root folder cannot be read');
-  }
-  if (!st.isDirectory()) throw new ListingError('the root is not a folder');
+  checkRoot(root);
   const state = gitState(root);
   if (state === 'git') return { files: gitFiles(root), walked: null, unreadable: [] };
   return { ...walkFiles(root), walked: state === 'no-git' ? 'git could not be run' : 'the root is not in a git work tree' };
@@ -239,17 +252,24 @@ export function scanRepo(root, rules) {
   const hits = [];
   let files = 0;
   const listing = listFiles(root);
+  const unreadable = [...listing.unreadable];
   for (const file of listing.files) {
     let buf;
     try {
       const st = statSync(join(root, file));
       if (!st.isFile() || st.size > MAX_BYTES) continue;
       buf = readFileSync(join(root, file));
-    } catch { continue; } // deleted since the index was written, or unreadable
+    } catch (err) {
+      // Gone since it was listed (a tracked file deleted in the working tree, a broken link): nothing to scan.
+      // Anything else is a file that is there but was not read, and the report says so.
+      if (err.code !== 'ENOENT' && err.code !== 'ENOTDIR') unreadable.push({ path: file, code: err.code ?? 'error' });
+      continue;
+    }
     if (buf.subarray(0, 8000).includes(0)) continue; // binary
     files++;
     const own = file === ALLOW_FILE ? rules.map((r) => r.silent ?? r) : rules; // its entries do not use themselves up
     for (const h of scanText(buf.toString('utf8'), own)) hits.push({ file, ...h });
   }
-  return { hits, files, walked: listing.walked, unreadable: listing.unreadable };
+  // Folders (with a trailing slash) and files the scan could not read, sorted by path.
+  return { hits, files, walked: listing.walked, unreadable: unreadable.sort(byPath) };
 }

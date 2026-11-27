@@ -171,6 +171,7 @@ test('a clean tree exits 0; ignored files, deleted files and binary files are no
   const r = scan(dir, `${SECRET}\n`);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /0 hit\(s\)/);
+  assert.equal(r.stderr, '', 'a deleted file is gone, not unreadable: no notice');
 });
 
 test('--json lists hits as path, line and rule, with counts', (t) => {

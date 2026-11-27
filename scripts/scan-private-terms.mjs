@@ -1,32 +1,40 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { parseTerms, scanRepo, builtinRules, readAllow, ALLOW_FILE, ListingError, WALK_SKIP } from './lib/private-terms.mjs';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { parseTerms, scanRepo, builtinRules, readAllow, checkRoot, ALLOW_FILE, ListingError, WALK_SKIP } from './lib/private-terms.mjs';
+import { cliGuard, optionValue } from './lib/cli-guard.mjs';
 import { CLI_SPECS } from './lib/cli-specs.mjs';
 cliGuard(import.meta.url);
 
 // The guard answers --help from cli-specs.mjs before this script runs, so the usage text lives there alone.
 const USAGE = CLI_SPECS['scan-private-terms'].usage.join('\n');
 
+// An option's value in either spelling the guard accepts, `--name value` or `--name=value`, so neither is ignored.
 function option(argv, name) {
-  const at = argv.indexOf(name);
-  if (at < 0) return undefined;
-  const v = argv[at + 1];
-  if (!v || v.startsWith('--')) throw new Error(`${name} needs a value`);
+  const v = optionValue(argv, name);
+  if (v === '') throw new Error(`--${name} needs a value`);
   return v;
 }
 
+// A flag: `--json=<anything>` is refused, not read as absent.
+function flag(argv, name) {
+  const options = argv.includes('--') ? argv.slice(0, argv.indexOf('--')) : argv;
+  if (options.some((a) => a.startsWith(`--${name}=`))) throw new Error(`--${name} takes no value`);
+  return options.includes(`--${name}`);
+}
+
 export function main(argv = process.argv.slice(2), env = process.env) {
-  let root, termsFile, rules, knownFile, known = [], allow;
+  let root, termsFile, rules, knownFile, known = [], allow, json;
   try {
-    root = option(argv, '--root') ?? process.cwd();
-    termsFile = option(argv, '--terms-file') ?? env.WIKI_MASTER_PRIVATE_TERMS_FILE ?? env.PRIVATE_TERMS_FILE;
-    knownFile = option(argv, '--known');
+    root = option(argv, 'root') ?? process.cwd();
+    termsFile = option(argv, 'terms-file') ?? env.WIKI_MASTER_PRIVATE_TERMS_FILE ?? env.PRIVATE_TERMS_FILE;
+    knownFile = option(argv, 'known');
+    json = flag(argv, 'json');
     if (knownFile) {
       try { known = readFileSync(knownFile, 'utf8').split(String.fromCharCode(10)).map((l) => l.trim()).filter((l) => l && !l.startsWith('#')); } catch { throw new Error('the known-files list cannot be read'); }
     }
-    allow = readAllow(root); // a root that does not exist has no allow file; the listing says what is wrong with it
+    checkRoot(root); // before anything is read inside it, so the root's own problem is the one reported
+    allow = readAllow(root);
     rules = builtinRules(allow);
     if (termsFile) {
       let text;
@@ -52,14 +60,17 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const count = hits.length;
   const byFile = new Set(hits.map((h) => h.file)).size;
   const knownSummary = { count: knownHits.length, files: new Set(knownHits.map((h) => h.file)).size };
-  // A git listing's output is unchanged; a walk adds its marker and the folders it could not read.
-  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.folder) } : {};
-  // Each on stderr, in --json too, named from the root: an absolute path would name the machine.
-  for (const u of result.unreadable) console.error(`scan-private-terms: unreadable folder: ${u.folder} (${u.code}): its files were not scanned`);
+  // A git listing's JSON is unchanged; a walk adds its marker and the folders and files it could not read.
+  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.path) } : {};
+  // Each on stderr, in --json too and in a git listing too, named from the root: an absolute path would name the machine.
+  for (const u of result.unreadable) {
+    console.error(u.path.endsWith('/') ? `scan-private-terms: unreadable folder: ${u.path} (${u.code}): its files were not scanned`
+      : `scan-private-terms: unreadable file: ${u.path} (${u.code}): not scanned`);
+  }
   const used = rules.find((r) => r.id === 'home-path-relative').used;
   const unused = allow.filter((a) => !used.has(a.entry));
   const allowSummary = allow.length ? { allow: { entries: allow.length, unused: unused.map((a) => a.entry) } } : {}; // none without an allow file
-  if (argv.includes('--json')) console.log(JSON.stringify({ count, files, hits, ...walked, ...(knownFile ? { known: knownSummary, stale } : {}), ...allowSummary }, null, 2));
+  if (json) console.log(JSON.stringify({ count, files, hits, ...walked, ...(knownFile ? { known: knownSummary, stale } : {}), ...allowSummary }, null, 2));
   else {
     if (result.walked) console.log(`folder walk: no git listing was available (${result.walked}), so the folder was walked, skipping ${WALK_SKIP.join(', ')}, binary files and links that leave it`);
     for (const h of hits) console.log(`${h.file}:${h.line} ${h.rule}`);
