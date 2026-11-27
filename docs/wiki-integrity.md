@@ -25,10 +25,35 @@ Compare resolved and new IDs as well as totals; a retargeted broken link is not 
 | `malformed-frontmatter` | A page opens with a frontmatter fence but its metadata is not read: the fence line carries a stray carriage return (`---\r\r\n`) or is never closed, or the block holds a carriage return that is not half of a CRLF. Carriage returns in the body are not this rule. It replaces the `missing-evidence` the unread `sources:` would otherwise cause. |
 | `missing-evidence` | A substantive derived page lacks its evidence route. Source summaries need a direct raw citation; other derived pages need a route within three evidence hops. |
 | `cites-retired-page` | A page cites a page marked `citation-status: retired`, through `sources:` or an explicit factual-body link into `raw/` or `wiki/sources/`. The issue names the citing page, the link and `retiredPath`. A retired page citing another, a plain navigation link and an entry on a map page are not reported. |
+| `source-hash-mismatch` | A clipping under `raw/clippings/` whose recorded `source-hash` has the status `mismatch` (see Clipping hashes below): its text is not the text the hash was made over, in any form the check recognises. The issue's source is the clipping, its line is the `source-hash` line, `capture` is `web` or `manual`, and `clipper` names the clipper the clipping looks like (from its folder, its source address and its `extraction`: `clip-gh.mjs`, `clip-confluence.mjs`, `clip-pdf.mjs`, `clip-docx.mjs`, `clip-pptx.mjs`, `clip-xlsx.mjs`, or `clip.mjs` for any other web address), or `null` for a supplied transcript (`extraction: user-supplied-*`) or a clipping with no web source, which no clipper wrote. Its `verification` says what running that clipper again does to the clipping (see the table under Clipping hashes below). Re-adoption, once the owner confirms the text, removes the `source-hash` line, runs `adopt-clipping.mjs --apply` to stamp the hash of the text as it is, and puts the new hash in place of the old one in the `source-hashes` of each source page that cites it. No fix edits the body. Until it is fixed, `transfer.mjs` blocks the clipping unless the owner approves `--allow-hash-mismatch`. |
 
 **Retired pages.** `citation-status: retired` is how a note says it is a lead and must not be cited as support. A retired page is not provenance-eligible (no `missing-evidence`), no evidence route runs through it, and `coverage.retired` counts it (the report adds `N retired.` to its second line only when N is above zero). It is a different state from `citation-status: restricted`, which re-clip quarantine writes on a page that leans on a quarantined clipping: that page is working documentation and stays under the evidence check. Marking a note retired is the owner's call; the tool changes nothing until a page carries the marker.
 
 **Stray carriage returns (unscored).** A carriage return anywhere in a content page that is not half of a CRLF (a doubled `\r\r\n`, or one left by a tool that wrote `\r \r`) is listed in `strayCarriageReturns` (page and first line) and in one report line, `Stray carriage returns: N page(s)`, printed only when N is above zero. It is not a defect and does not move the count or the status: the page stays readable, and damage to the frontmatter is the named `malformed-frontmatter` rule above. An all-CRLF page, and anything under `raw/` or `log/`, is never listed. Normalise a listed page with a checked repair (the line sequence must be unchanged), as `wiki-maintainer` repair mode does for frontmatter.
+
+**Clipping hashes.** Each Markdown file under `raw/clippings/` that records a `source-hash` is checked with `verifyClippingHash` (`scripts/lib/clipping-hash.mjs`), which returns one status:
+
+| Status | The recorded hash equals the hash of | Kind |
+|---|---|---|
+| `match` | the body with its line endings made LF (the current rule) | match |
+| `match-raw` | the body as it is, carriage returns kept (the rule before line endings were normalized) | match |
+| `crlf-variant` | the same text with CRLF line endings, under the old rule: the file has since been converted to LF | equivalent |
+| `trailing-newline` | the body with one more final line break, under either rule | equivalent |
+| `mismatch` | none of these | defect |
+
+Only `mismatch` is a defect (`source-hash-mismatch` above). Recorded hashes are never rewritten. The result's `clippingHashes` counts the checked clippings by status (`checked` is their total), and `equivalentClippingHashes` lists the two equivalent statuses (page and status). The report adds one line, `Clipping hashes recorded over an equivalent text: crlf-variant N, trailing-newline M (unscored; ...)`, only when either is above zero. They are not defects and do not move the count or the status. A clipping with no `source-hash` is not checked here; `--legacy` and `--backlog` list it as missing one. Other files under `raw/` are not checked, because no clipper wrote them or their hash. A scoped scan counts and reports only the named clippings. The status is kept in the graph cache with the rest of the scan, so a warm scan re-reads only the clippings that changed.
+
+**Fixing a mismatch, by clipper.** Running a clipper again does different things to a clipping it already holds, so the fix names the clipper and says which:
+
+| The clipping | Running its clipper again | The owner's choices |
+|---|---|---|
+| A web page (`clip.mjs`) | `clip.mjs <source> --recapture` writes a new dated clipping beside it and never edits it | Recapture, then ingest and cite the new clipping; this one stays open until it is purged or re-adopted |
+| A page a person saved (`extraction: manual`) | A fetch would replace the person's text with another page | Review; re-adopt; or save the page again from a signed-in browser and run `clip.mjs <source> --from-file <path> --recapture` |
+| A GitHub file (`clip-gh.mjs`) | Replaces the clipping in place when the repository's text differs from every hash the vault holds (the held text is gone); leaves it as it is when the text is unchanged | Review first, against the file at the ref its source address names or an earlier copy of the vault; then re-adopt, or run `clip-gh.mjs` again |
+| A PDF, Word, PowerPoint, Excel or Confluence clipping | Reports the source as already clipped, because the vault holds its address | Review and re-adopt; or purge it (wiki-purge), then clip the source again |
+| A supplied transcript (`user-supplied-*`) or a clipping with no web source | No clipper wrote it; there is nothing to fetch | Review; re-adopt; or supply the original again as a new clipping and adopt it |
+
+Each route also allows a transfer the owner approves with `transfer.mjs --allow-hash-mismatch`, and none edits the body.
 
 **Backlog items outside the status vocabulary (unscored).** A page under `wiki/authored/` with `kind: backlog-item` whose `backlog-status` is missing or is not one of `in-progress`, `planned`, `blocked`, `shipped`, `dropped` is listed in `unrecognizedBacklogStatus` (page and status, `null` when absent) and in one report line, `Backlog items with a missing or unrecognized status: N`, printed only when N is above zero. The project's generated roadmap already lists such an item under "Unrecognized status"; this makes a whole-vault check say so too. It is not a defect and does not move the count or the status. Set the status to a value in the vocabulary (`done` is `shipped`, `proposed` is `planned`).
 
@@ -52,7 +77,7 @@ detection is explicitly outside coverage. Qualified evidence paths express citat
 intent and are therefore checked more strictly than navigation.
 
 The scanner excludes templates, raw bodies, logs, system/dot files, code examples,
-comments and embeds. It understands wikilinks and table-escaped aliases. It reports
+comments and embeds; a clipping's body is read only to check it against its `source-hash`. It understands wikilinks and table-escaped aliases. It reports
 heading/block validation, Markdown-style links, external URLs and factual correctness
 as unchecked. The existing graph remains the legacy/navigation helper contract; the
 integrity scanner reads current content with its stricter syntax and ambiguity rules.

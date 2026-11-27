@@ -15,6 +15,7 @@ import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -34,7 +35,7 @@ export function titleFromXlsx(xlsxPath) {
 // docxClipContent. A spreadsheet's content is its tables, so the markdown table is
 // the canonical representation; the binary workbook never enters the vault.
 export function xlsxClipContent({ title, source, text, quality = 'medium', created = today(), topic } = {}) {
-  const md = String(text || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const md = normalizeLineEndings(text || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };

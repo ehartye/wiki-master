@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { captureSelection, selectionOptions, validSelectedPath, githubObjectReader, publishImmutable, selectionBudget } from '../scripts/lib/github-selection.mjs';
 import { writeDigest, main } from '../scripts/clip-gh.mjs';
 import { recordDecline, loadDeclines } from '../scripts/lib/decline.mjs';
+import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
 const sha = x=>createHash('sha1').update(x).digest('hex'), COMMIT='1'.repeat(40);
 function fixture(t, sources = {'README.md':'# Fixture\n','LICENSE':'license text\n','NOTICE':'notice text\n','package.json':'{}\n','package-lock.json':'{"lockfileVersion":3}\n','vite.config.js':'export default {};\n','test/component.test.js':'test();\n'}) {
   const vaultPath=mkdtempSync(join(tmpdir(),'wiki-gh-select-')); t.after(()=>rmSync(vaultPath,{recursive:true,force:true}));
@@ -166,6 +167,12 @@ test('raw CRLF/BOM identity differs from rendered hash; special URLs and backtic
   const path='src/a #?%.js',data=Buffer.from('\ufeffconst x = ` ``` `;\r\n');const f=fixture(t,{[path]:data});
   const r=captureSelection({...f.options,selection:{paths:[path],ref:'moving/branch'}});assert.equal(r.status,'clipped');const clip=Object.values(snapshot(r.outDir)).find(s=>s.includes('github-blob:'));
   assert.ok(clip.includes('/src/a%20%23%3F%25.js'));assert.ok(clip.includes('\n````\n'));assert.ok(clip.includes(`supplied-sha256: ${createHash('sha256').update(data).digest('hex')}`));
+});
+test('a selected file with lone CR and CRLF line endings is stored with LF, and its hash is of what is stored',t=>{
+  const path='src/b.js',data=Buffer.from('const a = 1;\rconst b = 2;\r\n');const f=fixture(t,{[path]:data});
+  const r=captureSelection({...f.options,selection:{paths:[path],ref:'HEAD'}});assert.equal(r.status,'clipped');const clip=Object.values(snapshot(r.outDir)).find(s=>s.includes('github-blob:'));
+  assert.ok(!clip.includes('\r'),'no carriage return on disk');assert.ok(clip.includes('const a = 1;\nconst b = 2;\n'));
+  assert.equal(clippingHash(clip),clip.match(/^source-hash: (.*)$/m)[1]);
 });
 test('different topics/commits preserve prior immutable captures and exact identity',t=>{
   const f=fixture(t),a=captureSelection(f.options),before=snapshot(a.outDir);const b=captureSelection({...f.options,topic:'another topic'});assert.equal(b.clipped,6);

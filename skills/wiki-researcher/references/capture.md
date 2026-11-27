@@ -134,7 +134,7 @@ node "<absolute-plugin-root>/scripts/adopt-clipping.mjs" "raw/clippings/<name>.m
 - A value the file already holds that differs from the one given is reported as a conflict and left alone.
 - The dry run is the default; `--apply` is a write, so it needs the same scope as a capture.
 - `repair-missing-hash.mjs` is the sweep: it stamps `source-hash` on every unhashed clipping in the vault, takes no file list and fills no `quality` or `topic`. Use `adopt-clipping.mjs` for named files, and the sweep only when repairing the whole vault is in scope.
-- A clipping saved with CRLF line breaks is stamped with the hash of its CRLF body, so a `--recapture` of identical text with LF breaks is not reported `unchanged` and writes a dated second capture.
+- Clipping hashes ignore line endings, so a clipping saved with CRLF line breaks gets the same hash as its LF text, and a `--recapture` of identical text with other line endings is reported `unchanged`. A clipping whose recorded hash came from CRLF text under the earlier rule is not recognized, so a `--recapture` of it writes a dated second capture.
 
 ## Finish capture and report
 Show the ranked list (title, url, quality, why), which clips succeeded, and which

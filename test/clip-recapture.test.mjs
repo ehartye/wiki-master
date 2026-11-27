@@ -179,6 +179,21 @@ test('--recapture with the same text writes nothing and says which clipping hold
   assert.deepEqual(v.issues(), []);
 });
 
+test('a page read with CRLF line endings is stored with LF, and a recapture of the same text with LF endings is unchanged', (t) => {
+  const lf = `${text('The first text')}\n\nA second paragraph.`;
+  const v = vault(t);
+  const first = clip(URL_A, page('Setup guide', lf.replace(/\n/g, '\r\n')), [], day('2026-10-01'));
+  assert.equal(first.result.status, 'clipped');
+  const stored = v.read('Setup guide.md');
+  assert.ok(!stored.includes('\r'), 'no carriage return on disk');
+  assert.equal(field(stored, 'source-hash'), sha(lf));
+  const r = clip(URL_A, page('Setup guide', lf), ['--recapture'], day('2026-10-29'));
+  assert.equal(r.result.status, 'unchanged', r.lines.join('\n'));
+  const crlfAgain = clip(URL_A, page('Setup guide', `${text('A different text')}\r\n\r\nMore.`), ['--recapture'], day('2026-10-30'));
+  assert.equal(crlfAgain.result.status, 'clipped');
+  assert.ok(!v.read(`${crlfAgain.result.slug}.md`).includes('\r'), 'a CRLF recapture is stored with LF too');
+});
+
 test('text identical to ANY existing capture of the URL is unchanged, not only the newest', (t) => {
   const v = vault(t);
   clip(URL_A, page('Setup guide', text('Old text')), [], day('2026-10-01'));

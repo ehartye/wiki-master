@@ -35,7 +35,19 @@ of a source is a citation contract even on a stub.
    citations. For `cites-retired-page`, the cited page is marked
    `citation-status: retired` and says it must not be cited as support: find evidence
    that supports the claim or drop the claim, and never clear the issue by removing the
-   marker. Raw bodies remain immutable. The issue's `verification` gives its
+   marker. For `source-hash-mismatch`, the clipping's text is not the text its
+   `source-hash` was recorded over. Never edit its body. Follow its `verification`,
+   which names the clipper and what running it again does: `clip.mjs --recapture` adds a
+   dated clipping beside it, `clip-gh.mjs` replaces it in place (run it only after the
+   owner's review), and the file clippers report it as already clipped. When `capture` is
+   `manual`, it may not be recapturable: ask the owner to compare it with the original
+   and choose the path. A transfer of it
+   needs the owner's approval of `--allow-hash-mismatch`. Re-adopt only after the owner
+   confirms the text: drop its `source-hash` line, run
+   `adopt-clipping.mjs --apply`, and put the new hash in place of the old one in the
+   `source-hashes` of each source page citing it. The `crlf-variant` and
+   `trailing-newline` counts are not defects and need no repair.
+   Raw bodies remain immutable. The issue's `verification` gives its
    acceptance condition; recheck that the proposed repair actually satisfies it.
 3. **Apply justified repairs.** Keep your edits to what your task needs: only the
    assigned pages. Preserve `reviewed` for mechanical edits. If a helper's apply

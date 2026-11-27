@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
@@ -115,6 +116,17 @@ for (const [name, url, signals, expected] of PROBES) {
     assert.deepEqual(fetchTwin.calls, expected);
   });
 }
+
+test('a twin served with CRLF line endings is stored with LF, and its hash is the hash of the LF text', (t) => {
+  const v = vault(t);
+  const fetchTwin = twins({ [TWIN]: served(MD.replace(/\n/g, '\r\n')) });
+  const { result } = clip([URL_A], { fetchTwin, render: notCalled('the render') });
+  assert.equal(result.status, 'clipped');
+  const text = v.clipping(result.slug);
+  assert.ok(!text.includes('\r'), 'no carriage return on disk');
+  assert.ok(text.includes(`---\n\n${MD.trimEnd()}\n`), 'the twin text, with LF line endings');
+  assert.match(text, new RegExp(`^source-hash: ${createHash('sha256').update(MD.trimEnd()).digest('hex')}$`, 'm'));
+});
 
 test('probes go in order: the suffixes, a Markdown link of the page, then the matching entry of /llms.txt', (t) => {
   const v = vault(t);

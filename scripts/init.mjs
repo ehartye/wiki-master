@@ -24,8 +24,9 @@ index.md    merge=union
 log.md      merge=union
 moc/**      merge=union
 #
-# Evidence kept byte for byte, such as a captured source with a recorded hash, needs its own rule: scope
-# <path-to-evidence>/** -text to that folder. Line-ending normalization can change the bytes a recorded hash covers.
+# Clipping hashes ignore line endings, so Git's line-ending normalization does not break them, and a -text rule is
+# not needed for hash checks. Evidence that must stay byte for byte for another reason can still take a scoped
+# <path-to-evidence>/** -text rule.
 `;
 
 const DIRS = ['raw/clippings', 'wiki/sources', 'wiki/entities', 'wiki/concepts',

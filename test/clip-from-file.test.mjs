@@ -11,6 +11,7 @@ import { openIssues, loadIssueLog, recordIssue } from '../scripts/lib/triage.mjs
 import { recordDecline, loadDeclines, readDeclineLog } from '../scripts/lib/decline.mjs';
 import { collectTriage } from '../scripts/triage.mjs';
 import { scanIntegrity } from '../scripts/lib/integrity.mjs';
+import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
 
 // `clip.mjs <url> --from-file <path>` records a page a person saved from a signed-in browser. The URL is the page's real
 // address and nothing is fetched: every test here injects a fetch and an extractor that throw (or record) so a request
@@ -133,6 +134,27 @@ test('supplied-sha256 and source-hash are two different hashes when the stored t
   assert.equal(field(md, 'supplied-sha256'), sha(content));
   assert.equal(field(md, 'source-hash'), sha(content.trimEnd()));
   assert.notEqual(field(md, 'supplied-sha256'), field(md, 'source-hash'));
+});
+
+// A vault's `* text=auto eol=lf` converts a committed clipping to LF. A CRLF supplied file is stored as LF, and its hash still
+// matches after Git converts its line endings either way.
+test('a CRLF supplied .md file is stored with LF, and its hash survives an LF or CRLF conversion on disk', (t) => {
+  const v = vault(t);
+  const lf = `# Setup guide\n\n${text('Windows line endings')}\n\nA second paragraph.\n\n\`\`\`\nsetup();\n\`\`\`\n`;
+  const content = lf.replace(/\n/g, '\r\n');
+  const r = fromFile(URL_A, v.save('page.md', content), [], NO_NETWORK);
+  assert.equal(r.result.status, 'clipped', r.lines.join('\n'));
+  const file = join(v.dir, `${r.result.slug}.md`);
+  const md = readFileSync(file, 'utf8');
+  assert.equal(field(md, 'title'), JSON.stringify('Setup guide'), 'the heading gives the title, with no carriage return in it');
+  assert.ok(!md.includes('\r'), 'no carriage return on disk');
+  const recorded = field(md, 'source-hash');
+  assert.equal(recorded, sha(lf.trimEnd()), 'the hash of the LF text');
+  assert.equal(clippingHash(md), recorded);
+  writeFileSync(file, md.replace(/\r\n/g, '\n'));
+  assert.equal(clippingHash(readFileSync(file, 'utf8')), recorded, 'after an eol=lf conversion');
+  writeFileSync(file, md.replace(/\n/g, '\r\n'));
+  assert.equal(clippingHash(readFileSync(file, 'utf8')), recorded, 'after a CRLF checkout');
 });
 
 test('the supplied file\'s name and folder are not recorded anywhere in the clipping', (t) => {

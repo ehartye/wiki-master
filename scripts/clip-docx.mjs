@@ -14,6 +14,7 @@ import { existingClippingWithHash, readClippingHashes } from './lib/dedupe.mjs';
 import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug, titleFromArgs, chooseDocumentSlug } from './clip.mjs';
 import { parseTopicArg } from './lib/topic.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 100;
 
@@ -73,7 +74,7 @@ export function titleFromDocx(docxPath) {
 // pages (so no running header/footer to strip) and pandoc reads its XML directly
 // (so there is no math-font mangling to flag as fidelity: degraded).
 export function docxClipContent({ title, source, text, quality = 'medium', created = today(), topic } = {}) {
-  const md = String(text || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const md = normalizeLineEndings(text || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };

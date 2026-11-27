@@ -50,7 +50,7 @@ test('a new vault gets .gitattributes with the union rules, and says what clears
   assert.equal(existsSync(join(vault, '.git')), false, 'init still creates no repository');
 });
 
-test('the scaffolded .gitattributes points at the -text rule that byte-exact evidence needs, and adds no rule for it', () => {
+test('the scaffolded .gitattributes says clipping hashes ignore line endings, so they need no -text rule, and adds none', () => {
   const vault = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
   const home = mkdtempSync(join(tmpdir(), 'wm-gitown-home-'));
   const r = runInit(vault, home);
@@ -58,16 +58,22 @@ test('the scaffolded .gitattributes points at the -text rule that byte-exact evi
   const text = readFileSync(join(vault, '.gitattributes'), 'utf8');
   const lines = text.split(/\r?\n/);
   const comment = lines.filter((line) => line.startsWith('#')).join(' ');
+  assert.match(comment, /hash(es)? ignore line endings/i);
   assert.match(comment, /-text/);
-  assert.match(comment, /hash/);
-  assert.match(comment, /line.ending/i);
-  assert.doesNotMatch(lines.filter((line) => line && !line.startsWith('#')).join(' '), /-text/, 'the pointer is a comment; the owner scopes the rule');
+  assert.match(comment, /not needed/i);
+  assert.doesNotMatch(lines.filter((line) => line && !line.startsWith('#')).join(' '), /-text/, 'the note is a comment; no rule is added');
 });
 
-test('initialization.md tells the agent to point a vault owner at a scoped -text rule for hashed evidence', () => {
-  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8');
-  assert.match(text, /-text/);
-  assert.match(text, /hash/i);
+// New hashes ignore line endings; a hash recorded under the earlier rule over mixed line endings can still mismatch, so the
+// reference must not promise that normalization can never break a recorded hash.
+test('initialization.md says new clipping hashes ignore line endings, older ones go through the equivalence statuses, and an existing -text rule stays', () => {
+  const text = readFileSync(fileURLToPath(new URL('../skills/wiki-setup/references/initialization.md', import.meta.url)), 'utf8').replace(/\s+/g, ' ');
+  assert.match(text, /hashes recorded now ignore line endings/i);
+  assert.match(text, /-text` rule is not needed for hash checks/);
+  assert.doesNotMatch(text, /cannot break a recorded/);
+  assert.match(text, /earlier rule[^.]*equivalence statuses/);
+  assert.match(text, /mixed line endings[^`]{0,200}`source-hash-mismatch`/, 'the sentence may link the health check, whose path has a dot');
+  assert.match(text, /Leave an existing `[^`]*-text` rule as it is/);
 });
 
 // A timer commits whatever changed, and using the app changes these on every machine.

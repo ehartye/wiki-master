@@ -15,6 +15,7 @@ import { slugify, buildFrontmatter, knownSourceUrls, disambiguateSlug } from './
 import { parseTopicArg } from './lib/topic.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 100;
 const THIN_PLACEHOLDER = /this page has no readable content/i;
@@ -77,7 +78,7 @@ export function parseConfluencePage(raw) {
 // diffable, and answerable. No fidelity/extraction fields: like clip-docx's
 // pandoc, confluencer hands back clean Markdown with nothing to flag.
 export function confluenceClipContent({ title, source, body, quality = 'medium', created = today(), topic } = {}) {
-  const md = String(body || '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  const md = normalizeLineEndings(body || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n` };

@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { main } from '../scripts/clip.mjs';
-import { clippingHash, clipperText } from '../scripts/lib/clipping-hash.mjs';
+import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
 import { parseNote } from '../scripts/lib/note.mjs';
 
 // Hand-clipped files joining the pipeline. A stamp is only worth having when it is the hash a clipper computes for the same
@@ -308,7 +308,7 @@ test('an empty line that heads a list is not an empty copy and stays', (t) => {
   assert.deepEqual(firstReport(r).removed, []);
 });
 
-test('CRLF: the stamp is the hash of the CRLF body, and the body bytes are untouched', (t) => {
+test('CRLF: the stamp ignores line endings, so it is the hash of the LF text, and the body bytes are untouched', (t) => {
   const v = vault(t);
   const lf = `${text('Hand')}
 
@@ -320,7 +320,7 @@ A second paragraph.`;
   const body = (s) => s.slice(s.indexOf('\r\n---\r\n') + 7);
   assert.equal(body(after), body(original));
   assert.equal(after.match(/^source-hash: (.*?)\r?$/m)[1], clippingHash(original));
-  assert.notEqual(clippingHash(original), sha(lf), 'the CRLF body hashes differently from an LF recapture, as decision 10 has it');
+  assert.equal(clippingHash(original), sha(lf), 'the CRLF body hashes as its LF text does, so an LF recapture of it is unchanged');
 });
 
 test('a file that starts with a byte-order mark is refused for that reason, and nothing is written', (t) => {
@@ -395,16 +395,49 @@ for (const [label, sourceLine] of [['single-quoted', `source: '${URL_A}'`], ['do
   });
 }
 
-test('--help says a file saved with CRLF line breaks is stamped with the hash of its CRLF body', (t) => {
+test('--help says the stamp ignores line endings and that a held hash is a conflict only when it really mismatches', (t) => {
   const v = vault(t);
   const r = script('adopt-clipping.mjs', ['--help'], v.root);
-  assert.match(`${r.out}${r.err}`, /CRLF/);
+  const help = `${r.out}${r.err}`;
+  assert.match(help, /ignores line endings/);
+  assert.doesNotMatch(help, /hash of its CRLF body/, 'the pre-normalization sentence is gone');
+  assert.match(help, /source-hash[^.]*conflict only when/);
 });
 
-test('the helper strips the one line break the writer appends, and not a carriage return that belongs to the Markdown', () => {
-  const stored = (md) => `---\ntitle: "T"\n---\n\n${md}\n`;
-  assert.equal(clipperText(stored('Ends with a return\r')), 'Ends with a return\r');
-  assert.equal(clippingHash(stored('Ends with a return\r')), sha('Ends with a return\r'));
-  assert.equal(clipperText(stored('Plain')), 'Plain');
-  assert.equal(clipperText(stored('Two\n')), 'Two\n');
+// ---------------------------------------------------------------- a held hash, through verifyClippingHash
+// A hash held by the file is compared through the shared predicate, so a hash recorded over the same text by the old rule
+// (carriage returns kept) or over a line-ending or final-line-break variant of it is no conflict. Only a real mismatch is.
+const oldRuleText = (fileText) => fileText.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').replace(/^\r?\n/, '').replace(/\n$/, '');
+const held = (body, hash) => handClip(body).replace('tags:', `quality: high\ntopic: "Field notes"\nsource-hash: ${hash}\ntags:`);
+// Two paragraphs, so the text has a line break for a line-ending variant to change.
+const TWO = `${text('Hand')}\n\nA second paragraph.`;
+const HELD = [
+  ['match-raw', () => { const f = crlf(held(TWO, 'HASH')); return f.replace('HASH', sha(oldRuleText(f))); }],
+  ['crlf-variant', () => held(TWO, sha(crlf(TWO)))],
+  ['trailing-newline', () => held(TWO, sha(`${TWO}\n`))],
+];
+for (const [status, make] of HELD) {
+  test(`a held ${status} hash is no conflict, and the file is left byte for byte`, (t) => {
+    const v = vault(t);
+    const original = make();
+    writeFileSync(v.path('Held.md'), original);
+    const r = adopt(v, 'Held.md');
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(firstReport(r).conflicts, []);
+    assert.equal(firstReport(r).status, 'unchanged');
+    assert.doesNotMatch(r.err, /conflict/);
+    assert.equal(v.read('Held.md'), original);
+  });
+}
+
+test('a held hash of other text is still a conflict, and left as it is', (t) => {
+  const v = vault(t);
+  const wrong = sha('Some other text the file does not hold.');
+  const original = held(text('Hand'), wrong);
+  writeFileSync(v.path('Held.md'), original);
+  const r = adopt(v, 'Held.md');
+  assert.equal(r.code, 0, r.err);
+  assert.deepEqual(firstReport(r).conflicts, [{ field: 'source-hash', held: wrong, wanted: sha(text('Hand')) }]);
+  assert.match(r.err, /conflict: .*source-hash/);
+  assert.equal(v.read('Held.md'), original);
 });

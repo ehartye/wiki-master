@@ -16,6 +16,7 @@ import { looksBinaryBytes } from './lib/binary-content.mjs';
 import { urlCarriesSecret, secretRefusal } from './lib/url-safety.mjs';
 import { clipSafeName, legacyNameMap, adoptLegacyName } from './lib/clip-names.mjs';
 import { localDate } from './lib/local-date.mjs';
+import { normalizeLineEndings } from './lib/clipping-hash.mjs';
 
 const THIN_WORD_FLOOR = 20; // lower than the prose clippers' 100 — a small
 // real source file (a config, a short script) is still worth a clipping.
@@ -182,7 +183,7 @@ export function repoClipFileName(relPath, { existing = new Set(), claimed = new 
 export function fileClipContent({ owner, repo, ref, relPath, content, quality = 'medium', created = today(), topic } = {}) {
   const source = githubBlobUrl(owner, repo, ref, relPath);
   const title = `${repo}/${relPath} at ${ref}`;
-  const raw = String(content || '').replace(/\r\n/g, '\n');
+  const raw = normalizeLineEndings(content || '');
   const isMarkdown = /\.mdx?$/i.test(relPath);
   const lang = languageHintForExt(extname(relPath));
   const md = isMarkdown ? raw.trim() : `\`\`\`${lang}\n${raw.replace(/\n+$/, '')}\n\`\`\``;
@@ -211,7 +212,8 @@ export function repoManifestContent({ owner, repo, ref, description, primaryLang
     '',
     ...includedPaths.map((p) => `- \`${p}\``),
   ];
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
@@ -249,7 +251,8 @@ export function moduleListingContent({ owner, repo, ref, moduleName, files = [],
     '| --- | --- | --- |',
     ...sorted.map((f) => `| \`${f.path}\` | ${f.size ?? ''} | ${languageHintForExt(extname(f.path)) || ''} |`),
   ];
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
@@ -335,7 +338,8 @@ export function digestManifestContent({
   if (anchorFiles.length) {
     lines.push('', '## Anchor files (clipped in full)', '', ...anchorFiles.map((p) => `- \`${p}\``));
   }
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };

@@ -291,7 +291,8 @@ export function graphCacheKey(vaultPath, derive) {
 
 // `readFile` is the read used for each Markdown file (readFileSync by default); a test injects one to count reads
 // or to remove a file between the listing and the read. `derive(path, markdown, page)`, when given, runs on the same
-// text for each content page; its result is kept in the page's record as `extra`, never merged into the page.
+// text for each content page, or for each path `derive.covers(path)` accepts when the derive has one; its result is
+// kept in the page's record as `extra`, never merged into the page.
 // `cache` (from readGraphCache) supplies the page and extra of a file whose size and time it matches, so that file
 // is not read. `records` maps each Markdown path to { size, mtimeMs, page, extra? }: the stat the file was read under
 // and the results at that moment, which is what the cache writer stores.
@@ -301,7 +302,7 @@ export function buildGraph(vaultPath, { readFile = readFileSync, cache = null, d
   const skippedPaths = walkVaultEntries(vaultPath, {
     file(abs, r, e, stat, skip) {
       if (e.endsWith('.md')) {
-        const wantExtra = Boolean(derive) && isContent(r);
+        const wantExtra = Boolean(derive) && (typeof derive.covers === 'function' ? derive.covers(r) : isContent(r));
         const hit = cache?.lookup(r, stat, wantExtra) ?? null;
         let record;
         if (hit) record = { size: stat.size, mtimeMs: stat.mtimeMs, ...hit };

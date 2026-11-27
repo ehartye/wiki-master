@@ -8,7 +8,7 @@ import { commandLines } from './lib/vault.mjs';
 import { buildGraph } from './lib/graph.mjs';
 import { buildManifest, purgeId, binPathFor, BIN_DIR } from './lib/purge.mjs';
 import { planTransfer, pagesUnder, sha256Bytes, DEFAULT_DEPTH } from './lib/transfer.mjs';
-import { clippingHash } from './lib/clipping-hash.mjs';
+import { verifyClippingHash } from './lib/clipping-hash.mjs';
 import { readManifests, writeManifest, nextFreePurgeId, applyPurge, enrichPages } from './purge.mjs';
 import { loadDeclines, recordDecline } from './lib/decline.mjs';
 import { writeLogEntry } from './log-entry.mjs';
@@ -150,6 +150,10 @@ export function report(plan, log = console.log) {
   HASH MISMATCH ACCEPTED — copied byte for byte, the mismatch kept and named in both logs (${plan.notes.mismatched.length}):`);
     for (const p of plan.notes.mismatched) log(`    ${p}`);
   }
+  if (plan.notes.equivalent.length) {
+    log(`\n  NOTE — clippings whose text is the text their source-hash records, in another form (other line endings, or without a final line break); not a mismatch, so they transfer as they are (${plan.notes.equivalent.length}):`);
+    for (const e of plan.notes.equivalent) log(`    ${e.path} (${e.status})`);
+  }
   if (plan.notes.unhashed.length) {
     log(`\n  NOTE — clippings with no source-hash, verified by their bytes only (${plan.notes.unhashed.length}); adopt-clipping.mjs can stamp them:`);
     for (const p of plan.notes.unhashed) log(`    ${p}`);
@@ -202,15 +206,24 @@ function hasLogEntry(vaultPath, op, id) {
 
 const list = (title, paths) => (paths.length ? `\n${title}\n${paths.map((p) => `- \`${p}\``).join('\n')}\n` : '');
 
+// The transferred clippings whose text is the text their source-hash records in another form, each with its status.
+// The plan already leaves out a file the destination keeps, so the plan's NOTE and both logs name the same files.
+const equivalentIn = (plan) => plan.notes?.equivalent ?? [];
+const listEquivalent = (rows) => (rows.length
+  ? `\nVerified as the text their source-hash records, in another form (other line endings, or without a final line break):\n${rows.map((e) => `- \`${e.path}\` (${e.status})`).join('\n')}\n`
+  : '');
+
 function destinationBody(plan, written) {
   const plain = plan.linkChanges.filter((c) => c.kind === 'plain').length;
   const hashed = plan.entries.filter((e) => e.sourceHash && !e.hashMismatch && e.state !== 'keep-destination').length;
+  const equivalent = equivalentIn(plan);
   return `Transfer \`${plan.id}\` (${plan.mode}) from vault \`${plan.from}\`: ${plan.totals.wiki} wiki page(s) and ${plan.totals.raw} raw file(s), ${kb(plan.totals.bytes)}.\n` +
-    `Raw files are byte-identical to vault \`${plan.from}\`; ${hashed} source-hash(es) verified. ${plain} link(s) to pages outside the selection became plain text naming vault \`${plan.from}\`; ` +
+    `Raw files are byte-identical to vault \`${plan.from}\`; ${hashed} source-hash(es) verified${equivalent.length ? `, ${equivalent.length} of them in an equivalent form` : ''}. ${plain} link(s) to pages outside the selection became plain text naming vault \`${plan.from}\`; ` +
     `${plan.linkChanges.length - plain} link(s) were given their full path.\n` +
     list('Seeds:', plan.seeds) +
     list('Written:', written) +
     list('Copied as they are, their text already not matching their source-hash at the source:', plan.notes.mismatched) +
+    listEquivalent(equivalent) +
     list('Kept as this vault had them (conflicts):', plan.entries.filter((e) => e.state === 'keep-destination').map((e) => e.path));
 }
 
@@ -218,6 +231,7 @@ function sourceBody(plan, removal) {
   const transferred = plan.entries.filter((e) => e.state !== 'keep-destination').map((e) => e.path);
   let body = `Transfer \`${plan.id}\` (${plan.mode}) to vault \`${plan.to}\`: ${transferred.length} file(s) copied there.\n` + list('Seeds:', plan.seeds);
   body += list('Copied as they are, their text already not matching their source-hash here:', plan.notes?.mismatched ?? []);
+  body += listEquivalent(equivalentIn(plan));
   if (!removal) return body + list('Copied:', transferred);
   if (removal.purgeId) body += `\nRemoved here through purge \`${removal.purgeId}\`, restorable with \`purge.mjs --restore ${removal.purgeId}\`.\n`;
   else body += '\nNothing was removed here.\n';
@@ -367,7 +381,8 @@ export async function main(argv = process.argv.slice(2), { log = console.log, er
   const bad = transferred.filter((e) => {
     const there = dst(e.path);
     if (there === null || sha256Bytes(there) !== e.outSha) return true;
-    return Boolean(e.sourceHash) && !e.hashMismatch && e.path.endsWith('.md') && clippingHash(there.toString('utf8')) !== e.sourceHash;
+    // The plan's own check again: a match or an equivalent form passes, a real mismatch the plan did not accept fails.
+    return Boolean(e.sourceHash) && !e.hashMismatch && e.path.endsWith('.md') && verifyClippingHash(there.toString('utf8'), e.sourceHash) === 'mismatch';
   });
   if (bad.length) {
     for (const e of bad) err(`transfer: ${e.path} at ${plan.to} does not match the plan`);
