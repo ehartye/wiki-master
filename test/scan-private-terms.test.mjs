@@ -150,6 +150,13 @@ test('a git listing that fails inside a repository exits 2 and names the git err
   assert.equal(r.status, 2, r.stdout + r.stderr);
   assert.match(r.stderr, /^scan-private-terms: the repository cannot be listed: git ls-files failed: .*index/m);
   assert.doesNotMatch(r.stdout, /folder walk/, 'a broken repository is not walked as a plain folder');
+
+  // A .git file that points nowhere: git says "not a git repository", but names the missing folder, so it is an error.
+  const linked = plainFolder(t, { '.git': 'gitdir: no-such-gitdir\n', 'p.md': 'clean\n' });
+  const pointer = scan(linked, null);
+  assert.equal(pointer.status, 2, pointer.stdout + pointer.stderr);
+  assert.match(pointer.stderr, /^scan-private-terms: the repository cannot be listed: git rev-parse failed: /m);
+  assert.doesNotMatch(pointer.stdout, /folder walk/);
 });
 
 test('a clean tree exits 0; ignored files, deleted files and binary files are not scanned', (t) => {
