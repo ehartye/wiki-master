@@ -3,30 +3,11 @@ import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
 import { parseTerms, scanRepo, builtinRules, readAllow, ALLOW_FILE, ListingError, WALK_SKIP } from './lib/private-terms.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
+import { CLI_SPECS } from './lib/cli-specs.mjs';
 cliGuard(import.meta.url);
 
-const USAGE = [
-  'usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <path>] [--known <path>] [--json]',
-  '',
-  'Scans the tracked and untracked (not ignored) text files of a git repository for names that belong in the wiki,',
-  'not in a public repository: the owner\'s private terms (from the terms file) and built-in patterns for home',
-  'directories, GPU models and invisible characters. Reports path, line and rule number, never the matched text.',
-  'A folder outside any git work tree (or a machine without git) is walked instead, skipping .git, .obsidian,',
-  '.wiki-master, .recycle and node_modules folders, binary files and links that leave it; the report says so.',
-  '  --root <dir>        the repository or folder to scan (default: the current directory)',
-  '  --terms-file <path> one term per line (case-insensitive substring) or a /pattern/flags regular expression;',
-  '                      default: WIKI_MASTER_PRIVATE_TERMS_FILE, then PRIVATE_TERMS_FILE; none means built-ins only',
-  '  --known <path>      files whose hits are still to be sanitised, one path or directory prefix per line (# comments):',
-  '                      their hits are counted but do not fail the scan, and an entry with no hit left does',
-  '  --json              machine-readable output',
-  String.raw`Built in: home folders written out (C:\Users\<name>, /Users/<name>, /home/<name>) and home-relative paths with`,
-  'two segments after ~, $HOME, ${HOME}, %USERPROFILE% or $env:USERPROFILE, except a dot-folder first segment (tool',
-  'config) or a <placeholder> segment. A path a document names on purpose, such as an install command, goes in',
-  `${ALLOW_FILE} at the root: one path prefix per line, as the text writes it, each under a # comment saying why;`,
-  'an entry without a comment exits 2, and an entry that matches no text fails the scan, so the file stays precise.',
-  'Exit 0: no hits. Exit 1: hits, a stale known entry or an unused allow entry. Exit 2: an unusable terms file or',
-  `${ALLOW_FILE}, a root that is missing or unreadable, or a git listing that fails inside a repository.`,
-].join('\n');
+// The guard answers --help from cli-specs.mjs before this script runs, so the usage text lives there alone.
+const USAGE = CLI_SPECS['scan-private-terms'].usage.join('\n');
 
 function option(argv, name) {
   const at = argv.indexOf(name);

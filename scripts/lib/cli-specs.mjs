@@ -156,7 +156,15 @@ export const CLI_SPECS = {
   },
   'scan-private-terms': {
     options: ['json', 'known', 'root', 'terms-file'],
-    usage: ['usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <file>] [--known <file>] [--json]', '', 'Scans the tracked and untracked files of a repository for private names (home paths, machine names, invisible characters, and the terms in the file named by --terms-file or WIKI_MASTER_PRIVATE_TERMS_FILE). Prints file:line and a count, never the matched text. Exits 1 on a hit or a stale --known entry.'],
+    usage: [
+      'usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <file>] [--known <file>] [--json]',
+      '',
+      'Scans the tracked and untracked (not ignored) text files of a git repository for names that belong in the wiki, not in a public repository: the owner\'s private terms (the file named by --terms-file, else WIKI_MASTER_PRIVATE_TERMS_FILE, then PRIVATE_TERMS_FILE: one term per line, or a /pattern/flags line) and built-in patterns for home folders, home-relative paths, GPU models and invisible characters. Prints file:line and the rule, never the matched text.',
+      'A folder that is not in a git work tree (or a machine without git) is walked instead, skipping .git, .obsidian, .wiki-master, .recycle and node_modules folders, binary files and links that leave it; the report\'s first line says the folder was walked.',
+      'A home-relative path has two segments after ~, $HOME, ${HOME}, %USERPROFILE% or $env:USERPROFILE; a dot-folder first segment (where tools keep config) or a <placeholder> segment is excepted. A path a document names on purpose, such as an install command, goes in .private-terms-allow at the root: one path prefix per line with at least two folder names, as the text writes it, each under its own # comment saying why.',
+      '--known <file> lists files whose hits are still to be sanitised, one path or folder prefix per line: their hits are counted but do not fail the scan.',
+      'Exit 0: no hits. Exit 1: a hit, a stale --known entry (it has no hit left) or an unused allow entry (no text starts with it). Exit 2: an unusable terms file or .private-terms-allow (an entry without its comment, or one that allows a whole folder), a root that is missing or cannot be read, or a git listing that fails inside a repository.',
+    ],
   },
   // Scripts whose own parser refuses an unknown option (test/cli-guard.test.mjs checks that): the guard only
   // answers `--help` for them, so the accepted options are not repeated here.

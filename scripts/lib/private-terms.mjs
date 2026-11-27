@@ -111,17 +111,24 @@ export function parseAllow(text) {
     if (line.startsWith('#')) { documented = true; continue; }
     if (!documented) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry needs a # comment on the line above it saying why it is allowed`);
     if (!STARTS_WITH_TOKEN.test(line)) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must be a home-relative path (~, $HOME, \${HOME}, %USERPROFILE% or $env:USERPROFILE, then / or \\)`);
+    // `~/` or `~/plugins` would let through every path below it, and the unused check could never catch that.
+    const segments = line.replace(STARTS_WITH_TOKEN, '').split(/[\\/]/).filter(Boolean);
+    if (segments.filter((seg) => NAMED.test(seg)).length < 2 || segments.some((seg) => seg === '.' || seg === '..')) {
+      throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must give at least two folder names after the home token, and no . or .. segment, so that it allows one documented path and not a whole folder`);
+    }
     entries.push({ entry: line, line: i + 1 });
     documented = false;
   }
   return entries;
 }
 
-// The allow file in a folder, parsed; none (or no such folder) gives no entries.
+// The allow file in a folder, parsed; none (or no such folder) gives no entries. A folder that cannot be read is the
+// listing's error, with the listing's message, not the allow file's: the file is read before the listing starts.
 export function readAllow(dir) {
   let text;
   try { text = readFileSync(join(dir, ALLOW_FILE), 'utf8'); } catch (err) {
     if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return [];
+    try { readdirSync(dir); } catch { throw new ListingError('the root folder cannot be read'); }
     throw new AllowFileError(`${ALLOW_FILE} cannot be read`);
   }
   return parseAllow(text);
