@@ -1,43 +1,41 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { parseTerms, scanRepo, BUILTIN_RULES } from './lib/private-terms.mjs';
-import { cliGuard } from './lib/cli-guard.mjs';
+import { parseTerms, scanRepo, builtinRules, readAllow, checkRoot, ALLOW_FILE, ListingError, WALK_SKIP, MAX_BYTES } from './lib/private-terms.mjs';
+import { cliGuard, optionValue } from './lib/cli-guard.mjs';
+import { CLI_SPECS } from './lib/cli-specs.mjs';
 cliGuard(import.meta.url);
 
-const USAGE = [
-  'usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <path>] [--known <path>] [--json]',
-  '',
-  'Scans the tracked and untracked (not ignored) text files of a git repository for names that belong in the wiki,',
-  'not in a public repository: the owner\'s private terms (from the terms file) and built-in patterns for home',
-  'directories, GPU models and invisible characters. Reports path, line and rule number, never the matched text.',
-  '  --root <dir>        the repository to scan (default: the current directory)',
-  '  --terms-file <path> one term per line (case-insensitive substring) or a /pattern/flags regular expression;',
-  '                      default: WIKI_MASTER_PRIVATE_TERMS_FILE, then PRIVATE_TERMS_FILE; none means built-ins only',
-  '  --known <path>      files whose hits are still to be sanitised, one path or directory prefix per line (# comments):',
-  '                      their hits are counted but do not fail the scan, and an entry with no hit left does',
-  '  --json              machine-readable output',
-  'Exit 0: no hits. Exit 1: hits. Exit 2: unusable terms file or repository.',
-].join('\n');
+// The guard answers --help from cli-specs.mjs before this script runs, so the usage text lives there alone.
+const USAGE = CLI_SPECS['scan-private-terms'].usage.join('\n');
 
+// An option's value in either spelling the guard accepts, `--name value` or `--name=value`, so neither is ignored.
 function option(argv, name) {
-  const at = argv.indexOf(name);
-  if (at < 0) return undefined;
-  const v = argv[at + 1];
-  if (!v || v.startsWith('--')) throw new Error(`${name} needs a value`);
+  const v = optionValue(argv, name);
+  if (v === '') throw new Error(`--${name} needs a value`);
   return v;
 }
 
+// A flag: `--json=<anything>` is refused, not read as absent.
+function flag(argv, name) {
+  const options = argv.includes('--') ? argv.slice(0, argv.indexOf('--')) : argv;
+  if (options.some((a) => a.includes('=') && a.slice(0, a.indexOf('=')) === `--${name}`)) throw new Error(`--${name} takes no value`);
+  return options.includes(`--${name}`);
+}
+
 export function main(argv = process.argv.slice(2), env = process.env) {
-  let root, termsFile, rules, knownFile, known = [];
+  let root, termsFile, rules, knownFile, known = [], allow, json;
   try {
-    root = option(argv, '--root') ?? process.cwd();
-    termsFile = option(argv, '--terms-file') ?? env.WIKI_MASTER_PRIVATE_TERMS_FILE ?? env.PRIVATE_TERMS_FILE;
-    knownFile = option(argv, '--known');
+    root = option(argv, 'root') ?? process.cwd();
+    termsFile = option(argv, 'terms-file') ?? env.WIKI_MASTER_PRIVATE_TERMS_FILE ?? env.PRIVATE_TERMS_FILE;
+    knownFile = option(argv, 'known');
+    json = flag(argv, 'json');
     if (knownFile) {
       try { known = readFileSync(knownFile, 'utf8').split(String.fromCharCode(10)).map((l) => l.trim()).filter((l) => l && !l.startsWith('#')); } catch { throw new Error('the known-files list cannot be read'); }
     }
-    rules = [...BUILTIN_RULES];
+    checkRoot(root); // before anything is read inside it, so the root's own problem is the one reported
+    allow = readAllow(root);
+    rules = builtinRules(allow);
     if (termsFile) {
       let text;
       try { text = readFileSync(termsFile, 'utf8'); } catch { throw new Error('the terms file cannot be read'); }
@@ -50,7 +48,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   }
   let result;
   try { result = scanRepo(root, rules); } catch (err) {
-    console.error('scan-private-terms: the repository cannot be listed (is it a git repository?)');
+    console.error(`scan-private-terms: ${err instanceof ListingError ? err.message : `the root cannot be scanned: ${err.message}`}`);
     process.exitCode = 2;
     return;
   }
@@ -62,14 +60,27 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const count = hits.length;
   const byFile = new Set(hits.map((h) => h.file)).size;
   const knownSummary = { count: knownHits.length, files: new Set(knownHits.map((h) => h.file)).size };
-  if (argv.includes('--json')) console.log(JSON.stringify({ count, files, hits, ...(knownFile ? { known: knownSummary, stale } : {}) }, null, 2));
+  // A git listing's JSON is unchanged; a walk adds its marker and the folders and files it could not read.
+  const walked = result.walked ? { listing: 'folder walk', unreadable: result.unreadable.map((u) => u.path), tooLarge: result.tooLarge } : {};
+  // Each on stderr, in --json too and in a git listing too, named from the root: an absolute path would name the machine.
+  for (const u of result.unreadable) {
+    console.error(u.path.endsWith('/') ? `scan-private-terms: unreadable folder: ${u.path} (${u.code}): its files were not scanned`
+      : `scan-private-terms: unreadable file: ${u.path} (${u.code}): not scanned`);
+  }
+  for (const f of result.tooLarge) console.error(`scan-private-terms: file too large: ${f} (over ${MAX_BYTES / 1024 / 1024} MB): not scanned`);
+  const used = rules.find((r) => r.id === 'home-path-relative').used;
+  const unused = allow.filter((a) => !used.has(a.entry));
+  const allowSummary = allow.length ? { allow: { entries: allow.length, unused: unused.map((a) => a.entry) } } : {}; // none without an allow file
+  if (json) console.log(JSON.stringify({ count, files, hits, ...walked, ...(knownFile ? { known: knownSummary, stale } : {}), ...allowSummary }, null, 2));
   else {
+    if (result.walked) console.log(`folder walk: no git listing was available (${result.walked}), so the folder was walked, skipping ${WALK_SKIP.join(', ')}, binary files and links that leave it`);
     for (const h of hits) console.log(`${h.file}:${h.line} ${h.rule}`);
     for (const s of stale) console.log(`stale known entry: ${s} (no hit left; remove it from the list)`);
+    for (const a of unused) console.log(`unused allow entry: ${ALLOW_FILE}:${a.line} ${a.entry} (no text starts with it; remove it from the file)`);
     console.log(`${count} hit(s) in ${byFile} file(s); ${files} file(s) scanned${termsFile ? '' : ' with the built-in patterns only (no terms file named)'}`);
     if (knownFile) console.log(`${knownSummary.count} known hit(s) in ${knownSummary.files} file(s) still to sanitise`);
   }
-  if (count || stale.length) process.exitCode = 1;
+  if (count || stale.length || unused.length) process.exitCode = 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

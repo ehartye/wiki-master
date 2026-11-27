@@ -156,7 +156,22 @@ export const CLI_SPECS = {
   },
   'scan-private-terms': {
     options: ['json', 'known', 'root', 'terms-file'],
-    usage: ['usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <file>] [--known <file>] [--json]', '', 'Scans the tracked and untracked files of a repository for private names (home paths, machine names, invisible characters, and the terms in the file named by --terms-file or WIKI_MASTER_PRIVATE_TERMS_FILE). Prints file:line and a count, never the matched text. Exits 1 on a hit or a stale --known entry.'],
+    usage: [
+      'usage: node scripts/scan-private-terms.mjs [--root <dir>] [--terms-file <file>] [--known <file>] [--json]',
+      '',
+      'Scans the tracked and untracked (not ignored) text files of a git repository for names that belong in the wiki, not in a public repository: the owner\'s private terms and built-in patterns for home folders, home-relative paths, GPU models and invisible characters. Prints file:line and the rule, never the matched text.',
+      'A folder that is not in a git work tree (or a machine without git) is walked instead, skipping .git, .obsidian, .wiki-master, .recycle and node_modules folders, binary files and links that leave it; the report\'s first line says the folder was walked.',
+      'Each folder or file the scan cannot read, and each file over 5 MB, is named on stderr, from the root, since it was not scanned (after a walk, --json lists them too); the hits found still decide the exit code.',
+      'A home-relative path has two segments after ~, $HOME, ${HOME}, %USERPROFILE% or $env:USERPROFILE; a dot-folder first segment (where tools keep config) or a <placeholder> segment is excepted, unless a . or .. segment leads out of it. A path a document names on purpose, such as an install command, goes in .private-terms-allow at the root: one path prefix per line with at least two folder names, as the text writes it, each under its own # comment saying why.',
+      '  --root <dir>         the repository or folder to scan (default: the current directory)',
+      '  --terms-file <file>  the owner\'s private list, kept outside every repository: one term per line (a case-insensitive substring) or a /pattern/flags line; # comments (default: WIKI_MASTER_PRIVATE_TERMS_FILE, then PRIVATE_TERMS_FILE; with none, the built-in patterns only)',
+      '  --known <file>       files whose hits are still to be sanitised, one path or folder prefix per line; # comments: their hits are counted but do not fail the scan',
+      '  --json               print JSON instead: count, files and hits; after a folder walk, listing, unreadable and tooLarge (the files over 5 MB); with --known, known and stale; with a .private-terms-allow, allow (its entries and the unused ones)',
+      'An option takes its value as --name <value> or --name=<value>.',
+      'Exit 0: no hits.',
+      'Exit 1: a hit, a stale --known entry (it has no hit left) or an unused allow entry (no text starts with it).',
+      'Exit 2: an unknown option or an option with no value; a terms file or --known file that cannot be read; an unusable .private-terms-allow (an entry without its comment, one that allows a whole folder, or one the rule already exempts: a dot-folder or a placeholder); a root that is missing, is a file or cannot be read; or a git listing that fails inside a repository.',
+    ],
   },
   // Scripts whose own parser refuses an unknown option (test/cli-guard.test.mjs checks that): the guard only
   // answers `--help` for them, so the accepted options are not repeated here.

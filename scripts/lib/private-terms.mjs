@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { accessSync, constants, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 // The public repository must not name the owner's other projects or machines (that language belongs in the wiki).
 // The private list lives in a file outside the repository: one term per line, matched as a case-insensitive
@@ -48,13 +48,120 @@ const hasInvisible = (s) => {
   }
   return false;
 };
-// Patterns that name a person's machine whatever the list says.
-export const BUILTIN_RULES = [
-  { id: 'home-path-windows', test: (s) => WINDOWS_HOME.test(s) },
-  { id: 'home-path-posix', test: (s) => POSIX_HOME.test(s) },
-  { id: 'gpu-model', test: (s) => GPU.test(s) },
-  { id: 'invisible-character', test: hasInvisible },
-];
+// A path under the home folder written through its token: `~`, `$HOME`, `${HOME}`, `%USERPROFILE%` or
+// `$env:USERPROFILE`, then `/` or `\`. Two segments after the token name a layout (a folder and a repository in it),
+// so they are a hit unless the first segment is a dot-folder (where tools keep their config), a segment holds a
+// `<placeholder>`, or the path starts with an entry of the allow file. A word, a dot or a slash running into the token
+// means it is not one. Windows matches its variable names without regard to case; a shell does not.
+const ci = (word) => word.replace(/[A-Za-z]/g, (c) => `[${c.toUpperCase()}${c.toLowerCase()}]`);
+const TOKENS = String.raw`(?:~|\$HOME|\$\{HOME\}|%${ci('USERPROFILE')}%|\$${ci('env')}:${ci('USERPROFILE')})`;
+// An escaped line end or tab (`\n`, `\r`, `\t` in JSON or source text) before the token still starts a path.
+const HOME_TOKEN = new RegExp(String.raw`(?:(?<![\w~.\\/-])|(?<=\\[nrt]))${TOKENS}(?=[\\/])`, 'g');
+const STARTS_WITH_TOKEN = new RegExp(String.raw`^${TOKENS}[\\/]`);
+// The path runs to the first space, quote, bracket or list punctuation. A backslash before n, r or t that no letter
+// follows is an escaped line end or tab in JSON or source text (a tilde underline in a recorded log), not a folder.
+const PATH_TAIL = /^(?:(?!\\[nrt](?![A-Za-z0-9]))[^\s'"`()[\]{},;|*?])*/;
+const PLACEHOLDER_SEGMENT = /<[^<>]+>/;
+const NAMED = /[\p{L}\p{N}]/u; // a segment with no letter or digit (an ellipsis) names no folder
+
+const DOT_SEGMENT = (seg) => seg === '.' || seg === '..';
+
+// The sentence punctuation after a path, but not a trailing `..` segment: that is part of the path. A lone `.` after a
+// separator ends a sentence (`under ~/.tool/.`), so it goes.
+const TRAILING = /[.,:;!?]+$/;
+const withoutPunctuation = (tail) => tail.replace(TRAILING, (p, at) => (/[\\/]$/.test(tail.slice(0, at)) && /^\.\.(?!\.)/.test(p) ? '..' : ''));
+
+// Each home-relative path on the line, as written: token and path, without the sentence punctuation after it.
+// `segments` are the folder names; `climbs` says a `.` or `..` segment is in it, so the path may lead out of the
+// folder it starts in.
+function homePaths(s) {
+  const found = [];
+  for (const m of s.matchAll(HOME_TOKEN)) {
+    const tail = withoutPunctuation(PATH_TAIL.exec(s.slice(m.index + m[0].length))[0]);
+    const parts = tail.split(/[\\/]/);
+    found.push({ text: m[0] + tail, segments: parts.filter((seg) => NAMED.test(seg)), climbs: parts.some(DOT_SEGMENT) });
+  }
+  return found;
+}
+
+const allows = (entry, text) => text === entry || (text.startsWith(entry) && (/[\\/]$/.test(entry) || /^[\\/]/.test(text.slice(entry.length))));
+
+// The home-path-relative rule over an allow list ({ entry, line } items, from parseAllow). `used` collects the entries
+// that let a path through; `silent` is the same rule without that record, for the allow file's own lines, whose
+// entries would otherwise count as used by themselves. A path with a `.` or `..` segment and two folder names is a hit
+// whatever it starts with: a `..` after an allowed prefix or a dot-folder leads back out into a layout.
+export function homeRelativeRule(allow = []) {
+  const used = new Set();
+  const check = (record) => (s) => {
+    let hit = false;
+    for (const p of homePaths(s)) {
+      if (p.segments.length < 2) continue;
+      if (p.climbs) { hit = true; continue; }
+      if (p.segments[0].startsWith('.') || p.segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) continue;
+      const by = allow.filter((a) => allows(a.entry, p.text));
+      if (!by.length) hit = true;
+      else if (record) for (const a of by) used.add(a.entry);
+    }
+    return hit;
+  };
+  return { id: 'home-path-relative', test: check(true), used, silent: { id: 'home-path-relative', test: check(false) } };
+}
+
+// The allow file: one home-relative path prefix per line, as the text writes it, each on the line straight after a
+// `#` comment that says why it is allowed (GitHub's advice for secret-scanning exclusions: keep each one precise and
+// documented). It applies to home-path-relative only. Read at the root of a scan and at the root of a vault.
+export const ALLOW_FILE = '.private-terms-allow';
+// An allow file that cannot be used: its message names the line, fit to print as it is.
+export class AllowFileError extends Error {}
+
+export function parseAllow(text) {
+  const entries = [];
+  const lines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/);
+  let documented = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { documented = false; continue; }
+    if (line.startsWith('#')) { documented = true; continue; }
+    if (!documented) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry needs a # comment on the line above it saying why it is allowed`);
+    if (!STARTS_WITH_TOKEN.test(line)) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must be a home-relative path (~, $HOME, \${HOME}, %USERPROFILE% or $env:USERPROFILE, then / or \\)`);
+    // `~/` or `~/plugins` would let through every path below it, and the unused check could never catch that.
+    const segments = line.replace(STARTS_WITH_TOKEN, '').split(/[\\/]/).filter(Boolean);
+    if (segments.filter((seg) => NAMED.test(seg)).length < 2 || segments.some(DOT_SEGMENT)) {
+      throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: an entry must give at least two folder names after the home token, and no . or .. segment, so that it allows one documented path and not a whole folder`);
+    }
+    // The rule never flags these, so no text could use the entry; say why now rather than call it unused later.
+    if (segments[0].startsWith('.')) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: already exempt: dot-folder (a path whose first segment starts with a dot is never flagged, so it needs no entry)`);
+    if (segments.some((seg) => PLACEHOLDER_SEGMENT.test(seg))) throw new AllowFileError(`${ALLOW_FILE} line ${i + 1}: already exempt: placeholder (a path with a <placeholder> segment is never flagged, so it needs no entry)`);
+    entries.push({ entry: line, line: i + 1 });
+    documented = false;
+  }
+  return entries;
+}
+
+// The allow file in a folder, parsed; none (or no such folder) gives no entries. A folder that cannot be read is the
+// listing's error, with the listing's message, not the allow file's: the file is read before the listing starts.
+// `name` is what the folder is called in that message: the scan's root, or validate-authored's vault.
+export function readAllow(dir, name = 'root') {
+  let text;
+  try { text = readFileSync(join(dir, ALLOW_FILE), 'utf8'); } catch (err) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') return [];
+    checkRoot(dir, name); // a folder that cannot be read gets the listing's message
+    throw new AllowFileError(`${ALLOW_FILE} cannot be read`);
+  }
+  return parseAllow(text);
+}
+
+// Patterns that name a person's machine whatever the list says, with home-path-relative over an allow list.
+export function builtinRules(allow = []) {
+  return [
+    { id: 'home-path-windows', test: (s) => WINDOWS_HOME.test(s) },
+    { id: 'home-path-posix', test: (s) => POSIX_HOME.test(s) },
+    homeRelativeRule(allow),
+    { id: 'gpu-model', test: (s) => GPU.test(s) },
+    { id: 'invisible-character', test: hasInvisible },
+  ];
+}
+export const BUILTIN_RULES = builtinRules();
 
 export function scanText(text, rules) {
   const hits = [];
@@ -65,27 +172,124 @@ export function scanText(text, rules) {
   return hits;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// A file larger than this is not read; the scan names it instead, so a clean report cannot hide it.
+export const MAX_BYTES = 5 * 1024 * 1024;
+
+// A root that cannot be listed: its message is fit to print as it is, and names no matched text.
+export class ListingError extends Error {}
+
+// Folders a walk never enters, at any depth: git's data, the vault app's and this plugin's state, the recycle
+// folder and installed packages. A `.git` file (a linked worktree's pointer) is skipped too.
+export const WALK_SKIP = ['.git', '.obsidian', '.wiki-master', '.recycle', 'node_modules'];
+const SKIP = new Set(WALK_SKIP);
+
+// Git's answer for a folder with no repository around it. Matched in the C locale, so a translation cannot hide it.
+// A `.git` file that points nowhere gives "not a git repository: <path>" instead, and stays an error.
+const NOT_A_REPOSITORY = /^fatal: not a git repository \(or any (?:of the parent directories|parent up to mount point)/m;
+const gitMessage = (r) => String(r.stderr ?? '').trim().split(/\r?\n/)[0] || r.error?.message || `exit ${r.status}`;
+
+// How the root is listed: 'git' inside a git work tree, 'not-a-repo' when git finds none around it, 'no-git' when
+// git cannot be run at all. Any other git failure is an error: the root is in a repository that git cannot read.
+function gitState(root) {
+  const r = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8', windowsHide: true, env: { ...process.env, LC_ALL: 'C' } });
+  if (r.error?.code === 'ENOENT') return 'no-git';
+  if (r.status === 0) return r.stdout.trim() === 'true' ? 'git' : 'not-a-repo'; // 'false': inside a .git folder or a bare repository
+  if (NOT_A_REPOSITORY.test(r.stderr ?? '')) return 'not-a-repo';
+  throw new ListingError(`the repository cannot be listed: git rev-parse failed: ${gitMessage(r)}`);
+}
 
 // Tracked and untracked files that are not ignored; a tracked file deleted in the working tree is skipped.
+function gitFiles(root) {
+  const r = spawnSync('git', ['-c', 'core.quotePath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+  if (r.error || r.status !== 0) throw new ListingError(`the repository cannot be listed: git ls-files failed: ${gitMessage(r)}`);
+  if (r.stderr) process.stderr.write(r.stderr); // git's warnings reach the terminal, as they did when git wrote there itself
+  return [...new Set(r.stdout.split('\0').filter(Boolean))].sort();
+}
+
+// A folder can be walked when its names can be read and its entries opened: r without x lists names whose files
+// cannot be opened, so a successful readdir alone does not show the folder can be scanned. On Windows, X_OK checks
+// only that the folder exists.
+const searchable = (dir) => accessSync(dir, constants.R_OK | constants.X_OK);
+
+// The root must be a folder that can be walked; the message says which of these it is not. Called before anything
+// reads inside the root, so the root's own problem is the one reported. `name` is what the messages call it.
+export function checkRoot(root, name = 'root') {
+  let st;
+  try { st = statSync(root); } catch (err) {
+    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? `the ${name} folder does not exist` : `the ${name} folder cannot be read`);
+  }
+  if (!st.isDirectory()) throw new ListingError(`the ${name} is not a folder`);
+  try { searchable(root); } catch { throw new ListingError(`the ${name} folder cannot be read`); }
+}
+
+// Every file under the root, as root-relative paths with forward slashes, sorted. Skips the WALK_SKIP folders, links
+// that leave the root, broken links and links to folders (a folder inside the root is walked where it is, so a link
+// back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link. A folder
+// below the root that cannot be read is returned in `unreadable` (root-relative path with a trailing slash, and the
+// error code), so the report can say what was not scanned.
+function walkFiles(root) {
+  const real = realpathSync.native; // resolves short names and substituted drives, so the root and a link's target compare alike
+  const top = real(root);
+  const inside = (p) => { const rel = relative(top, p); return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)); };
+  const files = [];
+  const unreadable = [];
+  const visit = (dir, prefix) => {
+    let entries;
+    try { searchable(dir); entries = readdirSync(dir, { withFileTypes: true }); } catch (err) {
+      if (!prefix) throw new ListingError('the root folder cannot be read');
+      unreadable.push({ path: prefix, code: err.code ?? 'error' });
+      return;
+    }
+    for (const e of entries) {
+      if (SKIP.has(e.name)) continue;
+      const full = join(dir, e.name);
+      const name = prefix + e.name;
+      if (e.isDirectory()) visit(full, `${name}/`);
+      else if (e.isFile()) files.push(name);
+      else if (e.isSymbolicLink()) {
+        try { if (inside(real(full)) && statSync(full).isFile()) files.push(name); } catch { /* a broken link */ }
+      }
+    }
+  };
+  visit(root, '');
+  return { files: files.sort(), unreadable };
+}
+
+const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+
+// The files to scan; whether they came from a walk (null for a git listing, else why no git listing was available);
+// and, for a walk, the folders it could not read.
 export function listFiles(root) {
-  const out = execFileSync('git', ['-c', 'core.quotePath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return [...new Set(out.split('\0').filter(Boolean))].sort();
+  checkRoot(root);
+  const state = gitState(root);
+  if (state === 'git') return { files: gitFiles(root), walked: null, unreadable: [] };
+  return { ...walkFiles(root), walked: state === 'no-git' ? 'git could not be run' : 'the root is not in a git work tree' };
 }
 
 export function scanRepo(root, rules) {
   const hits = [];
   let files = 0;
-  for (const file of listFiles(root)) {
+  const listing = listFiles(root);
+  const unreadable = [...listing.unreadable];
+  const tooLarge = [];
+  for (const file of listing.files) {
     let buf;
     try {
       const st = statSync(join(root, file));
-      if (!st.isFile() || st.size > MAX_BYTES) continue;
+      if (!st.isFile()) continue;
+      if (st.size > MAX_BYTES) { tooLarge.push(file); continue; }
       buf = readFileSync(join(root, file));
-    } catch { continue; } // deleted since the index was written, or unreadable
+    } catch (err) {
+      // Gone since it was listed (a tracked file deleted in the working tree, a broken link): nothing to scan.
+      // Anything else is a file that is there but was not read, and the report says so.
+      if (err.code !== 'ENOENT' && err.code !== 'ENOTDIR') unreadable.push({ path: file, code: err.code ?? 'error' });
+      continue;
+    }
     if (buf.subarray(0, 8000).includes(0)) continue; // binary
     files++;
-    for (const h of scanText(buf.toString('utf8'), rules)) hits.push({ file, ...h });
+    const own = file === ALLOW_FILE ? rules.map((r) => r.silent ?? r) : rules; // its entries do not use themselves up
+    for (const h of scanText(buf.toString('utf8'), own)) hits.push({ file, ...h });
   }
-  return { hits, files };
+  // Folders (with a trailing slash) and files the scan could not read, sorted by path, and the files over MAX_BYTES.
+  return { hits, files, walked: listing.walked, unreadable: unreadable.sort(byPath), tooLarge: tooLarge.sort() };
 }

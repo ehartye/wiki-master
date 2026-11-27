@@ -92,4 +92,4 @@ one: [checks](../skills/wiki-setup/references/checks.md) for reports and
 | `evaluate-retrieval.mjs` | Scores search against a labelled question set. |
 | `evaluate-skill-behavior.mjs` | Scores recorded agent traces against skill-behavior scenarios. |
 | `bump-version.mjs` | Bumps the release version in every manifest and heads the changelog. |
-| `scan-private-terms.mjs` | Scans the repository's files for private names, home paths and invisible characters. |
+| `scan-private-terms.mjs` | Scans the repository's files, or walks a folder that is not a git repository yet, for private names, home paths (home-relative ones too, except entries of `.private-terms-allow`) and invisible characters. |

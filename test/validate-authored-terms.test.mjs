@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -105,4 +105,58 @@ test('the built-in machine patterns apply with --terms-file too', (t) => {
   const r = w.run('--terms-file', w.terms);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /path\.md:13 private-term home-path-windows/);
+});
+
+// The paths are built from parts, so this file holds no home-relative path for the repository's own scan to find.
+const under = (...parts) => parts.join('/');
+
+test('--terms-file reports a home-relative layout, and the vault root\'s .private-terms-allow lets a documented path through', (t) => {
+  const w = world(t);
+  w.put('wiki/authored/plug/notes/layout.md', page('plug', `# Layout\n\nSee ${under('~', 'repos', 'demo', 'notes')} for it.\n`));
+  w.put('wiki/authored/plug/notes/install.md', page('plug', `# Install\n\nCopy it to ${under('~', 'plugins', 'demo', 'x')}.\n`));
+  writeFileSync(join(w.root, 'ledger.json'), JSON.stringify(['wiki/authored/plug/notes/layout.md', 'wiki/authored/plug/notes/install.md']));
+  const before = w.run('--terms-file', w.terms);
+  assert.equal(before.status, 1, before.stdout + before.stderr);
+  assert.match(before.stdout, /layout\.md:13 private-term home-path-relative/);
+  assert.match(before.stdout, /install\.md:13 private-term home-path-relative/);
+
+  // An entry no ledger page uses is fine here: validate-authored checks a few pages, not the whole vault.
+  w.put('.private-terms-allow', `# the documented install path\n${under('~', 'plugins', 'demo')}\n# named by pages outside this ledger\n${under('~', 'plugins', 'other')}\n`);
+  const after = w.run('--terms-file', w.terms);
+  assert.equal(after.status, 1, after.stdout + after.stderr);
+  assert.match(after.stdout, /layout\.md:13 private-term home-path-relative/);
+  assert.doesNotMatch(after.stdout, /install\.md/);
+  assert.doesNotMatch(after.stdout, /unused/);
+
+  writeFileSync(join(w.root, 'ledger.json'), JSON.stringify(['wiki/authored/plug/notes/install.md']));
+  const clean = w.run('--terms-file', w.terms);
+  assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+  assert.match(clean.stdout, /1 pages checked, 0 defects/);
+
+  w.put('.private-terms-allow', `${under('~', 'plugins', 'demo')}\n`);
+  const bad = w.run('--terms-file', w.terms);
+  assert.equal(bad.status, 2, bad.stdout + bad.stderr);
+  assert.match(bad.stderr, /^validate-authored: \.private-terms-allow line 1: /m);
+  const plain = w.run();
+  assert.equal(plain.status, 0, 'without --terms-file the allow file is not read');
+});
+
+test('a vault allow entry the rule already exempts is refused with the reason, since no page could ever use it', (t) => {
+  const w = world(t);
+  w.put('.private-terms-allow', '# a tool config path, which needs no entry\n~/.config/app\n');
+  const r = w.run('--terms-file', w.terms);
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^validate-authored: \.private-terms-allow line 2: .*already exempt: dot-folder/m);
+});
+
+const unreadableVaults = process.platform === 'win32' ? 'a folder\'s own permissions do not stop its owner reading it on Windows'
+  : process.getuid?.() === 0 ? 'the superuser reads any folder' : false;
+test('with --terms-file a vault folder that cannot be read exits 2 naming the vault, not a scan root', { skip: unreadableVaults }, (t) => {
+  const w = world(t);
+  const vault = join(w.root, 'vault');
+  chmodSync(vault, 0o000);
+  let r;
+  try { r = w.run('--terms-file', w.terms); } finally { chmodSync(vault, 0o700); }
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /^validate-authored: the vault folder cannot be read$/m);
 });
