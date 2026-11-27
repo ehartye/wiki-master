@@ -36,11 +36,12 @@ of a source is a citation contract even on a stub.
    `citation-status: retired` and says it must not be cited as support: find evidence
    that supports the claim or drop the claim, and never clear the issue by removing the
    marker. For `source-hash-mismatch`, the clipping's text is not the text its
-   `source-hash` was recorded over. Never edit its body. When `capture` is `web`,
-   capture it again with the clipper its `verification` names, then ingest and cite the
-   new clipping; the old one is not edited, so its issue stays open for the owner to
-   settle by a purge or a re-adoption. When it is `manual`, it may not be recapturable:
-   ask the owner to compare it with the original and choose the path. A transfer of it
+   `source-hash` was recorded over. Never edit its body. Follow its `verification`,
+   which names the clipper and what running it again does: `clip.mjs --recapture` adds a
+   dated clipping beside it, `clip-gh.mjs` replaces it in place (run it only after the
+   owner's review), and the file clippers report it as already clipped. When `capture` is
+   `manual`, it may not be recapturable: ask the owner to compare it with the original
+   and choose the path. A transfer of it
    needs the owner's approval of `--allow-hash-mismatch`. Re-adopt only after the owner
    confirms the text: drop its `source-hash` line, run
    `adopt-clipping.mjs --apply`, and put the new hash in place of the old one in the

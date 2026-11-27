@@ -108,7 +108,7 @@ test('a page a person saved (extraction: manual) is captured again from a newly 
   assert.match(issue.verification, /may not be recapturable/);
   assert.match(issue.verification, /owner/);
   assert.ok(issue.verification.includes('`node scripts/clip.mjs <source> --from-file <path> --recapture`'), issue.verification);
-  assert.match(issue.verification, /supply the original again[^.;]*--from-file/, 'supplying the original names the command');
+  assert.match(issue.verification, /supply the original again[^;]*--from-file <path> --recapture/, 'supplying the original names the command');
   assert.doesNotMatch(issue.verification, /clip\.mjs <source> --recapture/, 'a fetch would replace the person-saved text with another page');
   ownerPaths(issue);
 });

@@ -130,7 +130,7 @@ const VERIFY = {
   'missing-evidence': 'Verify the substantive claims against evidence and restore the required citation trail; rerun health. Do not add unrelated citations or weaken status to clear this issue.',
   'cites-retired-page': 'The cited page is marked citation-status: retired, which says it is a lead and must not be cited as support. Replace the citation with evidence that supports the claim, or drop the claim; do not clear the issue by removing the marker.',
   // The general text; each issue carries the one for its clipping (sourceHashVerification below).
-  'source-hash-mismatch': 'The clipping\'s text is not the text its source-hash was recorded over, and no line-ending or final-line-break variant of it is. Capture it again with the clipper that captured it, ingest and cite the new clipping, and leave this one unedited; the issue stays open until the owner purges it (wiki-purge) or accepts its text and re-adopts it with adopt-clipping.mjs. Never edit the body; rerun health and verify the issue is gone.',
+  'source-hash-mismatch': 'The clipping\'s text is not the text its source-hash was recorded over, and no line-ending or final-line-break variant of it is. Each issue\'s own verification names the clipper that matches the clipping and what running it again does to it; with the owner, review the text first, then capture it again, re-adopt it with adopt-clipping.mjs, or purge it (wiki-purge). Never edit the body; rerun health and verify the issue is gone.',
 };
 
 const fieldOf = (page, key) => String(page?.metadata?.[key] ?? '').trim();
@@ -140,11 +140,13 @@ const fieldOf = (page, key) => String(page?.metadata?.[key] ?? '').trim();
 const isManualCapture = page => /manual|supplied/i.test(fieldOf(page, 'extraction')) || !/^https?:\/\//i.test(fieldOf(page, 'source'));
 
 // The clipper whose output a clipping looks like, from its folder, its source and its extraction; null when nothing says.
+// No clipper writes `extraction: user-supplied-*` (a transcript or text a person supplied), so such a clipping has none.
 const PDF_EXTRACTIONS = /^(ocr|table-aware|table-flattened|reading-order(-forced)?)$/i;
 export function clipperOf(path, page) {
   const source = fieldOf(page, 'source');
   const extraction = fieldOf(page, 'extraction');
   const file = source.split(/[?#]/, 1)[0];
+  if (/^user-supplied/i.test(extraction)) return null;
   if (path.startsWith('raw/clippings/gh/') || /^https:\/\/github\.com\/[^/]+\/[^/]+(\/|$)/i.test(source)) return 'clip-gh.mjs';
   if (/^https?:\/\/[^/]+\.atlassian\.net\/wiki\//i.test(source) || /\/confluence\//i.test(source)) return 'clip-confluence.mjs';
   if (PDF_EXTRACTIONS.test(extraction) || /\.pdf$/i.test(file)) return 'clip-pdf.mjs';
@@ -152,21 +154,36 @@ export function clipperOf(path, page) {
   return /^https?:\/\//i.test(source) ? 'clip.mjs' : null;
 }
 
-// How to capture a clipping again with its clipper. clip.mjs keeps the old capture and writes a dated one beside it; the
-// file clippers are run on the source document again, and may report it as already clipped, which leaves it to the owner.
-const recaptureWith = clipper => !clipper ? 'the clipper that captured it'
-  : clipper === 'clip.mjs' ? '`node scripts/clip.mjs <source> --recapture`, which writes a new dated clipping beside this one (linked by recapture-of)'
-  : `\`node scripts/${clipper}\` run on its source again (it may report the source as already clipped, which leaves the choice to the owner)`;
-
 const MISMATCH = 'The clipping\'s text is not the text its source-hash was recorded over, and no line-ending or final-line-break variant of it is.';
 const READOPT = 're-adopt it (remove its source-hash line, run `node scripts/adopt-clipping.mjs <path> --apply`, and put the new hash in place of the old one in the source-hashes of each source page that cites it)';
 const CLOSE = 'Never edit the body; rerun health and verify the issue is gone.';
 const TRANSFER = 'To move it to another vault before then, the owner can approve `transfer.mjs --allow-hash-mismatch`.';
+// The clippers that refuse a source address the vault already knows (`duplicate (already clipped)`). A mismatched
+// clipping holds its source address, so running one of them again always stops there.
+const REFUSE_BY_SOURCE = new Set(['clip-pdf.mjs', 'clip-docx.mjs', 'clip-pptx.mjs', 'clip-xlsx.mjs', 'clip-confluence.mjs']);
 
-// The fix for one mismatched clipping, by how it was captured and which clipper matches it.
-function sourceHashVerification(manual, clipper) {
-  if (!manual) return `${MISMATCH} Capture it again with ${recaptureWith(clipper)}, then ingest and cite the new clipping; this one is never edited. The issue stays open until the owner settles this clipping: purge it (wiki-purge), or accept its text as it is and ${READOPT}. ${TRANSFER} ${CLOSE}`;
-  return `${MISMATCH} It was supplied as a file or made by hand, so it may not be recapturable: ask the owner to compare the text with the original. The owner then chooses: if the text is right, ${READOPT}; if its source still serves the same text, capture it again with ${recaptureWith(clipper)}; otherwise supply the original again. ${TRANSFER} ${CLOSE}`;
+// The fix for one mismatched clipping, by how it was captured and which clipper matches it. Each route says what running
+// that clipper again does to this clipping, because the clippers differ:
+//  - clip.mjs --recapture writes a new dated clipping beside this one and never edits it;
+//  - clip.mjs --from-file <path> --recapture does the same from a page a person saved again (extraction: manual);
+//  - clip-gh.mjs writes a file again under the same name when its text differs from every hash the vault holds, so it
+//    replaces this clipping in place, and leaves it as it is (still open) when the repository's text is unchanged;
+//  - the file clippers and clip-confluence.mjs refuse a source address the vault holds, so they report it as already clipped;
+//  - a supplied transcript (user-supplied-*) or a clipping with no web source has no clipper and nothing to fetch.
+function sourceHashVerification(manual, clipper, extraction = '') {
+  if (manual && /manual/i.test(extraction) && clipper === 'clip.mjs') {
+    return `${MISMATCH} A person saved this page (extraction: manual), so it may not be recapturable, and a fetch would replace their text with another page: ask the owner to compare the text with the original. The owner then chooses: if the text is right, ${READOPT}; otherwise supply the original again by saving the page from a signed-in browser and running \`node scripts/clip.mjs <source> --from-file <path> --recapture\`, which writes a new dated clipping beside this one, then ingest and cite it. ${TRANSFER} ${CLOSE}`;
+  }
+  if (!clipper) {
+    return `${MISMATCH} No clipper captured it (it was supplied by a person or made by hand), so there is nothing to fetch it again from: ask the owner to compare the text with the original. The owner then chooses: if the text is right, ${READOPT}; otherwise supply the original again as a new clipping under raw/clippings/ and adopt it with \`node scripts/adopt-clipping.mjs <path> --apply\`, then ingest and cite it. ${TRANSFER} ${CLOSE}`;
+  }
+  if (clipper === 'clip-gh.mjs') {
+    return `${MISMATCH} Review it first: the owner compares the held text with the file at the recorded commit in its source address, or with the vault's history. Running \`node scripts/clip-gh.mjs <owner/repo>\` again replaces this clipping in place whenever the repository's text differs from every hash the vault holds (the held text is then gone, and the new hash must be ingested), and leaves it as it is when the text is unchanged; so run it only after that review. Otherwise, if the text is right, ${READOPT}. ${TRANSFER} ${CLOSE}`;
+  }
+  if (REFUSE_BY_SOURCE.has(clipper)) {
+    return `${MISMATCH} Running \`node scripts/${clipper}\` again will report the source as already clipped, because the vault holds its address. The owner chooses: review the text and, if it is right, ${READOPT}; or purge this clipping (wiki-purge) and then clip the source again with \`node scripts/${clipper}\`, then ingest and cite the new clipping. ${TRANSFER} ${CLOSE}`;
+  }
+  return `${MISMATCH} Capture it again with \`node scripts/clip.mjs <source> --recapture\`, which writes a new dated clipping beside this one (linked by recapture-of), then ingest and cite the new clipping; this one is never edited. The issue stays open until the owner settles this clipping: purge it (wiki-purge), or accept its text as it is and ${READOPT}. ${TRANSFER} ${CLOSE}`;
 }
 
 // A page that disclaims itself as evidence ("lead, not evidence") carries `citation-status: retired`. It is not
@@ -258,7 +275,7 @@ export function scanIntegrity(vaultPath, { sources, cache = null, readFile = rea
     const manual = isManualCapture(record.page);
     const clipper = clipperOf(path, record.page);
     add(issues, 'source-hash-mismatch', record.page, { line: record.extra.sourceHashLine, text: record.extra.sourceHashText },
-      { capture: manual ? 'manual' : 'web', clipper, verification: sourceHashVerification(manual, clipper) });
+      { capture: manual ? 'manual' : 'web', clipper, verification: sourceHashVerification(manual, clipper, fieldOf(record.page, 'extraction')) });
   }
   const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sorted = map => [...map.values()].sort((a, b) => compare(a.source, b.source) || compare(a.rule, b.rule) || compare(a.target, b.target));
