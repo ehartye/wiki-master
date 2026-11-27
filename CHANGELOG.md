@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.108.0 — 2026-11-27
+
+- `npm test` now gives the CI result on a developer machine that has its own vault registry, Xpdf PDF tools or a WSL bash.
+  - **Isolation.** Each run gets its own empty home folder, `<run temp root>-home`, beside the temp root. It is created private (0700) and removed at the end of every run.
+    - `HOME`, `USERPROFILE` and `XDG_CONFIG_HOME` point at that folder.
+    - The runner drops the inherited vault-binding variables (`WIKI_MASTER_CONFIG`, `WIKI_MASTER_VAULT`, `WIKI_MASTER_VAULT_ID`, `WIKI_MASTER_VAULT_NAME`, `WIKI_MASTER_PROJECT_ROOT`) and `WIKI_MASTER_REQUIRE_VAULT`. Every other variable passes through.
+    - A test that names no vault is refused by the test-vault guard instead of sharing a default vault.
+    - A direct `node --test` run is not isolated.
+  - **`npm run test:skills`** runs through the same runner.
+  - **PDF tests gate on what the tools can do.** The figures, OCR, title, tabular and reclip-fidelity tests now skip with a reason naming the tool unless the product's own probes pass (`diagnosePdf`, `ocrReachable`, and five good `pdftotext` reads).
+    - Xpdf `pdftotext` 4.06, which crashes on most reads when `USERPROFILE` is not the real profile, is refused by name.
+    - `WIKI_MASTER_TEST_REQUIRE_POPPLER=1` turns a missing capability into a failure.
+  - **POSIX-shell tests** in `init-git-ownership` skip with a reason when the bash found cannot see the machine's paths (WSL bash).
+
 ## 0.107.0 — 2026-11-26
 
 - New option `--seeds-file <file>` on `transfer.mjs`, repeatable. `--seeds a.md,b.md` splits its value on commas, so a page whose file name contains a comma could not be named as a seed at all; a seeds file names it.
