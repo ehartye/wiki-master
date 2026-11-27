@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileClipContent, writeFileClips, writeDigest, repoClipFileName } from '../scripts/clip-gh.mjs';
+import { clippingHash } from '../scripts/lib/clipping-hash.mjs';
 
 // `clip-gh` named a clipping `<path slug>.md`, so a repository's README.md became `README.md.md`. A new
 // clipping no longer doubles the extension. A doubled file that already exists for a path stays where it
@@ -86,4 +87,16 @@ test('digest mode keeps a doubled anchor instead of pruning it, and names a new 
   assert.ok(!f.names().includes('README.md'), 'no second copy');
   assert.ok(f.names().includes('CONTRIBUTING.md'), `a new anchor has no doubled name: ${f.names()}`);
   assert.equal(f.read('README.md.md'), old);
+});
+
+test('digest mode writes every file with LF when the repository description has CRLF and lone CR, and each hash matches', (t) => {
+  const f = setup(t, { 'README.md': WORDS, 'src/a.js': 'x' });
+  quiet(() => writeDigest({ ...common, included: ['README.md', 'src/a.js'], excluded: [], meta: { description: 'First line\r\nsecond line\rthird', primaryLanguage: 'JavaScript' }, outDir: f.outDir, tmp: f.tmp }));
+  assert.ok(f.names().includes('_repo-overview.md'), f.names().join(', '));
+  assert.match(f.read('_repo-overview.md'), /First line\nsecond line\nthird/);
+  for (const name of f.names().filter((n) => n.endsWith('.md'))) {
+    const text = f.read(name);
+    assert.ok(!text.includes('\r'), `no carriage return on disk in ${name}`);
+    assert.equal(clippingHash(text), text.match(/^source-hash: (.*)$/m)[1], name);
+  }
 });
