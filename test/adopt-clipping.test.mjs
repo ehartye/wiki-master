@@ -395,8 +395,49 @@ for (const [label, sourceLine] of [['single-quoted', `source: '${URL_A}'`], ['do
   });
 }
 
-test('--help says a file saved with CRLF line breaks is stamped with the hash of its CRLF body', (t) => {
+test('--help says the stamp ignores line endings and that a held hash is a conflict only when it really mismatches', (t) => {
   const v = vault(t);
   const r = script('adopt-clipping.mjs', ['--help'], v.root);
-  assert.match(`${r.out}${r.err}`, /CRLF/);
+  const help = `${r.out}${r.err}`;
+  assert.match(help, /ignores line endings/);
+  assert.doesNotMatch(help, /hash of its CRLF body/, 'the pre-normalization sentence is gone');
+  assert.match(help, /source-hash[^.]*conflict only when/);
+});
+
+// ---------------------------------------------------------------- a held hash, through verifyClippingHash
+// A hash held by the file is compared through the shared predicate, so a hash recorded over the same text by the old rule
+// (carriage returns kept) or over a line-ending or final-line-break variant of it is no conflict. Only a real mismatch is.
+const oldRuleText = (fileText) => fileText.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').replace(/^\r?\n/, '').replace(/\n$/, '');
+const held = (body, hash) => handClip(body).replace('tags:', `quality: high\ntopic: "Field notes"\nsource-hash: ${hash}\ntags:`);
+// Two paragraphs, so the text has a line break for a line-ending variant to change.
+const TWO = `${text('Hand')}\n\nA second paragraph.`;
+const HELD = [
+  ['match-raw', () => { const f = crlf(held(TWO, 'HASH')); return f.replace('HASH', sha(oldRuleText(f))); }],
+  ['crlf-variant', () => held(TWO, sha(crlf(TWO)))],
+  ['trailing-newline', () => held(TWO, sha(`${TWO}\n`))],
+];
+for (const [status, make] of HELD) {
+  test(`a held ${status} hash is no conflict, and the file is left byte for byte`, (t) => {
+    const v = vault(t);
+    const original = make();
+    writeFileSync(v.path('Held.md'), original);
+    const r = adopt(v, 'Held.md');
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(firstReport(r).conflicts, []);
+    assert.equal(firstReport(r).status, 'unchanged');
+    assert.doesNotMatch(r.err, /conflict/);
+    assert.equal(v.read('Held.md'), original);
+  });
+}
+
+test('a held hash of other text is still a conflict, and left as it is', (t) => {
+  const v = vault(t);
+  const wrong = sha('Some other text the file does not hold.');
+  const original = held(text('Hand'), wrong);
+  writeFileSync(v.path('Held.md'), original);
+  const r = adopt(v, 'Held.md');
+  assert.equal(r.code, 0, r.err);
+  assert.deepEqual(firstReport(r).conflicts, [{ field: 'source-hash', held: wrong, wanted: sha(text('Hand')) }]);
+  assert.match(r.err, /conflict: .*source-hash/);
+  assert.equal(v.read('Held.md'), original);
 });

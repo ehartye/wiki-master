@@ -92,7 +92,7 @@ test('a cold scan reads each Markdown file exactly once, content pages included,
   assert.deepEqual([...c.reads].sort(), markdownFiles(root));
 });
 
-test('buildGraph records each Markdown file with the stat it was read under; the integrity derive only for content', t => {
+test('buildGraph records each Markdown file with the stat it was read under; the integrity derive for content and clippings', t => {
   const { root } = fixture(t);
   const graph = buildGraph(root, { derive: deriveIntegrity });
   assert.deepEqual([...graph.records.keys()].sort(), markdownFiles(root));
@@ -100,7 +100,7 @@ test('buildGraph records each Markdown file with the stat it was read under; the
     const st = statSync(join(root, path));
     assert.deepEqual([record.size, record.mtimeMs], [st.size, st.mtimeMs], path);
     assert.deepEqual(record.page, markdownPage(path, readFileSync(join(root, path), 'utf8')), path);
-    assert.equal('extra' in record, path.startsWith('wiki/'), path);
+    assert.equal('extra' in record, path.startsWith('wiki/') || path.startsWith('raw/clippings/'), path);
   }
   assert.equal(buildGraph(root).records.get('wiki/concepts/beta.md').extra, undefined, 'no derive, no extra');
   assert.deepEqual(graph.pages.map(p => p.path), buildGraph(root).pages.map(p => p.path), 'derive changes no page');
