@@ -212,7 +212,8 @@ export function repoManifestContent({ owner, repo, ref, description, primaryLang
     '',
     ...includedPaths.map((p) => `- \`${p}\``),
   ];
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
@@ -250,7 +251,8 @@ export function moduleListingContent({ owner, repo, ref, moduleName, files = [],
     '| --- | --- | --- |',
     ...sorted.map((f) => `| \`${f.path}\` | ${f.size ?? ''} | ${languageHintForExt(extname(f.path)) || ''} |`),
   ];
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
@@ -336,7 +338,8 @@ export function digestManifestContent({
   if (anchorFiles.length) {
     lines.push('', '## Anchor files (clipped in full)', '', ...anchorFiles.map((p) => `- \`${p}\``));
   }
-  const md = lines.join('\n').trim();
+  // The description, paths and module names come from GitHub, so they may carry CRs: stored and hashed with LF (lib/clipping-hash.mjs).
+  const md = normalizeLineEndings(lines.join('\n')).trim();
   const hash = createHash('sha256').update(md).digest('hex');
   const fm = buildFrontmatter({ title, source, created, quality, hash, topic });
   return { md, wordCount: wordCount(md), hash, body: `${fm}\n\n${md}\n`, title, source };
