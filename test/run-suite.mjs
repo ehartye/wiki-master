@@ -2,12 +2,13 @@
 // the system temp folder. The root is wm-run-XXXXXX under the real temp folder; TMPDIR, TEMP and TMP point at it,
 // so every os.tmpdir() in the tests and in the processes they start lands inside it. Tests are not rewritten.
 //
-// The tests also never see the machine's home folder or the vault the parent shell is bound to. HOME and USERPROFILE
-// point at an empty home/ inside the root (Git reads HOME; Node and, on Windows, Python read USERPROFILE, so both move
-// together) and XDG_CONFIG_HOME at its .config, so no test resolves the machine's vault registry. The variables a
-// vault-bound command hands its children (contextEnv in scripts/lib/context.mjs) are removed. Every other variable
-// passes through, WIKI_MASTER_BROWSER and WIKI_MASTER_BROWSER_RECORD included, and APPDATA and LOCALAPPDATA stay,
-// because tool discovery reads them. A test that needs its own home or registry still sets it; its value wins.
+// The tests also never see the machine's vault registry or the vault the parent shell is bound to. HOME points at an
+// empty home/ inside the root and XDG_CONFIG_HOME at its .config; the default registry is looked up under HOME first
+// (test/registry-home-order.test.mjs pins that). The variables a vault-bound command hands its children (contextEnv
+// in scripts/lib/context.mjs) are removed. Every other variable passes through, WIKI_MASTER_BROWSER and
+// WIKI_MASTER_BROWSER_RECORD included. USERPROFILE stays, because some Windows PDF tools crash without the real
+// profile, so on Windows os.homedir() is still the real profile: a test that reasons about a home names its own. APPDATA
+// and LOCALAPPDATA stay, because tool discovery reads them. A test that sets its own home or registry still wins.
 //
 //   npm test                         # the whole suite
 //   npm test -- test/x.test.mjs      # arguments are passed to node --test
@@ -29,8 +30,8 @@ const wmEntries = (dir) => new Set(readdirSync(dir).filter((n) => n.startsWith('
 // derives the same list from contextEnv and fails if they differ.
 const VAULT_BINDING = ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_PROJECT_ROOT'];
 const HOME_DIR = 'home';
-// The variables that name the home folder: Git reads HOME; Node's os.homedir() and Python on Windows read USERPROFILE.
-const HOME_VARIABLES = ['HOME', 'USERPROFILE'];
+// The variables pointed at the run home. USERPROFILE is not one of them (see the top of this file).
+const HOME_VARIABLES = ['HOME'];
 const entriesIn = (dir) => { try { return readdirSync(dir).length; } catch { return 0; } };
 
 // The child's environment. Windows treats variable names case-insensitively, so a name is matched in any case there.
