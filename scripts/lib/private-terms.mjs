@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative, sep } from 'node:path';
 
 // The public repository must not name the owner's other projects or machines (that language belongs in the wiki).
 // The private list lives in a file outside the repository: one term per line, matched as a case-insensitive
@@ -67,16 +67,82 @@ export function scanText(text, rules) {
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
+// A root that cannot be listed: its message is fit to print as it is, and names no matched text.
+export class ListingError extends Error {}
+
+// Folders a walk never enters, at any depth: git's data, the vault app's and this plugin's state, the recycle
+// folder and installed packages. A `.git` file (a linked worktree's pointer) is skipped too.
+export const WALK_SKIP = ['.git', '.obsidian', '.wiki-master', '.recycle', 'node_modules'];
+const SKIP = new Set(WALK_SKIP);
+
+// Git's answer for a folder with no repository around it. Matched in the C locale, so a translation cannot hide it.
+// A `.git` file that points nowhere gives "not a git repository: <path>" instead, and stays an error.
+const NOT_A_REPOSITORY = /^fatal: not a git repository \(or any (?:of the parent directories|parent up to mount point)/m;
+const gitMessage = (r) => String(r.stderr ?? '').trim().split(/\r?\n/)[0] || r.error?.message || `exit ${r.status}`;
+
+// How the root is listed: 'git' inside a git work tree, 'not-a-repo' when git finds none around it, 'no-git' when
+// git cannot be run at all. Any other git failure is an error: the root is in a repository that git cannot read.
+function gitState(root) {
+  const r = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8', windowsHide: true, env: { ...process.env, LC_ALL: 'C' } });
+  if (r.error?.code === 'ENOENT') return 'no-git';
+  if (r.status === 0) return r.stdout.trim() === 'true' ? 'git' : 'not-a-repo'; // 'false': inside a .git folder or a bare repository
+  if (NOT_A_REPOSITORY.test(r.stderr ?? '')) return 'not-a-repo';
+  throw new ListingError(`the repository cannot be listed: git rev-parse failed: ${gitMessage(r)}`);
+}
+
 // Tracked and untracked files that are not ignored; a tracked file deleted in the working tree is skipped.
+function gitFiles(root) {
+  const r = spawnSync('git', ['-c', 'core.quotePath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+  if (r.error || r.status !== 0) throw new ListingError(`the repository cannot be listed: git ls-files failed: ${gitMessage(r)}`);
+  if (r.stderr) process.stderr.write(r.stderr); // git's warnings reach the terminal, as they did when git wrote there itself
+  return [...new Set(r.stdout.split('\0').filter(Boolean))].sort();
+}
+
+// Every file under the root, as root-relative paths with forward slashes, sorted. Skips the WALK_SKIP folders, links
+// that leave the root, broken links and links to folders (a folder inside the root is walked where it is, so a link
+// back up cannot loop). A link to a file inside the root is read, as a git listing reads a tracked link.
+function walkFiles(root) {
+  const top = realpathSync(root);
+  const inside = (p) => { const rel = relative(top, p); return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)); };
+  const files = [];
+  const visit = (dir, prefix) => {
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch {
+      if (!prefix) throw new ListingError('the root folder cannot be read');
+      return; // a folder below the root that cannot be read is skipped, as an unreadable file is
+    }
+    for (const e of entries) {
+      if (SKIP.has(e.name)) continue;
+      const full = join(dir, e.name);
+      const name = prefix + e.name;
+      if (e.isDirectory()) visit(full, `${name}/`);
+      else if (e.isFile()) files.push(name);
+      else if (e.isSymbolicLink()) {
+        try { if (inside(realpathSync(full)) && statSync(full).isFile()) files.push(name); } catch { /* a broken link */ }
+      }
+    }
+  };
+  visit(root, '');
+  return files.sort();
+}
+
+// The files to scan, and whether they came from a walk: null for a git listing, else why no git listing was available.
 export function listFiles(root) {
-  const out = execFileSync('git', ['-c', 'core.quotePath=false', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return [...new Set(out.split('\0').filter(Boolean))].sort();
+  let st;
+  try { st = statSync(root); } catch (err) {
+    throw new ListingError(err.code === 'ENOENT' || err.code === 'ENOTDIR' ? 'the root folder does not exist' : 'the root folder cannot be read');
+  }
+  if (!st.isDirectory()) throw new ListingError('the root is not a folder');
+  const state = gitState(root);
+  if (state === 'git') return { files: gitFiles(root), walked: null };
+  return { files: walkFiles(root), walked: state === 'no-git' ? 'git could not be run' : 'the root is not in a git work tree' };
 }
 
 export function scanRepo(root, rules) {
   const hits = [];
   let files = 0;
-  for (const file of listFiles(root)) {
+  const listing = listFiles(root);
+  for (const file of listing.files) {
     let buf;
     try {
       const st = statSync(join(root, file));
@@ -87,5 +153,5 @@ export function scanRepo(root, rules) {
     files++;
     for (const h of scanText(buf.toString('utf8'), rules)) hits.push({ file, ...h });
   }
-  return { hits, files };
+  return { hits, files, walked: listing.walked };
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { helpRequested, exitWithHelp } from './lib/help.mjs';
-import { parseTerms, scanRepo, BUILTIN_RULES } from './lib/private-terms.mjs';
+import { parseTerms, scanRepo, BUILTIN_RULES, ListingError, WALK_SKIP } from './lib/private-terms.mjs';
 import { cliGuard } from './lib/cli-guard.mjs';
 cliGuard(import.meta.url);
 
@@ -11,13 +11,16 @@ const USAGE = [
   'Scans the tracked and untracked (not ignored) text files of a git repository for names that belong in the wiki,',
   'not in a public repository: the owner\'s private terms (from the terms file) and built-in patterns for home',
   'directories, GPU models and invisible characters. Reports path, line and rule number, never the matched text.',
-  '  --root <dir>        the repository to scan (default: the current directory)',
+  'A folder outside any git work tree (or a machine without git) is walked instead, skipping .git, .obsidian,',
+  '.wiki-master, .recycle and node_modules folders, binary files and links that leave it; the report says so.',
+  '  --root <dir>        the repository or folder to scan (default: the current directory)',
   '  --terms-file <path> one term per line (case-insensitive substring) or a /pattern/flags regular expression;',
   '                      default: WIKI_MASTER_PRIVATE_TERMS_FILE, then PRIVATE_TERMS_FILE; none means built-ins only',
   '  --known <path>      files whose hits are still to be sanitised, one path or directory prefix per line (# comments):',
   '                      their hits are counted but do not fail the scan, and an entry with no hit left does',
   '  --json              machine-readable output',
-  'Exit 0: no hits. Exit 1: hits. Exit 2: unusable terms file or repository.',
+  'Exit 0: no hits. Exit 1: hits. Exit 2: unusable terms file, a root that is missing or unreadable, or a git',
+  'listing that fails inside a repository.',
 ].join('\n');
 
 function option(argv, name) {
@@ -50,7 +53,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   }
   let result;
   try { result = scanRepo(root, rules); } catch (err) {
-    console.error('scan-private-terms: the repository cannot be listed (is it a git repository?)');
+    console.error(`scan-private-terms: ${err instanceof ListingError ? err.message : `the root cannot be scanned: ${err.message}`}`);
     process.exitCode = 2;
     return;
   }
@@ -62,8 +65,10 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const count = hits.length;
   const byFile = new Set(hits.map((h) => h.file)).size;
   const knownSummary = { count: knownHits.length, files: new Set(knownHits.map((h) => h.file)).size };
-  if (argv.includes('--json')) console.log(JSON.stringify({ count, files, hits, ...(knownFile ? { known: knownSummary, stale } : {}) }, null, 2));
+  const walked = result.walked ? { listing: 'folder walk' } : {}; // a git listing's output is unchanged
+  if (argv.includes('--json')) console.log(JSON.stringify({ count, files, hits, ...walked, ...(knownFile ? { known: knownSummary, stale } : {}) }, null, 2));
   else {
+    if (result.walked) console.log(`folder walk: no git listing was available (${result.walked}), so the folder was walked, skipping ${WALK_SKIP.join(', ')}, binary files and links that leave it`);
     for (const h of hits) console.log(`${h.file}:${h.line} ${h.rule}`);
     for (const s of stale) console.log(`stale known entry: ${s} (no hit left; remove it from the list)`);
     console.log(`${count} hit(s) in ${byFile} file(s); ${files} file(s) scanned${termsFile ? '' : ' with the built-in patterns only (no terms file named)'}`);
