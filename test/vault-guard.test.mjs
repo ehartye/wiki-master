@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readdirSync, existsSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, dirname, parse } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -15,12 +15,16 @@ import { tempVault, isUnderTemp } from './helpers/temp-vault.mjs';
 //    under the temp directory, so a test that forgets to set one fails instead of writing to the real vault.
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const REAL = join(homedir(), '.wiki-master-vault');
+// The owner's home, as a folder at the root of the drive that does not exist: outside the temp directory and the
+// plugin folder, as a real home is. `npm test` gives the tests a home of its own, <root>-home beside the run's temp
+// root, so these checks name this one in each env instead of taking os.homedir().
+const HOME = join(parse(ROOT).root, 'wm-no-such-home');
+const REAL = join(HOME, '.wiki-master-vault');
 
 test('with WIKI_MASTER_REQUIRE_VAULT set and no vault named, resolveVault refuses the default path', () => {
   const seen = [];
   assert.throws(
-    () => resolveVault({ WIKI_MASTER_REQUIRE_VAULT: '1' }, { onRefuse: (m) => { seen.push(m); throw new Error(m); } }),
+    () => resolveVault({ HOME, WIKI_MASTER_REQUIRE_VAULT: '1' }, { onRefuse: (m) => { seen.push(m); throw new Error(m); } }),
     /WIKI_MASTER_VAULT/,
   );
   assert.equal(seen.length, 1);
@@ -28,9 +32,9 @@ test('with WIKI_MASTER_REQUIRE_VAULT set and no vault named, resolveVault refuse
 });
 
 test('strict mode is satisfied by naming a vault, and is off for 0, empty and unset', () => {
-  assert.equal(resolveVault({ WIKI_MASTER_REQUIRE_VAULT: '1', WIKI_MASTER_VAULT: '/some/vault' }).path, '/some/vault');
+  assert.equal(resolveVault({ HOME, WIKI_MASTER_REQUIRE_VAULT: '1', WIKI_MASTER_VAULT: '/some/vault' }).path, '/some/vault');
   for (const off of ['', '0', undefined]) {
-    assert.equal(resolveVault({ WIKI_MASTER_REQUIRE_VAULT: off }).path, REAL);
+    assert.equal(resolveVault({ HOME, WIKI_MASTER_REQUIRE_VAULT: off }).path, REAL);
   }
 });
 
@@ -51,28 +55,28 @@ test('strict mode makes a real script exit 2 with one line and touch nothing', (
 });
 
 test('under node --test the vault must be in the temp directory or the plugin folder', () => {
-  const under = { NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(tmpdir(), 'some-test-vault') };
+  const under = { HOME, NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(tmpdir(), 'some-test-vault') };
   assert.equal(resolveVault(under).path, under.WIKI_MASTER_VAULT);
-  const fixture = { NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(ROOT, 'test', 'fixtures', 'lint-vault') };
+  const fixture = { HOME, NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(ROOT, 'test', 'fixtures', 'lint-vault') };
   assert.equal(resolveVault(fixture).path, fixture.WIKI_MASTER_VAULT, 'a fixture vault inside the plugin folder is allowed');
   for (const env of [
-    { NODE_TEST_CONTEXT: 'child-v8' },                                          // the default, which is the real vault
-    { NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: REAL },                 // the real vault named outright
-    { NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(homedir(), 'elsewhere') }, // any other place that is neither
+    { HOME, NODE_TEST_CONTEXT: 'child-v8' },                                          // the default, which is the real vault
+    { HOME, NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: REAL },                 // the real vault named outright
+    { HOME, NODE_TEST_CONTEXT: 'child-v8', WIKI_MASTER_VAULT: join(HOME, 'elsewhere') }, // any other place that is neither
   ]) {
     assert.throws(() => resolveVault(env), /outside the temp(orary)? directory/, JSON.stringify(env));
   }
 });
 
 test('the test guard is off outside a test run, so production behaviour is unchanged', () => {
-  assert.equal(resolveVault({}).path, REAL);
-  assert.equal(resolveVault({ WIKI_MASTER_VAULT: '/elsewhere/vault' }).path, '/elsewhere/vault');
+  assert.equal(resolveVault({ HOME }).path, REAL);
+  assert.equal(resolveVault({ HOME, WIKI_MASTER_VAULT: '/elsewhere/vault' }).path, '/elsewhere/vault');
 });
 
 test('a script run by a test with the default vault fails instead of acting on it', () => {
   // A home directory that does not exist, at the root of the drive: outside the temp directory and the plugin
   // folder, so the default vault under it is refused; if the guard failed the script would find nothing there.
-  const home = join(parse(ROOT).root, 'wm-no-such-home');
+  const home = HOME;
   const env = { ...process.env, HOME: home, USERPROFILE: home, NODE_TEST_CONTEXT: 'child-v8' };
   delete env.WIKI_MASTER_VAULT;
   delete env.WIKI_MASTER_REQUIRE_VAULT;

@@ -127,7 +127,7 @@ See [skill reliability](docs/skill-reliability.md) for bounded CLI fallback, sha
 | `WIKI_MASTER_CONFIG` | `~/.config/wiki-master/vaults.json` | Absolute alternate machine-local registry filename; a missing explicit file fails. |
 | `WIKI_MASTER_PROJECT_ROOT` | cwd | Repository used to resolve project routing. |
 | `WIKI_MASTER_VAULT_ID` | role-dependent selection | Request-scoped research/maintenance selection; documentation cannot be redirected. |
-| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` to reject implicit home fallback with exit 2; a registry selection is explicit configuration. Set it in any session that must not touch the real vault. |
+| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` to reject implicit home fallback with exit 2; a registry selection is explicit configuration. Set it in any session that must not touch the real vault. `npm test` drops it and keeps the tests off the real vault by other means; see [Home folder and vault variables](#home-folder-and-vault-variables). |
 | `WIKI_MASTER_PRIVATE_TERMS_FILE` | unset | A file of private terms for `scan-private-terms.mjs` (`PRIVATE_TERMS_FILE` is read too). Keep it outside every repository. |
 | `WIKI_MASTER_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for drift. |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint. |
@@ -183,6 +183,10 @@ find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'wm-*' -mtime +7 -exec rm -rf {} +
 ```powershell
 Get-ChildItem $env:TEMP -Filter 'wm-*' | Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) | Remove-Item -Recurse -Force
 ```
+
+### Home folder and vault variables
+
+`npm test` also hides the machine's home folder and the vault your shell is bound to. It points `HOME` and `USERPROFILE` at an empty folder beside the run's temp root, `wm-run-XXXXXX-home`, and `XDG_CONFIG_HOME` at its `.config`, so no test reads your vault registry. The home is outside the tests' temp folder, so a test that names no vault is refused instead of sharing a default one, and the runner removes it when the run ends, whether the run passed or failed. It removes the vault-binding variables `WIKI_MASTER_CONFIG`, `WIKI_MASTER_VAULT`, `WIKI_MASTER_VAULT_ID`, `WIKI_MASTER_VAULT_NAME` and `WIKI_MASTER_PROJECT_ROOT`, and `WIKI_MASTER_REQUIRE_VAULT`, so a shell that sets it can still run the suite; a test that needs it sets it itself. Every other variable reaches the tests unchanged, including `WIKI_MASTER_BROWSER`, `WIKI_MASTER_BROWSER_RECORD`, `APPDATA` and `LOCALAPPDATA`. `npm run test:skills` goes through the same runner. A direct `node --test` run does none of this: it sees your real home, registry and vault variables, so on a machine with a registry it can fail tests that pass under `npm test`.
 
 ### Project and research vaults
 

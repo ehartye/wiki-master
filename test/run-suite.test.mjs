@@ -1,16 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { contextEnv } from '../scripts/lib/context.mjs';
 
 // `npm test` runs test/run-suite.mjs, which gives the run its own temp root: every test's tmpdir() is inside it,
-// it is removed when the run passes and kept, with its path printed, when the run fails. The fixture test files are
-// written outside the repository at run time, because `node --test` runs every .mjs below test/.
+// it is removed when the run passes and kept, with its path printed, when the run fails. The tests also get a home
+// folder beside that root, outside their temp directory, which the runner removes at the end, and none of the parent's
+// vault-binding variables. The fixture test files are written outside the repository at run time, because
+// `node --test` runs every .mjs below test/.
 
 const RUNNER = join(dirname(fileURLToPath(import.meta.url)), 'run-suite.mjs');
+const VAULT_LIB = pathToFileURL(join(dirname(RUNNER), '..', 'scripts', 'lib', 'vault.mjs')).href;
 
 function fixture(t, name, source) {
   const dir = mkdtempSync(join(realpathSync(tmpdir()), 'wm-run-suite-fixture-'));
@@ -23,7 +27,12 @@ function run(args, extraEnv = {}) {
   if (!('NODE_TEST_CONTEXT' in extraEnv)) delete env.NODE_TEST_CONTEXT;
   return spawnSync(process.execPath, [RUNNER, ...args], { encoding: 'utf8', env, timeout: 60000 });
 }
+// The variables a vault-bound command hands its children (contextEnv), with every optional binding present: the
+// runner must keep all of them from the tests, so this list follows the product code rather than a copy of it.
+const VAULT_BINDING = Object.keys(contextEnv({ selected: { id: 'docs', path: join(tmpdir(), 'vault'), selector: 'vault', available: false },
+  configPath: join(tmpdir(), 'vaults.json'), repositoryRoot: join(tmpdir(), 'repo') }, {}));
 const rootOf = (stdout) => /run-suite: temp root (.+)$/m.exec(stdout)?.[1]?.trim();
+const homeOf = (root) => `${root}-home`;
 
 test('a passing run that leaks one folder reports it, removes its root and exits 0', (t) => {
   const { dir, file } = fixture(t, 'leak.test.mjs', (d) => `import { test } from 'node:test';
@@ -52,6 +61,7 @@ test('fails', () => { assert.equal(1, 2); });
   t.after(() => root && rmSync(root, { recursive: true, force: true }));
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.ok(root && existsSync(root), 'a failing run keeps its root');
+  assert.equal(existsSync(homeOf(root)), false, 'the run home is removed even when the run fails');
   assert.match(r.stdout, new RegExp(`kept .*${root.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}`));
 });
 
@@ -75,6 +85,105 @@ test('stops its runner', () => { process.kill(process.ppid, 'SIGKILL'); });
   const root = rootOf(r.stdout);
   t.after(() => root && rmSync(root, { recursive: true, force: true }));
   assert.equal(r.status, 128 + 9, r.stdout + r.stderr);
+});
+
+test('the tests get a home beside the run root and no inherited vault binding, and keep the browser guard', (t) => {
+  const { dir, file } = fixture(t, 'env.test.mjs', (d) => `import { test } from 'node:test';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+test('records what it sees', () => {
+  writeFileSync(${JSON.stringify(join(d, 'seen.json'))}, JSON.stringify({ env: process.env, homedir: homedir(), tmpdir: tmpdir(), homeIsThere: existsSync(process.env.HOME), homeMode: statSync(process.env.HOME).mode }));
+});
+`);
+  const machineHome = join(dir, 'machine-home');
+  const inherited = {
+    HOME: machineHome, USERPROFILE: machineHome, XDG_CONFIG_HOME: join(machineHome, '.config'),
+    ...Object.fromEntries(VAULT_BINDING.map((name) => [name, join(dir, `machine-${name.toLowerCase()}`)])),
+    WIKI_MASTER_BROWSER: join(dir, 'recording-stub.sh'), WIKI_MASTER_BROWSER_RECORD: join(dir, 'browser-launches.txt'),
+    // A shell that must not touch the real vault sets this (README); a test that needs it sets it itself.
+    WIKI_MASTER_REQUIRE_VAULT: '1',
+  };
+  assert.deepEqual([...VAULT_BINDING].sort(),
+    ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_PROJECT_ROOT', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME'],
+    'the parent sets every vault binding, the optional ones included');
+  const r = run([file], inherited);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const root = rootOf(r.stdout);
+  assert.ok(root, r.stdout);
+  const seen = JSON.parse(readFileSync(join(dir, 'seen.json'), 'utf8'));
+  const home = homeOf(root);
+  assert.equal(seen.env.HOME, home);
+  assert.equal(seen.env.USERPROFILE, home);
+  assert.equal(seen.env.XDG_CONFIG_HOME, join(home, '.config'));
+  assert.equal(seen.homedir, home, 'os.homedir() follows the run home');
+  assert.ok(seen.homeIsThere, 'the run home exists while the tests run');
+  // Windows has no POSIX mode bits to check; on a shared POSIX /tmp the home must be as private as the mkdtemp root.
+  if (process.platform !== 'win32') assert.equal(seen.homeMode & 0o777, 0o700, 'the run home is readable by its owner only');
+  for (const name of VAULT_BINDING) assert.equal(seen.env[name], undefined, `${name} does not reach the tests`);
+  assert.equal(seen.env.WIKI_MASTER_REQUIRE_VAULT, undefined, 'WIKI_MASTER_REQUIRE_VAULT does not reach the tests');
+  assert.equal(seen.env.WIKI_MASTER_BROWSER, inherited.WIKI_MASTER_BROWSER);
+  assert.equal(seen.env.WIKI_MASTER_BROWSER_RECORD, inherited.WIKI_MASTER_BROWSER_RECORD);
+  assert.equal(seen.tmpdir, root, 'the temp folder is still the run root');
+  for (const name of ['APPDATA', 'LOCALAPPDATA']) assert.equal(seen.env[name], process.env[name], `${name} is left alone`);
+  assert.match(r.stdout, /left behind: 0\b/, 'the run home is the runner\'s own, not a leftover');
+  assert.equal(existsSync(home), false, 'the runner removes the run home');
+});
+
+test('a test that names no vault is refused by the test-vault guard, not given a shared default vault', (t) => {
+  const { dir, file } = fixture(t, 'default.test.mjs', (d) => `import { test } from 'node:test';
+import { writeFileSync } from 'node:fs';
+import { resolveVault } from ${JSON.stringify(VAULT_LIB)};
+test('resolves the default vault', () => {
+  let outcome;
+  try { outcome = { path: resolveVault(process.env).path }; } catch (error) { outcome = { refused: error.message }; }
+  writeFileSync(${JSON.stringify(join(d, 'outcome.json'))}, JSON.stringify({ ...outcome, home: process.env.HOME }));
+});
+`);
+  const r = run([file], { WIKI_MASTER_VAULT: join(dir, 'machine-vault') });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const root = rootOf(r.stdout);
+  const outcome = JSON.parse(readFileSync(join(dir, 'outcome.json'), 'utf8'));
+  assert.match(outcome.refused ?? `resolved ${outcome.path}`, /outside the temporary directory/);
+  assert.equal(outcome.home, homeOf(root));
+});
+
+// Every WIKI_MASTER_* variable the plugin's scripts read, classified once. DROPPED: the runner removes it, because an
+// inherited value would bind the tests to the machine's vault or change how they choose one; a test that needs it sets
+// it itself. KEPT: it reaches the tests unchanged, because it selects a tool or an opt-in and never a vault. A new name
+// in scripts/ fails the first test below until it is added to one list; the second proves the runner does as listed.
+const DROPPED = [...VAULT_BINDING, 'WIKI_MASTER_REQUIRE_VAULT'];
+const KEPT = ['WIKI_MASTER_BROWSER', 'WIKI_MASTER_BROWSER_RECORD', 'WIKI_MASTER_BROWSER_TESTS', 'WIKI_MASTER_CONFLUENCER_SCRIPTS',
+  'WIKI_MASTER_EMBED_MODEL', 'WIKI_MASTER_PRIVATE_TERMS_FILE'];
+const SCRIPTS = join(dirname(RUNNER), '..', 'scripts');
+
+test('every WIKI_MASTER_* variable the scripts read is classified as dropped or kept by the runner', () => {
+  assert.deepEqual(DROPPED.filter((name) => KEPT.includes(name)), [], 'a variable is in both lists');
+  const read = new Map();
+  for (const entry of readdirSync(SCRIPTS, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const path = join(entry.parentPath ?? entry.path, entry.name);
+    for (const [name] of readFileSync(path, 'utf8').matchAll(/WIKI_MASTER_[A-Z0-9_]*[A-Z0-9]/g)) {
+      if (!read.has(name)) read.set(name, relative(SCRIPTS, path));
+    }
+  }
+  assert.ok(read.has('WIKI_MASTER_VAULT'), 'the scan reads the scripts');
+  const unclassified = [...read].filter(([name]) => !DROPPED.includes(name) && !KEPT.includes(name)).map(([name, where]) => `${name} (scripts/${where.replaceAll('\\', '/')})`);
+  assert.deepEqual(unclassified, [], 'add each to DROPPED or KEPT in test/run-suite.test.mjs, and to the runner if dropped');
+});
+
+test('the runner drops exactly the DROPPED variables and passes the KEPT ones through', (t) => {
+  const { dir, file } = fixture(t, 'names.test.mjs', (d) => `import { test } from 'node:test';
+import { writeFileSync } from 'node:fs';
+test('records the WIKI_MASTER_* names it sees', () => {
+  writeFileSync(${JSON.stringify(join(d, 'names.json'))}, JSON.stringify(Object.keys(process.env).filter((n) => n.toUpperCase().startsWith('WIKI_MASTER_'))));
+});
+`);
+  // Plain values that select nothing, so no test the fixture runs could act on them.
+  const r = run([file], Object.fromEntries([...DROPPED, ...KEPT].map((name) => [name, join(dir, `parent-${name.toLowerCase()}`)])));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const seen = JSON.parse(readFileSync(join(dir, 'names.json'), 'utf8')).map((name) => name.toUpperCase());
+  assert.deepEqual(DROPPED.filter((name) => seen.includes(name)), [], 'dropped variables reached the tests');
+  assert.deepEqual(KEPT.filter((name) => !seen.includes(name)), [], 'kept variables did not reach the tests');
 });
 
 test('loaded as a test file by node --test, the runner does nothing', () => {

@@ -155,9 +155,21 @@ function shellEnv(home) {
 const runs = (command, args) => spawnSync(command, args, { encoding: 'utf8', timeout: 60000 }).status === 0;
 // A shell counts as present only if it can also reach node: a Windows bash can be a launcher for a system with neither.
 const firstShell = (names, args) => names.find((name) => runs(name, [...args, 'node --version']));
+// The printed commands name this checkout's scripts and a vault under the temp folder by their native paths, so a
+// POSIX shell must see both. On Windows the first bash on PATH can be WSL's, which has its own node but cannot see
+// C:\ paths; the tests skip there and say which shell was found.
+function posixShell() {
+  const name = firstShell(['bash'], ['-c']);
+  if (!name) return { name, args: ['-c'], skip: 'POSIX shell is not on this machine' };
+  const sees = (path) => `test -d '${path.replaceAll("'", String.raw`'\''`)}'`;
+  if (runs(name, ['-c', `${sees(ROOT_SCRIPTS)} && ${sees(tmpdir())}`])) return { name, args: ['-c'], skip: false };
+  const found = spawnSync(name, ['-c', 'uname -sr'], { encoding: 'utf8', timeout: 60000 }).stdout?.trim() || 'unknown system';
+  return { name: undefined, args: ['-c'], skip: `found a POSIX shell (${name}: ${found}) that cannot see this machine's paths (WSL bash?)` };
+}
+const powerShell = (name) => ({ name, args: ['-NoProfile', '-Command'], skip: name ? false : 'PowerShell is not on this machine' });
 const SHELLS = {
-  'POSIX shell': { name: firstShell(['bash'], ['-c']), args: ['-c'] },
-  PowerShell: { name: firstShell(['pwsh', 'powershell.exe', 'powershell'], ['-NoProfile', '-Command']), args: ['-NoProfile', '-Command'] },
+  'POSIX shell': posixShell(),
+  PowerShell: powerShell(firstShell(['pwsh', 'powershell.exe', 'powershell'], ['-NoProfile', '-Command'])),
 };
 const runIn = (shell, line, home) => spawnSync(shell.name, [...shell.args, line], { encoding: 'utf8', env: shellEnv(home), timeout: 60000 });
 
@@ -180,7 +192,7 @@ function namedVaultWorld(t) {
 }
 
 for (const [label, shell] of Object.entries(SHELLS)) {
-  test(`printed for ${label}, run through it as printed: it acts on the named vault, not the default`, { skip: shell.name ? false : `${label} is not on this machine` }, (t) => {
+  test(`printed for ${label}, run through it as printed: it acts on the named vault, not the default`, { skip: shell.skip }, (t) => {
     const { vault, home, stdout } = namedVaultWorld(t);
     const check = runIn(shell, printedForm(stdout, label, 'setup-obsidian-git.mjs').replace('--apply', '--check'), home);
     assert.notEqual(check.status, 0, 'the vault is not set up, and a failure must show in the exit code');
@@ -198,7 +210,7 @@ for (const [label, shell] of Object.entries(SHELLS)) {
 }
 
 for (const [label, wrong, shell] of [['PowerShell', 'a POSIX shell', SHELLS['POSIX shell']], ['POSIX shell', 'PowerShell', SHELLS.PowerShell]]) {
-  test(`a ${label} line pasted into ${wrong} never reaches node, so it cannot fall through to the default vault`, { skip: shell.name ? false : `${wrong} is not on this machine` }, (t) => {
+  test(`a ${label} line pasted into ${wrong} never reaches node, so it cannot fall through to the default vault`, { skip: shell.skip }, (t) => {
     const { home, stdout } = namedVaultWorld(t);
     const r = runIn(shell, printedForm(stdout, label, 'setup-obsidian-git.mjs').replace('--apply', '--check'), home);
     assert.notEqual(r.status, 0);
@@ -227,7 +239,7 @@ test('the PowerShell form doubles every quote character PowerShell recognizes', 
   assert.equal(commandForms('/x.mjs', '', { WIKI_MASTER_VAULT: '/v’w' }).posix, "WIKI_MASTER_VAULT='/v’w' node '/x.mjs'", 'a POSIX shell treats it as an ordinary character');
 });
 
-test('a path holding every PowerShell quote character reaches the named vault', { skip: SHELLS.PowerShell.name ? false : 'PowerShell is not on this machine' }, (t) => {
+test('a path holding every PowerShell quote character reaches the named vault', { skip: SHELLS.PowerShell.skip }, (t) => {
   const parent = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
   const vault = join(parent, `q${POWERSHELL_QUOTES.join('')}v`);
   const home = decoyHome();
@@ -251,7 +263,7 @@ function documentedPipe(label) {
 }
 
 for (const [label, shell] of Object.entries(SHELLS)) {
-  test(`the documented way to pipe a log body works in ${label}, on the named vault`, { skip: shell.name ? false : `${label} is not on this machine` }, (t) => {
+  test(`the documented way to pipe a log body works in ${label}, on the named vault`, { skip: shell.skip }, (t) => {
     const parent = mkdtempSync(join(tmpdir(), 'wm-gitown-'));
     const vault = join(parent, 'piped vault');
     const home = decoyHome();

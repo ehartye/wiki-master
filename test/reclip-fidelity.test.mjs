@@ -8,7 +8,7 @@ import { pdfClipContent } from '../scripts/clip-pdf.mjs';
 import { recordIssue, disposeIssue, loadIssueLog, openIssues, settledKeys, issueKey } from '../scripts/lib/triage.mjs';
 import { fidelityFlagged, collectTriage } from '../scripts/triage.mjs';
 import { makePdf } from './fixtures/make-pdf.mjs';
-import { pdftotextPresent } from '../scripts/lib/pdf-extract.mjs';
+import { gated } from './helpers/pdf-tools.mjs';
 
 const prose = 'This reference provides clear and useful explanations for the reader. '.repeat(20);
 const original = (fidelity='tabular', extraction='table-aware') => `---\ntitle: "Example"\nsource: "https://example.org/source.pdf"\nauthor: "Example author"\npublished: 2020-01-01\ncreated: 2025-01-01\ntopic: "Reference review"\ntags: [clippings, reference]\nsource-hash: oldhash\nfidelity: ${fidelity}\nextraction: ${extraction}\nfigures:\n  - "[[raw/figures/example.png]]"\n---\n\n${prose}\n`;
@@ -113,7 +113,7 @@ test('default failure reopens; scope traversal and concurrent raw edits are refu
  assert.ok(readFileSync(join(root,'raw/clippings/example.md'),'utf8').endsWith('Other edit'));
 });
 
-test('real PDF repair uses explicit reading-order mode and preserves metadata end to end', {skip:!pdftotextPresent()}, async t=>{
+test('real PDF repair uses explicit reading-order mode and preserves metadata end to end', gated('pdftotext', async t=>{
  const root=vault(t);const pdf=join(root,'original.pdf');
  const sentence='A readable reference paragraph describes the example clearly and retains its original source meaning.';
  makePdf([Array.from({length:12},(_,i)=>({x:40,y:740-i*35,text:sentence}))],pdf);
@@ -122,7 +122,7 @@ test('real PDF repair uses explicit reading-order mode and preserves metadata en
  const text=readFileSync(join(root,'raw/clippings/example.md'),'utf8');
  assert.ok(text.includes('A readable reference paragraph'));assert.match(text,/author: "Example author"/);
  assert.doesNotMatch(text,/^fidelity: (?:tabular|degraded)$/m);
-});
+}));
 
 test('interrupted hash propagation retains the old transition and resumes without re-extraction',async t=>{
  const root=vault(t);const raw=join(root,'raw/clippings/example.md');const summary=join(root,'wiki/sources/example.md');const before=readFileSync(summary,'utf8');
