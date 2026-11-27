@@ -287,6 +287,7 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
     let out = srcBytes;
     const counts = { kept: 0, qualified: 0, plain: 0, unresolved: 0 };
     let hashMismatch = false;
+    let equivalentStatus = null;
     if (isRaw(path)) {
       if (isMarkdown(path) && !path.startsWith('raw/figures/')) {
         // Every hashed Markdown file under raw/ outside raw/figures/ is checked, not only those under raw/clippings/.
@@ -300,8 +301,8 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
           else blocking.push({ path, reason: 'hash-mismatch', detail: 'the stored text does not match its source-hash, so it is not the capture the hash records (--allow-hash-mismatch copies it as it is)' });
         } else if (EQUIVALENT_HASH_STATUSES.includes(status)) {
           // The same text in another form (other line endings, or without a final line break): not a defect, so it
-          // transfers without --allow-hash-mismatch and is named in the plan as a note.
-          equivalent.push({ path, status });
+          // transfers without --allow-hash-mismatch and is named in the plan as a note (below, once its state is known).
+          equivalentStatus = status;
         }
       }
     } else if (isMarkdown(path)) {
@@ -359,6 +360,8 @@ export function planTransfer({ source, destination, seeds, depth = DEFAULT_DEPTH
       if (onConflict === 'keep-destination') state = 'keep-destination';
       else { state = 'conflict'; conflicts.push({ path, detail: conflict }); }
     }
+    // A file the destination keeps as it is does not transfer, so it is not named as transferring in another form.
+    if (equivalentStatus && state !== 'keep-destination') equivalent.push({ path, status: equivalentStatus });
     entries.push({
       path, reason: info.reason, depth: info.depth, via: info.via,
       layer: isRaw(path) ? 'raw' : 'wiki', bytes: out.length, srcSha, outSha, state, conflict, links: counts,
