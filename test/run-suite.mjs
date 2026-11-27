@@ -33,7 +33,8 @@ const wmEntries = (dir) => new Set(readdirSync(dir).filter((n) => n.startsWith('
 // derives the same list from contextEnv and fails if they differ.
 const VAULT_BINDING = ['WIKI_MASTER_CONFIG', 'WIKI_MASTER_VAULT', 'WIKI_MASTER_VAULT_ID', 'WIKI_MASTER_VAULT_NAME', 'WIKI_MASTER_PROJECT_ROOT'];
 // Also removed: the strict-vault switch the README tells a shell that must not touch the real vault to set. The
-// tests' own vaults are under the temp root already; a test that needs the switch sets it itself.
+// tests' own vaults are under the temp root already; a test that needs the switch sets it itself. run-suite.test.mjs
+// classifies every WIKI_MASTER_* name the scripts read as dropped or kept, so a new one must be placed there.
 const VAULT_GUARDS = ['WIKI_MASTER_REQUIRE_VAULT'];
 // The variables that name the home folder: Git reads HOME; Node's os.homedir() and Python on Windows read USERPROFILE.
 const HOME_VARIABLES = ['HOME', 'USERPROFILE'];

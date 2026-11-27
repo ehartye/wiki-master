@@ -127,7 +127,7 @@ See [skill reliability](docs/skill-reliability.md) for bounded CLI fallback, sha
 | `WIKI_MASTER_CONFIG` | `~/.config/wiki-master/vaults.json` | Absolute alternate machine-local registry filename; a missing explicit file fails. |
 | `WIKI_MASTER_PROJECT_ROOT` | cwd | Repository used to resolve project routing. |
 | `WIKI_MASTER_VAULT_ID` | role-dependent selection | Request-scoped research/maintenance selection; documentation cannot be redirected. |
-| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` to reject implicit home fallback with exit 2; a registry selection is explicit configuration. Set it in any session that must not touch the real vault. |
+| `WIKI_MASTER_REQUIRE_VAULT` | unset | Set to `1` to reject implicit home fallback with exit 2; a registry selection is explicit configuration. Set it in any session that must not touch the real vault. `npm test` drops it and keeps the tests off the real vault by other means; see [Home folder and vault variables](#home-folder-and-vault-variables). |
 | `WIKI_MASTER_PRIVATE_TERMS_FILE` | unset | A file of private terms for `scan-private-terms.mjs` (`PRIVATE_TERMS_FILE` is read too). Keep it outside every repository. |
 | `WIKI_MASTER_EMBED_MODEL` | `nomic-embed-text` | Ollama embedding model for drift. |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama endpoint. |
