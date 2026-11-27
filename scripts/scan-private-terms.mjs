@@ -19,7 +19,7 @@ function option(argv, name) {
 // A flag: `--json=<anything>` is refused, not read as absent.
 function flag(argv, name) {
   const options = argv.includes('--') ? argv.slice(0, argv.indexOf('--')) : argv;
-  if (options.some((a) => a.startsWith(`--${name}=`))) throw new Error(`--${name} takes no value`);
+  if (options.some((a) => a.includes('=') && a.slice(0, a.indexOf('=')) === `--${name}`)) throw new Error(`--${name} takes no value`);
   return options.includes(`--${name}`);
 }
 
