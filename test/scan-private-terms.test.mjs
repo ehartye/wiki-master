@@ -123,6 +123,7 @@ test('a folder outside any git work tree is walked: binary files, tool folders a
 
   const j = JSON.parse(scan(dir, null, ['--json']).stdout);
   assert.equal(j.listing, 'folder walk', '--json marks a walked folder');
+  assert.deepEqual(j.unreadable, [], '--json lists the folders a walk could not read, here none');
   assert.deepEqual(j.hits, [{ file: 'notes/a.md', line: 1, rule: 'home-path-windows' }]);
 
   // Without git on the PATH there is no git listing either, so the folder is walked the same way.
@@ -340,6 +341,24 @@ test('a root that cannot be read exits 2 with the root\'s own message, not the a
   assert.doesNotMatch(r.stderr, /private-terms-allow/);
 });
 
+test('a walk names each folder it cannot read on stderr, root-relative, and in --json; the hits still decide the exit', { skip: unreadableRoots }, (t) => {
+  const bs = String.fromCharCode(92);
+  const home = ['C:', 'Users', 'alex', 'repos', 'x'].join(bs); // built from parts, so this file holds no home path
+  const dir = plainFolder(t, { 'clean.md': 'nothing here\n', 'sub/a.md': `${home}\n`, 'deep/locked/b.md': `${home}\n`, 'deep/open.md': 'fine\n' });
+  const locked = [join(dir, 'sub'), join(dir, 'deep', 'locked')];
+  for (const d of locked) chmodSync(d, 0o000);
+  let r, j;
+  try { r = scan(dir, null); j = JSON.parse(scan(dir, null, ['--json']).stdout); } finally { for (const d of locked) chmodSync(d, 0o700); }
+  assert.equal(r.status, 0, 'no hit was found, so the exit is 0; the notice does not change it');
+  const notices = r.stderr.split(/\r?\n/).filter((l) => l.includes('unreadable folder'));
+  assert.equal(notices.length, 2, r.stderr);
+  assert.match(notices[0], /^scan-private-terms: unreadable folder: deep\/locked\/ /);
+  assert.match(notices[1], /^scan-private-terms: unreadable folder: sub\/ /);
+  assert.ok(!r.stderr.includes(dir), 'a notice names the folder from the root, never by its absolute path');
+  assert.match(r.stdout, /0 hit\(s\) in 0 file\(s\); 2 file\(s\) scanned/);
+  assert.deepEqual(j.unreadable, ['deep/locked/', 'sub/']);
+});
+
 test('--help describes the folder walk, the allow file and what fails the scan', () => {
   const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8', timeout: 30000 });
   assert.equal(r.status, 0, r.stderr);
@@ -351,6 +370,7 @@ test('--help describes the folder walk, the allow file and what fails the scan',
   assert.match(r.stdout, /unused allow entry/);
   assert.match(r.stdout, /stale --known entry/);
   assert.match(r.stdout, /Exit 2/);
+  assert.match(r.stdout, /cannot read/, 'the help says a walk names the folders it cannot read');
 });
 
 test('--known lists files whose hits are reported but do not fail the scan; a stale entry fails it', (t) => {
